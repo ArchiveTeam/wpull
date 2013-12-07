@@ -121,8 +121,7 @@ class SQLiteURLTable(BaseURLTable):
                 raise NotFound()
 
             if new_status:
-                update_query = '''UPDATE urls SET status = ?
-                    WHERE url = ? LIMIT 1'''
+                update_query = '''UPDATE urls SET status = ? WHERE url = ?'''
                 self._connection.execute(update_query, (new_status, row.url))
 
                 row = self[row.url]
