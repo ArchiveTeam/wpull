@@ -1,3 +1,3 @@
-tornado=3.1.1
-toro=0.5
-lxml=3.1.0
+tornado==3.1.1
+toro==0.5
+lxml==3.1.0
