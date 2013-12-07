@@ -11,6 +11,7 @@ Features:
 * Modular
 * Asynchronous
 
+[![Build Status](https://travis-ci.org/chfoo/wpull.png)](https://travis-ci.org/chfoo/wpull])
 
 Install
 -------
