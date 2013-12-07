@@ -1,0 +1,63 @@
+{% import random %}
+<html>
+<head>
+<title>MY BLOG PAGE {{ page_num }}</title>
+<meta http-equiv=Content-Type content=text/html; charset=latin1>
+<link rel="stylesheet" href="/stylesheet1.css">
+</head>
+<body>
+	{% set l = '''
+	Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque
+	id neque ligula. Nunc sit amet tortor mattis, scelerisque erat ac,
+	faucibus mi. Sed venenatis congue aliquet. Vestibulum interdum ultrices
+	metus sit amet sodales. Aliquam ac purus mi. Nam condimentum luctus
+	justo vitae fringilla. Vestibulum ut ultrices massa, ac varius turpis.
+	Vestibulum aliquam nisi et mollis mattis. Suspendisse potenti. Nam
+	venenatis lorem vitae turpis semper posuere. Sed varius eros vestibulum
+	porttitor eleifend. Sed lobortis enim in turpis consequat, a pharetra
+	arcu pretium. Nulla nec nisl risus. Nam sed blandit leo.
+	In hac habitasse platea dictumst. Vivamus euismod urna vel
+	adipiscing cursus. Praesent ultrices vitae velit sed vestibulum. Nam
+	vitae gravida justo. Ut fringilla blandit consequat. Sed a faucibus
+	mauris. Donec sagittis risus elit, vel ornare tortor blandit non.
+	Phasellus blandit metus eu tincidunt ornare. Donec facilisis lacinia
+	quam non adipiscing. Vestibulum fermentum consequat lorem eu fermentum.
+	Nullam consequat id justo vel sollicitudin. Aenean hendrerit massa dui.
+	Vestibulum eget ullamcorper dui. Phasellus vitae nisl volutpat arcu
+	lobortis rutrum eu sit amet nulla.
+	 Nunc ac magna non odio laoreet luctus nec at dui. Cras rhoncus,
+	sem eget pretium ultricies, sem nulla pellentesque risus, in ornare
+	elit felis ac nunc. Etiam a leo nec eros feugiat sagittis. Sed dapibus
+	nulla ac volutpat luctus. Sed aliquam volutpat sollicitudin.
+	Suspendisse egestas condimentum posuere. Nulla euismod nunc quis leo
+	placerat bibendum. Phasellus faucibus consequat metus vel congue.
+	Integer ac ipsum leo. Quisque quis diam eros. Quisque dapibus velit ut
+	dictum semper. Nam faucibus feugiat lectus, sed auctor risus iaculis
+	sit amet. Etiam dui lacus, tincidunt vel vestibulum a, ultricies eu
+	mauris. Nunc eu augue et eros tristique venenatis. Donec non leo
+	rutrum, tempor sem nec, iaculis mi. In euismod vestibulum lectus, non
+	egestas justo feugiat nec.
+	 Sed ac mi nec tellus consequat viverra ut ac nunc. Nullam
+	consequat lacus ut nisl iaculis, id faucibus velit dignissim.
+	Vestibulum ac orci tempus, dapibus tortor a, elementum justo. Fusce
+	fermentum ante vitae nisi malesuada, sed euismod diam faucibus. Morbi
+	laoreet, elit et porta convallis, erat risus lacinia velit, id
+	condimentum enim nunc ut diam. Integer at orci egestas, accumsan dolor
+	hendrerit, molestie metus. Suspendisse turpis metus, sodales non tortor
+	rhoncus, bibendum pretium diam. Cras faucibus aliquet neque, quis
+	feugiat mi semper nec. Nunc non pharetra risus.
+	 Sed ullamcorper quis ante vitae vehicula. Maecenas id tincidunt
+	odio, a auctor justo. Aliquam lobortis massa et urna egestas
+	condimentum. Morbi tempor ultricies nunc, nec rutrum purus laoreet eu.
+	Nulla nec mauris sit amet augue pulvinar posuere et vitae elit. Etiam
+	diam nisl, bibendum at porta et, aliquam ut risus. Etiam ut porta nibh.
+	Sed tincidunt tortor nec hendrerit iaculis. Nam convallis volutpat
+	urna, eget lobortis diam lobortis eget. Fusce libero erat, hendrerit in
+	consequat ut, congue sed est. Ut eu nisl id dui varius euismod.
+	'''.split() %}
+	{% set rand = random.Random(page_num) %}
+	{% set dummy = rand.shuffle(l) %}
+	{{ ' '.join(l) }}
+	<a href="/blog/?page={{ page_num + 1}}">NEXT PAGE</a>
+</body>
+</htm>
