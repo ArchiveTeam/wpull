@@ -196,12 +196,3 @@ class HTMLScraper(BaseDocumentScraper):
 class CSSScraper(BaseDocumentScraper):
     # TODO: scrape url()s
     pass
-
-
-class BaseDocumentConverter(object, metaclass=abc.ABCMeta):
-    pass
-
-
-class LocalHTMLConverter(BaseDocumentConverter):
-    # TODO: convert links to local
-    pass
