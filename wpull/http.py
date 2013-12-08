@@ -217,9 +217,10 @@ class Connection(object):
             self._host, self._port)
         self._socket = socket.socket(family, socket.SOCK_STREAM)
 
-        _logger.debug('Bind socket to {0}/{1}.'.format(family, self._address))
+        _logger.debug('Socket to {0}/{1}.'.format(family, self._address))
 
         if self._bind_address:
+            _logger.debug('Binding socket to {0}'.format(self._server_address))
             self._socket.bind(self._bind_address)
 
         if self._ssl:
@@ -431,13 +432,13 @@ class Connection(object):
 class HostConnectionPool(collections.Set):
     # TODO: remove old connection instances
     def __init__(self, host, port, request_queue, max_count=6,
-    connection_class=Connection):
+    connection_factory=Connection):
         assert isinstance(host, str)
         assert isinstance(port, int) and port
         self._host = host
         self._port = port
         self._request_queue = request_queue
-        self._connection_class = connection_class
+        self._connection_factory = connection_factory
         self._connections = set()
         self._connection_ready_queue = toro.Queue()
         self._max_count = max_count
@@ -480,7 +481,7 @@ class HostConnectionPool(collections.Set):
         except queue.Empty:
             if len(self._connections) < self._max_count:
                 _logger.debug('Making another connection.')
-                connection = self._connection_class(self._host, self._port)
+                connection = self._connection_factory(self._host, self._port)
                 self._connections.add(connection)
                 raise tornado.gen.Return(connection)
 
@@ -500,9 +501,9 @@ class HostConnectionPool(collections.Set):
 class ConnectionPool(collections.Mapping):
     Entry = collections.namedtuple('RequestQueueEntry', ['queue', 'pool'])
 
-    def __init__(self, host_connection_pool_class=HostConnectionPool):
+    def __init__(self, host_connection_pool_factory=HostConnectionPool):
         self._subqueues = {}
-        self._host_connection_pool_class = host_connection_pool_class
+        self._host_connection_pool_factory = host_connection_pool_factory
 
     @tornado.gen.coroutine
     def put(self, request, kwargs, async_result):
@@ -521,7 +522,7 @@ class ConnectionPool(collections.Mapping):
     def _subqueue_constructor(self, host, port):
         subqueue = toro.Queue()
         return self.Entry(
-            subqueue, self._host_connection_pool_class(host, port, subqueue))
+            subqueue, self._host_connection_pool_factory(host, port, subqueue))
 
     def __getitem__(self, key):
         return self._subqueues[key]

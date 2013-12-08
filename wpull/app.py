@@ -2,12 +2,14 @@ import argparse
 import gettext
 import itertools
 import logging
+import os
 import tornado.ioloop
 
 from wpull.database import URLTable
 from wpull.document import HTMLScraper
 from wpull.engine import Engine
-from wpull.http import Client
+from wpull.http import Client, Connection, HostConnectionPool, ConnectionPool
+from wpull.network import Resolver
 from wpull.processor import WebProcessor
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
     PrintServerResponseRecorder)
@@ -16,7 +18,6 @@ from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
 import wpull.version
 from wpull.waiter import LinearWaiter
 from wpull.writer import FileWriter, PathNamer
-import os
 
 
 _ = gettext.gettext
@@ -346,13 +347,17 @@ class AppArgumentParser(argparse.ArgumentParser):
         inet_group.add_argument(
             '-4',
             '--inet4-only',
-            action='store_true',
+            action='store_const',
+            dest='inet_family',
+            const='IPv4',
             help=_('connect to IPv4 addresses only'),
         )
         inet_group.add_argument(
             '-6',
             '--inet6-only',
-            action='store_true',
+            action='store_const',
+            dest='inet_family',
+            const='IPv6',
             help=_('connect to IPv6 addresses only'),
         )
         inet_group.add_argument(
@@ -880,7 +885,28 @@ def build_processor(args):
 
 
 def build_http_client(args):
-    return Client()
+    if args.inet_family == 'IPv4':
+        families = [Resolver.IPv4]
+    elif args.inet_family == 'IPv6':
+        families = [Resolver.IPv6]
+    elif args.prefer_family == 'IPv6':
+        families = [Resolver.IPv6, Resolver.IPv4]
+    else:
+        families = [Resolver.IPv4, Resolver.IPv6]
+
+    resolver = Resolver(families=families)
+
+    def connection_factory(*args, **kwargs):
+        return Connection(*args, resolver=resolver, **kwargs)
+
+    def host_connection_pool_factory(*args, **kwargs):
+        return HostConnectionPool(
+            *args, connection_factory=connection_factory, **kwargs)
+
+    connection_pool = ConnectionPool(
+        host_connection_pool_factory=host_connection_pool_factory)
+
+    return Client(connection_pool=connection_pool)
 
 
 def build_engine(args):

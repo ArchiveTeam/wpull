@@ -1,4 +1,5 @@
 import http.server
+import logging
 import threading
 import time
 import tornado.gen
@@ -6,6 +7,9 @@ from tornado.testing import AsyncTestCase
 
 from wpull.http import Connection, Request
 from wpull.recorder import DebugPrintRecorder
+
+
+_logger = logging.getLogger(__name__)
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -131,6 +135,8 @@ class Server(threading.Thread):
         self._server = http.server.HTTPServer(
             ('localhost', self._port), Handler)
         self._port = self._server.server_address[1]
+        _logger.debug(
+            'Server bound to {0}'.format(self._server.server_address))
 
     def run(self):
         self._server.serve_forever()
