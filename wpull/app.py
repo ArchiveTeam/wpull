@@ -113,18 +113,17 @@ class AppArgumentParser(argparse.ArgumentParser):
         )
 
     def _add_log_and_input_args(self):
-        self.add_argument(
+        output_log_group = self.add_mutually_exclusive_group()
+        output_log_group.add_argument(
             '-o',
             '--output-file',
             metavar='FILE',
-            type=argparse.FileType('wt'),
             help=_('write program messages to FILE')
         )
-        self.add_argument(
+        output_log_group.add_argument(
             '-a',
             '--append-output',
             metavar='FILE',
-            type=argparse.FileType('at'),
             help=_('append program messages to FILE')
         )
         verbosity_group = self.add_mutually_exclusive_group()
@@ -801,6 +800,28 @@ def setup_logging(args):
 
     if args.verbosity == logging.DEBUG:
         tornado.ioloop.IOLoop.instance().set_blocking_log_threshold(5)
+
+    logger = logging.getLogger()
+
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    if args.output_file or args.append_output:
+        if args.output_file:
+            filename = args.output_file
+            mode = 'w'
+        else:
+            filename = args.append_output
+            mode = 'a'
+
+        handler = logging.FileHandler(filename, mode)
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+        if args.verbosity == logging.DEBUG:
+            handler.setLevel(logging.DEBUG)
+        else:
+            handler.setLevel(logging.INFO)
 
 
 def build_input_urls(args, default_scheme='http'):

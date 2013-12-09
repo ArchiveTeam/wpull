@@ -87,7 +87,7 @@ class WebProcessorSession(BaseProcessorSession):
     def new_request(self, url_record, url_info):
         if not self._filter_test_url(url_info, url_record):
             _logger.debug('Rejecting {url} due to filters.'.format(
-                url=url_info.normalized))
+                url=url_info.url))
             return
 
         if self._redirect_url:
