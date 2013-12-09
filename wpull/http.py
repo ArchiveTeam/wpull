@@ -4,6 +4,7 @@ import gettext
 import gzip
 import itertools
 import logging
+import os
 import queue
 import re
 import shutil
@@ -145,6 +146,18 @@ class Body(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def transform(self):
         pass
+
+    @property
+    def content_size(self):
+        with wpull.util.reset_file_offset(self.content_file):
+            self.content_file.seek(0, os.SEEK_END)
+            return self.content_file.tell()
+
+    @property
+    def http_size(self):
+        with wpull.util.reset_file_offset(self.http_file):
+            self.http_file.seek(0, os.SEEK_END)
+            return self.http_file.tell()
 
 
 class RequestBody(Body):

@@ -52,6 +52,8 @@ class TestConnection(BadAppTestCase):
         self.assertEqual(200, response.status_code)
         self.assertEqual('100', response.fields['Content-Length'])
         self.assertEqual(b'a' * 100, response.body.content)
+        self.assertEqual(100, response.body.content_size)
+        self.assertEqual(100, response.body.http_size)
 
     @tornado.testing.gen_test
     def test_basic_chunked(self):

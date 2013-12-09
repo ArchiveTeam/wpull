@@ -124,7 +124,7 @@ class WebProcessorSession(BaseProcessorSession):
                 self._file_writer.write_response(self._request, response)
             self._waiter.reset()
             self._statistics.files += 1
-            # TODO: add file size to statistics
+            self._statistics.size += response.body.http_size
             return Status.done
 
         if response.status_code == 404:
