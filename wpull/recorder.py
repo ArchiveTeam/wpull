@@ -153,7 +153,7 @@ class WARCRecord(object):
                     break
                 yield data
 
-        yield b'\r\n'
+        yield b'\r\n\r\n'
 
     def __str__(self):
         return ''.join(iter(self))
@@ -182,7 +182,8 @@ class WARCRecorder(BaseRecorder):
             for name, value in extra_fields:
                 info_fields.add(name, value)
 
-        self._warcinfo_record.block_file = io.BytesIO(bytes(info_fields))
+        self._warcinfo_record.block_file = io.BytesIO(
+            bytes(info_fields) + b'\r\n')
         self._warcinfo_record.compute_checksum()
 
     @contextlib.contextmanager
@@ -191,6 +192,8 @@ class WARCRecorder(BaseRecorder):
         yield recorder_session
 
     def write_record(self, record):
+        # TODO: set WARC-Warcinfo-ID here?
+
         if self._gzip_enabled:
             open_func = gzip.GzipFile
         else:
@@ -209,7 +212,7 @@ class WARCRecorderSession(BaseRecorderSession):
 
     def request(self, request):
         self._request = request
-        record = WARCRecord()
+        self._request_record = record = WARCRecord()
         record.set_common_fields(WARCRecord.REQUEST, WARCRecord.TYPE_REQUEST)
         record.fields['WARC-Target-URI'] = request.url_info.url
         record.fields['WARC-IP-Address'] = request.address[0]
@@ -232,7 +235,7 @@ class WARCRecorderSession(BaseRecorderSession):
         record.set_common_fields(WARCRecord.RESPONSE, WARCRecord.TYPE_RESPONSE)
         record.fields['WARC-Target-URI'] = self._request.url_info.url
         record.fields['WARC-IP-Address'] = self._request.address[0]
-        record.fields['WARC-Concurrent-To'] = self._request_record[
+        record.fields['WARC-Concurrent-To'] = self._request_record.fields[
             WARCRecord.WARC_RECORD_ID]
         record.block_file = tempfile.SpooledTemporaryFile(max_size=1048576)
 

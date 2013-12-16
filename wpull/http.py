@@ -238,7 +238,7 @@ class Connection(object):
         _logger.debug('Socket to {0}/{1}.'.format(family, self._address))
 
         if self._bind_address:
-            _logger.debug('Binding socket to {0}'.format(self._server_address))
+            _logger.debug('Binding socket to {0}'.format(self._bind_address))
             self._socket.bind(self._bind_address)
 
         if self._ssl:
@@ -268,6 +268,7 @@ class Connection(object):
     @tornado.gen.coroutine
     def fetch(self, request, recorder=None):
         _logger.debug('Request {0}.'.format(request))
+
         try:
             if recorder:
                 with recorder.session() as recorder_session:
@@ -284,6 +285,7 @@ class Connection(object):
     def _process_request(self, request):
         yield self._connect()
 
+        request.address = self._address
         self._events.request(request)
 
         try:
@@ -526,9 +528,13 @@ class ConnectionPool(collections.Mapping):
     @tornado.gen.coroutine
     def put(self, request, kwargs, async_result):
         _logger.debug('Connection pool queue request {0}'.format(request))
-        host = request.url_info.hostname
-        port = request.url_info.port
-        address = (host, port)
+
+        if request.address:
+            address = request.address
+        else:
+            host = request.url_info.hostname
+            port = request.url_info.port
+            address = (host, port)
 
         if address not in self._subqueues:
             _logger.debug('New host pool.')
