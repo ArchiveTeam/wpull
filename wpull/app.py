@@ -617,6 +617,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--warc-header',
             metavar='STRING',
             action='append',
+            default=[],
             help=_('include STRING in WARC file metadata'),
         )
         self.add_argument(
@@ -862,8 +863,25 @@ def build_recorder(args):
             warc_path = args.warc_file + '.warc'
         else:
             warc_path = args.warc_file + '.warc.gz'
+
+        # TODO: fix robots value to be accurate
+        extra_fields = [
+            ('robots', 'off'),
+            ('wpull-arguments', str(args))
+        ]
+
+        for header_string in args.warc_header:
+            name, value = header_string.split(':', 1)
+            name = name.strip()
+            value = value.strip()
+            extra_fields.append((name, value))
+
         recorders.append(
-            WARCRecorder(warc_path, compress=not args.no_warc_compression)
+            WARCRecorder(
+                warc_path,
+                compress=not args.no_warc_compression,
+                extra_fields=extra_fields
+            )
         )
 
     if args.server_response:

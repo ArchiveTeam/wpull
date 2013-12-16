@@ -35,6 +35,7 @@ class Request(object):
         self.version = version
         self.fields = NameValueRecord()
         self.body = None
+        self.address = None
 
     @classmethod
     def new(cls, url, method='GET'):
@@ -62,9 +63,11 @@ class Request(object):
         else:
             return ()
 
+    def __iter__(self):
+        return itertools.chain(self.iter_header(), self.iter_body())
+
     def __bytes__(self):
-        return b''.join(itertools.chain(
-            self.iter_header(), self.iter_body()))
+        return b''.join(iter(self))
 
     def __repr__(self):
         return '<Request({method}, {url}, {version})>'.format(
@@ -105,9 +108,11 @@ class Response(object):
         else:
             return ()
 
+    def __iter__(self):
+        return itertools.chain(self.iter_header(), self.iter_body())
+
     def __bytes__(self):
-        return b''.join(itertools.chain(
-            self.iter_header(), self.iter_body()))
+        return b''.join(iter(self))
 
     def __repr__(self):
         return '<Response({version}, {code}, {reason})>'.format(

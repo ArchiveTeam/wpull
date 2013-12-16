@@ -69,6 +69,9 @@ class Engine(object):
             except NotFound:
                 url_record = None
 
+        # TODO: return in_progress items by keeping track of them in
+        # a variable. for resuming when the process is killed.
+
         return url_record
 
     @tornado.gen.coroutine
@@ -173,6 +176,9 @@ class Engine(object):
         for error_type, exit_code in self.ERROR_CODE_MAP.items():
             if isinstance(error, error_type):
                 self._update_exit_code(exit_code)
+                break
+        else:
+            self._update_exit_code(ExitStatus.generic_error)
 
     def _update_exit_code(self, code):
         if code:

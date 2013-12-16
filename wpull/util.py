@@ -2,6 +2,7 @@ import contextlib
 import tornado.gen
 import tornado.ioloop
 import toro
+import time
 
 
 @contextlib.contextmanager
@@ -39,3 +40,7 @@ def sleep(seconds):
         yield toro.AsyncResult().get(io_loop.time() + seconds)
     except toro.Timeout:
         pass
+
+
+def datetime_str():
+    return time.strftime("%Y-%m-%dT%H-%M-%SZ", time.gmtime())
