@@ -1,7 +1,7 @@
 import tornado.testing
 import unittest
 
-from wpull.util import to_bytes, sleep, to_str
+from wpull.util import to_bytes, sleep, to_str, datetime_str, OrderedDefaultDict
 
 
 class TestUtil(unittest.TestCase):
@@ -12,6 +12,20 @@ class TestUtil(unittest.TestCase):
     def test_to_str(self):
         self.assertEqual('hi', to_str(b'hi'))
         self.assertEqual(['hi'], to_str([b'hi']))
+
+    def test_datetime_str(self):
+        self.assertEqual(20, len(datetime_str()))
+
+    def test_ordered_default_dict(self):
+        mapping = OrderedDefaultDict(lambda: 2)
+        mapping['a'] += 4
+        mapping['b'] += 3
+        mapping['c'] += 2
+
+        self.assertEqual(
+            [('a', 6), ('b', 5), ('c', 4)],
+            list(mapping.items())
+        )
 
 
 class TestUtilAsync(tornado.testing.AsyncTestCase):

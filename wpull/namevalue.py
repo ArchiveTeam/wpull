@@ -2,7 +2,7 @@ import collections
 import gettext
 import io
 
-from wpull.util import to_str
+from wpull.util import to_str, OrderedDefaultDict
 
 
 _ = gettext.gettext
@@ -10,7 +10,7 @@ _ = gettext.gettext
 
 class NameValueRecord(collections.MutableMapping):
     def __init__(self):
-        self._map = collections.defaultdict(list)
+        self._map = OrderedDefaultDict(list)
         self.raw = None
 
     def parse(self, string):
