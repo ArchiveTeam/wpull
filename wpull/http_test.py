@@ -31,6 +31,17 @@ class TestConnection(BadAppTestCase):
             self.assertTrue(False)
 
     @tornado.testing.gen_test
+    def test_connection_timeout(self):
+        connection = Connection('1.0.0.0', 1, connect_timeout=0.1)
+        try:
+            yield connection.fetch(
+                Request.new('http://1.0.0.0:1/'))
+        except NetworkError:
+            pass
+        else:
+            self.assertTrue(False)
+
+    @tornado.testing.gen_test
     def test_connection_reuse(self):
         connection = Connection('localhost', self._port)
         request = Request.new(self.get_url('/'))

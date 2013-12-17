@@ -217,7 +217,7 @@ class Connection(object):
     DEFAULT_BUFFER_SIZE = 1048576
 
     def __init__(self, host, port, ssl=False, bind_address=None,
-    resolver=None):
+    resolver=None, connect_timeout=None, read_timeout=None):
         self._host = host
         self._port = port
         self._ssl = ssl
@@ -228,6 +228,8 @@ class Connection(object):
         self._connected = False
         self._events = Connection.ConnectionEvents()
         self._resolver = resolver or Resolver()
+        self._connect_timeout = connect_timeout
+        self._read_timeout = read_timeout
 
     @tornado.gen.coroutine
     def _make_socket(self):
@@ -252,18 +254,20 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _connect(self):
-        if not self._io_stream:
-            yield self._make_socket()
-        if not self._connected:
-            yield self._make_socket()
-            _logger.debug('Connecting to {0}.'.format(self._address))
-            try:
-                yield tornado.gen.Task(self._io_stream.connect, self._address)
-            except socket.error as error:
-                raise NetworkError(error.args[0]) from error
-            else:
-                _logger.debug('Connected.')
-                self._connected = True
+        if self._connected:
+            return
+
+        yield self._make_socket()
+
+        _logger.debug('Connecting to {0}.'.format(self._address))
+        try:
+            yield self._io_stream.connect_gen(
+                self._address, timeout=self._connect_timeout)
+        except (socket.error, wpull.util.TimedOut) as error:
+            raise NetworkError('Connection error') from error
+        else:
+            _logger.debug('Connected.')
+            self._connected = True
 
     @tornado.gen.coroutine
     def fetch(self, request, recorder=None):
