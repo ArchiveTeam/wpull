@@ -88,3 +88,21 @@ def sleep(seconds):
 
 def datetime_str():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+class TimedOut(Exception):
+    pass
+
+
+@tornado.gen.coroutine
+def wait_future(future, seconds):
+    assert seconds >= 0.0
+    io_loop = tornado.ioloop.IOLoop.instance()
+    async_result = toro.AsyncResult()
+    io_loop.add_future(
+        future, lambda future: async_result.set(future.result()))
+    try:
+        result = yield async_result.get(io_loop.time() + seconds)
+    except toro.Timeout as error:
+        raise TimedOut from error
+    raise tornado.gen.Return(result)
