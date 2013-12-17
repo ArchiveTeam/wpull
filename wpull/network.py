@@ -29,14 +29,10 @@ class Resolver(object):
 
         for family in self._families:
             future = self._resolve_tornado(host, port, family)
-            if self._timeout:
-                try:
-                    results = yield wpull.util.wait_future(
-                        future, self._timeout)
-                except wpull.util.TimedOut as error:
-                    raise NetworkError() from error
-            else:
-                results = yield future
+            try:
+                results = yield wpull.util.wait_future(future, self._timeout)
+            except wpull.util.TimedOut as error:
+                raise NetworkError() from error
 
             if results:
                 addresses.extend(results)

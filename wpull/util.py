@@ -95,7 +95,11 @@ class TimedOut(Exception):
 
 
 @tornado.gen.coroutine
-def wait_future(future, seconds):
+def wait_future(future, seconds=None):
+    if seconds is None:
+        result = yield future
+        raise tornado.gen.Return(result)
+
     assert seconds >= 0.0
     io_loop = tornado.ioloop.IOLoop.instance()
     async_result = toro.AsyncResult()
