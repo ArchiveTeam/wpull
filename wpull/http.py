@@ -245,10 +245,12 @@ class Connection(object):
 
         if self._ssl:
             self._io_stream = SSLIOStream(
-                self._socket, max_buffer_size=self.DEFAULT_BUFFER_SIZE)
+                self._socket, max_buffer_size=self.DEFAULT_BUFFER_SIZE,
+                connect_timeout=self._connect_timeout)
         else:
             self._io_stream = IOStream(
-                self._socket, max_buffer_size=self.DEFAULT_BUFFER_SIZE)
+                self._socket, max_buffer_size=self.DEFAULT_BUFFER_SIZE,
+                connect_timeout=self._connect_timeout)
 
         self._io_stream.set_close_callback(self._stream_closed_callback)
 
@@ -261,9 +263,8 @@ class Connection(object):
 
         _logger.debug('Connecting to {0}.'.format(self._address))
         try:
-            yield self._io_stream.connect_gen(
-                self._address, timeout=self._connect_timeout)
-        except (socket.error, wpull.util.TimedOut) as error:
+            yield self._io_stream.connect(self._address)
+        except socket.error as error:
             raise NetworkError('Connection error') from error
         else:
             _logger.debug('Connected.')
