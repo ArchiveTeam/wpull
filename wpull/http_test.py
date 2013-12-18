@@ -52,6 +52,17 @@ class TestConnection(BadAppTestCase):
         self.assertEqual(200, response.status_code)
 
     @tornado.testing.gen_test
+    def test_read_timeout(self):
+        connection = Connection('localhost', self._port, read_timeout=0.1)
+        request = Request.new(self.get_url('/sleep_long'))
+        try:
+            yield connection.fetch(request)
+        except NetworkError:
+            pass
+        else:
+            self.assertTrue(False)
+
+    @tornado.testing.gen_test
     def test_basic(self):
         response = yield self.fetch('/')
         self.assertEqual(200, response.status_code)

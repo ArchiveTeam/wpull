@@ -194,7 +194,6 @@ class ResponseBody(Body):
 
 
 class Connection(object):
-    # TODO: implement timeouts
     class ConnectionEvents(object):
         def __init__(self):
             self.request = Event()
@@ -246,11 +245,13 @@ class Connection(object):
         if self._ssl:
             self._io_stream = SSLIOStream(
                 self._socket, max_buffer_size=self.DEFAULT_BUFFER_SIZE,
-                connect_timeout=self._connect_timeout)
+                connect_timeout=self._connect_timeout,
+                read_timeout=self._read_timeout)
         else:
             self._io_stream = IOStream(
                 self._socket, max_buffer_size=self.DEFAULT_BUFFER_SIZE,
-                connect_timeout=self._connect_timeout)
+                connect_timeout=self._connect_timeout,
+                read_timeout=self._read_timeout)
 
         self._io_stream.set_close_callback(self._stream_closed_callback)
 

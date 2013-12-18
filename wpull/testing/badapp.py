@@ -27,6 +27,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/bad_header_deliminators': self.bad_header_deliminators,
             '/utf8_header': self.utf8_header,
             '/sleep_short': self.sleep_short,
+            '/sleep_long': self.sleep_long,
         }
         super().__init__(*args, **kwargs)
 
@@ -123,6 +124,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b'1')
         time.sleep(0.1)
+        self.wfile.write(b'2')
+
+    def sleep_long(self):
+        self.send_response(200)
+        self.send_header('content-length', '2')
+        self.end_headers()
+        self.wfile.write(b'1')
+        time.sleep(2)
         self.wfile.write(b'2')
 
 
