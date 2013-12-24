@@ -386,13 +386,13 @@ class Connection(object):
     def _read_response_chunk(self, response):
         _logger.debug('Reading chunk.')
         chunk_size_hex = yield tornado.gen.Task(
-            self._io_stream.read_until_regex, b'[0-9A-Fa-f]+|.{13}')
+            self._io_stream.read_until_regex, b'[^\n\r]+')
 
         self._events.response_data(chunk_size_hex)
         response.body.http_file.write(chunk_size_hex)
 
         try:
-            chunk_size = int(chunk_size_hex.strip(), 16)
+            chunk_size = int(chunk_size_hex.split(b';', 1)[0].strip(), 16)
         except ValueError as error:
             raise ProtocolError(error.args[0]) from error
 
@@ -401,11 +401,11 @@ class Connection(object):
         if not chunk_size:
             raise tornado.gen.Return(chunk_size)
 
-        chunk_extension_data = yield tornado.gen.Task(
+        newline_data = yield tornado.gen.Task(
             self._io_stream.read_until, b'\n')
 
-        self._events.response_data(chunk_extension_data)
-        response.body.http_file.write(chunk_extension_data)
+        self._events.response_data(newline_data)
+        response.body.http_file.write(newline_data)
 
         def response_callback(data):
             self._events.response_data(data)

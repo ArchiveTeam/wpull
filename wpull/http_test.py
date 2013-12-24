@@ -92,7 +92,6 @@ class TestConnection(BadAppTestCase):
         self.assertEqual('dolphin', response.fields['Animal'])
         self.assertEqual(b'hello world!', response.body.content)
 
-    @unittest.skip('TODO: need better way of checking malformed')
     @tornado.testing.gen_test
     def test_malformed_chunked(self):
         try:
@@ -106,6 +105,15 @@ class TestConnection(BadAppTestCase):
     def test_buffer_overflow(self):
         try:
             yield self.fetch('/buffer_overflow')
+        except ProtocolError:
+            pass
+        else:
+            self.assertTrue(False)
+
+    @tornado.testing.gen_test
+    def test_bad_chunk_size(self):
+        try:
+            yield self.fetch('/bad_chunk_size')
         except ProtocolError:
             pass
         else:

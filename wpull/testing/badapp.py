@@ -23,6 +23,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/overrun': self.overrun_response,
             '/malformed_chunked': self.malformed_chunked,
             '/buffer_overflow': self.buffer_overflow,
+            '/bad_chunk_size': self.bad_chunk_size,
             '/content_length_and_chunked': self.content_length_and_chunked,
             '/bad_header_deliminators': self.bad_header_deliminators,
             '/utf8_header': self.utf8_header,
@@ -61,7 +62,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header('transfer-encoding', 'chunked')
         self.end_headers()
         self.wfile.write(
-            b'5\r\nhello\r\n7\r\n world!\r\n0\r\nAnimal: dolphin\r\n\r\n')
+            b'5\r\nhello\r\n0007\r\n world!\r\n0\r\nAnimal: dolphin\r\n\r\n')
 
     def underrun_response(self):
         length = 100
@@ -95,6 +96,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         while True:
             self.wfile.write(b'0' * 1000)
+
+    def bad_chunk_size(self):
+        self.protocol_version = 'HTTP/1.1'
+        self.send_response(200)
+        self.send_header('transfer-encoding', 'chunked')
+        self.end_headers()
+
+        self.wfile.write(b'FAIL\r\nHello world!')
 
     def content_length_and_chunked(self):
         self.protocol_version = 'HTTP/1.1'
