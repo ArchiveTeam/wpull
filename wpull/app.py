@@ -924,6 +924,13 @@ def build_processor(args):
 
 
 def build_http_client(args):
+    dns_timeout = args.dns_timeout
+    connect_timeout = args.connect_timeout
+    read_timeout = args.read_timeout
+
+    if args.timeout:
+        dns_timeout = connect_timeout = read_timeout = args.timeout
+
     if args.inet_family == 'IPv4':
         families = [Resolver.IPv4]
     elif args.inet_family == 'IPv6':
@@ -933,10 +940,15 @@ def build_http_client(args):
     else:
         families = [Resolver.IPv4, Resolver.IPv6]
 
-    resolver = Resolver(families=families)
+    resolver = Resolver(families=families, timeout=dns_timeout)
 
     def connection_factory(*args, **kwargs):
-        return Connection(*args, resolver=resolver, **kwargs)
+        return Connection(
+            *args,
+            resolver=resolver,
+            connect_timeout=connect_timeout,
+            read_timeout=read_timeout,
+            **kwargs)
 
     def host_connection_pool_factory(*args, **kwargs):
         return HostConnectionPool(
