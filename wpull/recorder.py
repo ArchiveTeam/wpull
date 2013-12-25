@@ -1,15 +1,14 @@
 import abc
 import base64
 import contextlib
+import gzip
 import hashlib
 import io
 import tempfile
 import uuid
 
-from wpull.http import Response
 from wpull.namevalue import NameValueRecord
 import wpull.util
-import gzip
 
 
 class BaseRecorder(object, metaclass=abc.ABCMeta):
@@ -192,7 +191,9 @@ class WARCRecorder(BaseRecorder):
         yield recorder_session
 
     def write_record(self, record):
-        # TODO: set WARC-Warcinfo-ID here?
+        # TODO: probably not a good idea to modifiy arguments passed to us
+        record.fields['WARC-Warcinfo-ID'] = self._warcinfo_record.fields[
+            WARCRecord.WARC_RECORD_ID]
 
         if self._gzip_enabled:
             open_func = gzip.GzipFile
