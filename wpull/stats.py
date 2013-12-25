@@ -19,3 +19,7 @@ class Statistics(object):
     @property
     def duration(self):
         return self.stop_time - self.start_time
+
+    def increment(self, size):
+        self.files += 1
+        self.size += size
