@@ -1,10 +1,12 @@
 import abc
+import email.utils
 import logging
 import os
 import shutil
 import urllib.parse
 
 import wpull.util
+import time
 
 
 _logger = logging.getLogger(__name__)
@@ -21,35 +23,59 @@ class BaseWriter(object, metaclass=abc.ABCMeta):
 
 
 class FileWriter(BaseWriter):
-    def __init__(self, path_namer=None, document_converter=None,
-    save_headers=False):
+    def __init__(self, path_namer, document_converter=None, headers=False,
+    timestamps=True):
         self._path_namer = path_namer
         self._document_converter = document_converter
-        self._save_headers = save_headers
+        self._headers = headers
+        self._timestamps = timestamps
 
     def rewrite_request(self, request):
         # TODO: consult path namer and use ranges for continuing files
         pass
 
     def write_response(self, request, response):
-        if self._path_namer:
-            filename = self._path_namer.get_filename(request, response)
+        filename = self._path_namer.get_filename(request, response)
 
-            if filename:
-                _logger.debug('Saving file to {0}.'.format(filename))
+        _logger.debug('Saving file to {0}.'.format(filename))
 
-                dir_path = os.path.dirname(filename)
-                if dir_path:
-                    os.makedirs(dir_path, exist_ok=True)
+        dir_path = os.path.dirname(filename)
+        if dir_path:
+            os.makedirs(dir_path, exist_ok=True)
 
-                with wpull.util.reset_file_offset(response.body.content_file):
-                    with open(filename, 'wb') as out_file:
-                        if self._save_headers:
-                            for data in response.iter_header_bytes():
-                                out_file.write(data)
-                        shutil.copyfileobj(
-                            response.body.content_file, out_file)
-                        # TODO: set file time stamp
+        with wpull.util.reset_file_offset(response.body.content_file):
+            with open(filename, 'wb') as out_file:
+                if self._headers:
+                    for data in response.iter_header_bytes():
+                        out_file.write(data)
+                shutil.copyfileobj(response.body.content_file, out_file)
+
+        if self._timestamps:
+            self._set_timestamp(response, filename)
+
+    def _set_timestamp(self, response, filename):
+        last_modified = response.fields.get('Last-Modified')
+
+        if not last_modified:
+            return
+
+        try:
+            last_modified = email.utils.parsedate(last_modified)
+        except ValueError:
+            _logger.exception('Failed to parse date.')
+            return
+
+        last_modified = time.mktime(last_modified)
+
+        os.utime(filename, times=(time.time(), last_modified))
+
+
+class NullWriter(BaseWriter):
+    def rewrite_request(self, request):
+        pass
+
+    def write_response(self, request, response):
+        pass
 
 
 class BasePathNamer(object, metaclass=abc.ABCMeta):

@@ -17,7 +17,7 @@ from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     RecursiveFilter)
 import wpull.version
 from wpull.waiter import LinearWaiter
-from wpull.writer import FileWriter, PathNamer
+from wpull.writer import FileWriter, PathNamer, NullWriter
 
 
 _ = gettext.gettext
@@ -240,7 +240,9 @@ class AppArgumentParser(argparse.ArgumentParser):
         )
         self.add_argument(
             '--no-use-server-timestamps',
-            action='store_true',
+            dest='use_server_timestamps',
+            action='store_false',
+            default=True,
             help=_('don’t set the last-modified time on files'),
         )
         self.add_argument(
@@ -412,7 +414,9 @@ class AppArgumentParser(argparse.ArgumentParser):
         self.add_argument(
             '-nH',
             '--no-host-directories',
-            action='store_true',
+            dest='host_directories',
+            action='store_false',
+            default=True,
             help=_('don’t create directories for hostnames')
         )
         self.add_argument(
@@ -907,13 +911,17 @@ def build_processor(args):
         use_dir=use_dir,
         cut=args.cut_dirs,
         protocol=args.protocol_directories,
-        hostname=not args.no_host_directories
+        hostname=args.host_directories,
     )
 
-    file_writer = FileWriter(
-        path_namer,
-        save_headers=args.save_headers,
-    )
+    if args.delete_after:
+        file_writer = NullWriter()
+    else:
+        file_writer = FileWriter(
+            path_namer,
+            headers=args.save_headers,
+            timestamps=args.use_server_timestamps,
+        )
 
     waiter = LinearWaiter(
         wait=args.wait, random_wait=args.random_wait, max_wait=args.waitretry)
