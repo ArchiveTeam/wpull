@@ -870,7 +870,7 @@ def build_url_filters(args):
 
 def build_document_scrapers(args):
     scrapers = [
-        HTMLScraper(accepted=args.follow_tags, rejected=args.follow_tags)
+        HTMLScraper(followed_tags=args.follow_tags, ignored_tags=args.ignore_tags)
     ]
 
     return scrapers

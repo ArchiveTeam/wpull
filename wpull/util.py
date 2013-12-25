@@ -56,6 +56,11 @@ def reset_file_offset(file):
     file.seek(offset)
 
 
+def peek_file(file):
+    with reset_file_offset(file):
+        return file.read(4096)
+
+
 def to_bytes(instance, encoding='utf-8'):
     if hasattr(instance, 'encode'):
         return instance.encode(encoding)

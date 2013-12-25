@@ -50,7 +50,8 @@ class HTMLScraper(BaseDocumentScraper):
         'fig': {'src': ATTR_INLINE},
         'frame': {'src': ATTR_INLINE | ATTR_HTML},
         'iframe': {'src': ATTR_INLINE | ATTR_HTML},
-        'img': {'href': ATTR_INLINE, 'lowsrc': ATTR_INLINE, 'src': ATTR_INLINE},
+        'img': {
+            'href': ATTR_INLINE, 'lowsrc': ATTR_INLINE, 'src': ATTR_INLINE},
         'input': {'src': ATTR_INLINE},
         'layer': {'src': ATTR_INLINE | ATTR_HTML},
         'object': {'data': ATTR_INLINE},
@@ -61,11 +62,38 @@ class HTMLScraper(BaseDocumentScraper):
         'th': {'background': ATTR_INLINE},
     }
 
-    def __init__(self, accepted=None, rejected=None):
+    def __init__(self, followed_tags=None, ignored_tags=None, robots=False):
         super().__init__()
-        # TODO: accept/reject tags option
+        self._robots = robots
+
+        if followed_tags is not None:
+            self._followed_tags = frozenset(
+                [tag.lower() for tag in followed_tags])
+        else:
+            self._followed_tags = None
+
+        if ignored_tags is not None:
+            self._ignored_tags = frozenset(
+                [tag.lower() for tag in ignored_tags])
+        else:
+            self._ignored_tags = None
+
+    @classmethod
+    def is_html(cls, request, response):
+        if 'html' in response.fields.get('content-type', '').lower() \
+        or '.htm' in request.url_info.path.lower():
+            return True
+
+        if response.body:
+            peeked_data = wpull.util.peek_file(
+                response.body.content_file).lower()
+            if b'html' in peeked_data:
+                return True
 
     def scrape(self, request, response):
+        if not self.is_html(request, response):
+            return
+
         inline_urls = set()
         html_urls = set()
         base_url = request.url_info.url
@@ -74,12 +102,22 @@ class HTMLScraper(BaseDocumentScraper):
         self._scrape_links_by_lxml(root, inline_urls, html_urls, base_url)
         self._scrape_links_by_wget(root, inline_urls, html_urls, base_url)
 
-        # TODO: discard html_urls if robots nofollow in meta
+        if self._robots:
+            html_urls.clear()
+
         return (inline_urls, html_urls)
 
     def _is_accepted(self, element_tag):
-        # TODO:
-        return True
+        element_tag = element_tag.lower()
+
+        if self._ignored_tags is not None \
+        and element_tag in self._ignored_tags:
+            return False
+
+        if self._followed_tags is not None:
+            return element_tag in self._followed_tags
+        else:
+            return True
 
     def _parse_document(self, content_file, base_url):
         with wpull.util.reset_file_offset(content_file):
@@ -127,13 +165,13 @@ class HTMLScraper(BaseDocumentScraper):
             if tag == 'link':
                 if self._is_link_inline(element):
                     inline_urls.add(url)
-                else:
+                elif self._is_accepted(tag):
                     html_urls.add(url)
                 continue
 
             if self._is_inline(tag, attribute):
                 inline_urls.add(url)
-            if self._is_html_link(tag, attribute):
+            if self._is_html_link(tag, attribute) and self._is_accepted(tag):
                 html_urls.add(url)
 
         self._scrape_links_by_lxml_monkey(root, inline_urls, html_urls, base_url)
@@ -155,7 +193,8 @@ class HTMLScraper(BaseDocumentScraper):
                 for attribute, url in element.attrib.items():
                     if self._is_inline(tag, attribute):
                         inline_urls.add(url)
-                    if self._is_html_link(tag, attribute):
+                    if self._is_html_link(tag, attribute) \
+                    and self._is_accepted(tag):
                         html_urls.add(url)
             elif handler == 'meta':
                 if element.get('http-equiv', '').lower() == 'refresh':
