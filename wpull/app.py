@@ -98,19 +98,20 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('run as background process')
         )
-        self.add_argument(
-            '-e',
-            '--execute',
-            metavar='COMMAND',
-            action='append',
-            help=_('runs Wgetrc COMMAND'),
-        )
-        self.add_argument(
-            '--lua-script',
-            metavar='FILE',
-            type=argparse.FileType('rt'),
-            help=_('load Lua script from FILE')
-        )
+        # TODO:
+#         self.add_argument(
+#             '-e',
+#             '--execute',
+#             metavar='COMMAND',
+#             action='append',
+#             help=_('runs Wgetrc COMMAND'),
+#         )
+#         self.add_argument(
+#             '--lua-script',
+#             metavar='FILE',
+#             type=argparse.FileType('rt'),
+#             help=_('load Lua script from FILE')
+#         )
 
     def _add_log_and_input_args(self):
         output_log_group = self.add_mutually_exclusive_group()
@@ -159,35 +160,37 @@ class AppArgumentParser(argparse.ArgumentParser):
             const=logging.WARNING,
             help=_('print program warning messages only')
         )
-        self.add_argument(
-            '--report-speed',
-            metavar='TYPE',
-            choices=['bits'],
-        )
+        # TODO:
+#         self.add_argument(
+#             '--report-speed',
+#             metavar='TYPE',
+#             choices=['bits'],
+#         )
         self.add_argument(
             '-i',
             '--input-file',
             metavar='FILE',
             help=_('download URLs listen from FILE'),
         )
-        self.add_argument(
-            '-F',
-            '--force-html',
-            action='store_true',
-            help=_('read input URL contents as HTML files')
-        )
-        self.add_argument(
-            '-B',
-            '--base',
-            metavar='URL',
-            help=_('resolves input relative URLs to URL')
-        )
-        self.add_argument(
-            '--config',
-            metavar='FILE',
-            type=argparse.FileType('rt'),
-            help=_('read configuration from FILE'),
-        )
+        # TODO:
+#         self.add_argument(
+#             '-F',
+#             '--force-html',
+#             action='store_true',
+#             help=_('read input URL contents as HTML files')
+#         )
+#         self.add_argument(
+#             '-B',
+#             '--base',
+#             metavar='URL',
+#             help=_('resolves input relative URLs to URL')
+#         )
+#         self.add_argument(
+#             '--config',
+#             metavar='FILE',
+#             type=argparse.FileType('rt'),
+#             help=_('read configuration from FILE'),
+#         )
 
     def _add_download_args(self):
         self.add_argument(
@@ -197,47 +200,48 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=self.int_0_inf,
             help=_('try NUMBER of times on transient errors'),
         )
-        self.add_argument(
-            '--retry-connrefused',
-            action='store_true',
-            help=_('retry even if the server does not accept connections'),
-        )
-        self.add_argument(
-            '-O',
-            '--output-document',
-            metavar='FILE',
-            type=argparse.FileType('w'),
-            help=_('combine and output the downloads to FILE'),
-        )
-        self.add_argument(
-            '--truncate-document',
-            action='store_true',
-            help=_('clear the output document after downloading'),
-        )
-        self.add_argument(
-            '-nc',
-            '--no-clobber',
-            action='store_true',
-            help=_('skip URLs that would overwrite files locally'),
-        )
-        self.add_argument(
-            '-c',
-            '--continue',
-            action='store_true',
-            help=_('resume downloading a partially-downloaded file'),
-        )
-        self.add_argument(
-            '--progress',
-            metavar='TYPE',
-            choices=['dot', 'bar'],
-            help=_('choose the type of progress bar'),
-        )
-        self.add_argument(
-            '-N',
-            '--timestamping',
-            action='store_true',
-            help=_('only download files that are newer than local files'),
-        )
+        # TODO:
+#         self.add_argument(
+#             '--retry-connrefused',
+#             action='store_true',
+#             help=_('retry even if the server does not accept connections'),
+#         )
+#         self.add_argument(
+#             '-O',
+#             '--output-document',
+#             metavar='FILE',
+#             type=argparse.FileType('w'),
+#             help=_('combine and output the downloads to FILE'),
+#         )
+#         self.add_argument(
+#             '--truncate-document',
+#             action='store_true',
+#             help=_('clear the output document after downloading'),
+#         )
+#         self.add_argument(
+#             '-nc',
+#             '--no-clobber',
+#             action='store_true',
+#             help=_('skip URLs that would overwrite files locally'),
+#         )
+#         self.add_argument(
+#             '-c',
+#             '--continue',
+#             action='store_true',
+#             help=_('resume downloading a partially-downloaded file'),
+#         )
+#         self.add_argument(
+#             '--progress',
+#             metavar='TYPE',
+#             choices=['dot', 'bar'],
+#             help=_('choose the type of progress bar'),
+#         )
+#         self.add_argument(
+#             '-N',
+#             '--timestamping',
+#             action='store_true',
+#             help=_('only download files that are newer than local files'),
+#         )
         self.add_argument(
             '--no-use-server-timestamps',
             dest='use_server_timestamps',
@@ -251,11 +255,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('print the protocol responses from the server'),
         )
-        self.add_argument(
-            '--spider',
-            action='store_true',
-            help=_('don’t download but check if URLs exist'),
-        )
+#         self.add_argument(
+#             '--spider',
+#             action='store_true',
+#             help=_('don’t download but check if URLs exist'),
+#         )
         self.add_argument(
             '-T',
             '--timeout',
@@ -301,49 +305,49 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('randomly perturb the time between requests'),
         )
-        self.add_argument(
-            '--no-proxy',
-            action='store_true',
-            help=_('disable proxy support'),
-        )
-        self.add_argument(
-            '-Q',
-            '--quota',
-            metavar='NUMBER',
-            type=self.int_bytes,
-            help=_('stop after downloading NUMBER bytes'),
-        )
+#         self.add_argument(
+#             '--no-proxy',
+#             action='store_true',
+#             help=_('disable proxy support'),
+#         )
+#         self.add_argument(
+#             '-Q',
+#             '--quota',
+#             metavar='NUMBER',
+#             type=self.int_bytes,
+#             help=_('stop after downloading NUMBER bytes'),
+#         )
         self.add_argument(
             '--bind-address',
             metavar='ADDRESS',
             help=_('bind to ADDRESS on the local host'),
         )
-        self.add_argument(
-            '--limit-rate',
-            metavar='RATE',
-            type=self.int_bytes,
-            help=_('limit download bandwidth to RATE'),
-        )
-        self.add_argument(
-            '--no-dns-cache',
-            action='store_true',
-            help=_('disable caching of DNS lookups'),
-        )
-        self.add_argument(
-            '--rotate-dns',
-            action='store_true',
-            help=_('use different resolved IP addresses on requests'),
-        )
-        self.add_argument(
-            '--restrict-file-names',
-            metavar='OS',
-            help=_('use safe filenames for suitable OS'),
-        )
-        self.add_argument(
-            '--ignore-case',
-            action='store_true',
-            help=_('use case-insensitivity on URLs'),
-        )
+#         self.add_argument(
+#             '--limit-rate',
+#             metavar='RATE',
+#             type=self.int_bytes,
+#             help=_('limit download bandwidth to RATE'),
+#         )
+#         self.add_argument(
+#             '--no-dns-cache',
+#             action='store_true',
+#             help=_('disable caching of DNS lookups'),
+#         )
+#         self.add_argument(
+#             '--rotate-dns',
+#             action='store_true',
+#             help=_('use different resolved IP addresses on requests'),
+#         )
+#         self.add_argument(
+#             '--restrict-file-names',
+#             metavar='OS',
+#             help=_('use safe filenames for suitable OS'),
+#         )
+#         self.add_argument(
+#             '--ignore-case',
+#             action='store_true',
+#             help=_('use case-insensitivity on URLs'),
+#         )
         inet_group = self.add_mutually_exclusive_group()
         inet_group.add_argument(
             '-4',
@@ -367,31 +371,31 @@ class AppArgumentParser(argparse.ArgumentParser):
             choices=['IPv6', 'IPv4'],
             help=_('prefer to connect to FAMILY IP addresses'),
         )
-        self.add_argument(
-            '--user'
-        )
-        self.add_argument(
-            '--password'
-        )
-        self.add_argument(
-            '--ask-password',
-            action='store_true',
-        )
-        self.add_argument(
-            '--no-iri',
-            action='store_true',
-        )
-        self.add_argument(
-            '--local-encoding',
-            metavar='ENC'
-        )
-        self.add_argument(
-            '--remote-encoding',
-            metavar='ENC'
-        )
-        self.add_argument(
-            '--unlink'
-        )
+#         self.add_argument(
+#             '--user'
+#         )
+#         self.add_argument(
+#             '--password'
+#         )
+#         self.add_argument(
+#             '--ask-password',
+#             action='store_true',
+#         )
+#         self.add_argument(
+#             '--no-iri',
+#             action='store_true',
+#         )
+#         self.add_argument(
+#             '--local-encoding',
+#             metavar='ENC'
+#         )
+#         self.add_argument(
+#             '--remote-encoding',
+#             metavar='ENC'
+#         )
+#         self.add_argument(
+#             '--unlink'
+#         )
 
     def _add_directories_args(self):
         dir_group = self.add_mutually_exclusive_group()
@@ -439,177 +443,189 @@ class AppArgumentParser(argparse.ArgumentParser):
         )
 
     def _add_http_args(self):
-        self.add_argument(
-            '--http-user',
-        )
-        self.add_argument(
-            '--http-password'
-        )
-        self.add_argument(
-            '--no-cache',
-            action='store_true',
-        )
+        # TODO:
+#         self.add_argument(
+#             '--http-user',
+#         )
+#         self.add_argument(
+#             '--http-password'
+#         )
+#         self.add_argument(
+#             '--no-cache',
+#             action='store_true',
+#         )
         self.add_argument(
             '--default-page',
             metavar='NAME',
             default='index.html',
             help=_('use NAME as index page if not known'),
         )
-        self.add_argument(
-            '-E',
-            '--adjust-extension',
-            action='store_true',
-        )
-        self.add_argument(
-            '--ignore-length',
-            action='store_true',
-        )
-        self.add_argument(
-            '--header',
-            metavar='STRING'
-        )
-        self.add_argument(
-            '--max-redirect',
-        )
-        self.add_argument(
-            '--proxy-user',
-            metavar='USER'
-        )
-        self.add_argument(
-            '--proxy-password',
-            metavar='PASS'
-        )
-        self.add_argument(
-            '--referer',
-            metavar='URL'
-        )
+#         self.add_argument(
+#             '-E',
+#             '--adjust-extension',
+#             action='store_true',
+#         )
+#         self.add_argument(
+#             '--ignore-length',
+#             action='store_true',
+#         )
+#         self.add_argument(
+#             '--header',
+#             metavar='STRING'
+#         )
+#         self.add_argument(
+#             '--max-redirect',
+#         )
+#         self.add_argument(
+#             '--proxy-user',
+#             metavar='USER'
+#         )
+#         self.add_argument(
+#             '--proxy-password',
+#             metavar='PASS'
+#         )
+#         self.add_argument(
+#             '--referer',
+#             metavar='URL'
+#         )
         self.add_argument(
             '--save-headers',
             action='store_true',
             help=_('include server header responses in files'),
         )
-        self.add_argument(
-            '-U',
-            '--user-agent',
-            metavar='AGENT'
-        )
-        self.add_argument(
-            '--no-http-keep-alive',
-        )
-        self.add_argument(
-            '--no-cookies'
-        )
-        self.add_argument(
-            '--load-cookies',
-            metavar='FILE'
-        )
-        self.add_argument(
-            '--save-cookies',
-            metavar='FILE'
-        )
-        self.add_argument(
-            '--keep-session-cookies'
-        )
-        self.add_argument(
-            '--post-data',
-            metavar='STRING'
-        )
-        self.add_argument(
-            '--post-file',
-            metavar='FILE'
-        )
-        self.add_argument(
-            '--method',
-            metavar='HTTPMethod',
-        )
-        self.add_argument(
-            '--body-data',
-            metavar='STRING',
-        )
-        self.add_argument(
-            '--body-file',
-            metavar='FILE'
-        )
-        self.add_argument(
-            '--content-disposition'
-        )
-        self.add_argument(
-            '--content-on-error'
-        )
-        self.add_argument(
-            '--auth-no-challenge'
-        )
+#         self.add_argument(
+#             '-U',
+#             '--user-agent',
+#             metavar='AGENT'
+#         )
+#         self.add_argument(
+#             '--no-robots',
+#             dest='robots',
+#             action='store_false',
+#             default=True,
+#             help=_('ignore robots.txt directives'),
+#         )
+#         self.add_argument(
+#             '--no-http-keep-alive',
+#         )
+#         self.add_argument(
+#             '--no-cookies'
+#         )
+#         self.add_argument(
+#             '--load-cookies',
+#             metavar='FILE'
+#         )
+#         self.add_argument(
+#             '--save-cookies',
+#             metavar='FILE'
+#         )
+#         self.add_argument(
+#             '--keep-session-cookies'
+#         )
+#         self.add_argument(
+#             '--post-data',
+#             metavar='STRING'
+#         )
+#         self.add_argument(
+#             '--post-file',
+#             metavar='FILE'
+#         )
+#         self.add_argument(
+#             '--method',
+#             metavar='HTTPMethod',
+#         )
+#         self.add_argument(
+#             '--body-data',
+#             metavar='STRING',
+#         )
+#         self.add_argument(
+#             '--body-file',
+#             metavar='FILE'
+#         )
+#         self.add_argument(
+#             '--content-disposition'
+#         )
+#         self.add_argument(
+#             '--content-on-error'
+#         )
+#         self.add_argument(
+#             '--auth-no-challenge'
+#         )
 
     def _add_ssl_args(self):
-        self.add_argument(
-            '--secure-protocol',
-            metavar='PR'
-        )
-        self.add_argument(
-            '--no-check-certificate'
-        )
-        self.add_argument(
-            '--certificate',
-            metavar='FILE'
-        )
-        self.add_argument(
-            '--certificate-type',
-            metavar='TYPE'
-        )
-        self.add_argument(
-            '--private-key',
-            metavar='FILE'
-        )
-        self.add_argument(
-            '--private-key-type',
-            metavar='TYPE'
-        )
-        self.add_argument(
-            '--ca-certificate',
-            metavar='FILE'
-        )
-        self.add_argument(
-            '--ca-directory',
-            metavar='DIR'
-        )
-        self.add_argument(
-            '--random-file',
-            metavar='FILE'
-        )
-        self.add_argument(
-            '--edg-file',
-            metavar='FILE'
-        )
+        pass
+        # TODO:
+#         self.add_argument(
+#             '--secure-protocol',
+#             metavar='PR'
+#         )
+#         self.add_argument(
+#             '--no-check-certificate'
+#         )
+#         self.add_argument(
+#             '--certificate',
+#             metavar='FILE'
+#         )
+#         self.add_argument(
+#             '--certificate-type',
+#             metavar='TYPE'
+#         )
+#         self.add_argument(
+#             '--private-key',
+#             metavar='FILE'
+#         )
+#         self.add_argument(
+#             '--private-key-type',
+#             metavar='TYPE'
+#         )
+#         self.add_argument(
+#             '--ca-certificate',
+#             metavar='FILE'
+#         )
+#         self.add_argument(
+#             '--ca-directory',
+#             metavar='DIR'
+#         )
+#         self.add_argument(
+#             '--random-file',
+#             metavar='FILE'
+#         )
+#         self.add_argument(
+#             '--edg-file',
+#             metavar='FILE'
+#         )
 
     def _add_ftp_args(self):
-        self.add_argument(
-            '--ftp-user',
-            metavar='USER'
-        )
-        self.add_argument(
-            '--ftp-password',
-            metavar='PASS'
-        )
-        self.add_argument(
-            '--no-remove-listing',
-            action='store_true',
-        )
-        self.add_argument(
-            '--no-glob',
-            action='store_true',
-        )
-        self.add_argument(
-            '--no-passive-ftp',
-            action='store_true',
-        )
-        self.add_argument(
-            '--preserve-permissions',
-            action='store_true',
-        )
-        self.add_argument(
-            '--retr-symlinks',
-            action='store_true',
-        )
+        pass
+        # TODO:
+#         self.add_argument(
+#             '--ftp-user',
+#             metavar='USER'
+#         )
+#         self.add_argument(
+#             '--ftp-password',
+#             metavar='PASS'
+#         )
+#         self.add_argument(
+#             '--no-remove-listing',
+#             action='store_true',
+#         )
+#         self.add_argument(
+#             '--no-glob',
+#             action='store_true',
+#         )
+#         self.add_argument(
+#             '--no-passive-ftp',
+#             action='store_true',
+#         )
+#         self.add_argument(
+#             '--preserve-permissions',
+#             action='store_true',
+#         )
+#         self.add_argument(
+#             '--retr-symlinks',
+#             action='store_true',
+#         )
 
     def _add_warc_args(self):
         self.add_argument(
@@ -624,33 +640,33 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=[],
             help=_('include STRING in WARC file metadata'),
         )
-        self.add_argument(
-            '--warc-max-size',
-            metavar='NUMBER'
-        )
-        self.add_argument(
-            '--warc-cdx'
-        )
-        self.add_argument(
-            '--warc-dedup',
-        )
+#         self.add_argument(
+#             '--warc-max-size',
+#             metavar='NUMBER'
+#         )
+#         self.add_argument(
+#             '--warc-cdx'
+#         )
+#         self.add_argument(
+#             '--warc-dedup',
+#         )
         self.add_argument(
             '--no-warc-compression',
             action='store_true',
             help=_('do not compress the WARC file'),
         )
-        self.add_argument(
-            '--no-warc-digests',
-            action='store_true',
-        )
-        self.add_argument(
-            '--no-warc-keep-log',
-            action='store_true',
-        )
-        self.add_argument(
-            '--warc-tempdir',
-            metavar='DIRECTORY'
-        )
+#         self.add_argument(
+#             '--no-warc-digests',
+#             action='store_true',
+#         )
+#         self.add_argument(
+#             '--no-warc-keep-log',
+#             action='store_true',
+#         )
+#         self.add_argument(
+#             '--warc-tempdir',
+#             metavar='DIRECTORY'
+#         )
 
     def _add_recursive_args(self):
         self.add_argument(
@@ -671,66 +687,66 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('delete the file after downloading it'),
         )
-        self.add_argument(
-            '-k',
-            '--convert-links',
-            action='store_true',
-            help=_('make links point to local files')
-        )
-        self.add_argument(
-            '-K',
-            '--backup-converted',
-            action='store_true',
-            help=_('save original files before converting them')
-        )
-        self.add_argument(
-            '-m',
-            '--mirror',
-            action='store_true',
-            help=_('use options "-N -r -l inf --no-remove-listing"')
-        )
+#         self.add_argument(
+#             '-k',
+#             '--convert-links',
+#             action='store_true',
+#             help=_('make links point to local files')
+#         )
+#         self.add_argument(
+#             '-K',
+#             '--backup-converted',
+#             action='store_true',
+#             help=_('save original files before converting them')
+#         )
+#         self.add_argument(
+#             '-m',
+#             '--mirror',
+#             action='store_true',
+#             help=_('use options "-N -r -l inf --no-remove-listing"')
+#         )
         self.add_argument(
             '-p',
             '--page-requisites',
             action='store_true',
             help=_('download objects embedded in pages')
         )
-        self.add_argument(
-            '--strict-comments',
-            action='store_true',
-            help=_('use strict SGML comment parsing')
-        )
+#         self.add_argument(
+#             '--strict-comments',
+#             action='store_true',
+#             help=_('use strict SGML comment parsing')
+#         )
 
     def _add_accept_args(self):
-        self.add_argument(
-            '-A',
-            '--accept',
-            metavar='LIST',
-            type=self.comma_list,
-            help=_('download only files with extension in LIST'),
-        )
-        self.add_argument(
-            '-R',
-            '--reject',
-            metavar='LIST',
-            help=_('don’t download files with extension in LIST'),
-        )
-        self.add_argument(
-            '--accept-regex',
-            metavar='REGEX',
-            help=_('download only URLs matching REGEX'),
-        )
-        self.add_argument(
-            '--reject-regex',
-            metavar='REGEX',
-            help=_('don’t download URLs matching REGEX'),
-        )
-        self.add_argument(
-            '--regex-type',
-            metavar='TYPE',
-            choices=['posix'],
-            help=_('use regex TYPE')
-        )
+#         self.add_argument(
+#             '-A',
+#             '--accept',
+#             metavar='LIST',
+#             type=self.comma_list,
+#             help=_('download only files with extension in LIST'),
+#         )
+#         self.add_argument(
+#             '-R',
+#             '--reject',
+#             metavar='LIST',
+#             help=_('don’t download files with extension in LIST'),
+#         )
+#         self.add_argument(
+#             '--accept-regex',
+#             metavar='REGEX',
+#             help=_('download only URLs matching REGEX'),
+#         )
+#         self.add_argument(
+#             '--reject-regex',
+#             metavar='REGEX',
+#             help=_('don’t download URLs matching REGEX'),
+#         )
+#         self.add_argument(
+#             '--regex-type',
+#             metavar='TYPE',
+#             choices=['posix'],
+#             help=_('use regex TYPE')
+#         )
         self.add_argument(
             '-D',
             '--domains',
@@ -744,11 +760,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=self.comma_list,
             help=_('don’t download from LIST of hostname suffixes')
         )
-        self.add_argument(
-            '--follow-ftp',
-            action='store_true',
-            help=_('follow links to FTP sites')
-        )
+#         self.add_argument(
+#             '--follow-ftp',
+#             action='store_true',
+#             help=_('follow links to FTP sites')
+#         )
         self.add_argument(
             '--follow-tags',
             metavar='LIST',
@@ -761,43 +777,43 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=self.comma_list,
             help=_('don’t follow links contained in LIST of HTML tags'),
         )
-        self.add_argument(
-            '-H',
-            '--span-hosts',
-            action='store_true',
-            help=_('follow links to other hostnames')
-        )
-        self.add_argument(
-            '-L',
-            '--relative',
-            action='store_true',
-            help=_('follow only relative links')
-        )
-        self.add_argument(
-            '-I',
-            '--include-directories',
-            metavar='LIST',
-            type=self.comma_list,
-            help=_('download only paths in LIST')
-        )
-        self.add_argument(
-            '--trust-server-names',
-            action='store_true',
-            help=_('use the last given filename by the server for filenames')
-        )
-        self.add_argument(
-            '-X',
-            '--exclude-directories',
-            metavar='LIST',
-            type=self.comma_list,
-            help=_('don’t download paths in LIST')
-        )
-        self.add_argument(
-            '-np',
-            '--no-parent',
-            action='store_true',
-            help=_('don’t follow to parent directories on URL path'),
-        )
+#         self.add_argument(
+#             '-H',
+#             '--span-hosts',
+#             action='store_true',
+#             help=_('follow links to other hostnames')
+#         )
+#         self.add_argument(
+#             '-L',
+#             '--relative',
+#             action='store_true',
+#             help=_('follow only relative links')
+#         )
+#         self.add_argument(
+#             '-I',
+#             '--include-directories',
+#             metavar='LIST',
+#             type=self.comma_list,
+#             help=_('download only paths in LIST')
+#         )
+#         self.add_argument(
+#             '--trust-server-names',
+#             action='store_true',
+#             help=_('use the last given filename by the server for filenames')
+#         )
+#         self.add_argument(
+#             '-X',
+#             '--exclude-directories',
+#             metavar='LIST',
+#             type=self.comma_list,
+#             help=_('don’t download paths in LIST')
+#         )
+#         self.add_argument(
+#             '-np',
+#             '--no-parent',
+#             action='store_true',
+#             help=_('don’t follow to parent directories on URL path'),
+#         )
 
 
 def setup_logging(args):
