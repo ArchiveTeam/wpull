@@ -65,7 +65,10 @@ class NameValueRecord(collections.MutableMapping):
     def __str__(self):
         pairs = []
         for name, value in self.get_all():
-            pairs.append(name + ': ' + value)
+            if value:
+                pairs.append('{0}: {1}'.format(name, value))
+            else:
+                pairs.append('{0}:'.format(name))
 
         pairs.append('')
         return '\r\n'.join(pairs)

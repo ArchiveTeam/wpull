@@ -43,3 +43,14 @@ class TestNameValue(unittest.TestCase):
         record.parse(self.RECORD_STR_1)
         self.assertIn('who', record)
         self.assertEqual('Gilbert, W.S. | Sullivan, Arthur', record['who'])
+
+    def test_name_value_str_format(self):
+        record = NameValueRecord()
+        record.parse(self.RECORD_STR_1)
+        self.assertEqual(
+            ('Entry:\r\n'
+            'Who: Gilbert, W.S. | Sullivan, Arthur\r\n'
+            'What: The Yeomen of the Guard\r\n'
+            'When/Created: 1888\r\n'),
+            str(record)
+        )
