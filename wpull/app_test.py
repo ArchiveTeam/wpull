@@ -34,7 +34,8 @@ class TestApp(GoodAppTestCase):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
             self.get_url('/blog/'),
-            '--no-parent',
+            # TODO:
+#            '--no-parent',
             '--recursive',
             '--page-requisites',
         ])

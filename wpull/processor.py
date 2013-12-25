@@ -7,6 +7,7 @@ from wpull.database import Status
 from wpull.errors import ProtocolError, ServerError
 from wpull.http import Request
 from wpull.stats import Statistics
+import wpull.version
 from wpull.waiter import LinearWaiter
 
 
@@ -91,14 +92,22 @@ class WebProcessorSession(BaseProcessorSession):
             return
 
         if self._redirect_url:
-            self._request = Request.new(self._redirect_url)
+            self._request = self._new_request_instance(self._redirect_url)
+            self._redirect_url = None
         else:
-            self._request = Request.new(url_info.url)
+            self._request = self._new_request_instance(url_info.url)
 
             if self._file_writer:
                 self._file_writer.rewrite_request(self._request)
 
         return self._request
+
+    def _new_request_instance(self, url):
+        request = Request.new(url)
+        request.fields['User-Agent'] = 'Mozilla/5.0 (compatible) Wpull/{0}'\
+            .format(wpull.version.__version__)
+
+        return request
 
     def accept_response(self, response, error=None):
         if error:
