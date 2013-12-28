@@ -49,12 +49,13 @@ class BaseProcessorSession(object, metaclass=abc.ABCMeta):
 
 class WebProcessor(BaseProcessor):
     def __init__(self, url_filters=None, document_scrapers=None,
-    file_writer=None, waiter=None, statistics=None):
+    file_writer=None, waiter=None, statistics=None, request_factory=None):
         self._url_filters = url_filters or ()
         self._document_scrapers = document_scrapers or ()
         self._file_writer = file_writer
         self._waiter = waiter or LinearWaiter()
         self._statistics = statistics or Statistics()
+        self._request_factory = request_factory or Request.new
 
     @contextlib.contextmanager
     def session(self):
@@ -64,6 +65,7 @@ class WebProcessor(BaseProcessor):
             self._file_writer,
             self._waiter,
             self._statistics,
+            self._request_factory,
         )
         yield session
 
@@ -74,7 +76,7 @@ class WebProcessor(BaseProcessor):
 
 class WebProcessorSession(BaseProcessorSession):
     def __init__(self, url_filters, document_scrapers, file_writer, waiter,
-    statistics):
+    statistics, request_factory):
         self._url_filters = url_filters
         self._document_scrapers = document_scrapers
         self._file_writer = file_writer
@@ -84,6 +86,7 @@ class WebProcessorSession(BaseProcessorSession):
         self._redirect_url = None
         self._waiter = waiter
         self._statistics = statistics
+        self._request_factory = request_factory
 
     def new_request(self, url_record, url_info):
         if not self._filter_test_url(url_info, url_record):
@@ -92,20 +95,27 @@ class WebProcessorSession(BaseProcessorSession):
             return
 
         if self._redirect_url:
-            self._request = self._new_request_instance(self._redirect_url)
+            self._request = self._new_request_instance(
+                self._redirect_url,
+                url_record.referrer,
+            )
             self._redirect_url = None
         else:
-            self._request = self._new_request_instance(url_info.url)
+            self._request = self._new_request_instance(
+                url_info.url,
+                url_record.referrer,
+            )
 
             if self._file_writer:
                 self._file_writer.rewrite_request(self._request)
 
         return self._request
 
-    def _new_request_instance(self, url):
-        request = Request.new(url)
-        request.fields['User-Agent'] = 'Mozilla/5.0 (compatible) Wpull/{0}'\
-            .format(wpull.version.__version__)
+    def _new_request_instance(self, url, referer=None):
+        request = self._request_factory(url)
+
+        if 'Referer' not in request.fields and referer:
+            request.fields['Referer'] = referer
 
         return request
 

@@ -8,7 +8,8 @@ import tornado.ioloop
 from wpull.database import URLTable
 from wpull.document import HTMLScraper
 from wpull.engine import Engine
-from wpull.http import Client, Connection, HostConnectionPool, ConnectionPool
+from wpull.http import (Client, Connection, HostConnectionPool, ConnectionPool,
+    Request)
 from wpull.network import Resolver
 from wpull.processor import WebProcessor
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
@@ -484,20 +485,22 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--proxy-password',
 #             metavar='PASS'
 #         )
-#         self.add_argument(
-#             '--referer',
-#             metavar='URL'
-#         )
+        self.add_argument(
+            '--referer',
+            metavar='URL',
+            help=_('always use URL as the referrer'),
+        )
         self.add_argument(
             '--save-headers',
             action='store_true',
             help=_('include server header responses in files'),
         )
-#         self.add_argument(
-#             '-U',
-#             '--user-agent',
-#             metavar='AGENT'
-#         )
+        self.add_argument(
+            '-U',
+            '--user-agent',
+            metavar='AGENT',
+            help=_('use AGENT instead of Wpull’s user agent'),
+        )
 #         self.add_argument(
 #             '--no-robots',
 #             dest='robots',
@@ -994,9 +997,30 @@ class Builder(object):
             max_wait=args.waitretry
         )
         processor = WebProcessor(
-            url_filters, document_scrapers, file_writer, waiter)
+            url_filters, document_scrapers, file_writer, waiter,
+            request_factory=self._build_request_factory()
+        )
 
         return processor
+
+    def _build_request_factory(self):
+        def request_factory(*args, **kwargs):
+            request = Request.new(*args, **kwargs)
+
+            if self._args.user_agent:
+                user_agent = self._args.user_agent
+            else:
+                user_agent = 'Mozilla/5.0 (compatible) Wpull/{0}'.format(
+                    wpull.version.__version__)
+
+            request.fields['User-Agent'] = user_agent
+
+            if self._args.referer:
+                request.fields['Referer'] = self._args.referer
+
+            return request
+
+        return request_factory
 
     def _build_http_client(self):
         args = self._args
