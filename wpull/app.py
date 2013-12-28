@@ -680,6 +680,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--level',
             metavar='NUMBER',
             type=self.int_0_inf,
+            default=5,
             help=_('limit recursion depth to NUMBER')
         )
         self.add_argument(
