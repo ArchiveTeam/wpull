@@ -14,7 +14,7 @@ from wpull.processor import WebProcessor
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
     PrintServerResponseRecorder, ProgressRecorder)
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
-    RecursiveFilter)
+    RecursiveFilter, SpanHostsFilter, ParentFilter)
 import wpull.version
 from wpull.waiter import LinearWaiter
 from wpull.writer import FileWriter, PathNamer, NullWriter
@@ -777,12 +777,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=self.comma_list,
             help=_('don’t follow links contained in LIST of HTML tags'),
         )
-#         self.add_argument(
-#             '-H',
-#             '--span-hosts',
-#             action='store_true',
-#             help=_('follow links to other hostnames')
-#         )
+        self.add_argument(
+            '-H',
+            '--span-hosts',
+            action='store_true',
+            help=_('follow links to other hostnames')
+        )
 #         self.add_argument(
 #             '-L',
 #             '--relative',
@@ -808,26 +808,58 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             type=self.comma_list,
 #             help=_('don’t download paths in LIST')
 #         )
-#         self.add_argument(
-#             '-np',
-#             '--no-parent',
-#             action='store_true',
-#             help=_('don’t follow to parent directories on URL path'),
-#         )
+        self.add_argument(
+            '-np',
+            '--no-parent',
+            action='store_true',
+            help=_('don’t follow to parent directories on URL path'),
+        )
 
 
-def setup_logging(args):
-    logging.basicConfig(level=args.verbosity or logging.INFO)
+class Builder(object):
+    def __init__(self, args):
+        self._args = args
+        self._url_infos = tuple(self._build_input_urls())
 
-    if args.verbosity == logging.DEBUG:
-        tornado.ioloop.IOLoop.instance().set_blocking_log_threshold(5)
+    def build(self):
+        self._setup_logging()
+        self._setup_file_logger()
 
-    logger = logging.getLogger()
+        url_table = self._build_url_table()
+        recorder = self._build_recorder()
+        processor = self._build_processor()
+        http_client = self._build_http_client()
 
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        return Engine(
+            url_table,
+            http_client,
+            processor=processor,
+            recorder=recorder,
+        )
 
-    if args.output_file or args.append_output:
+    def build_and_run(self):
+        io_loop = tornado.ioloop.IOLoop.instance()
+        engine = self.build()
+        exit_code = io_loop.run_sync(engine)
+        return exit_code
+
+    def _setup_logging(self):
+        logging.basicConfig(level=self._args.verbosity or logging.INFO)
+
+        if self._args.verbosity == logging.DEBUG:
+            tornado.ioloop.IOLoop.instance().set_blocking_log_threshold(5)
+
+    def _setup_file_logger(self):
+        args = self._args
+
+        if not (args.output_file or args.append_output):
+            return
+
+        logger = logging.getLogger()
+
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
         if args.output_file:
             filename = args.output_file
             mode = 'w'
@@ -844,163 +876,160 @@ def setup_logging(args):
         else:
             handler.setLevel(logging.INFO)
 
-
-def build_input_urls(args, default_scheme='http'):
-    if args.input_file:
-        url_string_iter = itertools.chain(args.urls, args.input_file)
-    else:
-        url_string_iter = args.urls
-
-    for url_string in url_string_iter:
-        url_info = URLInfo.parse(url_string, default_scheme=default_scheme)
-        _logger.debug('Parsed URL {0}'.format(url_info))
-        yield url_info
-
-
-def build_url_filters(args):
-    filters = [
-        BackwardDomainFilter(args.domains, args.exclude_domains),
-        TriesFilter(args.tries),
-        RecursiveFilter(args.recursive, args.page_requisites),
-        LevelFilter(args.level),
-    ]
-
-    return filters
-
-
-def build_document_scrapers(args):
-    scrapers = [
-        HTMLScraper(
-            followed_tags=args.follow_tags,
-            ignored_tags=args.ignore_tags)
-    ]
-
-    return scrapers
-
-
-def build_recorder(args):
-    recorders = []
-    if args.warc_file:
-        if args.no_warc_compression:
-            warc_path = args.warc_file + '.warc'
+    def _build_input_urls(self, default_scheme='http'):
+        if self._args.input_file:
+            url_string_iter = itertools.chain(
+                self._args.urls,
+                self._args.input_file)
         else:
-            warc_path = args.warc_file + '.warc.gz'
+            url_string_iter = self._args.urls
 
-        # TODO: fix robots value to be accurate
-        extra_fields = [
-            ('robots', 'off'),
-            ('wpull-arguments', str(args))
+        for url_string in url_string_iter:
+            url_info = URLInfo.parse(url_string, default_scheme=default_scheme)
+            _logger.debug('Parsed URL {0}'.format(url_info))
+            yield url_info
+
+    def _build_url_filters(self):
+        args = self._args
+
+        filters = [
+            BackwardDomainFilter(args.domains, args.exclude_domains),
+            TriesFilter(args.tries),
+            RecursiveFilter(args.recursive, args.page_requisites),
+            LevelFilter(args.level),
+            SpanHostsFilter(self._url_infos, enabled=args.span_hosts)
         ]
 
-        for header_string in args.warc_header:
-            name, value = header_string.split(':', 1)
-            name = name.strip()
-            value = value.strip()
-            extra_fields.append((name, value))
+        if args.no_parent:
+            filters.append(ParentFilter(self._url_infos))
 
-        recorders.append(
-            WARCRecorder(
-                warc_path,
-                compress=not args.no_warc_compression,
-                extra_fields=extra_fields
+        return filters
+
+    def _build_document_scrapers(self):
+        scrapers = [
+            HTMLScraper(
+                followed_tags=self._args.follow_tags,
+                ignored_tags=self._args.ignore_tags)
+        ]
+
+        return scrapers
+
+    def _build_url_table(self):
+        url_table = URLTable()
+        url_table.add([url_info.url for url_info in self._url_infos])
+        return url_table
+
+    def _build_recorder(self):
+        args = self._args
+        recorders = []
+        if args.warc_file:
+            if args.no_warc_compression:
+                warc_path = args.warc_file + '.warc'
+            else:
+                warc_path = args.warc_file + '.warc.gz'
+
+            # TODO: fix robots value to be accurate
+            extra_fields = [
+                ('robots', 'off'),
+                ('wpull-arguments', str(args))
+            ]
+
+            for header_string in args.warc_header:
+                name, value = header_string.split(':', 1)
+                name = name.strip()
+                value = value.strip()
+                extra_fields.append((name, value))
+
+            recorders.append(
+                WARCRecorder(
+                    warc_path,
+                    compress=not args.no_warc_compression,
+                    extra_fields=extra_fields
+                )
             )
+
+        if args.server_response:
+            recorders.append(PrintServerResponseRecorder())
+
+        if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARN, None):
+            recorders.append(ProgressRecorder())
+
+        return DemuxRecorder(recorders)
+
+    def _build_processor(self):
+        args = self._args
+        url_filters = self._build_url_filters()
+        document_scrapers = self._build_document_scrapers()
+
+        use_dir = (len(args.urls) != 1 or args.page_requisites \
+            or args.recursive)
+
+        if args.use_directories == 'force':
+            use_dir = True
+        elif args.use_directories == 'no':
+            use_dir = False
+
+        path_namer = PathNamer(
+            args.directory_prefix,
+            index=args.default_page,
+            use_dir=use_dir,
+            cut=args.cut_dirs,
+            protocol=args.protocol_directories,
+            hostname=args.host_directories,
         )
 
-    if args.server_response:
-        recorders.append(PrintServerResponseRecorder())
+        if args.delete_after:
+            file_writer = NullWriter()
+        else:
+            file_writer = FileWriter(
+                path_namer,
+                headers=args.save_headers,
+                timestamps=args.use_server_timestamps,
+            )
 
-    if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARN, None):
-        recorders.append(ProgressRecorder())
-
-    return DemuxRecorder(recorders)
-
-
-def build_processor(args):
-    url_filters = build_url_filters(args)
-    document_scrapers = build_document_scrapers(args)
-
-    use_dir = (len(args.urls) != 1 or args.page_requisites or args.recursive)
-
-    if args.use_directories == 'force':
-        use_dir = True
-    elif args.use_directories == 'no':
-        use_dir = False
-
-    path_namer = PathNamer(
-        args.directory_prefix,
-        index=args.default_page,
-        use_dir=use_dir,
-        cut=args.cut_dirs,
-        protocol=args.protocol_directories,
-        hostname=args.host_directories,
-    )
-
-    if args.delete_after:
-        file_writer = NullWriter()
-    else:
-        file_writer = FileWriter(
-            path_namer,
-            headers=args.save_headers,
-            timestamps=args.use_server_timestamps,
+        waiter = LinearWaiter(
+            wait=args.wait,
+            random_wait=args.random_wait,
+            max_wait=args.waitretry
         )
+        processor = WebProcessor(
+            url_filters, document_scrapers, file_writer, waiter)
 
-    waiter = LinearWaiter(
-        wait=args.wait, random_wait=args.random_wait, max_wait=args.waitretry)
-    processor = WebProcessor(
-        url_filters, document_scrapers, file_writer, waiter)
+        return processor
 
-    return processor
+    def _build_http_client(self):
+        args = self._args
+        dns_timeout = args.dns_timeout
+        connect_timeout = args.connect_timeout
+        read_timeout = args.read_timeout
 
+        if args.timeout:
+            dns_timeout = connect_timeout = read_timeout = args.timeout
 
-def build_http_client(args):
-    dns_timeout = args.dns_timeout
-    connect_timeout = args.connect_timeout
-    read_timeout = args.read_timeout
+        if args.inet_family == 'IPv4':
+            families = [Resolver.IPv4]
+        elif args.inet_family == 'IPv6':
+            families = [Resolver.IPv6]
+        elif args.prefer_family == 'IPv6':
+            families = [Resolver.IPv6, Resolver.IPv4]
+        else:
+            families = [Resolver.IPv4, Resolver.IPv6]
 
-    if args.timeout:
-        dns_timeout = connect_timeout = read_timeout = args.timeout
+        resolver = Resolver(families=families, timeout=dns_timeout)
 
-    if args.inet_family == 'IPv4':
-        families = [Resolver.IPv4]
-    elif args.inet_family == 'IPv6':
-        families = [Resolver.IPv6]
-    elif args.prefer_family == 'IPv6':
-        families = [Resolver.IPv6, Resolver.IPv4]
-    else:
-        families = [Resolver.IPv4, Resolver.IPv6]
+        def connection_factory(*args, **kwargs):
+            return Connection(
+                *args,
+                resolver=resolver,
+                connect_timeout=connect_timeout,
+                read_timeout=read_timeout,
+                **kwargs)
 
-    resolver = Resolver(families=families, timeout=dns_timeout)
+        def host_connection_pool_factory(*args, **kwargs):
+            return HostConnectionPool(
+                *args, connection_factory=connection_factory, **kwargs)
 
-    def connection_factory(*args, **kwargs):
-        return Connection(
-            *args,
-            resolver=resolver,
-            connect_timeout=connect_timeout,
-            read_timeout=read_timeout,
-            **kwargs)
+        connection_pool = ConnectionPool(
+            host_connection_pool_factory=host_connection_pool_factory)
 
-    def host_connection_pool_factory(*args, **kwargs):
-        return HostConnectionPool(
-            *args, connection_factory=connection_factory, **kwargs)
-
-    connection_pool = ConnectionPool(
-        host_connection_pool_factory=host_connection_pool_factory)
-
-    return Client(connection_pool=connection_pool)
-
-
-def build_engine(args):
-    setup_logging(args)
-    input_url_infos = build_input_urls(args)
-    url_table = URLTable()
-    url_table.add([url_info.url for url_info in input_url_infos])
-    recorder = build_recorder(args)
-    processor = build_processor(args)
-    http_client = build_http_client(args)
-
-    return Engine(
-        url_table,
-        http_client,
-        processor=processor,
-        recorder=recorder,
-    )
+        return Client(connection_pool=connection_pool)

@@ -1,13 +1,12 @@
 import sys
 import tornado.ioloop
 
-from wpull.app import AppArgumentParser, build_engine
+from wpull.app import AppArgumentParser, Builder
 
 
 if __name__ == '__main__':
     arg_parser = AppArgumentParser()
     args = arg_parser.parse_args()
     io_loop = tornado.ioloop.IOLoop.instance()
-    engine = build_engine(args)
-    exit_code = io_loop.run_sync(engine)
+    exit_code = Builder(args).build_and_run()
     sys.exit(exit_code)

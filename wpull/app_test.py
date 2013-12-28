@@ -1,11 +1,11 @@
 import contextlib
+import os
 import tempfile
 import tornado.testing
 
-from wpull.app import AppArgumentParser, build_engine
-from wpull.testing.goodapp import GoodAppTestCase
-import os
+from wpull.app import AppArgumentParser, Builder
 from wpull.errors import ExitStatus
+from wpull.testing.goodapp import GoodAppTestCase
 
 
 @contextlib.contextmanager
@@ -24,7 +24,7 @@ class TestApp(GoodAppTestCase):
     def test_one_page(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([self.get_url('/')])
-        engine = build_engine(args)
+        engine = Builder(args).build()
         with cd_tempdir():
             exit_code = yield engine()
         self.assertEqual(0, exit_code)
@@ -34,12 +34,11 @@ class TestApp(GoodAppTestCase):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
             self.get_url('/blog/'),
-            # TODO:
-#            '--no-parent',
+            '--no-parent',
             '--recursive',
             '--page-requisites',
         ])
-        engine = build_engine(args)
+        engine = Builder(args).build()
         with cd_tempdir():
             exit_code = yield engine()
         self.assertEqual(ExitStatus.server_error, exit_code)
