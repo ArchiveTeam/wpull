@@ -12,7 +12,7 @@ from wpull.http import Client, Connection, HostConnectionPool, ConnectionPool
 from wpull.network import Resolver
 from wpull.processor import WebProcessor
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
-    PrintServerResponseRecorder)
+    PrintServerResponseRecorder, ProgressRecorder)
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     RecursiveFilter)
 import wpull.version
@@ -158,7 +158,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             dest='verbosity',
             action='store_const',
             const=logging.WARNING,
-            help=_('print program warning messages only')
+            help=_('print program warning and informative messages only')
         )
         # TODO:
 #         self.add_argument(
@@ -870,7 +870,9 @@ def build_url_filters(args):
 
 def build_document_scrapers(args):
     scrapers = [
-        HTMLScraper(followed_tags=args.follow_tags, ignored_tags=args.ignore_tags)
+        HTMLScraper(
+            followed_tags=args.follow_tags,
+            ignored_tags=args.ignore_tags)
     ]
 
     return scrapers
@@ -906,6 +908,9 @@ def build_recorder(args):
 
     if args.server_response:
         recorders.append(PrintServerResponseRecorder())
+
+    if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARN, None):
+        recorders.append(ProgressRecorder())
 
     return DemuxRecorder(recorders)
 

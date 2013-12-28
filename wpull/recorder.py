@@ -1,14 +1,20 @@
 import abc
 import base64
 import contextlib
+import gettext
 import gzip
 import hashlib
 import io
+import sys
 import tempfile
+import time
 import uuid
 
 from wpull.namevalue import NameValueRecord
 import wpull.util
+
+
+_ = gettext.gettext
 
 
 class BaseRecorder(object, metaclass=abc.ABCMeta):
@@ -23,6 +29,9 @@ class BaseRecorderSession(object, metaclass=abc.ABCMeta):
         pass
 
     def request_data(self, data):
+        pass
+
+    def pre_response(self, response):
         pass
 
     def response(self, response):
@@ -62,6 +71,10 @@ class DemuxRecorderSession(BaseRecorderSession):
     def request_data(self, data):
         for session in self._sessions:
             session.request_data(data)
+
+    def pre_response(self, response):
+        for session in self._sessions:
+            session.pre_response(response)
 
     def response(self, response):
         for session in self._sessions:
@@ -260,6 +273,9 @@ class DebugPrintRecorderSession(BaseRecorderSession):
     def request_data(self, data):
         print(data)
 
+    def pre_response(self, response):
+        print(response)
+
     def response(self, response):
         print(response)
 
@@ -276,3 +292,73 @@ class PrintServerResponseRecorder(BaseRecorder):
 class PrintServerResponseRecorderSession(BaseRecorderSession):
     def response(self, response):
         print(''.join(data.decode() for data in response.iter_header()))
+
+
+class ProgressRecorder(BaseRecorder):
+    def __init__(self, bar_style=False):
+        self._bar_style = bar_style
+
+    @contextlib.contextmanager
+    def session(self):
+        yield ProgressRecorderSession(self._bar_style)
+
+
+class ProgressRecorderSession(BaseRecorderSession):
+    def __init__(self, bar_style):
+        self._content_length = None
+        self._bytes_received = 0
+        self._response = None
+        self._last_flush_time = 0
+        self._bar_style = bar_style
+
+    def request(self, request):
+        print(
+            _('Requesting {url}... ').format(url=request.url_info.url),
+            end=''
+        )
+        sys.stdout.flush()
+
+    def pre_response(self, response):
+        print(response.status_code, response.status_reason)
+
+        content_length = response.fields.get('Content-Length')
+
+        if content_length:
+            self._content_length = int(content_length)
+
+        print(
+            _('Length: {content_length} [{content_type}]').format(
+                content_length=self._content_length,
+                content_type=response.fields.get('Content-Type')
+            )
+        )
+
+        self._response = response
+
+    def response_data(self, data):
+        if not self._response:
+            return
+
+        self._bytes_received += len(data)
+
+        if self._bar_style and self._content_length:
+            self._print_bar()
+        else:
+            self._print_dots()
+
+    def _print_bar(self):
+        # TODO:
+        pass
+
+    def _print_dots(self):
+        time_now = time.time()
+
+        if time_now - self._last_flush_time > 2.0:
+            print('.', end='')
+            sys.stdout.flush()
+            self._last_flush_time = time.time()
+
+    def response(self, response):
+        print()
+        print(_('Bytes received: {bytes_received}').format(
+            bytes_received=self._bytes_received))

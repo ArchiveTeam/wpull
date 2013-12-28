@@ -197,18 +197,21 @@ class Connection(object):
     class ConnectionEvents(object):
         def __init__(self):
             self.request = Event()
+            self.pre_response = Event()
             self.response = Event()
             self.request_data = Event()
             self.response_data = Event()
 
         def attach(self, recorder_session):
             self.request += recorder_session.request
+            self.pre_response += recorder_session.pre_response
             self.response += recorder_session.response
             self.request_data += recorder_session.request_data
             self.response_data += recorder_session.response_data
 
         def clear(self):
             self.request.clear()
+            self.pre_response.clear()
             self.response.clear()
             self.request_data.clear()
             self.response_data.clear()
@@ -336,6 +339,7 @@ class Connection(object):
             status_line)
         response = Response(version, status_code, status_reason)
         response.fields.parse(header)
+        self._events.pre_response(response)
 
         raise tornado.gen.Return(response)
 
