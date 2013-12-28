@@ -1,7 +1,7 @@
 import unittest
 
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
-    ParentFilter, RecursiveFilter)
+    ParentFilter, RecursiveFilter, SpanHostsFilter)
 
 
 class MockURLTableRecord(object):
@@ -59,6 +59,10 @@ class TestURL(unittest.TestCase):
             'http://example.com/asdf/ghjk/',
             URLInfo.parse(
                 'HTTP://username:password@example.com/asdf/ghjk/').url
+        )
+        self.assertEqual(
+            'http://example.com/ð',
+            URLInfo.parse('http://example.com/ð').url
         )
         self.assertEqual(
             'http://example.com/ð',
@@ -190,5 +194,38 @@ class TestURL(unittest.TestCase):
         mock_record.inline = True
         self.assertTrue(url_filter.test(
             URLInfo.parse('http://example.com/styles.css'),
+            mock_record
+        ))
+
+    def test_span_hosts_filter(self):
+        mock_record = MockURLTableRecord()
+        mock_record.url = 'http://example.com'
+
+        url_filter = SpanHostsFilter([
+                URLInfo.parse('http://example.com/blog/'),
+            ],
+            enabled=False
+        )
+
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://example.com/blog/topic1/blah.html'),
+            mock_record
+        ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('http://hotdog.example/blog/topic1/blah.html'),
+            mock_record
+        ))
+
+        url_filter = SpanHostsFilter([
+                URLInfo.parse('http://example.com/blog/'),
+            ],
+            enabled=True
+        )
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://example.com/blog/topic1/blah.html'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://hotdog.example/blog/topic1/blah.html'),
             mock_record
         ))

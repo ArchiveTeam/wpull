@@ -130,9 +130,9 @@ class TriesFilter(BaseURLFilter):
 
 
 class ParentFilter(BaseURLFilter):
-    def __init__(self, url_infos):
+    def __init__(self, input_url_infos):
         self._base_urls = list(
-            [self.parse_url_base(url_info) for url_info in url_infos])
+            [self.parse_url_base(url_info) for url_info in input_url_infos])
 
     def test(self, url_info, url_table_record):
         if url_table_record.inline:
@@ -156,3 +156,17 @@ class ParentFilter(BaseURLFilter):
             url_info.port,
             path
         )
+
+
+class SpanHostsFilter(BaseURLFilter):
+    def __init__(self, input_url_infos, enabled=False):
+        self._enabled = enabled
+        self._base_urls = list(
+            [url_info.hostname for url_info in input_url_infos])
+
+    def test(self, url_info, url_table_record):
+        if self._enabled:
+            return True
+
+        if url_info.hostname in self._base_urls:
+            return True
