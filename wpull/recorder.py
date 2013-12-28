@@ -19,19 +19,15 @@ class BaseRecorder(object, metaclass=abc.ABCMeta):
 
 
 class BaseRecorderSession(object, metaclass=abc.ABCMeta):
-    @abc.abstractmethod
     def request(self, request):
         pass
 
-    @abc.abstractmethod
     def request_data(self, data):
         pass
 
-    @abc.abstractmethod
     def response(self, response):
         pass
 
-    @abc.abstractmethod
     def response_data(self, data):
         pass
 
@@ -228,9 +224,6 @@ class WARCRecorderSession(BaseRecorderSession):
 
         self._recorder.write_record(record)
 
-    def request_data(self, data):
-        pass
-
     def response(self, response):
         record = WARCRecord()
         record.set_common_fields(WARCRecord.RESPONSE, WARCRecord.TYPE_RESPONSE)
@@ -248,9 +241,6 @@ class WARCRecorderSession(BaseRecorderSession):
         record.compute_checksum(payload_offset=payload_offset)
 
         self._recorder.write_record(record)
-
-    def response_data(self, data):
-        pass
 
 
 class DebugPrintRecorder(BaseRecorder):
@@ -284,14 +274,5 @@ class PrintServerResponseRecorder(BaseRecorder):
 
 
 class PrintServerResponseRecorderSession(BaseRecorderSession):
-    def request(self, request):
-        pass
-
-    def request_data(self, data):
-        pass
-
     def response(self, response):
         print(''.join(data.decode() for data in response.iter_header()))
-
-    def response_data(self, data):
-        pass
