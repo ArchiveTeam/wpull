@@ -171,7 +171,7 @@ class WebProcessorSession(BaseProcessorSession):
     def _scrape_document(self, request, response):
         for scraper in self._document_scrapers:
             new_inline_urls, new_linked_urls = scraper.scrape(
-                request, response)
+                request, response) or ((), ())
             self._inline_urls.update(new_inline_urls)
             self._linked_urls.update(new_linked_urls)
 
