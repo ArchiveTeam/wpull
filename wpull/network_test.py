@@ -1,6 +1,6 @@
 import tornado.testing
 
-from wpull.errors import NetworkError
+from wpull.errors import DNSNotFound
 from wpull.network import Resolver
 import wpull.util
 
@@ -24,7 +24,7 @@ class TestNetwork(tornado.testing.AsyncTestCase):
         resolver = MockFaultyResolver(timeout=0.1)
         try:
             address = yield resolver.resolve('test.invalid', 80)
-        except NetworkError:
+        except DNSNotFound:
             pass
         else:
             self.assertFalse(address)

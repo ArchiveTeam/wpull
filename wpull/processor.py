@@ -4,7 +4,8 @@ import logging
 import urllib.parse
 
 from wpull.database import Status
-from wpull.errors import ProtocolError, ServerError, ConnectionRefused
+from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
+    DNSNotFound)
 from wpull.http import Request
 from wpull.stats import Statistics
 from wpull.waiter import LinearWaiter
@@ -160,6 +161,8 @@ class WebProcessorSession(BaseProcessorSession):
 
         if isinstance(error, ConnectionRefused):
             # TODO: implement --retry-connrefused
+            return Status.skipped
+        if isinstance(error, DNSNotFound):
             return Status.skipped
 
     def wait_time(self):

@@ -2,7 +2,7 @@ import logging
 import socket
 import tornado.gen
 
-from wpull.errors import NetworkError
+from wpull.errors import NetworkError, DNSNotFound
 import wpull.util
 
 
@@ -32,13 +32,13 @@ class Resolver(object):
             try:
                 results = yield wpull.util.wait_future(future, self._timeout)
             except wpull.util.TimedOut as error:
-                raise NetworkError() from error
+                raise NetworkError('DNS resolve timed out') from error
 
             if results:
                 addresses.extend(results)
 
         if not addresses:
-            raise NetworkError('No destination address.')
+            raise DNSNotFound('No destination address.')
 
         _logger.debug('Resolved addresses: {0}.'.format(addresses))
 

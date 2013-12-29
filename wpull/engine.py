@@ -4,7 +4,7 @@ import toro
 import traceback
 
 from wpull.database import Status, NotFound
-from wpull.errors import ExitStatus, ServerError
+from wpull.errors import ExitStatus, ServerError, ConnectionRefused, DNSNotFound
 from wpull.http import NetworkError, ProtocolError
 from wpull.url import URLInfo
 import wpull.util
@@ -21,6 +21,8 @@ class Engine(object):
         ServerError: ExitStatus.server_error,
         OSError: ExitStatus.file_io_error,
         IOError: ExitStatus.file_io_error,
+        ConnectionRefused: ExitStatus.network_failure,
+        DNSNotFound: ExitStatus.network_failure,
     }
 
     def __init__(self, url_table, http_client, processor, recorder=None,
