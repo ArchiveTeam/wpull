@@ -4,10 +4,9 @@ import logging
 import urllib.parse
 
 from wpull.database import Status
-from wpull.errors import ProtocolError, ServerError
+from wpull.errors import ProtocolError, ServerError, ConnectionRefused
 from wpull.http import Request
 from wpull.stats import Statistics
-import wpull.version
 from wpull.waiter import LinearWaiter
 
 
@@ -158,6 +157,10 @@ class WebProcessorSession(BaseProcessorSession):
     def _accept_error(self, error):
         self._statistics.errors[type(error)] += 1
         self._waiter.increment()
+
+        if isinstance(error, ConnectionRefused):
+            # TODO: implement --retry-connrefused
+            return Status.skipped
 
     def wait_time(self):
         return self._waiter.get()

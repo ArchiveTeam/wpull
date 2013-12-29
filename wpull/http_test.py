@@ -2,6 +2,7 @@ import io
 import tornado.testing
 import unittest
 
+from wpull.errors import ConnectionRefused
 from wpull.http import (Request, decode_chunked_transfer, Connection,
     NetworkError, ProtocolError, Client, ConnectionPool)
 from wpull.testing.badapp import BadAppTestCase
@@ -25,7 +26,7 @@ class TestConnection(BadAppTestCase):
         try:
             yield connection.fetch(
                 Request.new('http://localhost:1/'))
-        except NetworkError:
+        except ConnectionRefused:
             pass
         else:
             self.assertTrue(False)

@@ -1,5 +1,6 @@
 import abc
 import collections
+import errno
 import gettext
 import gzip
 import itertools
@@ -14,7 +15,7 @@ import tornado.gen
 import toro
 
 from wpull.actor import Event
-from wpull.errors import ProtocolError, NetworkError
+from wpull.errors import ProtocolError, NetworkError, ConnectionRefused
 from wpull.extended import SSLIOStream, IOStream
 from wpull.namevalue import NameValueRecord
 from wpull.network import Resolver
@@ -269,7 +270,10 @@ class Connection(object):
         try:
             yield self._io_stream.connect(self._address)
         except socket.error as error:
-            raise NetworkError('Connection error') from error
+            if error.errno == errno.ECONNREFUSED:
+                raise ConnectionRefused('Connection refused') from error
+            else:
+                raise NetworkError('Connection error') from error
         else:
             _logger.debug('Connected.')
             self._connected = True

@@ -1,5 +1,4 @@
 import logging
-import sys
 import tornado.gen
 import toro
 import traceback

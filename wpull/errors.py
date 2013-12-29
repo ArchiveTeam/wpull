@@ -12,6 +12,10 @@ class NetworkError(OSError):
     pass
 
 
+class ConnectionRefused(NetworkError):
+    pass
+
+
 class ExitStatus(object):
     generic_error = 1
     parser_error = 2
