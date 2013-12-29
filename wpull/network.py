@@ -38,7 +38,7 @@ class Resolver(object):
                 addresses.extend(results)
 
         if not addresses:
-            raise DNSNotFound('No destination address.')
+            raise DNSNotFound('DNS resolution did not return any results.')
 
         _logger.debug('Resolved addresses: {0}.'.format(addresses))
 
@@ -54,5 +54,5 @@ class Resolver(object):
             results = yield self.tornado_resolver.resolve(host, port, family)
             raise tornado.gen.Return(results)
         except socket.error:
-            _logger.exception(
+            _logger.warning(
                 'Failed to resolve {0} {1} {2}.'.format(host, port, family))

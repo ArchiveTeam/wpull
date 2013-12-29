@@ -1,3 +1,4 @@
+import gettext
 import logging
 import tornado.gen
 import toro
@@ -11,6 +12,7 @@ import wpull.util
 
 
 _logger = logging.getLogger(__name__)
+_ = gettext.gettext
 
 
 class Engine(object):
@@ -44,7 +46,7 @@ class Engine(object):
         yield self._done_event.wait()
         self._compute_exit_code_from_stats()
         exit_code = self._exit_code
-        _logger.info('Exiting with status {0}.'.format(exit_code))
+        _logger.info(_('Exiting with status {0}.').format(exit_code))
         raise tornado.gen.Return(exit_code)
 
     @tornado.gen.coroutine
@@ -115,60 +117,67 @@ class Engine(object):
         _logger.debug('Begin session for {0} {1}'.format(url_record, url_info))
         request = session.new_request(url_record, url_info)
 
-        if request:
-            _logger.info('Fetching {url}.'.format(url=request.url_info.url))
-
-            try:
-                response = yield self._http_client.fetch(
-                    request, recorder=self._recorder)
-            except (NetworkError, ProtocolError) as error:
-                _logger.exception('Fetch error.')
-                status = session.accept_response(None, error)
-            else:
-                _logger.info(
-                    'Fetched {url}: {status_code} {reason}.'.format(
-                        url=request.url_info.url,
-                        status_code=response.status_code,
-                        reason=response.status_reason
-                    )
-                )
-                status = session.accept_response(response)
-
-            wait_time = session.wait_time()
-
-            if wait_time:
-                _logger.debug('Sleeping {0}.'.format(wait_time))
-                yield wpull.util.sleep(wait_time)
-
-            if status is None:
-                # Retry request for things such as redirects
-                _logger.debug('Retrying request.')
-                raise tornado.gen.Return(True)
-
-            _logger.debug(
-                'Marking URL {0} status {1}.'.format(url_record.url, status))
-            self._url_table.update(
-                url_record.url,
-                increment_try_count=True,
-                status=status
-            )
-
-            inline_urls = session.get_inline_urls()
-            _logger.debug('Adding inline URLs {0}'.format(inline_urls))
-            self._url_table.add(
-                inline_urls,
-                inline=1,
-                level=url_record.level + 1
-            )
-            linked_urls = session.get_linked_urls()
-            _logger.debug('Adding linked URLs {0}'.format(linked_urls))
-            self._url_table.add(
-                linked_urls,
-                level=url_record.level + 1
-            )
-        else:
-            _logger.debug('Skipping URL {0}.'.format(url_info.url))
+        if not request:
+            _logger.debug(_('Skipping ‘{url}’.').format(url=url_info.url))
             self._url_table.update(url_record.url, status=Status.skipped)
+            return
+
+        _logger.info(_('Fetching ‘{url}’.').format(url=request.url_info.url))
+
+        try:
+            response = yield self._http_client.fetch(
+                request, recorder=self._recorder)
+        except (NetworkError, ProtocolError) as error:
+            _logger.error(
+                _('Fetching ‘{url}’ encountered an error: {error}')\
+                    .format(url=url_info.url, error=error)
+            )
+            status = session.accept_response(None, error)
+        else:
+            _logger.info(
+                _('Fetched ‘{url}’: {status_code} {reason}. '
+                    'Length: {content_length} [{content_type}].').format(
+                    url=request.url_info.url,
+                    status_code=response.status_code,
+                    reason=response.status_reason,
+                    content_length=response.fields.get('Content-Length'),
+                    content_type=response.fields.get('Content-Type'),
+                )
+            )
+            status = session.accept_response(response)
+
+        wait_time = session.wait_time()
+
+        if wait_time:
+            _logger.debug('Sleeping {0}.'.format(wait_time))
+            yield wpull.util.sleep(wait_time)
+
+        if status is None:
+            # Retry request for things such as redirects
+            _logger.debug('Retrying request.')
+            raise tornado.gen.Return(True)
+
+        _logger.debug(
+            'Marking URL {0} status {1}.'.format(url_record.url, status))
+        self._url_table.update(
+            url_record.url,
+            increment_try_count=True,
+            status=status
+        )
+
+        inline_urls = session.get_inline_urls()
+        _logger.debug('Adding inline URLs {0}'.format(inline_urls))
+        self._url_table.add(
+            inline_urls,
+            inline=1,
+            level=url_record.level + 1
+        )
+        linked_urls = session.get_linked_urls()
+        _logger.debug('Adding linked URLs {0}'.format(linked_urls))
+        self._url_table.add(
+            linked_urls,
+            level=url_record.level + 1
+        )
 
     def _stop(self):
         self._done_event.set()

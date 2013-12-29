@@ -498,7 +498,8 @@ class HostConnectionPool(collections.Set):
         try:
             response = yield connection.fetch(request, **kwargs)
         except Exception as error:
-            _logger.exception('Host pool got an error from fetch.')
+            _logger.debug('Host pool got an error from fetch: {error}'\
+                .format(error=error))
             yield async_result.set(error)
         else:
             yield async_result.set(response)
