@@ -184,6 +184,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='NUMBER',
             type=self.int_0_inf,
             help=_('try NUMBER of times on transient errors'),
+            default=20,
         )
         self.add_argument(
             '--retry-connrefused',
