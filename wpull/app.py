@@ -31,15 +31,13 @@ class Builder(object):
         self._setup_file_logger()
 
         url_table = self._build_url_table()
-        recorder = self._build_recorder()
         processor = self._build_processor()
         http_client = self._build_http_client()
 
         return Engine(
             url_table,
             http_client,
-            processor=processor,
-            recorder=recorder,
+            processor,
         )
 
     def build_and_run(self):
@@ -257,5 +255,6 @@ class Builder(object):
 
         connection_pool = ConnectionPool(
             host_connection_pool_factory=host_connection_pool_factory)
+        recorder = self._build_recorder()
 
-        return Client(connection_pool=connection_pool)
+        return Client(connection_pool=connection_pool, recorder=recorder)

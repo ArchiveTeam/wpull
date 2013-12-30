@@ -444,6 +444,7 @@ class Connection(object):
 
     @property
     def ready(self):
+        # TODO:
         raise NotImplementedError()
 
     @property
@@ -489,14 +490,14 @@ class HostConnectionPool(collections.Set):
 
     @tornado.gen.coroutine
     def _process_request(self):
-        request, kwargs, async_result = yield self._request_queue.get()
+        request, recorder, async_result = yield self._request_queue.get()
 
         _logger.debug('Host pool got request {0}'.format(request))
 
         connection = yield self._get_ready_connection()
 
         try:
-            response = yield connection.fetch(request, **kwargs)
+            response = yield connection.fetch(request, recorder=recorder)
         except Exception as error:
             _logger.debug('Host pool got an error from fetch: {error}'\
                 .format(error=error))
@@ -574,17 +575,19 @@ class ConnectionPool(collections.Mapping):
 
 
 class Client(object):
-    def __init__(self, connection_pool=None):
+    def __init__(self, connection_pool=None, recorder=None):
         if connection_pool is not None:
             self._connection_pool = connection_pool
         else:
             self._connection_pool = ConnectionPool()
 
+        self._recorder = recorder
+
     @tornado.gen.coroutine
-    def fetch(self, request, **kwargs):
+    def fetch(self, request):
         _logger.debug('Client fetch request {0}.'.format(request))
         async_result = toro.AsyncResult()
-        yield self._connection_pool.put(request, kwargs, async_result)
+        yield self._connection_pool.put(request, self._recorder, async_result)
         response = yield async_result.get()
         if isinstance(response, Exception):
             raise response

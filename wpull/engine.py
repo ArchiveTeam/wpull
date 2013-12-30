@@ -27,12 +27,10 @@ class Engine(object):
         DNSNotFound: ExitStatus.network_failure,
     }
 
-    def __init__(self, url_table, http_client, processor, recorder=None,
-    concurrent=1):
+    def __init__(self, url_table, request_client, processor, concurrent=1):
         self._url_table = url_table
-        self._http_client = http_client
+        self._request_client = request_client
         self._processor = processor
-        self._recorder = recorder
         self._worker_semaphore = toro.BoundedSemaphore(concurrent)
         self._done_event = toro.Event()
         self._concurrent = concurrent
@@ -125,8 +123,7 @@ class Engine(object):
         _logger.info(_('Fetching ‘{url}’.').format(url=request.url_info.url))
 
         try:
-            response = yield self._http_client.fetch(
-                request, recorder=self._recorder)
+            response = yield self._request_client.fetch(request)
         except (NetworkError, ProtocolError) as error:
             _logger.error(
                 _('Fetching ‘{url}’ encountered an error: {error}')\
