@@ -3,8 +3,9 @@ import os
 import tempfile
 import tornado.testing
 
-from wpull.app import AppArgumentParser, Builder
+from wpull.app import Builder
 from wpull.errors import ExitStatus
+from wpull.options import AppArgumentParser
 from wpull.testing.goodapp import GoodAppTestCase
 
 

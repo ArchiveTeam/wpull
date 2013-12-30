@@ -1,7 +1,8 @@
 import sys
 import tornado.ioloop
 
-from wpull.app import AppArgumentParser, Builder
+from wpull.app import Builder
+from wpull.options import AppArgumentParser
 
 
 if __name__ == '__main__':
