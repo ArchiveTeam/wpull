@@ -116,8 +116,7 @@ class Engine(object):
         request = session.new_request(url_record, url_info)
 
         if not request:
-            _logger.debug(_('Skipping ‘{url}’.').format(url=url_info.url))
-            self._url_table.update(url_record.url, status=Status.skipped)
+            self._skip_url(url_record.url)
             return
 
         _logger.info(_('Fetching ‘{url}’.').format(url=request.url_info.url))
@@ -154,14 +153,18 @@ class Engine(object):
             _logger.debug('Retrying request.')
             raise tornado.gen.Return(True)
 
-        _logger.debug(
-            'Marking URL {0} status {1}.'.format(url_record.url, status))
-        self._url_table.update(
-            url_record.url,
-            increment_try_count=True,
-            status=status
-        )
+        self._set_url_status(url_record.url, status)
+        self._add_urls_from_session(url_record, session)
 
+    def _skip_url(self, url):
+        _logger.debug(_('Skipping ‘{url}’.').format(url=url))
+        self._url_table.update(url, status=Status.skipped)
+
+    def _set_url_status(self, url, status):
+        _logger.debug('Marking URL {0} status {1}.'.format(url, status))
+        self._url_table.update(url, increment_try_count=True, status=status)
+
+    def _add_urls_from_session(self, url_record, session):
         inline_urls = session.get_inline_urls()
         _logger.debug('Adding inline URLs {0}'.format(inline_urls))
         self._url_table.add(
