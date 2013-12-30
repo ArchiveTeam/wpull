@@ -185,12 +185,16 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=self.int_0_inf,
             help=_('try NUMBER of times on transient errors'),
         )
-        # TODO:
-#         self.add_argument(
-#             '--retry-connrefused',
-#             action='store_true',
-#             help=_('retry even if the server does not accept connections'),
-#         )
+        self.add_argument(
+            '--retry-connrefused',
+            action='store_true',
+            help=_('retry even if the server does not accept connections'),
+        )
+        self.add_argument(
+            '--retry-dns-error',
+            action='store_true',
+            help=_('retry even if DNS fails to resolve hostname'),
+        )
 #         self.add_argument(
 #             '-O',
 #             '--output-document',

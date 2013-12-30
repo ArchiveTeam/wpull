@@ -197,7 +197,9 @@ class Builder(object):
         )
         processor = WebProcessor(
             url_filters, document_scrapers, file_writer, waiter,
-            request_factory=self._build_request_factory()
+            request_factory=self._build_request_factory(),
+            retry_connrefused=args.retry_connrefused,
+            retry_dns_error=args.retry_dns_error,
         )
 
         return processor

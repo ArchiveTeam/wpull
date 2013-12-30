@@ -49,13 +49,16 @@ class BaseProcessorSession(object, metaclass=abc.ABCMeta):
 
 class WebProcessor(BaseProcessor):
     def __init__(self, url_filters=None, document_scrapers=None,
-    file_writer=None, waiter=None, statistics=None, request_factory=None):
+    file_writer=None, waiter=None, statistics=None, request_factory=None,
+    retry_connrefused=False, retry_dns_error=False):
         self._url_filters = url_filters or ()
         self._document_scrapers = document_scrapers or ()
         self._file_writer = file_writer
         self._waiter = waiter or LinearWaiter()
         self._statistics = statistics or Statistics()
         self._request_factory = request_factory or Request.new
+        self._retry_connrefused = retry_connrefused
+        self._retry_dns_error = retry_dns_error
 
     @contextlib.contextmanager
     def session(self):
@@ -66,6 +69,8 @@ class WebProcessor(BaseProcessor):
             self._waiter,
             self._statistics,
             self._request_factory,
+            self._retry_connrefused,
+            self._retry_dns_error
         )
         yield session
 
@@ -76,7 +81,7 @@ class WebProcessor(BaseProcessor):
 
 class WebProcessorSession(BaseProcessorSession):
     def __init__(self, url_filters, document_scrapers, file_writer, waiter,
-    statistics, request_factory):
+    statistics, request_factory, retry_connrefused, retry_dns_error):
         self._url_filters = url_filters
         self._document_scrapers = document_scrapers
         self._file_writer = file_writer
@@ -87,6 +92,8 @@ class WebProcessorSession(BaseProcessorSession):
         self._waiter = waiter
         self._statistics = statistics
         self._request_factory = request_factory
+        self._retry_connrefused = retry_connrefused
+        self._retry_dns_error = retry_dns_error
 
     def new_request(self, url_record, url_info):
         if not self._filter_test_url(url_info, url_record):
@@ -159,11 +166,13 @@ class WebProcessorSession(BaseProcessorSession):
         self._statistics.errors[type(error)] += 1
         self._waiter.increment()
 
-        if isinstance(error, ConnectionRefused):
-            # TODO: implement --retry-connrefused
+        if isinstance(error, ConnectionRefused) \
+        and not self._retry_connrefused:
             return Status.skipped
-        if isinstance(error, DNSNotFound):
+        if isinstance(error, DNSNotFound) and not self._retry_dns_error:
             return Status.skipped
+
+        return Status.error
 
     def wait_time(self):
         return self._waiter.get()
