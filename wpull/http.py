@@ -84,8 +84,8 @@ class Response(object):
 
         raise ProtocolError('Error parsing status line ‘{0}’'.format(string))
 
-    def iter_header(self):
-        yield '{0} {1} {2}\r\n{3}\r\n'.format(
+    def header(self):
+        return '{0} {1} {2}\r\n{3}\r\n'.format(
             self.version,
             self.status_code,
             self.status_reason,

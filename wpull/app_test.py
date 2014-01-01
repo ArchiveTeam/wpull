@@ -38,6 +38,7 @@ class TestApp(GoodAppTestCase):
             '--no-parent',
             '--recursive',
             '--page-requisites',
+            '--warc-file', 'test',
         ])
         engine = Builder(args).build()
         with cd_tempdir():

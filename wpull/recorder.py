@@ -249,7 +249,7 @@ class WARCRecorderSession(BaseRecorderSession):
         self._request_record.block_file.write(data)
 
     def request(self, request):
-        payload_offset = len(b''.join(request.iter_header()))
+        payload_offset = len(request.header())
 
         self._request_record.block_file.seek(0)
         self._request_record.compute_checksum(payload_offset=payload_offset)
@@ -265,10 +265,11 @@ class WARCRecorderSession(BaseRecorderSession):
         record.block_file = self._new_temp_file()
 
     def response_data(self, data):
-        self._response_record.block_file.write(data)
+        if self._response_record:
+            self._response_record.block_file.write(data)
 
     def response(self, response):
-        payload_offset = len(b''.join(response.iter_header()))
+        payload_offset = len(response.header())
 
         self._response_record.block_file.seek(0)
         self._response_record.compute_checksum(payload_offset=payload_offset)
