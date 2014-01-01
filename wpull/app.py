@@ -201,6 +201,7 @@ class Builder(object):
             request_factory=self._build_request_factory(),
             retry_connrefused=args.retry_connrefused,
             retry_dns_error=args.retry_dns_error,
+            max_redirects=args.max_redirect,
         )
 
         return processor

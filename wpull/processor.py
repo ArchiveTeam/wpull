@@ -50,7 +50,7 @@ class BaseProcessorSession(object, metaclass=abc.ABCMeta):
 class WebProcessor(BaseProcessor):
     def __init__(self, url_filters=None, document_scrapers=None,
     file_writer=None, waiter=None, statistics=None, request_factory=None,
-    retry_connrefused=False, retry_dns_error=False):
+    retry_connrefused=False, retry_dns_error=False, max_redirects=20):
         self._url_filters = url_filters or ()
         self._document_scrapers = document_scrapers or ()
         self._file_writer = file_writer
@@ -59,6 +59,7 @@ class WebProcessor(BaseProcessor):
         self._request_factory = request_factory or Request.new
         self._retry_connrefused = retry_connrefused
         self._retry_dns_error = retry_dns_error
+        self._max_redirects = max_redirects
 
     @contextlib.contextmanager
     def session(self):
@@ -70,7 +71,8 @@ class WebProcessor(BaseProcessor):
             self._statistics,
             self._request_factory,
             self._retry_connrefused,
-            self._retry_dns_error
+            self._retry_dns_error,
+            self._max_redirects,
         )
         yield session
 
@@ -81,7 +83,8 @@ class WebProcessor(BaseProcessor):
 
 class WebProcessorSession(BaseProcessorSession):
     def __init__(self, url_filters, document_scrapers, file_writer, waiter,
-    statistics, request_factory, retry_connrefused, retry_dns_error):
+    statistics, request_factory, retry_connrefused, retry_dns_error,
+    max_redirects):
         self._url_filters = url_filters
         self._document_scrapers = document_scrapers
         self._file_writer = file_writer
@@ -94,6 +97,7 @@ class WebProcessorSession(BaseProcessorSession):
         self._request_factory = request_factory
         self._retry_connrefused = retry_connrefused
         self._retry_dns_error = retry_dns_error
+        self._redirects_remaining = max_redirects
 
     def new_request(self, url_record, url_info):
         if not self._filter_test_url(url_info, url_record):
@@ -131,13 +135,13 @@ class WebProcessorSession(BaseProcessorSession):
             return self._accept_error(error)
 
         if response.status_code in (301, 302, 303, 307, 308):
-            # TODO: handle max redirects
-            if 'location' in response.fields:
+            if 'location' in response.fields and self._redirects_remaining > 0:
                 url = response.fields['location']
                 url = urllib.parse.urljoin(self._request.url_info.url, url)
                 _logger.debug('Got redirect to {url}.'.format(url=url))
                 self._redirect_url = url
                 self._waiter.reset()
+                self._redirects_remaining -= 1
                 return
             else:
                 self._statistics.errors[ProtocolError] += 1

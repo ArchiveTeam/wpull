@@ -463,9 +463,13 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--header',
 #             metavar='STRING'
 #         )
-#         self.add_argument(
-#             '--max-redirect',
-#         )
+        self.add_argument(
+            '--max-redirect',
+            metavar='NUMBER',
+            type=int,
+            help=_('follow only up to NUMBER document redirects'),
+            default=20,
+        )
 #         self.add_argument(
 #             '--proxy-user',
 #             metavar='USER'
