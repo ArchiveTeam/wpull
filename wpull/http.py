@@ -197,6 +197,7 @@ class ResponseBody(Body):
 class Connection(object):
     class ConnectionEvents(object):
         def __init__(self):
+            self.pre_request = Event()
             self.request = Event()
             self.pre_response = Event()
             self.response = Event()
@@ -204,6 +205,7 @@ class Connection(object):
             self.response_data = Event()
 
         def attach(self, recorder_session):
+            self.pre_request += recorder_session.pre_request
             self.request += recorder_session.request
             self.pre_response += recorder_session.pre_response
             self.response += recorder_session.response
@@ -211,6 +213,7 @@ class Connection(object):
             self.response_data += recorder_session.response_data
 
         def clear(self):
+            self.pre_request.clear()
             self.request.clear()
             self.pre_response.clear()
             self.response.clear()
@@ -299,11 +302,12 @@ class Connection(object):
         yield self._connect()
 
         request.address = self._address
-        self._events.request(request)
+        self._events.pre_request(request)
 
         try:
             yield self._send_request_header(request)
             yield self._send_request_body(request)
+            self._events.request(request)
 
             response = yield self._read_response_header()
             # TODO: handle 100 Continue

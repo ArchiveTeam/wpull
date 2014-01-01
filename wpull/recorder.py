@@ -25,6 +25,9 @@ class BaseRecorder(object, metaclass=abc.ABCMeta):
 
 
 class BaseRecorderSession(object, metaclass=abc.ABCMeta):
+    def pre_request(self, request):
+        pass
+
     def request(self, request):
         pass
 
@@ -63,6 +66,10 @@ class DemuxRecorderSession(BaseRecorderSession):
     def __enter__(self):
         self._contexts = [recorder.session() for recorder in self._recorders]
         self._sessions = [context.__enter__() for context in self._contexts]
+
+    def pre_request(self, request):
+        for session in self._sessions:
+            session.pre_request(request)
 
     def request(self, request):
         for session in self._sessions:
@@ -168,9 +175,11 @@ class WARCRecord(object):
 
 
 class WARCRecorder(BaseRecorder):
-    def __init__(self, filename, compress=True, extra_fields=None):
+    def __init__(self, filename, compress=True, extra_fields=None,
+    temp_dir=None):
         self._filename = filename
         self._gzip_enabled = compress
+        self._temp_dir = temp_dir
         self._warcinfo_record = WARCRecord()
 
         self._populate_warcinfo(extra_fields)
@@ -196,7 +205,7 @@ class WARCRecorder(BaseRecorder):
 
     @contextlib.contextmanager
     def session(self):
-        recorder_session = WARCRecorderSession(self)
+        recorder_session = WARCRecorderSession(self, self._temp_dir)
         yield recorder_session
 
     def write_record(self, record):
@@ -215,45 +224,55 @@ class WARCRecorder(BaseRecorder):
 
 
 class WARCRecorderSession(BaseRecorderSession):
-    def __init__(self, recorder):
+    def __init__(self, recorder, temp_dir=None):
         self._recorder = recorder
         self._request = None
         self._request_record = None
+        self._response_record = None
+        self._temp_dir = temp_dir
 
-    def request(self, request):
+    def _new_temp_file(self):
+        return tempfile.SpooledTemporaryFile(
+            max_size=1048576,
+            dir=self._temp_dir
+        )
+
+    def pre_request(self, request):
         self._request = request
         self._request_record = record = WARCRecord()
         record.set_common_fields(WARCRecord.REQUEST, WARCRecord.TYPE_REQUEST)
         record.fields['WARC-Target-URI'] = request.url_info.url
         record.fields['WARC-IP-Address'] = request.address[0]
-        record.block_file = tempfile.SpooledTemporaryFile(max_size=1048576)
+        record.block_file = self._new_temp_file()
 
-        with wpull.util.reset_file_offset(record.block_file):
-            for data in request:
-                record.block_file.write(data)
+    def request_data(self, data):
+        self._request_record.block_file.write(data)
 
+    def request(self, request):
         payload_offset = len(b''.join(request.iter_header()))
-        record.compute_checksum(payload_offset=payload_offset)
 
-        self._recorder.write_record(record)
+        self._request_record.block_file.seek(0)
+        self._request_record.compute_checksum(payload_offset=payload_offset)
+        self._recorder.write_record(self._request_record)
 
-    def response(self, response):
-        record = WARCRecord()
+    def pre_response(self, response):
+        self._response_record = record = WARCRecord()
         record.set_common_fields(WARCRecord.RESPONSE, WARCRecord.TYPE_RESPONSE)
         record.fields['WARC-Target-URI'] = self._request.url_info.url
         record.fields['WARC-IP-Address'] = self._request.address[0]
         record.fields['WARC-Concurrent-To'] = self._request_record.fields[
             WARCRecord.WARC_RECORD_ID]
-        record.block_file = tempfile.SpooledTemporaryFile(max_size=1048576)
+        record.block_file = self._new_temp_file()
 
-        with wpull.util.reset_file_offset(record.block_file):
-            for data in response:
-                record.block_file.write(data)
+    def response_data(self, data):
+        self._response_record.block_file.write(data)
 
+    def response(self, response):
         payload_offset = len(b''.join(response.iter_header()))
-        record.compute_checksum(payload_offset=payload_offset)
 
-        self._recorder.write_record(record)
+        self._response_record.block_file.seek(0)
+        self._response_record.compute_checksum(payload_offset=payload_offset)
+        self._recorder.write_record(self._response_record)
 
 
 class DebugPrintRecorder(BaseRecorder):
@@ -267,6 +286,9 @@ class DebugPrintRecorder(BaseRecorder):
 
 
 class DebugPrintRecorderSession(BaseRecorderSession):
+    def pre_request(self, request):
+        print(request)
+
     def request(self, request):
         print(request)
 
@@ -311,7 +333,7 @@ class ProgressRecorderSession(BaseRecorderSession):
         self._last_flush_time = 0
         self._bar_style = bar_style
 
-    def request(self, request):
+    def pre_request(self, request):
         print(
             _('Requesting {url}... ').format(url=request.url_info.url),
             end=''

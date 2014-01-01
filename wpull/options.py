@@ -655,10 +655,11 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--no-warc-keep-log',
 #             action='store_true',
 #         )
-#         self.add_argument(
-#             '--warc-tempdir',
-#             metavar='DIRECTORY'
-#         )
+        self.add_argument(
+            '--warc-tempdir',
+            metavar='DIRECTORY',
+            help=_('use temporary DIRECTORY for preparing WARC files'),
+        )
 
     def _add_recursive_args(self):
         self.add_argument(

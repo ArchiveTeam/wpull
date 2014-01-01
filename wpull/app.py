@@ -147,7 +147,8 @@ class Builder(object):
                 WARCRecorder(
                     warc_path,
                     compress=not args.no_warc_compression,
-                    extra_fields=extra_fields
+                    extra_fields=extra_fields,
+                    temp_dir=args.warc_tempdir,
                 )
             )
 
