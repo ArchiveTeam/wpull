@@ -52,23 +52,10 @@ class Request(object):
 
         return request
 
-    def iter_header(self):
-        yield '{0} {1} {2}\r\n'.format(
-            self.method, self.resource_url, self.version).encode()
-        yield bytes(self.fields)
-        yield b'\r\n'
-
-    def iter_body(self):
-        if self.body:
-            return iter(self.body)
-        else:
-            return ()
-
-    def __iter__(self):
-        return itertools.chain(self.iter_header(), self.iter_body())
-
-    def __bytes__(self):
-        return b''.join(iter(self))
+    def header(self):
+        return '{0} {1} {2}\r\n{3}\r\n'.format(
+            self.method, self.resource_url, self.version, str(self.fields)
+        ).encode()
 
     def __repr__(self):
         return '<Request({method}, {url}, {version})>'.format(
@@ -82,7 +69,7 @@ class Response(object):
         self.status_code = status_code
         self.status_reason = status_reason
         self.fields = NameValueRecord()
-        self.body = None
+        self.body = Body()
 
     @classmethod
     def parse_status_line(cls, string):
@@ -98,22 +85,12 @@ class Response(object):
         raise ProtocolError('Error parsing status line ‘{0}’'.format(string))
 
     def iter_header(self):
-        yield '{0} {1} {2}\r\n'.format(
-            self.version, self.status_code, self.status_reason).encode()
-        yield bytes(self.fields)
-        yield b'\r\n'
-
-    def iter_body(self):
-        if self.body:
-            return iter(self.body)
-        else:
-            return ()
-
-    def __iter__(self):
-        return itertools.chain(self.iter_header(), self.iter_body())
-
-    def __bytes__(self):
-        return b''.join(iter(self))
+        yield '{0} {1} {2}\r\n{3}\r\n'.format(
+            self.version,
+            self.status_code,
+            self.status_reason,
+            str(self.fields)
+        ).encode()
 
     def __repr__(self):
         return '<Response({version}, {code}, {reason})>'.format(
@@ -124,18 +101,16 @@ class Response(object):
 
 class Body(object, metaclass=abc.ABCMeta):
     def __init__(self):
-        self.http_file = None
-        self.content_file = None
+        self.content_file = self.new_temp_file()
         self._content_data = None
 
     def __iter__(self):
-        if self.http_file:
-            with wpull.util.reset_file_offset(self.http_file):
-                while True:
-                    data = self.http_file.read(4096)
-                    if not data:
-                        break
-                    yield data
+        with wpull.util.reset_file_offset(self.content_file):
+            while True:
+                data = self.content_file.read(4096)
+                if not data:
+                    break
+                yield data
 
     @property
     def content(self):
@@ -149,49 +124,11 @@ class Body(object, metaclass=abc.ABCMeta):
     def new_temp_file(cls):
         return tempfile.SpooledTemporaryFile(max_size=4194304)
 
-    @abc.abstractmethod
-    def transform(self):
-        pass
-
     @property
     def content_size(self):
         with wpull.util.reset_file_offset(self.content_file):
             self.content_file.seek(0, os.SEEK_END)
             return self.content_file.tell()
-
-    @property
-    def http_size(self):
-        with wpull.util.reset_file_offset(self.http_file):
-            self.http_file.seek(0, os.SEEK_END)
-            return self.http_file.tell()
-
-
-class RequestBody(Body):
-    def __init__(self, content_file):
-        super().__init__()
-        self.content_file = content_file
-        self.http_file = content_file
-        # TODO: support gzipping the content
-
-    def transform(self):
-        raise NotImplementedError()
-
-
-class ResponseBody(Body):
-    def __init__(self, http_file):
-        super().__init__()
-        self.http_file = http_file
-        self.content_file = http_file
-
-    def transform(self, chunked=False, gzipped=False):
-        if chunked:
-            self.content_file = decode_chunked_transfer(self.http_file)
-
-        if gzipped:
-            with wpull.util.reset_file_offset(self.content_file):
-                with gzip.open(self.content_file) as in_file:
-                    self.content_file = self.new_temp_file()
-                    shutil.copyfileobj(in_file, self.content_file)
 
 
 class Connection(object):
@@ -323,14 +260,14 @@ class Connection(object):
     @tornado.gen.coroutine
     def _send_request_header(self, request):
         _logger.debug('Sending headers.')
-        for data in request.iter_header():
-            self._events.request_data(data)
-            yield tornado.gen.Task(self._io_stream.write, data)
+        data = request.header()
+        self._events.request_data(data)
+        yield tornado.gen.Task(self._io_stream.write, data)
 
     @tornado.gen.coroutine
     def _send_request_body(self, request):
         _logger.debug('Sending body.')
-        for data in request.iter_body():
+        for data in request.body or ():
             self._events.request_data(data)
             yield tornado.gen.Task(self._io_stream.write, data)
 
@@ -354,24 +291,18 @@ class Connection(object):
     @tornado.gen.coroutine
     def _read_response_body(self, response):
         _logger.debug('Reading body.')
-        http_file = Body.new_temp_file()
         gzipped = 'gzip' in response.fields.get('Content-Encoding', '')
-        chunked = False
+        # TODO: handle gzip responses
 
         if re.search(r'chunked$|;',
         response.fields.get('Transfer-Encoding', '')):
-            response.body = ResponseBody(http_file)
-            chunked = True
             yield self._read_response_by_chunk(response)
         elif 'Content-Length' in response.fields:
-            response.body = ResponseBody(http_file)
             yield self._read_response_by_length(response)
         else:
-            response.body = ResponseBody(http_file)
             yield self._read_response_until_close(response)
 
-        http_file.seek(0)
-        response.body.transform(chunked=chunked, gzipped=gzipped)
+        response.body.content_file.seek(0)
 
     @tornado.gen.coroutine
     def _read_response_by_length(self, response):
@@ -379,7 +310,7 @@ class Connection(object):
 
         def response_callback(data):
             self._events.response_data(data)
-            response.body.http_file.write(data)
+            response.body.content_file.write(data)
 
         yield tornado.gen.Task(self._io_stream.read_bytes, body_size,
             streaming_callback=response_callback)
@@ -401,7 +332,6 @@ class Connection(object):
             self._io_stream.read_until_regex, b'[^\n\r]+')
 
         self._events.response_data(chunk_size_hex)
-        response.body.http_file.write(chunk_size_hex)
 
         try:
             chunk_size = int(chunk_size_hex.split(b';', 1)[0].strip(), 16)
@@ -417,11 +347,10 @@ class Connection(object):
             self._io_stream.read_until, b'\n')
 
         self._events.response_data(newline_data)
-        response.body.http_file.write(newline_data)
 
         def response_callback(data):
             self._events.response_data(data)
-            response.body.http_file.write(data)
+            response.body.content_file.write(data)
 
         yield tornado.gen.Task(self._io_stream.read_bytes, chunk_size,
             streaming_callback=response_callback)
@@ -441,7 +370,7 @@ class Connection(object):
     def _read_response_until_close(self, response):
         def response_callback(data):
             self._events.response_data(data)
-            response.body.http_file.write(data)
+            response.body.content_file.write(data)
 
         yield tornado.gen.Task(self._io_stream.read_until_close,
             streaming_callback=response_callback)
@@ -597,22 +526,3 @@ class Client(object):
             raise response
         else:
             raise tornado.gen.Return(response)
-
-
-def decode_chunked_transfer(file):
-    with wpull.util.reset_file_offset(file):
-        out_file = tempfile.SpooledTemporaryFile(max_size=4194304)
-
-        while True:
-            line = file.readline()
-            match = re.search(br'([0-9A-Za-z]+)', line)
-            chunk_size = int(match.group(1), 16)
-
-            if not chunk_size:
-                break
-
-            out_file.write(file.read(chunk_size))
-            file.readline()  # discard deliminator before next size
-
-        out_file.seek(0)
-    return out_file

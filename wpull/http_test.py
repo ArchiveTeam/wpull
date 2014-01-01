@@ -3,8 +3,8 @@ import tornado.testing
 import unittest
 
 from wpull.errors import ConnectionRefused
-from wpull.http import (Request, decode_chunked_transfer, Connection,
-    NetworkError, ProtocolError, Client, ConnectionPool)
+from wpull.http import (Request, Connection, NetworkError, ProtocolError, Client,
+    ConnectionPool)
 from wpull.testing.badapp import BadAppTestCase
 
 
@@ -76,7 +76,6 @@ class TestConnection(BadAppTestCase):
         self.assertEqual('100', response.fields['Content-Length'])
         self.assertEqual(b'a' * 100, response.body.content)
         self.assertEqual(100, response.body.content_size)
-        self.assertEqual(100, response.body.http_size)
 
     @tornado.testing.gen_test
     def test_basic_chunked(self):
@@ -207,17 +206,5 @@ class TestHTTP(unittest.TestCase):
             (b'GET /robots.txt HTTP/1.1\r\n'
             b'Host: example.com\r\n'
             b'\r\n'),
-            bytes(request)
+            request.header()
         )
-
-    def test_decode_chunked_transfer(self):
-        input_file = io.BytesIO(b'4\r\n'
-            b'Wiki\r\n'
-            b'5\r\n'
-            b'pedia\r\n'
-            b'e\r\n'
-            b' in\r\n\r\nchunks.\r\n'
-            b'0\r\n'
-            b'\r\n')
-        decoded = b'Wikipedia in\r\n\r\nchunks.'
-        self.assertEqual(decoded, decode_chunked_transfer(input_file).read())

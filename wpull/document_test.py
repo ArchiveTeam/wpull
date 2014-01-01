@@ -2,7 +2,7 @@ import os.path
 import unittest
 
 from wpull.document import HTMLScraper
-from wpull.http import Request, Response, ResponseBody, Body
+from wpull.http import Request, Response, Body
 import wpull.util
 import shutil
 
@@ -12,13 +12,12 @@ class TestDocument(unittest.TestCase):
         scraper = HTMLScraper()
         request = Request.new('http://example.com/')
         response = Response('HTTP/1.0', 200, 'OK')
-        response.body = ResponseBody(Body.new_temp_file())
 
-        with wpull.util.reset_file_offset(response.body.http_file):
+        with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
                 'testing', 'samples', 'many_urls.html')
             with open(html_file_path, 'rb') as in_file:
-                shutil.copyfileobj(in_file, response.body.http_file)
+                shutil.copyfileobj(in_file, response.body.content_file)
 
         inline_urls, html_urls = scraper.scrape(request, response)
 
@@ -75,13 +74,12 @@ class TestDocument(unittest.TestCase):
         scraper = HTMLScraper()
         request = Request.new('http://example.com/')
         response = Response('HTTP/1.0', 200, '')
-        response.body = ResponseBody(Body.new_temp_file())
 
-        with wpull.util.reset_file_offset(response.body.http_file):
+        with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
                 'testing', 'samples', 'soup.html')
             with open(html_file_path, 'rb') as in_file:
-                shutil.copyfileobj(in_file, response.body.http_file)
+                shutil.copyfileobj(in_file, response.body.content_file)
 
         inline_urls, html_urls = scraper.scrape(request, response)
 
