@@ -64,6 +64,8 @@ class WebProcessor(BaseProcessor):
         self._retry_dns_error = retry_dns_error
         self._max_redirects = max_redirects
 
+        self._statistics.start()
+
     @contextlib.contextmanager
     def session(self):
         session = WebProcessorSession(
@@ -82,6 +84,9 @@ class WebProcessor(BaseProcessor):
     @property
     def statistics(self):
         return self._statistics
+
+    def close(self):
+        self._statistics.stop()
 
 
 class WebProcessorSession(BaseProcessorSession):

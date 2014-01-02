@@ -42,12 +42,12 @@ class Engine(object):
         self._run_workers()
 
         yield self._done_event.wait()
+
         self._compute_exit_code_from_stats()
-        exit_code = self._exit_code
-        _logger.info(_('Exiting with status {0}.').format(exit_code))
         self._processor.close()
+        self._print_stats()
         self._request_client.close()
-        raise tornado.gen.Return(exit_code)
+        raise tornado.gen.Return(self._exit_code)
 
     @tornado.gen.coroutine
     def _run_workers(self):
@@ -204,3 +204,14 @@ class Engine(object):
             exit_code = self.ERROR_CODE_MAP.get(error_type)
             if exit_code:
                 self._update_exit_code(exit_code)
+
+    def _print_stats(self):
+        stats = self._processor.statistics
+        time_length = stats.stop_time - stats.start_time
+
+        _logger.info(_('FINISHED.'))
+        _logger.info(_('Time length: {time:.1} seconds.')\
+            .format(time=time_length))
+        _logger.info(_('Downloaded: {num_files} files, {total_size} bytes.')\
+            .format(num_files=stats.files, total_size=stats.size))
+        _logger.info(_('Exiting with status {0}.').format(self._exit_code))

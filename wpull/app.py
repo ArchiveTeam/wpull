@@ -47,7 +47,9 @@ class Builder(object):
         return exit_code
 
     def _setup_logging(self):
-        logging.basicConfig(level=self._args.verbosity or logging.INFO)
+        logging.basicConfig(
+            level=self._args.verbosity or logging.INFO,
+            format='%(levelname)s %(message)s')
 
         if self._args.verbosity == logging.DEBUG:
             tornado.ioloop.IOLoop.instance().set_blocking_log_threshold(5)
