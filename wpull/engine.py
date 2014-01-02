@@ -172,13 +172,15 @@ class Engine(object):
         self._url_table.add(
             inline_urls,
             inline=1,
-            level=url_record.level + 1
+            level=url_record.level + 1,
+            referrer=url_record.url,
         )
         linked_urls = session.get_linked_urls()
         _logger.debug('Adding linked URLs {0}'.format(linked_urls))
         self._url_table.add(
             linked_urls,
-            level=url_record.level + 1
+            level=url_record.level + 1,
+            referrer=url_record.url,
         )
 
     def _stop(self):
