@@ -63,6 +63,7 @@ class TestDocument(unittest.TestCase):
             'http://example.com/frame_src.html',
             'http://example.com/embed_href.html',
             'http://example.com/embed_src.mov',
+            'http://example.com/form_action.html',
             'http://example.com/iframe_src.html',
             'http://example.com/layer_src.png',
             'http://example.com/overlay_src.html',

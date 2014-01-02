@@ -1,4 +1,6 @@
 import abc
+import collections
+import itertools
 import lxml.html
 import re
 import urllib.parse
@@ -11,35 +13,19 @@ class BaseDocumentScraper(object, metaclass=abc.ABCMeta):
     def scrape(self, request, response):
         pass
 
+ScrapedLink = collections.namedtuple(
+    'ScrapedLink', ['tag', 'attrib', 'link', 'inline', 'linked', 'base_link'])
+
 
 class HTMLScraper(BaseDocumentScraper):
+    LINK_ATTRIBUTES = frozenset([
+        'action', 'archive', 'background', 'cite', 'classid',
+        'codebase', 'data', 'href', 'longdesc', 'profile', 'src',
+        'usemap',
+        'dynsrc', 'lowsrc',
+    ])
     ATTR_INLINE = 1
     ATTR_HTML = 2
-
-    TAG_HANDLERS = {
-        'a': 'url',
-        'applet': 'url',
-        'area': 'url',
-        'base': 'base',
-        'bgsound': 'url',
-        'body': 'url',
-        'embed': 'url',
-        'fig': 'url',
-        'form': 'form',
-        'frame': 'url',
-        'iframe': 'url',
-        'img': 'url',
-        'input': 'url',
-        'link': 'link',
-        'meta': 'meta',
-        'object': 'url',
-        'overlay': 'url',
-        'script': 'url',
-        'table': 'url',
-        'td': 'url',
-        'th': 'url',
-    }
-
     TAG_ATTRIBUTES = {
         'a': {'href': ATTR_HTML},
         'applet': {'code': ATTR_INLINE},
@@ -48,6 +34,7 @@ class HTMLScraper(BaseDocumentScraper):
         'body': {'background': ATTR_INLINE},
         'embed': {'href': ATTR_HTML, 'src': ATTR_INLINE | ATTR_HTML},
         'fig': {'src': ATTR_INLINE},
+        'form': {'action': ATTR_HTML},
         'frame': {'src': ATTR_INLINE | ATTR_HTML},
         'iframe': {'src': ATTR_INLINE | ATTR_HTML},
         'img': {
@@ -62,9 +49,11 @@ class HTMLScraper(BaseDocumentScraper):
         'th': {'background': ATTR_INLINE},
     }
 
-    def __init__(self, followed_tags=None, ignored_tags=None, robots=False):
+    def __init__(self, followed_tags=None, ignored_tags=None, robots=False,
+    only_relative=False):
         super().__init__()
         self._robots = robots
+        self._only_relative = only_relative
 
         if followed_tags is not None:
             self._followed_tags = frozenset(
@@ -94,120 +83,135 @@ class HTMLScraper(BaseDocumentScraper):
         if not self.is_html(request, response):
             return
 
-        inline_urls = set()
-        html_urls = set()
-        base_url = request.url_info.url
-        root = self._parse_document(response.body.content_file, base_url)
-
-        self._scrape_links_by_lxml(root, inline_urls, html_urls, base_url)
-        self._scrape_links_by_wget(root, inline_urls, html_urls, base_url)
-
-        if self._robots:
-            html_urls.clear()
-
-        return (inline_urls, html_urls)
-
-    def _is_accepted(self, element_tag):
-        element_tag = element_tag.lower()
-
-        if self._ignored_tags is not None \
-        and element_tag in self._ignored_tags:
-            return False
-
-        if self._followed_tags is not None:
-            return element_tag in self._followed_tags
-        else:
-            return True
-
-    def _parse_document(self, content_file, base_url):
+        content_file = response.body.content_file
         with wpull.util.reset_file_offset(content_file):
-            root = lxml.html.parse(content_file).getroot()
+            root = lxml.html.parse(content_file, base_url=request.url_info.url
+                ).getroot()
 
-        self._make_links_absolute(root, base_url)
+        linked_urls = set()
+        inline_urls = set()
 
-        return root
+        for scraped_link in self._scrape_tree(root):
+            print(scraped_link)
+            if self._only_relative:
+                if scraped_link.base_link or '://' in scraped_link.link:
+                    continue
 
-    def _make_links_absolute(self, root, base_url):
-        self._make_links_absolute_monkey(root, base_url)
-        root.make_links_absolute(base_url)
-
-    def _make_links_absolute_monkey(self, root, base_url):
-        # TODO: this might be a bug in lxml
-        for element in root.iter('applet'):
-            if 'codebase' in element.attrib:
-                element_base_url = urllib.parse.urljoin(
-                    base_url,
-                    element.attrib['codebase'])
-            else:
-                element_base_url = base_url
-
-            for attribute in ('code', 'src',):
-                if attribute in element.attrib:
-                    element.set(
-                        attribute,
-                        urllib.parse.urljoin(
-                            element_base_url,
-                            element.attrib[attribute])
-                    )
-            if 'archive' in element.attrib:
-                for match in re.finditer(r'[^ ]+', element.get('archive')):
-                    value = match.group(0)
-                    value = urllib.parse.urljoin(element_base_url, value)
-                    element.set('archive', value)
-
-    def _scrape_links_by_lxml(self, root, inline_urls, html_urls, base_url):
-        for element, attribute, url, pos in root.iterlinks():
-            tag = element.tag
-
-            if tag == 'form':
+            if not self._is_accepted(scraped_link.tag):
                 continue
 
-            if tag == 'link':
-                if self._is_link_inline(element):
-                    inline_urls.add(url)
-                elif self._is_accepted(tag):
-                    html_urls.add(url)
-                continue
+            base_url = root.base_url
 
-            if self._is_inline(tag, attribute):
+            if scraped_link.base_link:
+                base_url = urllib.parse.urljoin(base_url,
+                    scraped_link.base_link)
+
+            url = urllib.parse.urljoin(base_url, scraped_link.link,
+                allow_fragments=False)
+
+            if scraped_link.inline:
                 inline_urls.add(url)
-            if self._is_html_link(tag, attribute) and self._is_accepted(tag):
-                html_urls.add(url)
+            if scraped_link.linked:
+                linked_urls.add(url)
 
-        self._scrape_links_by_lxml_monkey(root, inline_urls, html_urls, base_url)
+        return inline_urls, linked_urls
 
-    def _scrape_links_by_lxml_monkey(self, root, inline_urls, html_urls,
-    base_url):
-        # TODO: is this a bug in lxml
-        for element in root.iter('style'):
-            for match in re.finditer(r"@import '(.*?)'", element.text):
-                url = urllib.parse.urljoin(base_url, match.group(1))
-                inline_urls.add(url)
-
-    def _scrape_links_by_wget(self, root, inline_urls, html_urls, base_url):
+    def _scrape_tree(self, root):
         for element in root.iter():
-            tag = element.tag
-            handler = self.TAG_HANDLERS.get(tag)
+            for scraped_link in self._scrape_element(element):
+                yield scraped_link
 
-            if handler == 'url':
-                for attribute, url in element.attrib.items():
-                    if self._is_inline(tag, attribute):
-                        inline_urls.add(url)
-                    if self._is_html_link(tag, attribute) \
-                    and self._is_accepted(tag):
-                        html_urls.add(url)
-            elif handler == 'meta':
-                if element.get('http-equiv', '').lower() == 'refresh':
-                    content_value = element.get('content')
-                    match = re.search(
-                            r'url=(.+)', content_value, re.IGNORECASE)
-                    if match:
-                        url = urllib.parse.urljoin(base_url, match.group(1))
-                        html_urls.add(url)
-            # Ignore form and link handlers because they are handled through
-            # lxml and generic logic
+    def _scrape_element(self, element):
+        # reference: lxml.html.HtmlMixin.iterlinks()
+        attrib = element.attrib
+        tag = element.tag
 
-    def _is_inline(self, tag, attribute):
+        if tag == 'link':
+            iterable = self._scrape_link_element(element)
+        elif tag == 'meta':
+            iterable = self._scrape_meta_element(element)
+        elif tag in ('object', 'applet'):
+            iterable = self._scrape_object_element(element)
+        elif tag == 'param':
+            iterable = self._scrape_param_element(element)
+        elif tag == 'style':
+            iterable = self._scrape_style_element(element)
+        else:
+            iterable = self._scrape_plain_element(element)
+
+        for scraped_link in iterable:
+            yield scraped_link
+
+        if 'style' in attrib:
+            for link in CSSScraper.scrape_urls(attrib['style']):
+                yield ScrapedLink(element.tag, 'style', link, True, False,
+                    None)
+
+    def _scrape_link_element(self, element):
+        rel = element.get('rel', '')
+        inline = 'stylesheet' in rel or 'icon' in rel
+
+        for attrib_name, link in self._scrape_links_by_attrib(element):
+            yield ScrapedLink(element.tag, attrib_name, link, inline,
+                not inline, None)
+
+    def _scrape_meta_element(self, element):
+        if element.get('http-equiv', '').lower() == 'refresh':
+            content_value = element.get('content')
+            match = re.search(r'url=(.+)', content_value, re.IGNORECASE)
+            if match:
+                yield ScrapedLink(
+                    element.tag, 'http-equiv', match.group(1), False, True,
+                    None)
+
+    def _scrape_object_element(self, element):
+        base_link = element.get('codebase', None)
+
+        if base_link:
+            # lxml returns codebase as inline
+            yield ScrapedLink(element.tag, 'codebase', base_link, True, False,
+                None)
+
+        for attribute in ('code', 'src', 'classid', 'data'):
+            if attribute in element.attrib:
+                yield ScrapedLink(element.tag, attribute,
+                    element.get(attribute), True, False, base_link)
+
+        if 'archive' in element.attrib:
+            for match in re.finditer(r'[^ ]+', element.get('archive')):
+                value = match.group(0)
+                yield ScrapedLink(element.tag, 'archive', value, True, False,
+                   base_link)
+
+    def _scrape_param_element(self, element):
+        valuetype = element.get('valuetype', '')
+
+        if valuetype.lower() == 'ref' and 'value' in element.attrib:
+            yield ScrapedLink(
+                element.tag, 'value', element.get('value'), True, False, None)
+
+    def _scrape_style_element(self, element):
+        if element.text:
+            link_iter = itertools.chain(
+                CSSScraper.scrape_imports(element.text),
+                CSSScraper.scrape_urls(element.text)
+            )
+            for link in link_iter:
+                yield ScrapedLink(element.tag, None, link, True, False, None)
+
+    def _scrape_plain_element(self, element):
+        for attrib_name, link in self._scrape_links_by_attrib(element):
+            inline = self._is_link_inline(element.tag, attrib_name)
+            linked = self._is_html_link(element.tag, attrib_name)
+            yield ScrapedLink(element.tag, attrib_name, link, inline, linked,
+                None)
+
+    def _scrape_links_by_attrib(self, element):
+        for attrib_name in self.LINK_ATTRIBUTES:
+            if attrib_name in element.attrib:
+                yield attrib_name, element.get(attrib_name)
+
+    def _is_link_inline(self, tag, attribute):
         if tag in self.TAG_ATTRIBUTES \
         and attribute in self.TAG_ATTRIBUTES[tag]:
             attr_flags = self.TAG_ATTRIBUTES[tag][attribute]
@@ -223,11 +227,16 @@ class HTMLScraper(BaseDocumentScraper):
 
         return attribute == 'href'
 
-    def _is_link_inline(self, element):
-        assert element.tag == 'link'
-        rel = element.get('rel')
+    def _is_accepted(self, element_tag):
+        element_tag = element_tag.lower()
 
-        if 'stylesheet' in rel or 'icon' in rel:
+        if self._ignored_tags is not None \
+        and element_tag in self._ignored_tags:
+            return False
+
+        if self._followed_tags is not None:
+            return element_tag in self._followed_tags
+        else:
             return True
 
 
