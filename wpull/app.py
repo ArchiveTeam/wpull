@@ -120,7 +120,7 @@ class Builder(object):
         return scrapers
 
     def _build_url_table(self):
-        url_table = URLTable()
+        url_table = URLTable(path=self._args.database)
         url_table.add([url_info.url for url_info in self._url_infos])
         return url_table
 

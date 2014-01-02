@@ -97,6 +97,12 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             type=argparse.FileType('rt'),
 #             help=_('load Lua script from FILE')
 #         )
+        self.add_argument(
+            '--database',
+            metavar='FILE',
+            default=':memory:',
+            help=_('save database tables into FILE instead of memory'),
+        )
 
     def _add_log_and_input_args(self):
         output_log_group = self.add_mutually_exclusive_group()
