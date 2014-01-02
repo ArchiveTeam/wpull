@@ -199,7 +199,6 @@ class HTMLScraper(BaseDocumentScraper):
             elif handler == 'meta':
                 if element.get('http-equiv', '').lower() == 'refresh':
                     content_value = element.get('content')
-                    print(content_value)
                     match = re.search(
                             r'url=(.+)', content_value, re.IGNORECASE)
                     if match:
@@ -233,5 +232,39 @@ class HTMLScraper(BaseDocumentScraper):
 
 
 class CSSScraper(BaseDocumentScraper):
-    # TODO: scrape url()s
-    pass
+    def scrape(self, request, response):
+        if not self.is_css(request, response):
+            return
+
+        return tuple(self.scrape_urls(response.body.content_data)), ()
+
+    @classmethod
+    def is_css(cls, request, response):
+        if 'css' in response.fields.get('content-type', '').lower() \
+        or '.css' in request.url_info.path.lower():
+            return True
+
+        if response.body:
+            peeked_data = wpull.util.peek_file(
+                response.body.content_file).lower()
+            if 'html' in response.fields.get('content-type', '').lower() \
+            and b'<html' not in peeked_data.lower() \
+            and b'{' in peeked_data \
+            and b'}' in peeked_data \
+            and b':' in peeked_data:
+                return True
+
+    @classmethod
+    def scrape_urls(cls, text):
+        for match in re.finditer(r'''url\(\s*['"]?(.*?)['"]?\s*\)''', text):
+            yield match.group(1)
+
+    @classmethod
+    def scrape_imports(cls, text):
+        for match in re.finditer(r'''@import\s*([^\s]+).*?;''', text):
+            url_str_fragment = match.group(1)
+            if url_str_fragment.startswith('url('):
+                for url in cls.scrape_urls(url_str_fragment):
+                    yield url
+            else:
+                yield url_str_fragment.strip('"\'')

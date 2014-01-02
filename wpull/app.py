@@ -3,7 +3,7 @@ import logging
 import tornado.ioloop
 
 from wpull.database import URLTable
-from wpull.document import HTMLScraper
+from wpull.document import HTMLScraper, CSSScraper
 from wpull.engine import Engine
 from wpull.http import (Client, Connection, HostConnectionPool, ConnectionPool,
     Request)
@@ -114,7 +114,8 @@ class Builder(object):
         scrapers = [
             HTMLScraper(
                 followed_tags=self._args.follow_tags,
-                ignored_tags=self._args.ignore_tags)
+                ignored_tags=self._args.ignore_tags),
+            CSSScraper(),
         ]
 
         return scrapers

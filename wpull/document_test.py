@@ -1,8 +1,8 @@
 import os.path
 import unittest
 
-from wpull.document import HTMLScraper
-from wpull.http import Request, Response, Body
+from wpull.document import HTMLScraper, CSSScraper
+from wpull.http import Request, Response
 import wpull.util
 import shutil
 
@@ -90,4 +90,43 @@ class TestDocument(unittest.TestCase):
         self.assertEqual(
             {'http://example.com/BLOG'},
             html_urls
+        )
+
+    def test_scrape_css_urls(self):
+        text = '''
+        @import url("fineprint.css") print;
+        @import url("bluish.css") projection, tv;
+        @import 'custom.css';
+        @import url("chrome://communicator/skin/");
+        @import "common.css" screen, projection;
+        @import url('landscape.css') screen and (orientation:landscape);
+        @import url(cool.css);
+        @import warm.css;
+        '''
+
+        urls = set(CSSScraper.scrape_urls(text))
+
+        self.assertEqual({
+            'fineprint.css',
+            'bluish.css',
+            'chrome://communicator/skin/',
+            'landscape.css',
+            'cool.css'
+            },
+            urls
+        )
+
+        urls = set(CSSScraper.scrape_imports(text))
+
+        self.assertEqual({
+            'fineprint.css',
+            'bluish.css',
+            'custom.css',
+            'chrome://communicator/skin/',
+            'common.css',
+            'landscape.css',
+            'cool.css',
+            'warm.css',
+            },
+            urls
         )
