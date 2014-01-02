@@ -45,6 +45,8 @@ class Engine(object):
         self._compute_exit_code_from_stats()
         exit_code = self._exit_code
         _logger.info(_('Exiting with status {0}.').format(exit_code))
+        self._processor.close()
+        self._request_client.close()
         raise tornado.gen.Return(exit_code)
 
     @tornado.gen.coroutine

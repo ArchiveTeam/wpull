@@ -655,10 +655,13 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--no-warc-digests',
 #             action='store_true',
 #         )
-#         self.add_argument(
-#             '--no-warc-keep-log',
-#             action='store_true',
-#         )
+        self.add_argument(
+            '--no-warc-keep-log',
+            action='store_false',
+            dest='warc_log',
+            default=True,
+            help=_('do not save a log into the WARC file'),
+        )
         self.add_argument(
             '--warc-tempdir',
             metavar='DIRECTORY',

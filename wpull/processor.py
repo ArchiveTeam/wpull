@@ -24,6 +24,9 @@ class BaseProcessor(object, metaclass=abc.ABCMeta):
     def statistics(self):
         pass
 
+    def close(self):
+        pass
+
 
 class BaseProcessorSession(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod

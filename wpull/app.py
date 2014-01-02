@@ -149,6 +149,7 @@ class Builder(object):
                     compress=not args.no_warc_compression,
                     extra_fields=extra_fields,
                     temp_dir=args.warc_tempdir,
+                    log=args.warc_log,
                 )
             )
 

@@ -526,3 +526,7 @@ class Client(object):
             raise response
         else:
             raise tornado.gen.Return(response)
+
+    def close(self):
+        if self._recorder:
+            self._recorder.close()

@@ -5,7 +5,9 @@ import gettext
 import gzip
 import hashlib
 import io
+import logging
 import sys
+from tempfile import NamedTemporaryFile
 import tempfile
 import time
 import uuid
@@ -21,6 +23,9 @@ class BaseRecorder(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     @contextlib.contextmanager
     def session(self):
+        pass
+
+    def close(self):
         pass
 
 
@@ -54,6 +59,10 @@ class DemuxRecorder(BaseRecorder):
         dmux = DemuxRecorderSession(self._recorders)
         with dmux:
             yield dmux
+
+    def close(self):
+        for recorder in self._recorders:
+            recorder.close()
 
 
 class DemuxRecorderSession(BaseRecorderSession):
@@ -176,13 +185,20 @@ class WARCRecord(object):
 
 class WARCRecorder(BaseRecorder):
     def __init__(self, filename, compress=True, extra_fields=None,
-    temp_dir=None):
+    temp_dir=None, log=True):
         self._filename = filename
         self._gzip_enabled = compress
         self._temp_dir = temp_dir
         self._warcinfo_record = WARCRecord()
+        self._log_record = None
+        self._log_handler = None
 
         self._populate_warcinfo(extra_fields)
+
+        if log:
+            self._log_record = WARCRecord()
+            self._setup_log()
+
         self.write_record(self._warcinfo_record)
 
     def _populate_warcinfo(self, extra_fields=None):
@@ -203,6 +219,18 @@ class WARCRecorder(BaseRecorder):
             bytes(info_fields) + b'\r\n')
         self._warcinfo_record.compute_checksum()
 
+    def _setup_log(self):
+        logger = logging.getLogger()
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        self._log_record.block_file = NamedTemporaryFile(dir=self._temp_dir)
+        self._log_handler = handler = logging.FileHandler(
+            self._log_record.block_file.name)
+
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        handler.setLevel(logging.INFO)
+
     @contextlib.contextmanager
     def session(self):
         recorder_session = WARCRecorderSession(self, self._temp_dir)
@@ -221,6 +249,15 @@ class WARCRecorder(BaseRecorder):
         with open_func(self._filename, mode='ab') as out_file:
             for data in record:
                 out_file.write(data)
+
+    def close(self):
+        if self._log_record:
+            self._log_handler.flush()
+            self._log_handler.close()
+            self._log_record.block_file.seek(0)
+            self._log_record.set_common_fields('resource', 'text/plain')
+            self._log_record.compute_checksum()
+            self.write_record(self._log_record)
 
 
 class WARCRecorderSession(BaseRecorderSession):
