@@ -77,12 +77,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='version',
             version=wpull.version.__version__
         )
-        self.add_argument(
-            '-b',
-            '--background',
-            action='store_true',
-            help=_('run as background process')
-        )
+#         self.add_argument(
+#             '-b',
+#             '--background',
+#             action='store_true',
+#             help=_('run as background process')
+#         )
         # TODO:
 #         self.add_argument(
 #             '-e',
