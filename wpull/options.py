@@ -738,22 +738,22 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             metavar='LIST',
 #             help=_('don’t download files with extension in LIST'),
 #         )
-#         self.add_argument(
-#             '--accept-regex',
-#             metavar='REGEX',
-#             help=_('download only URLs matching REGEX'),
-#         )
-#         self.add_argument(
-#             '--reject-regex',
-#             metavar='REGEX',
-#             help=_('don’t download URLs matching REGEX'),
-#         )
-#         self.add_argument(
-#             '--regex-type',
-#             metavar='TYPE',
-#             choices=['posix'],
-#             help=_('use regex TYPE')
-#         )
+        self.add_argument(
+            '--accept-regex',
+            metavar='REGEX',
+            help=_('download only URLs matching REGEX'),
+        )
+        self.add_argument(
+            '--reject-regex',
+            metavar='REGEX',
+            help=_('don’t download URLs matching REGEX'),
+        )
+        self.add_argument(
+            '--regex-type',
+            metavar='TYPE',
+            choices=['posix'],
+            help=_('use regex TYPE')
+        )
         self.add_argument(
             '-D',
             '--domains',

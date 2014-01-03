@@ -1,7 +1,7 @@
 import unittest
 
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
-    ParentFilter, RecursiveFilter, SpanHostsFilter)
+    ParentFilter, RecursiveFilter, SpanHostsFilter, RegexFilter)
 
 
 class MockURLTableRecord(object):
@@ -227,5 +227,35 @@ class TestURL(unittest.TestCase):
         ))
         self.assertTrue(url_filter.test(
             URLInfo.parse('http://hotdog.example/blog/topic1/blah.html'),
+            mock_record
+        ))
+
+    def test_regex_filter(self):
+        mock_record = MockURLTableRecord()
+        mock_record.url = 'http://example.com/blog/'
+
+        url_filter = RegexFilter()
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://example.net'),
+            mock_record
+        ))
+
+        url_filter = RegexFilter(accepted=r'blo[a-z]/$')
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://example.net/blob/'),
+            mock_record
+        ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('http://example.net/blob/123'),
+            mock_record
+        ))
+
+        url_filter = RegexFilter(rejected=r'\.gif$')
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://example.net/blob/'),
+            mock_record
+        ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('http://example.net/blob/123.gif'),
             mock_record
         ))

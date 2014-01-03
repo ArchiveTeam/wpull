@@ -12,7 +12,7 @@ from wpull.processor import WebProcessor
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
     PrintServerResponseRecorder, ProgressRecorder)
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
-    RecursiveFilter, SpanHostsFilter, ParentFilter)
+    RecursiveFilter, SpanHostsFilter, ParentFilter, RegexFilter)
 import wpull.version
 from wpull.waiter import LinearWaiter
 from wpull.writer import FileWriter, PathNamer, NullWriter
@@ -102,7 +102,8 @@ class Builder(object):
             TriesFilter(args.tries),
             RecursiveFilter(args.recursive, args.page_requisites),
             LevelFilter(args.level),
-            SpanHostsFilter(self._url_infos, enabled=args.span_hosts)
+            SpanHostsFilter(self._url_infos, enabled=args.span_hosts),
+            RegexFilter(args.accept_regex, args.reject_regex),
         ]
 
         if args.no_parent:

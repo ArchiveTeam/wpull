@@ -1,5 +1,6 @@
 import abc
 import collections
+import re
 import urllib.parse
 
 
@@ -170,3 +171,18 @@ class SpanHostsFilter(BaseURLFilter):
 
         if url_info.hostname in self._base_urls:
             return True
+
+
+class RegexFilter(BaseURLFilter):
+    def __init__(self, accepted=None, rejected=None):
+        self._accepted = accepted
+        self._rejected = rejected
+
+    def test(self, url_info, url_table_record):
+        if self._accepted and not re.search(self._accepted, url_info.url):
+            return False
+
+        if self._rejected and re.search(self._rejected, url_info.url):
+            return False
+
+        return True
