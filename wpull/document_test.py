@@ -19,7 +19,7 @@ class TestDocument(unittest.TestCase):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
-        inline_urls, html_urls = scraper.scrape(request, response)
+        inline_urls, linked_urls = scraper.scrape(request, response)
 
         self.assertEqual({
             'http://example.com/style_import_url.css',
@@ -68,7 +68,7 @@ class TestDocument(unittest.TestCase):
             'http://example.com/layer_src.png',
             'http://example.com/overlay_src.html',
             },
-            html_urls
+            linked_urls
         )
 
     def test_html_soup(self):
@@ -131,3 +131,24 @@ class TestDocument(unittest.TestCase):
             },
             urls
         )
+
+    def test_css_scraper_links(self):
+        scraper = CSSScraper()
+        request = Request.new('http://example.com/styles.css')
+        response = Response('HTTP/1.0', 200, 'OK')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'styles.css')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        inline_urls, linked_urls = scraper.scrape(request, response)
+
+        self.assertEqual({
+            'http://example.com/mobile.css',
+            'http://example.com/images/star.gif',
+            },
+            inline_urls
+        )
+        self.assertFalse(linked_urls)

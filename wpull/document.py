@@ -245,7 +245,17 @@ class CSSScraper(BaseDocumentScraper):
         if not self.is_css(request, response):
             return
 
-        return tuple(self.scrape_urls(response.body.content_data)), ()
+        base_url = request.url_info.url
+        inline_urls = set()
+        text = response.body.content.decode()
+        iterable = itertools.chain(self.scrape_urls(text),
+            self.scrape_imports(text))
+
+        for link in iterable:
+            inline_urls.add(urllib.parse.urljoin(base_url, link,
+                allow_fragments=False))
+
+        return inline_urls, ()
 
     @classmethod
     def is_css(cls, request, response):

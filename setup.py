@@ -26,7 +26,7 @@ setup(name='wpull',
     author_email='chris.foo@gmail.com',
     url='https://github.com/chfoo/wpull',
     packages=['wpull', 'wpull.testing'],
-    package_data={'': ['testing/*/*.html']},
+    package_data={'': ['testing/*/*.html', 'testing/*/*.css']},
     install_requires=['tornado', 'toro', 'lxml'],
     classifiers=[
         'Development Status :: 3 - Alpha',
