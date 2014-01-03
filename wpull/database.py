@@ -50,6 +50,10 @@ class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
     def count(self):
         pass
 
+    @abc.abstractmethod
+    def release(self):
+        pass
+
 
 class SQLiteURLTable(BaseURLTable):
     def __init__(self, path=':memory:'):
@@ -144,6 +148,10 @@ class SQLiteURLTable(BaseURLTable):
     def count(self):
         query = '''SELECT count(rowid) FROM urls'''
         return self._connection.execute(query).fetchone()[0]
+
+    def release(self):
+        query = '''UPDATE urls SET status = ? WHERE status = ? '''
+        self._connection.execute(query, (Status.todo, Status.in_progress))
 
 
 class URLTable(SQLiteURLTable):

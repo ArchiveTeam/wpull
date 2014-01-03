@@ -39,6 +39,7 @@ class Engine(object):
 
     @tornado.gen.coroutine
     def __call__(self):
+        self._release_in_progress()
         self._run_workers()
 
         yield self._done_event.wait()
@@ -48,6 +49,10 @@ class Engine(object):
         self._print_stats()
         self._request_client.close()
         raise tornado.gen.Return(self._exit_code)
+
+    def _release_in_progress(self):
+        _logger.debug('Release in-progress.')
+        self._url_table.release()
 
     @tornado.gen.coroutine
     def _run_workers(self):
@@ -71,9 +76,6 @@ class Engine(object):
                     Status.error, new_status=Status.in_progress)
             except NotFound:
                 url_record = None
-
-        # TODO: return in_progress items by keeping track of them in
-        # a variable. for resuming when the process is killed.
 
         return url_record
 

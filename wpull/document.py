@@ -92,7 +92,6 @@ class HTMLScraper(BaseDocumentScraper):
         inline_urls = set()
 
         for scraped_link in self._scrape_tree(root):
-            print(scraped_link)
             if self._only_relative:
                 if scraped_link.base_link or '://' in scraped_link.link:
                     continue
