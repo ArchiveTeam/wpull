@@ -790,12 +790,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('follow links to other hostnames')
         )
-#         self.add_argument(
-#             '-L',
-#             '--relative',
-#             action='store_true',
-#             help=_('follow only relative links')
-#         )
+        self.add_argument(
+            '-L',
+            '--relative',
+            action='store_true',
+            help=_('follow only relative links')
+        )
 #         self.add_argument(
 #             '-I',
 #             '--include-directories',

@@ -115,7 +115,9 @@ class Builder(object):
         scrapers = [
             HTMLScraper(
                 followed_tags=self._args.follow_tags,
-                ignored_tags=self._args.ignore_tags),
+                ignored_tags=self._args.ignore_tags,
+                only_relative=self._args.relative,
+            ),
             CSSScraper(),
         ]
 
