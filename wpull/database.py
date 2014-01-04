@@ -74,6 +74,7 @@ class SQLiteURLTable(BaseURLTable):
                 status TEXT NOT NULL,
                 try_count INTEGER NOT NULL DEFAULT 0,
                 level INTEGER NOT NULL DEFAULT 0,
+                top_url TEXT,
                 status_code INTEGER,
                 referrer TEXT,
                 inline INTEGER

@@ -176,6 +176,7 @@ class Engine(object):
             inline=1,
             level=url_record.level + 1,
             referrer=url_record.url,
+            top_url=url_record.top_url or url_record.url
         )
         linked_urls = session.get_linked_urls()
         _logger.debug('Adding linked URLs {0}'.format(linked_urls))
@@ -183,6 +184,7 @@ class Engine(object):
             linked_urls,
             level=url_record.level + 1,
             referrer=url_record.url,
+            top_url=url_record.top_url or url_record.url
         )
 
     def _stop(self):

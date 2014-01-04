@@ -796,25 +796,25 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('follow only relative links')
         )
-#         self.add_argument(
-#             '-I',
-#             '--include-directories',
-#             metavar='LIST',
-#             type=self.comma_list,
-#             help=_('download only paths in LIST')
-#         )
+        self.add_argument(
+            '-I',
+            '--include-directories',
+            metavar='LIST',
+            type=self.comma_list,
+            help=_('download only paths in LIST')
+        )
 #         self.add_argument(
 #             '--trust-server-names',
 #             action='store_true',
 #             help=_('use the last given filename by the server for filenames')
 #         )
-#         self.add_argument(
-#             '-X',
-#             '--exclude-directories',
-#             metavar='LIST',
-#             type=self.comma_list,
-#             help=_('don’t download paths in LIST')
-#         )
+        self.add_argument(
+            '-X',
+            '--exclude-directories',
+            metavar='LIST',
+            type=self.comma_list,
+            help=_('don’t download paths in LIST')
+        )
         self.add_argument(
             '-np',
             '--no-parent',

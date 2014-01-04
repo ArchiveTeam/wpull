@@ -1,5 +1,6 @@
 import abc
 import collections
+import fnmatch
 import re
 import urllib.parse
 
@@ -27,7 +28,8 @@ class URLInfo(URLInfoType):
     def parse(cls, string, default_scheme='http'):
         url_split_result = urllib.parse.urlsplit(string, scheme=default_scheme)
 
-        if not url_split_result.hostname:
+        if url_split_result.scheme in ('http', 'https') \
+        and not url_split_result.hostname:
             url_split_result = urllib.parse.urlsplit(
                default_scheme + '://' + string)
 
@@ -52,6 +54,9 @@ class URLInfo(URLInfoType):
 
     @classmethod
     def normalize(cls, url_split_result):
+        if url_split_result.scheme not in ('http', 'https'):
+            return url_split_result.geturl()
+
         host_with_port = url_split_result.netloc.split('@', 1)[-1]
         return urllib.parse.urlunsplit([
             url_split_result.scheme,
@@ -68,6 +73,12 @@ class BaseURLFilter(object, metaclass=abc.ABCMeta):
         pass
 
 
+class HTTPFilter(BaseURLFilter):
+    def test(self, url_info, url_table_record):
+        print(url_info)
+        return url_info.scheme in ('http', 'https')
+
+
 class BackwardDomainFilter(BaseURLFilter):
     def __init__(self, accepted=None, rejected=None):
         self._accepted = accepted
@@ -75,21 +86,35 @@ class BackwardDomainFilter(BaseURLFilter):
 
     def test(self, url_info, url_table_record):
         test_domain = url_info.hostname
-        if self._accepted:
-            if not self.match(self._accepted, test_domain):
-                return False
+        if self._accepted and not self.match(self._accepted, test_domain):
+            return False
 
-        if self._rejected:
-            if self.match(self._rejected, test_domain):
-                return False
+        if self._rejected and self.match(self._rejected, test_domain):
+            return False
 
         return True
 
     @classmethod
     def match(cls, domain_list, test_domain):
         for domain in domain_list:
-            if test_domain.lower().endswith(domain):
+            if test_domain.endswith(domain):
                 return True
+
+
+class DomainFilter(BaseURLFilter):
+    def __init__(self, accepted=None, rejected=None):
+        self._accepted = accepted
+        self._rejected = rejected
+
+    def test(self, url_info, url_table_record):
+        test_domain = url_info.hostname
+        if self._accepted and not test_domain in self._accepted:
+            return False
+
+        if self._rejected and test_domain in self._rejected:
+            return False
+
+        return True
 
 
 class RecursiveFilter(BaseURLFilter):
@@ -131,32 +156,22 @@ class TriesFilter(BaseURLFilter):
 
 
 class ParentFilter(BaseURLFilter):
-    def __init__(self, input_url_infos):
-        self._base_urls = list(
-            [self.parse_url_base(url_info) for url_info in input_url_infos])
-
     def test(self, url_info, url_table_record):
         if url_table_record.inline:
             return True
 
-        return self._match_any(url_info)
+        if url_table_record.top_url:
+            top_url_info = URLInfo.parse(url_table_record.top_url)
+        else:
+            top_url_info = url_info
 
-    def _match_any(self, url_info):
-        for hostname, port, base_path in self._base_urls:
-            if hostname == url_info.hostname.lower() \
-            and port == url_info.port \
-            and url_info.path.startswith(base_path):
-                return True
+        if schemes_similar(url_info.scheme, top_url_info.scheme) \
+        and url_info.hostname == top_url_info.hostname \
+        and url_info.port == top_url_info.port:
+            return is_subdir(top_url_info.path, url_info.path,
+                trailing_slash=True)
 
-    @classmethod
-    def parse_url_base(cls, url_info):
-        path = url_info.path.rsplit('/', 1)[0] + '/'
-
-        return (
-            url_info.hostname.lower(),
-            url_info.port,
-            path
-        )
+        return False
 
 
 class SpanHostsFilter(BaseURLFilter):
@@ -186,3 +201,55 @@ class RegexFilter(BaseURLFilter):
             return False
 
         return True
+
+
+class DirectoryFilter(BaseURLFilter):
+    def __init__(self, accepted=None, rejected=None):
+        self._accepted = accepted
+        self._rejected = rejected
+
+    def test(self, url_info, url_table_record):
+        if self._accepted and not self._is_accepted(url_info):
+            return False
+
+        if self._rejected and self._is_rejected(url_info):
+            return False
+
+        return True
+
+    def _is_accepted(self, url_info):
+        for dirname in self._accepted:
+            if is_subdir(dirname, url_info.path, wildcards=True):
+                return True
+
+    def _is_rejected(self, url_info):
+        for dirname in self._rejected:
+            if is_subdir(dirname, url_info.path, wildcards=True):
+                return True
+
+
+def schemes_similar(scheme1, scheme2):
+    if scheme1 == scheme2:
+        return True
+
+    if frozenset((scheme1, scheme2)) <= frozenset(('http', 'https')):
+        return True
+
+    return False
+
+
+def is_subdir(base_path, test_path, trailing_slash=False, wildcards=False):
+    if trailing_slash:
+        base_path = base_path.rsplit('/', 1)[0] + '/'
+        test_path = test_path.rsplit('/', 1)[0] + '/'
+    else:
+        if not base_path.endswith('/'):
+            base_path += '/'
+
+        if not test_path.endswith('/'):
+            test_path += '/'
+
+    if wildcards:
+        return fnmatch.fnmatchcase(test_path, base_path)
+    else:
+        return test_path.startswith(base_path)

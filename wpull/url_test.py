@@ -1,7 +1,8 @@
 import unittest
 
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
-    ParentFilter, RecursiveFilter, SpanHostsFilter, RegexFilter)
+    ParentFilter, RecursiveFilter, SpanHostsFilter, RegexFilter, HTTPFilter,
+    DomainFilter, schemes_similar, is_subdir, DirectoryFilter)
 
 
 class MockURLTableRecord(object):
@@ -11,6 +12,7 @@ class MockURLTableRecord(object):
         self.level = None
         self.referrer = None
         self.inline = None
+        self.top_url = None
 
 
 class TestURL(unittest.TestCase):
@@ -68,6 +70,23 @@ class TestURL(unittest.TestCase):
             'http://example.com/ð',
             URLInfo.parse('http://example.com/ð').url
         )
+        self.assertEqual(
+            'mailto:user@example.com',
+            URLInfo.parse('mailto:user@example.com').url
+        )
+
+    def test_http_filter(self):
+        mock_record = MockURLTableRecord()
+
+        url_filter = HTTPFilter()
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://example.net'),
+            mock_record
+        ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('mailto:user@example.com'),
+            mock_record
+        ))
 
     def test_wget_domain_filter(self):
         url_filter = BackwardDomainFilter(
@@ -96,6 +115,37 @@ class TestURL(unittest.TestCase):
         self.assertTrue(
             url_filter.test(URLInfo.parse('cdn.example.com'), None))
         self.assertTrue(
+            url_filter.test(URLInfo.parse('server1.cdn.test'), None))
+        self.assertFalse(
+            url_filter.test(URLInfo.parse('example.com'), None))
+
+    def test_domain_filter(self):
+        url_filter = DomainFilter(
+            accepted=['g.example.com', 'cdn.example.com', 'cdn.test'])
+
+        self.assertTrue(
+            url_filter.test(URLInfo.parse('g.example.com'), None))
+        self.assertFalse(
+            url_filter.test(URLInfo.parse('blog.example.com'), None))
+        self.assertTrue(
+            url_filter.test(URLInfo.parse('cdn.example.com'), None))
+        self.assertFalse(
+            url_filter.test(URLInfo.parse('server1.cdn.test'), None))
+        self.assertFalse(
+            url_filter.test(URLInfo.parse('example.com'), None))
+
+        url_filter = DomainFilter(
+            accepted=['g.example.com', 'cdn.example.com', 'cdn.test'],
+            rejected=['blog.example.com']
+        )
+
+        self.assertTrue(
+            url_filter.test(URLInfo.parse('g.example.com'), None))
+        self.assertFalse(
+            url_filter.test(URLInfo.parse('blog.example.com'), None))
+        self.assertTrue(
+            url_filter.test(URLInfo.parse('cdn.example.com'), None))
+        self.assertFalse(
             url_filter.test(URLInfo.parse('server1.cdn.test'), None))
         self.assertFalse(
             url_filter.test(URLInfo.parse('example.com'), None))
@@ -152,36 +202,17 @@ class TestURL(unittest.TestCase):
         mock_record.try_count = 5
         self.assertFalse(url_filter.test(None, mock_record))
 
-    def test_parent_url_base_parse(self):
-        self.assertEqual(
-            ('example.com', 80, '/'),
-            ParentFilter.parse_url_base(
-                URLInfo.parse('http://example.com/')))
-        self.assertEqual(
-            ('example.com', 80, '/'),
-            ParentFilter.parse_url_base(
-                URLInfo.parse('http://example.com/blah')))
-        self.assertEqual(
-            ('example.com', 80, '/blah/'),
-            ParentFilter.parse_url_base(
-                URLInfo.parse('http://example.com/blah/')))
-        self.assertEqual(
-            ('example.com', 80, '/blah/'),
-            ParentFilter.parse_url_base(
-                URLInfo.parse('http://example.com/blah/?a=b/c')))
-
     def test_parent_filter(self):
         mock_record = MockURLTableRecord()
         mock_record.inline = False
-        url_filter = ParentFilter([
-            URLInfo.parse('http://example.com/blog/topic1/'),
-            URLInfo.parse('http://example.com/blog/topic2/'),
-        ])
+        url_filter = ParentFilter()
 
+        mock_record.top_url = 'http://example.com/blog/topic2/'
         self.assertTrue(url_filter.test(
             URLInfo.parse('http://example.com/blog/topic2/'),
             mock_record
         ))
+        mock_record.top_url = 'http://example.com/blog/topic1/'
         self.assertTrue(url_filter.test(
             URLInfo.parse('http://example.com/blog/topic1/blah.html'),
             mock_record
@@ -259,3 +290,66 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('http://example.net/blob/123.gif'),
             mock_record
         ))
+
+    def test_directory_filter(self):
+        mock_record = MockURLTableRecord()
+        mock_record.url = 'http://example.com/blog/'
+
+        url_filter = DirectoryFilter()
+
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://example.com'),
+            mock_record
+        ))
+
+        url_filter = DirectoryFilter(accepted=['/blog'])
+
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('http://example.com'),
+            mock_record
+        ))
+
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://example.com/blog/'),
+            mock_record
+        ))
+
+        url_filter = DirectoryFilter(rejected=['/cgi-bin/'])
+
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://example.com/blog/'),
+            mock_record
+        ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('http://example.com/cgi-bin'),
+            mock_record
+        ))
+
+    def test_schemes_simialar(self):
+        self.assertTrue(schemes_similar('http', 'http'))
+        self.assertTrue(schemes_similar('https', 'http'))
+        self.assertTrue(schemes_similar('http', 'https'))
+        self.assertTrue(schemes_similar('https', 'https'))
+        self.assertFalse(schemes_similar('ftp', 'http'))
+        self.assertTrue(schemes_similar('email', 'email'))
+
+    def test_is_subdir(self):
+        self.assertTrue(is_subdir('/profile/blog', '/profile/blog/123'))
+        self.assertTrue(is_subdir('/profile/blog/', '/profile/blog/123'))
+        self.assertFalse(is_subdir('/profile/blog', '/profile/photo'))
+
+        self.assertTrue(is_subdir('/profile/blog', '/profile/blog/123',
+            trailing_slash=True))
+        self.assertTrue(is_subdir('/profile/blog/', '/profile/blog/123',
+            trailing_slash=True))
+        self.assertFalse(is_subdir('/profile/blog/', '/profile/photo',
+            trailing_slash=True))
+        self.assertTrue(is_subdir('/profile/blog', '/profile/photo',
+            trailing_slash=True))
+
+        self.assertTrue(is_subdir('/profile/blog-*-', '/profile/blog-1-/',
+            wildcards=True))
+        self.assertFalse(is_subdir('/profile/blog-*-', '/profile/blog/',
+            wildcards=True))
+        self.assertFalse(is_subdir('/profile/blog-*-', '/profile/',
+            wildcards=True))
