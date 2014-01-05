@@ -27,7 +27,7 @@ setup(name='wpull',
     url='https://github.com/chfoo/wpull',
     packages=['wpull', 'wpull.testing'],
     package_data={'': ['testing/*/*.html', 'testing/*/*.css']},
-    install_requires=['tornado', 'toro', 'lxml'],
+    install_requires=['tornado', 'toro', 'lxml', 'robotexclusionrulesparser'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
