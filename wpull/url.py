@@ -24,6 +24,11 @@ URLInfoType = collections.namedtuple(
 
 
 class URLInfo(URLInfoType):
+    DEFAULT_PORTS = {
+        'http': 80,
+        'https': 443,
+    }
+
     @classmethod
     def parse(cls, string, default_scheme='http'):
         url_split_result = urllib.parse.urlsplit(string, scheme=default_scheme)
@@ -57,7 +62,13 @@ class URLInfo(URLInfoType):
         if url_split_result.scheme not in ('http', 'https'):
             return url_split_result.geturl()
 
-        host_with_port = url_split_result.netloc.split('@', 1)[-1]
+        default_port = cls.DEFAULT_PORTS.get(url_split_result.scheme)
+
+        if default_port == url_split_result.port:
+            host_with_port = url_split_result.hostname
+        else:
+            host_with_port = url_split_result.netloc.split('@', 1)[-1]
+
         return urllib.parse.urlunsplit([
             url_split_result.scheme,
             host_with_port,

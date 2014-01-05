@@ -74,6 +74,10 @@ class TestURL(unittest.TestCase):
             'mailto:user@example.com',
             URLInfo.parse('mailto:user@example.com').url
         )
+        self.assertEqual(
+            'http://example.com/',
+            URLInfo.parse('http://example.com:80').url
+        )
 
     def test_http_filter(self):
         mock_record = MockURLTableRecord()
