@@ -1,8 +1,6 @@
 Wpull
 =====
 
-**Work in progress!**
-
 Wpull is a Wget-compatible (or remake/clone/replacement/alternative) web downloader.
 
 Features:
@@ -13,13 +11,18 @@ Features:
 
 [![Build Status](https://travis-ci.org/chfoo/wpull.png)](https://travis-ci.org/chfoo/wpull)
 
+**Currently in beta quality! Some features are not implemented yet and the API is not considered stable.**
+
 Install
 -------
 
 Requires:
 
 * Python 3.2+
-* Tornado, toro, lxml
+* Tornado
+* toro
+* lxml
+* robotexclusionrulesparser
 
 Dependencies can be installed using pip:
 
@@ -31,7 +34,7 @@ Run
 
 To download the homepage of Google.com:
 
-    python3 -m wpull google.com
+    python3 -m wpull --no-robots google.com
 
 To see all options:
 

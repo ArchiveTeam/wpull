@@ -29,7 +29,7 @@ setup(name='wpull',
     package_data={'': ['testing/*/*.html', 'testing/*/*.css']},
     install_requires=['tornado', 'toro', 'lxml', 'robotexclusionrulesparser'],
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Programming Language :: Python :: 3.2',
         'Programming Language :: Python :: 3.3',
