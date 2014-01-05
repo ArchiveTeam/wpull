@@ -267,6 +267,7 @@ class WARCRecorderSession(BaseRecorderSession):
         self._request_record = None
         self._response_record = None
         self._temp_dir = temp_dir
+        self._response_temp_file = self._new_temp_file()
 
     def _new_temp_file(self):
         return tempfile.SpooledTemporaryFile(
@@ -299,11 +300,10 @@ class WARCRecorderSession(BaseRecorderSession):
         record.fields['WARC-IP-Address'] = self._request.address[0]
         record.fields['WARC-Concurrent-To'] = self._request_record.fields[
             WARCRecord.WARC_RECORD_ID]
-        record.block_file = self._new_temp_file()
+        record.block_file = self._response_temp_file
 
     def response_data(self, data):
-        if self._response_record:
-            self._response_record.block_file.write(data)
+        self._response_temp_file.write(data)
 
     def response(self, response):
         payload_offset = len(response.header())

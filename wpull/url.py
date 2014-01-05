@@ -75,7 +75,6 @@ class BaseURLFilter(object, metaclass=abc.ABCMeta):
 
 class HTTPFilter(BaseURLFilter):
     def test(self, url_info, url_table_record):
-        print(url_info)
         return url_info.scheme in ('http', 'https')
 
 
