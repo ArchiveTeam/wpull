@@ -113,6 +113,9 @@ class HTMLScraper(BaseDocumentScraper):
             if scraped_link.linked:
                 linked_urls.add(url)
 
+        if self._robots and self._robots_cannot_follow(root):
+            linked_urls.clear()
+
         return inline_urls, linked_urls
 
     def _scrape_tree(self, root):
@@ -237,6 +240,12 @@ class HTMLScraper(BaseDocumentScraper):
             return element_tag in self._followed_tags
         else:
             return True
+
+    def _robots_cannot_follow(self, root):
+        for element in root.iter('meta'):
+            if element.get('name', '').lower() == 'robots':
+                if 'nofollow' in element.get('value', '').lower():
+                    return True
 
 
 class CSSScraper(BaseDocumentScraper):

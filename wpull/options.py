@@ -500,13 +500,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='AGENT',
             help=_('use AGENT instead of Wpull’s user agent'),
         )
-#         self.add_argument(
-#             '--no-robots',
-#             dest='robots',
-#             action='store_false',
-#             default=True,
-#             help=_('ignore robots.txt directives'),
-#         )
+        self.add_argument(
+            '--no-robots',
+            dest='robots',
+            action='store_false',
+            default=True,
+            help=_('ignore robots.txt directives'),
+        )
 #         self.add_argument(
 #             '--no-http-keep-alive',
 #         )

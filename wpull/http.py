@@ -3,12 +3,10 @@ import collections
 import errno
 import gettext
 import gzip
-import itertools
 import logging
 import os
 import queue
 import re
-import shutil
 import socket
 import tempfile
 import tornado.gen
@@ -119,6 +117,10 @@ class Body(object, metaclass=abc.ABCMeta):
                 self._content_data = self.content_file.read()
 
         return self._content_data
+
+    def content_segment(self, max_length=4096):
+        with wpull.util.reset_file_offset(self.content_file):
+            return self.content_file.read(max_length)
 
     @classmethod
     def new_temp_file(cls):

@@ -121,6 +121,7 @@ class Builder(object):
                 followed_tags=self._args.follow_tags,
                 ignored_tags=self._args.ignore_tags,
                 only_relative=self._args.relative,
+                robots=self._args.robots,
             ),
             CSSScraper(),
         ]
@@ -141,9 +142,8 @@ class Builder(object):
             else:
                 warc_path = args.warc_file + '.warc.gz'
 
-            # TODO: fix robots value to be accurate
             extra_fields = [
-                ('robots', 'off'),
+                ('robots', 'on' if args.robots else 'off'),
                 ('wpull-arguments', str(args))
             ]
 
@@ -213,6 +213,7 @@ class Builder(object):
             retry_connrefused=args.retry_connrefused,
             retry_dns_error=args.retry_dns_error,
             max_redirects=args.max_redirect,
+            robots=args.robots,
         )
 
         return processor
