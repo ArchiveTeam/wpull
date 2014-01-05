@@ -465,10 +465,13 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--ignore-length',
 #             action='store_true',
 #         )
-#         self.add_argument(
-#             '--header',
-#             metavar='STRING'
-#         )
+        self.add_argument(
+            '--header',
+            metavar='STRING',
+            default=[],
+            action='append',
+            help=_('adds STRING to the HTTP header')
+        )
         self.add_argument(
             '--max-redirect',
             metavar='NUMBER',

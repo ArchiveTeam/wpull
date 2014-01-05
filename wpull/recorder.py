@@ -351,7 +351,7 @@ class PrintServerResponseRecorder(BaseRecorder):
 
 class PrintServerResponseRecorderSession(BaseRecorderSession):
     def response(self, response):
-        print(''.join(data.decode() for data in response.iter_header()))
+        print(response.header().decode())
 
 
 class ProgressRecorder(BaseRecorder):
