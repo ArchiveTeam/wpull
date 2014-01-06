@@ -56,7 +56,7 @@ To archive a website:
     --span-hosts --domains billy.blogsite.example,blogsitecdn.example \
     --reject-regex "/login\.php"  \
     --tries inf --retry-connrefused --retry-dns-error \
-    --delete-after \
+    --delete-after --database blogsite-billy.db \
     --quiet --output-file billy.log
 
 To see all options:
