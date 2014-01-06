@@ -16,7 +16,7 @@ install:
 # command to run tests
 script:
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then
-      python setup.py --name;
+      python setup.py --name &&
       nosetests py2src_noedit;
     else
       nosetests;
