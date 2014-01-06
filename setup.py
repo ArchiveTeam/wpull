@@ -47,7 +47,7 @@ if __name__ == '__main__':
         author='Christopher Foo',
         author_email='chris.foo@gmail.com',
         url='https://github.com/chfoo/wpull',
-        packages=['wpull', 'wpull.testing'],
+        packages=['wpull', 'wpull.testing', 'wpull.backport'],
         package_data={'': ['testing/*/*.html', 'testing/*/*.css']},
         install_requires=[
             'tornado', 'toro', 'lxml', 'robotexclusionrulesparser'
