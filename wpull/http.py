@@ -492,8 +492,7 @@ class ConnectionPool(collections.Mapping):
             _logger.debug('New host pool.')
             self._subqueues[address] = self._subqueue_constructor(host, port)
 
-        # Work around bug in lib3to2
-        yield getattr(self._subqueues[address], 'queue').put(
+        yield self._subqueues[address].queue.put(
             (request, kwargs, async_result))
 
     def _subqueue_constructor(self, host, port):
