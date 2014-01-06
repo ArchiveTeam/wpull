@@ -32,12 +32,13 @@ Dependencies can be installed using pip as well:
 
     pip3 install -r requirements.txt
 
+Tip: Adding the `--user` option will install into your home directory.
 
 ### Python 2.6/2.7
 
 Install lib3to2 before installing Wpull:
 
-    pip install hg+https://bitbucket.org/amentajo/lib3to2
+    pip install hg+https://bitbucket.org/amentajo/lib3to2#egg=3to2
 
 Run
 ---

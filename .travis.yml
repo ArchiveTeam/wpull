@@ -6,18 +6,18 @@ python:
   - 3.3
 
 # command to install dependencies
-install: 
+install:
   - pip install -r requirements.txt
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then
-      pip install hg+https://bitbucket.org/amentajo/lib3to2
+      pip install hg+https://bitbucket.org/amentajo/lib3to2#egg=3to2;
     fi
 
 
 # command to run tests
 script:
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then
-      python setup.py --name
-      nosetests py2src_noedit
-    else 
-      nosetests
+      python setup.py --name;
+      nosetests py2src_noedit;
+    else
+      nosetests;
     fi
