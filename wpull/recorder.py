@@ -3,7 +3,6 @@ import abc
 import base64
 import contextlib
 import gettext
-import gzip
 import hashlib
 import io
 import logging
@@ -13,6 +12,7 @@ import tempfile
 import time
 import uuid
 
+import wpull.backport.gzip
 from wpull.namevalue import NameValueRecord
 import wpull.util
 
@@ -243,7 +243,7 @@ class WARCRecorder(BaseRecorder):
             WARCRecord.WARC_RECORD_ID]
 
         if self._gzip_enabled:
-            open_func = gzip.GzipFile
+            open_func = wpull.backport.gzip.GzipFile
         else:
             open_func = open
 

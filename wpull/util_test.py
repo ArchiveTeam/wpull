@@ -1,7 +1,7 @@
 # encoding=utf-8
 import tornado.testing
-import unittest
 
+from wpull.backport.testing import unittest
 from wpull.util import (to_bytes, sleep, to_str, datetime_str, OrderedDefaultDict,
     wait_future, TimedOut)
 

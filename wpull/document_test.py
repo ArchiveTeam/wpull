@@ -1,11 +1,11 @@
 # encoding=utf-8
 import os.path
-import unittest
+import shutil
 
+from wpull.backport.testing import unittest
 from wpull.document import HTMLScraper, CSSScraper
 from wpull.http import Request, Response
 import wpull.util
-import shutil
 
 
 class TestDocument(unittest.TestCase):

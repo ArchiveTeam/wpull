@@ -1,5 +1,5 @@
 # encoding=utf-8
-import unittest
+from wpull.backport.testing import unittest
 from wpull.namevalue import guess_line_ending, unfold_lines, NameValueRecord
 
 

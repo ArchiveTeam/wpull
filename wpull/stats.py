@@ -1,6 +1,11 @@
 # encoding=utf-8
 import time
-import collections
+
+
+try:
+    from collections import Counter
+except ImportError:
+    from wpull.backport.collections import Counter
 
 
 class Statistics(object):
@@ -9,7 +14,7 @@ class Statistics(object):
         self.stop_time = None
         self.files = 0
         self.size = 0
-        self.errors = collections.Counter()
+        self.errors = Counter()
 
     def start(self):
         self.start_time = time.time()

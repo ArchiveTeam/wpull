@@ -74,7 +74,7 @@ Todo
 Credits
 -------
 
-Copyright 2013 by Christopher Foo. License GPL v3.
+Copyright 2013-2014 by Christopher Foo. License GPL v3.
 
 We would like to acknowledge the authors of GNU Wget as Wpull uses algorithms from Wget.
 

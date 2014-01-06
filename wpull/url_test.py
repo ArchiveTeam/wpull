@@ -1,6 +1,5 @@
 # encoding=utf-8
-import unittest
-
+from wpull.backport.testing import unittest
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     ParentFilter, RecursiveFilter, SpanHostsFilter, RegexFilter, HTTPFilter,
     DomainFilter, schemes_similar, is_subdir, DirectoryFilter)

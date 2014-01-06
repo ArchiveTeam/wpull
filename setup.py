@@ -58,6 +58,8 @@ if __name__ == '__main__':
         classifiers=[
             'Development Status :: 4 - Beta',
             'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+            'Programming Language :: Python :: 2.6',
+            'Programming Language :: Python :: 2.7',
             'Programming Language :: Python :: 3.2',
             'Programming Language :: Python :: 3.3',
             'Topic :: Internet :: WWW/HTTP',
