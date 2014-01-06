@@ -32,9 +32,14 @@ else:
 
 
 extras = {}
+install_requires = [
+    'tornado', 'toro', 'lxml', 'robotexclusionrulesparser'
+]
 
 if sys.version_info[0] == 2:
     extras['package_dir'] = {SOURCE_PACKAGE: TRANSLATED_PACKAGE}
+    install_requires.append('futures')
+
 
 if __name__ == '__main__':
     if sys.version_info[0] == 2:
@@ -49,9 +54,7 @@ if __name__ == '__main__':
         url='https://github.com/chfoo/wpull',
         packages=['wpull', 'wpull.testing', 'wpull.backport'],
         package_data={'': ['testing/*/*.html', 'testing/*/*.css']},
-        install_requires=[
-            'tornado', 'toro', 'lxml', 'robotexclusionrulesparser'
-        ],
+        install_requires=install_requires,
         classifiers=[
             'Development Status :: 4 - Beta',
             'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',

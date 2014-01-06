@@ -1,4 +1,6 @@
 # encoding=utf-8
+# 2to3 bug, python version 2.6, 2.7.3: http.server line must not be at top
+import abc
 import http.server
 import logging
 import threading
@@ -11,6 +13,7 @@ from wpull.recorder import DebugPrintRecorder
 
 
 _logger = logging.getLogger(__name__)
+_dummy = abc
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
