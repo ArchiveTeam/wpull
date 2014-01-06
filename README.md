@@ -18,23 +18,45 @@ Install
 
 Requires:
 
-* Python 3.2+
+* Python 2.6, 2.7, or 3.2+
 * Tornado
 * toro
 * lxml
 * robotexclusionrulesparser
 
-Dependencies can be installed using pip:
+Install from GitHub:
+
+    pip3 install git+https://github.com/chfoo/wpull.git#egg=wpull
+
+Dependencies can be installed using pip as well:
 
     pip3 install -r requirements.txt
 
 
+### Python 2.6/2.7
+
+Install lib3to2 before installing Wpull:
+
+    pip install hg+https://bitbucket.org/amentajo/lib3to2
+
 Run
 ---
 
-To download the homepage of Google.com:
+To download the About page of Google.com:
 
-    python3 -m wpull --no-robots google.com
+    python3 -m wpull google.com/about
+
+To archive a website:
+
+    python3 -m wpull billy.blogsite.example --warc-file blogsite-billy \
+    --no-robots --user-agent "InconspiuousWebBrowser/1.0" \
+    --wait 0.5 --random-wait --wait-retry 600 \
+    --page-requisites --recursive --level inf \
+    --span-hosts --domains billy.blogsite.example,blogsitecdn.example \
+    --reject-regex "/login\.php"  \
+    --tries inf --retry-connrefused --retry-dns-error \
+    --delete-after \
+    --quiet --output-file billy.log
 
 To see all options:
 
@@ -46,7 +68,6 @@ Todo
 
 * lot's of TODO markers in code
 * docstrings
-* 3to2 support
 
 
 Credits

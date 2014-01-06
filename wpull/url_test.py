@@ -1,3 +1,4 @@
+# encoding=utf-8
 import unittest
 
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,

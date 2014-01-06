@@ -1,3 +1,4 @@
+# encoding=utf-8
 import tornado.testing
 
 from wpull.errors import NetworkError, DNSNotFound

@@ -1,3 +1,4 @@
+# encoding=utf-8
 import abc
 import contextlib
 import gettext

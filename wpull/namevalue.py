@@ -1,3 +1,4 @@
+# encoding=utf-8
 import collections
 import gettext
 import io
@@ -74,7 +75,7 @@ class NameValueRecord(collections.MutableMapping):
         return '\r\n'.join(pairs)
 
     def __bytes__(self):
-        return str(self).encode()
+        return str(self).encode('utf-8')
 
 
 def normalize_name(name):

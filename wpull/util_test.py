@@ -1,3 +1,4 @@
+# encoding=utf-8
 import tornado.testing
 import unittest
 

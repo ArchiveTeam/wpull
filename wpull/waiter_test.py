@@ -1,3 +1,4 @@
+# encoding=utf-8
 import unittest
 
 from wpull.waiter import LinearWaiter

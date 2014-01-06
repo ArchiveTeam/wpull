@@ -1,3 +1,4 @@
+# encoding=utf-8
 import argparse
 import gettext
 import logging

@@ -1,3 +1,6 @@
+# encoding=utf-8
+
+
 class Event(object):
     '''http://www.valuedlessons.com/2008/04/events-in-python.html'''
     def __init__(self):

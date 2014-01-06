@@ -1,3 +1,4 @@
+# encoding=utf-8
 import abc
 import base64
 import contextlib

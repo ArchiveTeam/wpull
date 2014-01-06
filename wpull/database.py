@@ -1,3 +1,6 @@
+# encoding=utf-8
+
+
 import abc
 import collections
 import sqlite3

@@ -1,6 +1,6 @@
+# encoding=utf-8
 import contextlib
 import os
-import tempfile
 import tornado.testing
 
 from wpull.app import Builder
@@ -9,10 +9,16 @@ from wpull.options import AppArgumentParser
 from wpull.testing.goodapp import GoodAppTestCase
 
 
+try:
+    from tempfile import TemporaryDirectory
+except ImportError:
+    from wpull.backport.tempfile import TemporaryDirectory
+
+
 @contextlib.contextmanager
 def cd_tempdir():
     original_dir = os.getcwd()
-    with tempfile.TemporaryDirectory() as temp_dir:
+    with TemporaryDirectory() as temp_dir:
         try:
             os.chdir(temp_dir)
             yield

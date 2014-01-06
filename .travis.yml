@@ -1,12 +1,23 @@
 language: python
 python:
+  - 2.6
+  - 2.7
   - 3.2
   - 3.3
 
 # command to install dependencies
 install: 
   - pip install -r requirements.txt
+  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then
+      pip install hg+https://bitbucket.org/amentajo/lib3to2
+    fi
+
 
 # command to run tests
 script:
-  - nosetests
+  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then
+      python setup.py --name
+      nosetests py2src_noedit
+    else 
+      nosetests
+    fi

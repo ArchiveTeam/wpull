@@ -1,12 +1,14 @@
+# encoding=utf-8
 import abc
 import email.utils
 import logging
 import os
 import shutil
+import sys
+import time
 import urllib.parse
 
 import wpull.util
-import time
 
 
 _logger = logging.getLogger(__name__)
@@ -40,8 +42,8 @@ class FileWriter(BaseWriter):
         _logger.debug('Saving file to {0}.'.format(filename))
 
         dir_path = os.path.dirname(filename)
-        if dir_path:
-            os.makedirs(dir_path, exist_ok=True)
+        if dir_path and not os.path.exists(dir_path):
+            os.makedirs(dir_path)
 
         with wpull.util.reset_file_offset(response.body.content_file):
             with open(filename, 'wb') as out_file:
@@ -156,4 +158,11 @@ def sanitize_path_parts(parts):
         elif part in ('.', os.pardir):
             parts[i] = '%2E%2E'
         else:
-            parts[i] = urllib.parse.quote(urllib.parse.unquote(part), safe='')
+            if sys.version_info[0] == 2:
+                # TODO: this workaround is a bit ugly
+                parts[i] = urllib.parse.quote(
+                    urllib.parse.unquote(part).encode('utf-8'),
+                ).decode('utf-8').replace('/', '%2F')
+            else:
+                parts[i] = urllib.parse.quote(
+                    urllib.parse.unquote(part), safe='')

@@ -1,2 +1,2 @@
 recursive-include wpull *.html *.css
-include *.md *.txt
+include *.md *.txt *.py

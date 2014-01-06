@@ -1,3 +1,4 @@
+# encoding=utf-8
 import http.server
 import logging
 import threading
@@ -30,7 +31,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/sleep_short': self.sleep_short,
             '/sleep_long': self.sleep_long,
         }
-        super().__init__(*args, **kwargs)
+        http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
     def do_GET(self):
         route = self._routes[self.path]
@@ -123,7 +124,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def utf8_header(self):
         self.wfile.write(b'HTTP/1.1 200 OK\r\n')
         self.wfile.write(b'Content-Length: 3\r\n')
-        self.wfile.write('Whoa: 🐱\r\n'.encode())
+        self.wfile.write('Whoa: 🐱\r\n'.encode('utf-8'))
         self.wfile.write(b'\r\n')
         self.wfile.write(b'hi\n')
 
