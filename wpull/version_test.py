@@ -1,3 +1,4 @@
+# encoding=utf-8
 from distutils.version import StrictVersion
 import unittest
 

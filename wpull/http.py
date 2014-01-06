@@ -1,3 +1,4 @@
+# encoding=utf-8
 import abc
 import collections
 import errno
@@ -53,7 +54,7 @@ class Request(object):
     def header(self):
         return '{0} {1} {2}\r\n{3}\r\n'.format(
             self.method, self.resource_url, self.version, str(self.fields)
-        ).encode()
+        ).encode('utf-8')
 
     def __repr__(self):
         return '<Request({method}, {url}, {version})>'.format(
@@ -88,7 +89,7 @@ class Response(object):
             self.status_code,
             self.status_reason,
             str(self.fields)
-        ).encode()
+        ).encode('utf-8')
 
     def __repr__(self):
         return '<Response({version}, {code}, {reason})>'.format(

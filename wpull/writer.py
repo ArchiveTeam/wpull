@@ -1,12 +1,15 @@
+# encoding=utf-8
+# Wpull. Copyright 2013-2014: Christopher Foo. License: GPL v3.
 import abc
 import email.utils
 import logging
 import os
 import shutil
+import sys
+import time
 import urllib.parse
 
 import wpull.util
-import time
 
 
 _logger = logging.getLogger(__name__)
@@ -40,8 +43,8 @@ class FileWriter(BaseWriter):
         _logger.debug('Saving file to {0}.'.format(filename))
 
         dir_path = os.path.dirname(filename)
-        if dir_path:
-            os.makedirs(dir_path, exist_ok=True)
+        if dir_path and not os.path.exists(dir_path):
+            os.makedirs(dir_path)
 
         with wpull.util.reset_file_offset(response.body.content_file):
             with open(filename, 'wb') as out_file:
@@ -114,7 +117,7 @@ def url_to_filename(url, index='index.html'):
     if not filename:
         filename = index
 
-    filename = urllib.parse.quote(urllib.parse.unquote(filename), safe='')
+    filename = quote_filename(filename)
 
     if url_split_result.query:
         query_str = urllib.parse.urlencode(
@@ -156,4 +159,14 @@ def sanitize_path_parts(parts):
         elif part in ('.', os.pardir):
             parts[i] = '%2E%2E'
         else:
-            parts[i] = urllib.parse.quote(urllib.parse.unquote(part), safe='')
+            parts[i] = quote_filename(part)
+
+
+def quote_filename(filename):
+    if sys.version_info[0] == 2:
+        # TODO: this workaround is a bit ugly
+        return urllib.parse.quote(
+            urllib.parse.unquote(filename).encode('utf-8'),
+        ).replace('/', '%2F').decode('utf-8')
+    else:
+        return urllib.parse.quote(urllib.parse.unquote(filename), safe='')

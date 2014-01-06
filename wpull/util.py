@@ -1,3 +1,4 @@
+# encoding=utf-8
 import collections
 import contextlib
 import copy
@@ -6,19 +7,24 @@ import tornado.gen
 import tornado.ioloop
 import toro
 
+try:
+    from collections import OrderedDict
+except ImportError:
+    from wpull.backport.collections import OrderedDict
 
-class OrderedDefaultDict(collections.OrderedDict):
+
+class OrderedDefaultDict(OrderedDict):
     '''http://stackoverflow.com/a/6190500/1524507'''
     def __init__(self, default_factory=None, *args, **kwargs):
         if default_factory is not None and \
         not isinstance(default_factory, collections.Callable):
             raise TypeError('First argument must be callable')
-        collections.OrderedDict.__init__(self, *args, **kwargs)
+        OrderedDict.__init__(self, *args, **kwargs)
         self.default_factory = default_factory
 
     def __getitem__(self, key):
         try:
-            return collections.OrderedDict.__getitem__(self, key)
+            return OrderedDict.__getitem__(self, key)
         except KeyError:
             return self.__missing__(key)
 

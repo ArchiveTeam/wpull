@@ -1,8 +1,8 @@
+# encoding=utf-8
 import abc
 import base64
 import contextlib
 import gettext
-import gzip
 import hashlib
 import io
 import logging
@@ -12,6 +12,7 @@ import tempfile
 import time
 import uuid
 
+import wpull.backport.gzip
 from wpull.namevalue import NameValueRecord
 import wpull.util
 
@@ -242,7 +243,7 @@ class WARCRecorder(BaseRecorder):
             WARCRecord.WARC_RECORD_ID]
 
         if self._gzip_enabled:
-            open_func = gzip.GzipFile
+            open_func = wpull.backport.gzip.GzipFile
         else:
             open_func = open
 
@@ -351,7 +352,7 @@ class PrintServerResponseRecorder(BaseRecorder):
 
 class PrintServerResponseRecorderSession(BaseRecorderSession):
     def response(self, response):
-        print(''.join(data.decode() for data in response.iter_header()))
+        print(response.header().decode())
 
 
 class ProgressRecorder(BaseRecorder):

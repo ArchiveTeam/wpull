@@ -1,3 +1,6 @@
+# encoding=utf-8
+
+
 class BaseDocumentConverter(object, metaclass=abc.ABCMeta):
     pass
 

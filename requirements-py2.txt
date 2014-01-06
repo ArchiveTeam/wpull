@@ -1,0 +1,6 @@
+tornado==3.1.1
+toro==0.5
+lxml==3.1.0
+robotexclusionrulesparser==1.6.1
+futures==2.1.5
+argparse

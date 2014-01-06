@@ -1,3 +1,4 @@
+# encoding=utf-8
 import abc
 import contextlib
 import gettext
@@ -153,7 +154,7 @@ class RobotsTxtSubsession(object):
             _logger.warn(_('Ignoring robots.txt redirect loop.'))
             return self.Result.done
 
-        if 500 <= response.status_code <= 599:
+        if not response or 500 <= response.status_code <= 599:
             self._attempts_remaining -= 1
             return self.Result.retry
         elif response.status_code in REDIRECT_STATUS_CODES:

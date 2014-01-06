@@ -1,7 +1,7 @@
-import io
+# encoding=utf-8
 import tornado.testing
-import unittest
 
+from wpull.backport.testing import unittest
 from wpull.errors import ConnectionRefused
 from wpull.http import (Request, Connection, NetworkError, ProtocolError, Client,
     ConnectionPool)

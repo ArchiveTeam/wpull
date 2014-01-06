@@ -1,3 +1,4 @@
+# encoding=utf-8
 import itertools
 import logging
 import tornado.ioloop
@@ -232,6 +233,9 @@ class Builder(object):
 
             if self._args.referer:
                 request.fields['Referer'] = self._args.referer
+
+            for header_string in self._args.header:
+                request.fields.parse(header_string)
 
             return request
 

@@ -1,3 +1,4 @@
+# encoding=utf-8
 import os.path
 from tornado.testing import AsyncHTTPTestCase
 from tornado.web import HTTPError

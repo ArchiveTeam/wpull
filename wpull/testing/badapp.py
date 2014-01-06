@@ -1,3 +1,6 @@
+# encoding=utf-8
+# 2to3 bug, python version 2.6, 2.7.3: http.server line must not be at top
+import abc
 import http.server
 import logging
 import threading
@@ -10,6 +13,7 @@ from wpull.recorder import DebugPrintRecorder
 
 
 _logger = logging.getLogger(__name__)
+_dummy = abc
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -30,7 +34,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/sleep_short': self.sleep_short,
             '/sleep_long': self.sleep_long,
         }
-        super().__init__(*args, **kwargs)
+        http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
     def do_GET(self):
         route = self._routes[self.path]
@@ -123,7 +127,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def utf8_header(self):
         self.wfile.write(b'HTTP/1.1 200 OK\r\n')
         self.wfile.write(b'Content-Length: 3\r\n')
-        self.wfile.write('Whoa: 🐱\r\n'.encode())
+        self.wfile.write('Whoa: 🐱\r\n'.encode('utf-8'))
         self.wfile.write(b'\r\n')
         self.wfile.write(b'hi\n')
 

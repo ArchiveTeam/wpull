@@ -1,3 +1,4 @@
+# encoding=utf-8
 import gettext
 import logging
 import tornado.gen
@@ -108,6 +109,7 @@ class Engine(object):
         except Exception as error:
             # TODO: figure out why tornado doesn't catch the errors for us
             traceback.print_exc()
+            _logger.exception('Fatal exception.')
             self._update_exit_code_from_error(error)
             self._stop()
 
