@@ -52,11 +52,11 @@ class BaseProcessorSession(object, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def inline_urls(self):
+    def inline_url_infos(self):
         pass
 
     @abc.abstractmethod
-    def linked_urls(self):
+    def linked_url_infos(self):
         pass
 
     @abc.abstractmethod
@@ -367,11 +367,11 @@ class WebProcessorSession(BaseProcessorSession):
     def wait_time(self):
         return self._waiter.get()
 
-    def inline_urls(self):
-        return self._inline_urls
+    def inline_url_infos(self):
+        return [URLInfo.parse(url) for url in self._inline_urls]
 
-    def linked_urls(self):
-        return self._linked_urls
+    def linked_url_infos(self):
+        return [URLInfo.parse(url) for url in self._linked_urls]
 
     def url_record_status(self):
         return self._url_record_status
