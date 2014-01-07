@@ -53,7 +53,8 @@ To archive a website:
     --no-robots --user-agent "InconspiuousWebBrowser/1.0" \
     --wait 0.5 --random-wait --wait-retry 600 \
     --page-requisites --recursive --level inf \
-    --span-hosts --domains billy.blogsite.example,blogsitecdn.example \
+    --span-hosts --domains blogsitecdn.example,cloudspeeder.example \
+    --hostnames billy.blogsite.example \
     --reject-regex "/login\.php"  \
     --tries inf --retry-connrefused --retry-dns-error \
     --delete-after --database blogsite-billy.db \

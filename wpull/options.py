@@ -771,6 +771,18 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=self.comma_list,
             help=_('don’t download from LIST of hostname suffixes')
         )
+        self.add_argument(
+            '--hostnames',
+            metavar='LIST',
+            type=self.comma_list,
+            help=_('download only from LIST of hostnames')
+        )
+        self.add_argument(
+            '--exclude-hostnames',
+            metavar='LIST',
+            type=self.comma_list,
+            help=_('don’t download from LIST of hostnames')
+        )
 #         self.add_argument(
 #             '--follow-ftp',
 #             action='store_true',

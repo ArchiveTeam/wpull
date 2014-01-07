@@ -2,10 +2,12 @@
 import collections
 import contextlib
 import copy
+import sys
 import time
 import tornado.gen
 import tornado.ioloop
 import toro
+
 
 try:
     from collections import OrderedDict
@@ -121,3 +123,8 @@ def wait_future(future, seconds=None):
     except toro.Timeout as error:
         raise TimedOut() from error
     raise tornado.gen.Return(result)
+
+
+def python_version():
+    major, minor, patch = sys.version_info[0:3]
+    return '{0}.{1}.{2}'.format(major, minor, patch)
