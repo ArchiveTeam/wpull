@@ -67,7 +67,7 @@ class SQLiteURLTable(BaseURLTable):
         self._connection.row_factory = URLRecord
 
     def _apply_pragmas(self):
-        self._connection.execute('PRAGMA journal')
+        self._connection.execute('PRAGMA journal_mode=WAL')
 
     def _create_tables(self):
         self._connection.execute(
@@ -88,7 +88,12 @@ class SQLiteURLTable(BaseURLTable):
     def __getitem__(self, url):
         query = '''SELECT * FROM urls WHERE url = ?'''
         cursor = self._connection.execute(query, (url,))
-        return cursor.fetchone()
+        result = cursor.fetchone()
+
+        if not result:
+            raise IndexError()
+        else:
+            return result
 
     def __iter__(self):
         query = '''SELECT * FROM urls'''
@@ -109,7 +114,9 @@ class SQLiteURLTable(BaseURLTable):
             for url in urls:
                 assert isinstance(url, str)
                 self._connection.execute(query, (url, Status.todo))
-
+            # XXX: If inserts and updates are mixed together, then rows are
+            # mysteriously lost.
+            for url in urls:
                 for key, value in kwargs.items():
                     query = '''UPDATE urls
                         SET {0} = ? WHERE url = ?'''.format(key)
@@ -123,7 +130,8 @@ class SQLiteURLTable(BaseURLTable):
             else:
                 query = '''SELECT * FROM urls WHERE status = ? AND level < ?
                     LIMIT 1'''
-                row = self._connection.execute(query, (status, level)).fetchone()
+                row = self._connection.execute(query, (status, level)
+                    ).fetchone()
 
             if not row:
                 raise NotFound()
