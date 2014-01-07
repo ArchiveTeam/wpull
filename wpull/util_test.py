@@ -1,9 +1,10 @@
 # encoding=utf-8
+import sys
 import tornado.testing
 
 from wpull.backport.testing import unittest
 from wpull.util import (to_bytes, sleep, to_str, datetime_str, OrderedDefaultDict,
-    wait_future, TimedOut)
+    wait_future, TimedOut, python_version)
 
 
 class TestUtil(unittest.TestCase):
@@ -28,6 +29,12 @@ class TestUtil(unittest.TestCase):
             [('a', 6), ('b', 5), ('c', 4)],
             list(mapping.items())
         )
+
+    def test_python_version(self):
+        version_string = python_version()
+        nums = tuple([int(n) for n in version_string.split('.')])
+        self.assertEqual(3, len(nums))
+        self.assertEqual(nums, sys.version_info[0:3])
 
 
 class TestUtilAsync(tornado.testing.AsyncTestCase):

@@ -207,7 +207,8 @@ class WARCRecorder(BaseRecorder):
             WARCRecord.WARCINFO, WARCRecord.WARC_FIELDS)
 
         info_fields = NameValueRecord()
-        info_fields['Software'] = 'Wpull/{0}'.format(wpull.version.__version__)
+        info_fields['Software'] = 'Wpull/{0} Python/{1}'.format(
+            wpull.version.__version__, wpull.util.python_version())
         info_fields['format'] = 'WARC File Format 1.0'
         info_fields['conformsTo'] = \
             'http://bibnum.bnf.fr/WARC/WARC_ISO_28500_version1_latestdraft.pdf'
