@@ -134,7 +134,7 @@ class Engine(object):
                 _('Fetching ‘{url}’ encountered an error: {error}')\
                     .format(url=url_info.url, error=error)
             )
-            status = session.accept_response(None, error)
+            session.handle_error(error)
         else:
             _logger.info(
                 _('Fetched ‘{url}’: {status_code} {reason}. '
@@ -146,7 +146,7 @@ class Engine(object):
                     content_type=response.fields.get('Content-Type'),
                 )
             )
-            status = session.accept_response(response)
+            session.handle_response(response)
 
         wait_time = session.wait_time()
 
@@ -154,13 +154,13 @@ class Engine(object):
             _logger.debug('Sleeping {0}.'.format(wait_time))
             yield wpull.util.sleep(wait_time)
 
-        if status is None:
+        if session.url_record_status():
+            self._set_url_status(url_record.url, session.url_record_status())
+            self._add_urls_from_session(url_record, session)
+        else:
             # Retry request for things such as redirects
             _logger.debug('Retrying request.')
             raise tornado.gen.Return(True)
-
-        self._set_url_status(url_record.url, status)
-        self._add_urls_from_session(url_record, session)
 
     def _skip_url(self, url):
         _logger.debug(_('Skipping ‘{url}’.').format(url=url))
@@ -171,7 +171,7 @@ class Engine(object):
         self._url_table.update(url, increment_try_count=True, status=status)
 
     def _add_urls_from_session(self, url_record, session):
-        inline_urls = session.get_inline_urls()
+        inline_urls = session.inline_urls()
         _logger.debug('Adding inline URLs {0}'.format(inline_urls))
         self._url_table.add(
             inline_urls,
@@ -180,7 +180,7 @@ class Engine(object):
             referrer=url_record.url,
             top_url=url_record.top_url or url_record.url
         )
-        linked_urls = session.get_linked_urls()
+        linked_urls = session.linked_urls()
         _logger.debug('Adding linked URLs {0}'.format(linked_urls))
         self._url_table.add(
             linked_urls,

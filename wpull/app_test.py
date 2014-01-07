@@ -36,7 +36,7 @@ class TestApp(GoodAppTestCase):
             exit_code = yield engine()
         self.assertEqual(0, exit_code)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=10)
     def test_many_page_with_some_fail(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([

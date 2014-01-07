@@ -40,7 +40,11 @@ class BaseProcessorSession(object, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def accept_response(self, response, error=None):
+    def handle_response(self, response):
+        pass
+
+    @abc.abstractmethod
+    def handle_error(self, error):
         pass
 
     @abc.abstractmethod
@@ -48,11 +52,15 @@ class BaseProcessorSession(object, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def get_inline_urls(self):
+    def inline_urls(self):
         pass
 
     @abc.abstractmethod
-    def get_linked_urls(self):
+    def linked_urls(self):
+        pass
+
+    @abc.abstractmethod
+    def url_record_status(self):
         pass
 
 
@@ -216,6 +224,7 @@ class WebProcessorSession(BaseProcessorSession):
         self._redirects_remaining = max_redirects
         self._state = self.State.normal
         self._redirect_codes = REDIRECT_STATUS_CODES
+        self._url_record_status = None
 
         if robots_txt_pool:
             self._robots_txt_subsession = RobotsTxtSubsession(robots_txt_pool,
@@ -275,85 +284,97 @@ class WebProcessorSession(BaseProcessorSession):
             self._request = self._robots_txt_subsession.rewrite_request(
                 self._request)
 
-    def accept_response(self, response, error=None):
+    def handle_response(self, response):
         if self._state == self.State.robotstxt:
-            return self._accept_robots_txt_response(response)
-
-        if error:
-            return self._accept_error(error)
+            self._handle_robots_txt_response(response)
+            return
 
         self._redirect_url = None
+        self._url_record_status = None
 
         if response.status_code in self._redirect_codes:
-            return self._handle_redirect(response)
-
+            self._handle_redirect(response)
         elif response.status_code == 200:
-            _logger.debug('Got a document.')
-            self._scrape_document(self._request, response)
-            if self._file_writer:
-                self._file_writer.write_response(self._request, response)
-            self._waiter.reset()
-            self._statistics.increment(response.body.content_size)
-            return Status.done
-
+            self._handle_document(response)
         elif response.status_code == 404:
-            self._waiter.reset()
-            return Status.skipped
+            self._handle_no_document(response)
+        else:
+            self._handle_document_error(response)
 
-        self._waiter.increment()
-
-        self._statistics.errors[ServerError] += 1
-
-        return Status.error
-
-    def _accept_error(self, error):
-        self._statistics.errors[type(error)] += 1
-        self._waiter.increment()
-
-        if isinstance(error, ConnectionRefused) \
-        and not self._retry_connrefused:
-            return Status.skipped
-        if isinstance(error, DNSNotFound) and not self._retry_dns_error:
-            return Status.skipped
-
-        return Status.error
-
-    def _accept_robots_txt_response(self, response):
+    def _handle_robots_txt_response(self, response):
         result = self._robots_txt_subsession.check_response(response)
 
-        if result == RobotsTxtSubsession.Result.done:
+        if result == RobotsTxtSubsession.Result.done \
+        or result == RobotsTxtSubsession.Result.fail:
             self._state = self.State.normal
-        elif result == RobotsTxtSubsession.Result.fail:
-            self._state = self.State.normal
+            self._waiter.reset()
         elif result == RobotsTxtSubsession.Result.redirect:
-            pass
+            self._waiter.reset()
         elif result == RobotsTxtSubsession.Result.retry:
             self._waiter.increment()
         else:
             raise NotImplementedError()
 
+    def _handle_document(self, response):
+        _logger.debug('Got a document.')
+
+        self._scrape_document(self._request, response)
+
+        if self._file_writer:
+            self._file_writer.write_response(self._request, response)
+
+        self._waiter.reset()
+        self._statistics.increment(response.body.content_size)
+        self._url_record_status = Status.done
+
+    def _handle_no_document(self, response):
+        self._waiter.reset()
+
+        self._url_record_status = Status.skipped
+
+    def _handle_document_error(self, response):
+        self._waiter.increment()
+
+        self._statistics.errors[ServerError] += 1
+        self._url_record_status = Status.error
+
+    def handle_error(self, error):
+        self._statistics.errors[type(error)] += 1
+        self._waiter.increment()
+
+        if isinstance(error, ConnectionRefused) \
+        and not self._retry_connrefused:
+            self._url_record_status = Status.skipped
+        if isinstance(error, DNSNotFound) and not self._retry_dns_error:
+            self._url_record_status = Status.skipped
+
+        self._url_record_status = Status.error
+
     def _handle_redirect(self, response):
+        self._waiter.reset()
+
         if 'location' in response.fields and self._redirects_remaining > 0:
             url = response.fields['location']
             url = urllib.parse.urljoin(self._request.url_info.url, url)
             _logger.debug('Got redirect to {url}.'.format(url=url))
             self._redirect_url = url
-            self._waiter.reset()
             self._redirects_remaining -= 1
-            return
         else:
             _logger.warning(_('Redirection failure.'))
             self._statistics.errors[ProtocolError] += 1
-            return Status.error
+            self._url_record_status = Status.error
 
     def wait_time(self):
         return self._waiter.get()
 
-    def get_inline_urls(self):
+    def inline_urls(self):
         return self._inline_urls
 
-    def get_linked_urls(self):
+    def linked_urls(self):
         return self._linked_urls
+
+    def url_record_status(self):
+        return self._url_record_status
 
     def _filter_test_url(self, url_info, url_record):
         results = []
