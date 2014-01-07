@@ -67,6 +67,8 @@ class TestApp(GoodAppTestCase):
             '--referer', 'http://test.test',
             '--accept-regex', r'.*',
             '--header', 'Hello: world!',
+            '--exclude-domains', 'asdf.invalid',
+            '--exclude-hostnames', 'qwerty.invalid,uiop.invalid',
         ])
         with cd_tempdir():
             engine = Builder(args).build()

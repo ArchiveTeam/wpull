@@ -2,7 +2,7 @@
 from wpull.backport.testing import unittest
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     ParentFilter, RecursiveFilter, SpanHostsFilter, RegexFilter, HTTPFilter,
-    DomainFilter, schemes_similar, is_subdir, DirectoryFilter)
+    HostnameFilter, schemes_similar, is_subdir, DirectoryFilter)
 
 
 class MockURLTableRecord(object):
@@ -123,8 +123,8 @@ class TestURL(unittest.TestCase):
         self.assertFalse(
             url_filter.test(URLInfo.parse('example.com'), None))
 
-    def test_domain_filter(self):
-        url_filter = DomainFilter(
+    def test_hostname_filter(self):
+        url_filter = HostnameFilter(
             accepted=['g.example.com', 'cdn.example.com', 'cdn.test'])
 
         self.assertTrue(
@@ -138,7 +138,7 @@ class TestURL(unittest.TestCase):
         self.assertFalse(
             url_filter.test(URLInfo.parse('example.com'), None))
 
-        url_filter = DomainFilter(
+        url_filter = HostnameFilter(
             accepted=['g.example.com', 'cdn.example.com', 'cdn.test'],
             rejected=['blog.example.com']
         )

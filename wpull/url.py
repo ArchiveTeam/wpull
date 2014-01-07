@@ -120,7 +120,7 @@ class BackwardDomainFilter(BaseURLFilter):
                 return True
 
 
-class DomainFilter(BaseURLFilter):
+class HostnameFilter(BaseURLFilter):
     def __init__(self, accepted=None, rejected=None):
         self._accepted = accepted
         self._rejected = rejected

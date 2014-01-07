@@ -14,7 +14,7 @@ from wpull.recorder import (WARCRecorder, DemuxRecorder,
     PrintServerResponseRecorder, ProgressRecorder)
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     RecursiveFilter, SpanHostsFilter, ParentFilter, RegexFilter, HTTPFilter,
-    DirectoryFilter)
+    DirectoryFilter, HostnameFilter)
 import wpull.version
 from wpull.waiter import LinearWaiter
 from wpull.writer import FileWriter, PathNamer, NullWriter
@@ -102,6 +102,7 @@ class Builder(object):
         filters = [
             HTTPFilter(),
             BackwardDomainFilter(args.domains, args.exclude_domains),
+            HostnameFilter(args.hostnames, args.exclude_hostnames),
             TriesFilter(args.tries),
             RecursiveFilter(args.recursive, args.page_requisites),
             LevelFilter(args.level),
