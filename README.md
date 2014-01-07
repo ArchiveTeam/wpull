@@ -58,7 +58,7 @@ To archive a website:
     --reject-regex "/login\.php"  \
     --tries inf --retry-connrefused --retry-dns-error \
     --delete-after --database blogsite-billy.db \
-    --quiet --output-file billy.log
+    --quiet --output-file blogsite-billy.log
 
 To see all options:
 
