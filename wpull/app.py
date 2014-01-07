@@ -24,6 +24,7 @@ _logger = logging.getLogger(__name__)
 
 
 class Builder(object):
+    # TODO: expose the instances built so we can access stuff like Stats
     def __init__(self, args):
         self._args = args
         self._url_infos = tuple(self._build_input_urls())

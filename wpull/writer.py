@@ -164,7 +164,7 @@ def sanitize_path_parts(parts):
 
 def quote_filename(filename):
     if sys.version_info[0] == 2:
-        # TODO: this workaround is a bit ugly
+        # FIXME: this workaround is a bit ugly
         return urllib.parse.quote(
             urllib.parse.unquote(filename).encode('utf-8'),
         ).replace('/', '%2F').decode('utf-8')

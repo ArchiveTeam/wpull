@@ -380,7 +380,7 @@ class Connection(object):
 
     @property
     def ready(self):
-        # TODO:
+        # TODO: return value for checking if connection is not used
         raise NotImplementedError()
 
     @property

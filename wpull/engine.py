@@ -107,7 +107,7 @@ class Engine(object):
 
             _logger.debug('Table size: {0}.'.format(self._url_table.count()))
         except Exception as error:
-            # TODO: figure out why tornado doesn't catch the errors for us
+            # FIXME: figure out why tornado doesn't catch the errors for us
             traceback.print_exc()
             _logger.exception('Fatal exception.')
             self._update_exit_code_from_error(error)
@@ -153,6 +153,8 @@ class Engine(object):
         if wait_time:
             _logger.debug('Sleeping {0}.'.format(wait_time))
             yield wpull.util.sleep(wait_time)
+
+        # TODO: need status_code for setting its value in the table
 
         if session.url_record_status():
             self._set_url_status(url_record.url, session.url_record_status())
