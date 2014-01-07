@@ -11,6 +11,7 @@ _ = gettext.gettext
 
 
 class AppArgumentParser(argparse.ArgumentParser):
+    # TODO: implement all sane options
     def __init__(self, *args, **kwargs):
         super().__init__(
             *args,
@@ -84,7 +85,6 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             action='store_true',
 #             help=_('run as background process')
 #         )
-        # TODO:
 #         self.add_argument(
 #             '-e',
 #             '--execute',
@@ -152,7 +152,6 @@ class AppArgumentParser(argparse.ArgumentParser):
             const=logging.WARNING,
             help=_('print program warning and informative messages only')
         )
-        # TODO:
 #         self.add_argument(
 #             '--report-speed',
 #             metavar='TYPE',
@@ -164,7 +163,6 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='FILE',
             help=_('download URLs listen from FILE'),
         )
-        # TODO:
 #         self.add_argument(
 #             '-F',
 #             '--force-html',
@@ -440,7 +438,6 @@ class AppArgumentParser(argparse.ArgumentParser):
         )
 
     def _add_http_args(self):
-        # TODO:
 #         self.add_argument(
 #             '--http-user',
 #         )
@@ -560,7 +557,6 @@ class AppArgumentParser(argparse.ArgumentParser):
 
     def _add_ssl_args(self):
         pass
-        # TODO:
 #         self.add_argument(
 #             '--secure-protocol',
 #             metavar='PR'
@@ -603,7 +599,6 @@ class AppArgumentParser(argparse.ArgumentParser):
 
     def _add_ftp_args(self):
         pass
-        # TODO:
 #         self.add_argument(
 #             '--ftp-user',
 #             metavar='USER'

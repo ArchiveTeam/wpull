@@ -55,5 +55,5 @@ class Resolver(object):
             results = yield self.tornado_resolver.resolve(host, port, family)
             raise tornado.gen.Return(results)
         except socket.error:
-            _logger.warning(
+            _logger.debug(
                 'Failed to resolve {0} {1} {2}.'.format(host, port, family))

@@ -16,11 +16,12 @@ class TestDatabase(unittest.TestCase):
             'http://example.com/kitteh',
             'http://example.com/doge',
         ]
-        url_table.add(urls)
+        url_table.add(urls, referrer='http://example.com', level=0)
 
         self.assertIn(urls[0], url_table)
         self.assertIn(urls[1], url_table)
         self.assertIn(urls[2], url_table)
+        self.assertEqual(3, len(url_table))
 
         url_record = url_table[urls[0]]
 

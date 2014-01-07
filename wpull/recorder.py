@@ -239,7 +239,8 @@ class WARCRecorder(BaseRecorder):
         yield recorder_session
 
     def write_record(self, record):
-        # TODO: probably not a good idea to modifiy arguments passed to us
+        # FIXME: probably not a good idea to modifiy arguments passed to us
+        # TODO: add extra gzip headers that wget uses
         record.fields['WARC-Warcinfo-ID'] = self._warcinfo_record.fields[
             WARCRecord.WARC_RECORD_ID]
 
@@ -409,7 +410,7 @@ class ProgressRecorderSession(BaseRecorderSession):
             self._print_dots()
 
     def _print_bar(self):
-        # TODO:
+        # TODO: print a bar
         pass
 
     def _print_dots(self):

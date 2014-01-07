@@ -12,3 +12,4 @@ if __name__ == '__main__':
     io_loop = tornado.ioloop.IOLoop.instance()
     exit_code = Builder(args).build_and_run()
     sys.exit(exit_code)
+    # TODO: catch SIGTERM and call stop()
