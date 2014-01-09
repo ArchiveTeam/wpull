@@ -345,10 +345,10 @@ class WebProcessorSession(BaseProcessorSession):
         if isinstance(error, ConnectionRefused) \
         and not self._retry_connrefused:
             self._url_record_status = Status.skipped
-        if isinstance(error, DNSNotFound) and not self._retry_dns_error:
+        elif isinstance(error, DNSNotFound) and not self._retry_dns_error:
             self._url_record_status = Status.skipped
-
-        self._url_record_status = Status.error
+        else:
+            self._url_record_status = Status.error
 
     def _handle_redirect(self, response):
         self._waiter.reset()
