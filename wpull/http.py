@@ -145,12 +145,12 @@ class Connection(object):
             self.response_data = Event()
 
         def attach(self, recorder_session):
-            self.pre_request += recorder_session.pre_request
-            self.request += recorder_session.request
-            self.pre_response += recorder_session.pre_response
-            self.response += recorder_session.response
-            self.request_data += recorder_session.request_data
-            self.response_data += recorder_session.response_data
+            self.pre_request.handle(recorder_session.pre_request)
+            self.request.handle(recorder_session.request)
+            self.pre_response.handle(recorder_session.pre_response)
+            self.response.handle(recorder_session.response)
+            self.request_data.handle(recorder_session.request_data)
+            self.response_data.handle(recorder_session.response_data)
 
         def clear(self):
             self.pre_request.clear()
@@ -222,23 +222,25 @@ class Connection(object):
             self._connected = True
 
     @tornado.gen.coroutine
-    def fetch(self, request, recorder=None):
+    def fetch(self, request, recorder=None, response_factory=Response):
         _logger.debug('Request {0}.'.format(request))
 
         try:
             if recorder:
                 with recorder.session() as recorder_session:
                     self._events.attach(recorder_session)
-                    response = yield self._process_request(request)
+                    response = yield self._process_request(request,
+                        response_factory)
             else:
-                response = yield self._process_request(request)
+                response = yield self._process_request(request,
+                    response_factory)
         finally:
             self._events.clear()
             self.close()
         raise tornado.gen.Return(response)
 
     @tornado.gen.coroutine
-    def _process_request(self, request):
+    def _process_request(self, request, response_factory):
         yield self._connect()
 
         request.address = self._address
@@ -247,16 +249,17 @@ class Connection(object):
         try:
             yield self._send_request_header(request)
             yield self._send_request_body(request)
-            self._events.request(request)
+            self._events.request.fire(request)
 
-            response = yield self._read_response_header()
+            response = yield self._read_response_header(response_factory)
             # TODO: handle 100 Continue
 
             yield self._read_response_body(response)
         except socket.error as error:
-            raise NetworkError(error.args[0]) from error
+            # FIXME: in python 3.3, socket.error is alias to OSError
+            raise NetworkError('Network error: {0}'.format(error)) from error
 
-        self._events.response(response)
+        self._events.response.fire(response)
 
         raise tornado.gen.Return(response)
 
@@ -264,30 +267,30 @@ class Connection(object):
     def _send_request_header(self, request):
         _logger.debug('Sending headers.')
         data = request.header()
-        self._events.request_data(data)
+        self._events.request_data.fire(data)
         yield tornado.gen.Task(self._io_stream.write, data)
 
     @tornado.gen.coroutine
     def _send_request_body(self, request):
         _logger.debug('Sending body.')
         for data in request.body or ():
-            self._events.request_data(data)
+            self._events.request_data.fire(data)
             yield tornado.gen.Task(self._io_stream.write, data)
 
     @tornado.gen.coroutine
-    def _read_response_header(self):
+    def _read_response_header(self, response_factory):
         _logger.debug('Reading header.')
         response_header_data = yield tornado.gen.Task(
             self._io_stream.read_until_regex, br'\r?\n\r?\n')
 
-        self._events.response_data(response_header_data)
+        self._events.response_data.fire(response_header_data)
 
         status_line, header = response_header_data.split(b'\n', 1)
         version, status_code, status_reason = Response.parse_status_line(
             status_line)
-        response = Response(version, status_code, status_reason)
+        response = response_factory(version, status_code, status_reason)
         response.fields.parse(header)
-        self._events.pre_response(response)
+        self._events.pre_response.fire(response)
 
         raise tornado.gen.Return(response)
 
@@ -312,7 +315,7 @@ class Connection(object):
         body_size = int(response.fields['Content-Length'])
 
         def response_callback(data):
-            self._events.response_data(data)
+            self._events.response_data.fire(data)
             response.body.content_file.write(data)
 
         yield tornado.gen.Task(self._io_stream.read_bytes, body_size,
@@ -334,7 +337,7 @@ class Connection(object):
         chunk_size_hex = yield tornado.gen.Task(
             self._io_stream.read_until_regex, b'[^\n\r]+')
 
-        self._events.response_data(chunk_size_hex)
+        self._events.response_data.fire(chunk_size_hex)
 
         try:
             chunk_size = int(chunk_size_hex.split(b';', 1)[0].strip(), 16)
@@ -349,10 +352,10 @@ class Connection(object):
         newline_data = yield tornado.gen.Task(
             self._io_stream.read_until, b'\n')
 
-        self._events.response_data(newline_data)
+        self._events.response_data.fire(newline_data)
 
         def response_callback(data):
-            self._events.response_data(data)
+            self._events.response_data.fire(data)
             response.body.content_file.write(data)
 
         yield tornado.gen.Task(self._io_stream.read_bytes, chunk_size,
@@ -366,13 +369,13 @@ class Connection(object):
         trailer_data = yield tornado.gen.Task(self._io_stream.read_until_regex,
             br'\r?\n\r?\n')
 
-        self._events.response_data(trailer_data)
+        self._events.response_data.fire(trailer_data)
         response.fields.parse(trailer_data)
 
     @tornado.gen.coroutine
     def _read_response_until_close(self, response):
         def response_callback(data):
-            self._events.response_data(data)
+            self._events.response_data.fire(data)
             response.body.content_file.write(data)
 
         yield tornado.gen.Task(self._io_stream.read_until_close,
@@ -426,14 +429,14 @@ class HostConnectionPool(collections.Set):
 
     @tornado.gen.coroutine
     def _process_request(self):
-        request, recorder, async_result = yield self._request_queue.get()
+        request, kwargs, async_result = yield self._request_queue.get()
 
         _logger.debug('Host pool got request {0}'.format(request))
 
         connection = yield self._get_ready_connection()
 
         try:
-            response = yield connection.fetch(request, recorder=recorder)
+            response = yield connection.fetch(request, **kwargs)
         except Exception as error:
             _logger.debug('Host pool got an error from fetch: {error}'\
                 .format(error=error))
@@ -520,10 +523,10 @@ class Client(object):
         self._recorder = recorder
 
     @tornado.gen.coroutine
-    def fetch(self, request):
+    def fetch(self, request, **kwargs):
         _logger.debug('Client fetch request {0}.'.format(request))
         async_result = toro.AsyncResult()
-        yield self._connection_pool.put(request, self._recorder, async_result)
+        yield self._connection_pool.put(request, kwargs, async_result)
         response = yield async_result.get()
         if isinstance(response, Exception):
             raise response

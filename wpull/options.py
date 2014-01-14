@@ -216,15 +216,15 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             action='store_true',
 #             help=_('clear the output document after downloading'),
 #         )
-#         clobber_group = group.add_mutually_exclusive_group()
-#         clobber_group.add_argument(
-#             '-nc',
-#             '--no-clobber',
-#             action='store_const',
-#             dest='clobber_method',
-#             const='disable',
-#             help=_('don’t use anti-clobbering filenames'),
-#         )
+        clobber_group = group.add_mutually_exclusive_group()
+        clobber_group.add_argument(
+            '-nc',
+            '--no-clobber',
+            action='store_const',
+            dest='clobber_method',
+            const='disable',
+            help=_('don’t use anti-clobbering filenames'),
+        )
 #         self.add_argument(
 #             '-c',
 #             '--continue',
@@ -237,13 +237,13 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             choices=['dot', 'bar'],
 #             help=_('choose the type of progress bar'),
 #         )
-#         clobber_group.add_argument(
-#             '-N',
-#             '--timestamping',
-#             action='store_const',
-#             const='timestamping',
-#             help=_('only download files that are newer than local files'),
-#         )
+        clobber_group.add_argument(
+            '-N',
+            '--timestamping',
+            action='store_const',
+            const='timestamping',
+            help=_('only download files that are newer than local files'),
+        )
         group.add_argument(
             '--no-use-server-timestamps',
             dest='use_server_timestamps',

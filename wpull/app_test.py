@@ -21,7 +21,7 @@ def cd_tempdir():
     with TemporaryDirectory() as temp_dir:
         try:
             os.chdir(temp_dir)
-            yield
+            yield temp_dir
         finally:
             os.chdir(original_dir)
 
@@ -69,6 +69,7 @@ class TestApp(GoodAppTestCase):
             '--header', 'Hello: world!',
             '--exclude-domains', 'asdf.invalid',
             '--exclude-hostnames', 'qwerty.invalid,uiop.invalid',
+            '--no-clobber',
         ])
         with cd_tempdir():
             engine = Builder(args).build()

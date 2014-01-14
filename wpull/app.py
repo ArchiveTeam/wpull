@@ -17,7 +17,8 @@ from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     DirectoryFilter, HostnameFilter)
 import wpull.version
 from wpull.waiter import LinearWaiter
-from wpull.writer import FileWriter, PathNamer, NullWriter
+from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
+    IgnoreFileWriter, TimestampingFileWriter, AntiClobberFileWriter)
 
 
 _logger = logging.getLogger(__name__)
@@ -179,6 +180,30 @@ class Builder(object):
         url_filters = self._build_url_filters()
         document_scrapers = self._build_document_scrapers()
 
+        file_writer = self._build_file_writer()
+
+        waiter = LinearWaiter(
+            wait=args.wait,
+            random_wait=args.random_wait,
+            max_wait=args.waitretry
+        )
+        processor = WebProcessor(
+            url_filters, document_scrapers, file_writer, waiter,
+            request_factory=self._build_request_factory(),
+            retry_connrefused=args.retry_connrefused,
+            retry_dns_error=args.retry_dns_error,
+            max_redirects=args.max_redirect,
+            robots=args.robots,
+        )
+
+        return processor
+
+    def _build_file_writer(self):
+        args = self._args
+
+        if args.delete_after:
+            return NullWriter()
+
         use_dir = (len(args.urls) != 1 or args.page_requisites \
             or args.recursive)
 
@@ -196,30 +221,21 @@ class Builder(object):
             hostname=args.host_directories,
         )
 
-        if args.delete_after:
-            file_writer = NullWriter()
+        if args.recursive or args.page_requisites:
+            if args.clobber_method == 'disable':
+                file_class = OverwriteFileWriter
+            else:
+                file_class = IgnoreFileWriter
+        elif args.timestamping:
+            file_class = TimestampingFileWriter
         else:
-            file_writer = FileWriter(
-                path_namer,
-                headers=args.save_headers,
-                timestamps=args.use_server_timestamps,
-            )
+            file_class = AntiClobberFileWriter
 
-        waiter = LinearWaiter(
-            wait=args.wait,
-            random_wait=args.random_wait,
-            max_wait=args.waitretry
+        return file_class(
+            path_namer,
+            headers_included=args.save_headers,
+            local_timestamping=args.use_server_timestamps
         )
-        processor = WebProcessor(
-            url_filters, document_scrapers, file_writer, waiter,
-            request_factory=self._build_request_factory(),
-            retry_connrefused=args.retry_connrefused,
-            retry_dns_error=args.retry_dns_error,
-            max_redirects=args.max_redirect,
-            robots=args.robots,
-        )
-
-        return processor
 
     def _build_request_factory(self):
         def request_factory(*args, **kwargs):

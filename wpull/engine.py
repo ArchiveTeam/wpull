@@ -128,7 +128,8 @@ class Engine(object):
         _logger.info(_('Fetching ‘{url}’.').format(url=request.url_info.url))
 
         try:
-            response = yield self._request_client.fetch(request)
+            response = yield self._request_client.fetch(request,
+                response_factory=session.response_factory())
         except (NetworkError, ProtocolError) as error:
             _logger.error(
                 _('Fetching ‘{url}’ encountered an error: {error}')\
