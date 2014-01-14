@@ -9,8 +9,10 @@ import os
 import queue
 import re
 import socket
+import sys
 import tempfile
 import tornado.gen
+from tornado.iostream import StreamClosedError
 import toro
 
 from wpull.actor import Event
@@ -246,6 +248,11 @@ class Connection(object):
         request.address = self._address
         self._events.pre_request(request)
 
+        if sys.version_info < (3, 3):
+            error_class = (socket.error, StreamClosedError)
+        else:
+            error_class = (ConnectionError, StreamClosedError)
+
         try:
             yield self._send_request_header(request)
             yield self._send_request_body(request)
@@ -255,8 +262,7 @@ class Connection(object):
             # TODO: handle 100 Continue
 
             yield self._read_response_body(response)
-        except socket.error as error:
-            # FIXME: in python 3.3, socket.error is alias to OSError
+        except error_class as error:
             raise NetworkError('Network error: {0}'.format(error)) from error
 
         self._events.response.fire(response)
