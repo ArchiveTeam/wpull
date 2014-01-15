@@ -116,10 +116,10 @@ def wait_future(future, seconds=None):
     assert seconds >= 0.0
     io_loop = tornado.ioloop.IOLoop.current()
     async_result = toro.AsyncResult()
-    io_loop.add_future(
-        future, lambda future: async_result.set(future.result()))
+    io_loop.add_future(future, async_result.set)
     try:
-        result = yield async_result.get(io_loop.time() + seconds)
+        future = yield async_result.get(io_loop.time() + seconds)
+        result = future.result()
     except toro.Timeout as error:
         raise TimedOut() from error
     raise tornado.gen.Return(result)

@@ -75,3 +75,17 @@ class TestUtilAsync(tornado.testing.AsyncTestCase):
             pass
         else:
             self.assertTrue(False)
+
+    @tornado.testing.gen_test
+    def test_wait_future_error(self):
+        @tornado.gen.coroutine
+        def test_func():
+            yield sleep(0.1)
+            raise ValueError('uh-oh')
+
+        try:
+            yield wait_future(test_func(), 2.0)
+        except ValueError as error:
+            self.assertEqual('uh-oh', error.args[0])
+        else:
+            self.assertTrue(False)
