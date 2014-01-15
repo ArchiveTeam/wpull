@@ -531,6 +531,10 @@ class Client(object):
     @tornado.gen.coroutine
     def fetch(self, request, **kwargs):
         _logger.debug('Client fetch request {0}.'.format(request))
+
+        if 'recorder' not in kwargs:
+            kwargs['recorder'] = self._recorder
+
         async_result = toro.AsyncResult()
         yield self._connection_pool.put(request, kwargs, async_result)
         response = yield async_result.get()
