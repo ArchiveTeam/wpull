@@ -97,7 +97,7 @@ class BaseFileWriterSession(BaseWriterSession):
 
         last_modified = time.mktime(last_modified)
 
-        os.utime(filename, times=(time.time(), last_modified))
+        os.utime(filename, (time.time(), last_modified))
 
     @classmethod
     def save_headers(cls, filename, response):
