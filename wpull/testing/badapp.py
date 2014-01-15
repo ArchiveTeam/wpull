@@ -187,7 +187,8 @@ class BadAppTestCase(AsyncTestCase):
         self.http_server = Server()
         self.http_server.start()
         self._port = self.http_server.port
-        self.connection = Connection('localhost', self._port)
+        self.connection = Connection('localhost', self._port,
+            connect_timeout=2.0, read_timeout=2.0)
 
     @tornado.gen.coroutine
     def fetch(self, path):

@@ -216,9 +216,11 @@ class Connection(object):
             yield self._io_stream.connect(self._address)
         except socket.error as error:
             if error.errno == errno.ECONNREFUSED:
-                raise ConnectionRefused('Connection refused') from error
+                raise ConnectionRefused('Connection refused: {error}'.format(
+                    error=error)) from error
             else:
-                raise NetworkError('Connection error') from error
+                raise NetworkError('Connection error: {error}'.format(
+                    error=error)) from error
         else:
             _logger.debug('Connected.')
             self._connected = True
