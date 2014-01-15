@@ -92,7 +92,7 @@ def to_str(instance, encoding='utf-8'):
 @tornado.gen.coroutine
 def sleep(seconds):
     assert seconds >= 0.0
-    io_loop = tornado.ioloop.IOLoop.instance()
+    io_loop = tornado.ioloop.IOLoop.current()
     try:
         yield toro.AsyncResult().get(io_loop.time() + seconds)
     except toro.Timeout:
@@ -114,12 +114,12 @@ def wait_future(future, seconds=None):
         raise tornado.gen.Return(result)
 
     assert seconds >= 0.0
-    io_loop = tornado.ioloop.IOLoop.instance()
+    io_loop = tornado.ioloop.IOLoop.current()
     async_result = toro.AsyncResult()
-    io_loop.add_future(
-        future, lambda future: async_result.set(future.result()))
+    io_loop.add_future(future, async_result.set)
     try:
-        result = yield async_result.get(io_loop.time() + seconds)
+        future = yield async_result.get(io_loop.time() + seconds)
+        result = future.result()
     except toro.Timeout as error:
         raise TimedOut() from error
     raise tornado.gen.Return(result)

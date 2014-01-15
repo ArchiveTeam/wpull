@@ -33,12 +33,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/utf8_header': self.utf8_header,
             '/sleep_short': self.sleep_short,
             '/sleep_long': self.sleep_long,
+            '/short_close': self.short_close,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
     def do_GET(self):
+        _logger.debug('do_GET here')
         route = self._routes[self.path]
         route()
+        _logger.debug('do_GET done')
 
     def basic(self):
         self.send_response(200)
@@ -147,6 +150,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
         time.sleep(2)
         self.wfile.write(b'2')
 
+    def short_close(self):
+        self.send_response(200)
+        self.send_header('content-length', '100')
+        self.end_headers()
+        self.wfile.write(b'1')
+        self.close_connection = 1
+
 
 class Server(threading.Thread):
     def __init__(self, port=0):
@@ -177,7 +187,8 @@ class BadAppTestCase(AsyncTestCase):
         self.http_server = Server()
         self.http_server.start()
         self._port = self.http_server.port
-        self.connection = Connection('localhost', self._port)
+        self.connection = Connection('localhost', self._port,
+            connect_timeout=2.0, read_timeout=4.0)
 
     @tornado.gen.coroutine
     def fetch(self, path):

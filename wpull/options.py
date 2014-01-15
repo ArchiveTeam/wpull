@@ -73,7 +73,8 @@ class AppArgumentParser(argparse.ArgumentParser):
         self._add_accept_args()
 
     def _add_startup_args(self):
-        self.add_argument(
+        group = self.add_argument_group(_('startup'))
+        group.add_argument(
             '-V',
             '--version',
             action='version',
@@ -98,7 +99,7 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             type=argparse.FileType('rt'),
 #             help=_('load Lua script from FILE')
 #         )
-        self.add_argument(
+        group.add_argument(
             '--database',
             metavar='FILE',
             default=':memory:',
@@ -106,7 +107,8 @@ class AppArgumentParser(argparse.ArgumentParser):
         )
 
     def _add_log_and_input_args(self):
-        output_log_group = self.add_mutually_exclusive_group()
+        group = self.add_argument_group(_('logging and input'))
+        output_log_group = group.add_mutually_exclusive_group()
         output_log_group.add_argument(
             '-o',
             '--output-file',
@@ -119,7 +121,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='FILE',
             help=_('append program messages to FILE')
         )
-        verbosity_group = self.add_mutually_exclusive_group()
+        verbosity_group = group.add_mutually_exclusive_group()
         verbosity_group.add_argument(
             '-d',
             '--debug',
@@ -157,7 +159,7 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             metavar='TYPE',
 #             choices=['bits'],
 #         )
-        self.add_argument(
+        group.add_argument(
             '-i',
             '--input-file',
             metavar='FILE',
@@ -183,7 +185,8 @@ class AppArgumentParser(argparse.ArgumentParser):
 #         )
 
     def _add_download_args(self):
-        self.add_argument(
+        group = self.add_argument_group('download')
+        group.add_argument(
             '-t',
             '--tries',
             metavar='NUMBER',
@@ -191,12 +194,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             help=_('try NUMBER of times on transient errors'),
             default=20,
         )
-        self.add_argument(
+        group.add_argument(
             '--retry-connrefused',
             action='store_true',
             help=_('retry even if the server does not accept connections'),
         )
-        self.add_argument(
+        group.add_argument(
             '--retry-dns-error',
             action='store_true',
             help=_('retry even if DNS fails to resolve hostname'),
@@ -213,38 +216,43 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             action='store_true',
 #             help=_('clear the output document after downloading'),
 #         )
-#         self.add_argument(
-#             '-nc',
-#             '--no-clobber',
-#             action='store_true',
-#             help=_('skip URLs that would overwrite files locally'),
-#         )
-#         self.add_argument(
-#             '-c',
-#             '--continue',
-#             action='store_true',
-#             help=_('resume downloading a partially-downloaded file'),
-#         )
+        clobber_group = group.add_mutually_exclusive_group()
+        clobber_group.add_argument(
+            '-nc',
+            '--no-clobber',
+            action='store_const',
+            dest='clobber_method',
+            const='disable',
+            help=_('don’t use anti-clobbering filenames'),
+        )
+        self.add_argument(
+            '-c',
+            '--continue',
+            action='store_true',
+            dest='continue_file',
+            help=_('resume downloading a partially-downloaded file'),
+        )
 #         self.add_argument(
 #             '--progress',
 #             metavar='TYPE',
 #             choices=['dot', 'bar'],
 #             help=_('choose the type of progress bar'),
 #         )
-#         self.add_argument(
-#             '-N',
-#             '--timestamping',
-#             action='store_true',
-#             help=_('only download files that are newer than local files'),
-#         )
-        self.add_argument(
+        clobber_group.add_argument(
+            '-N',
+            '--timestamping',
+            action='store_const',
+            const='timestamping',
+            help=_('only download files that are newer than local files'),
+        )
+        group.add_argument(
             '--no-use-server-timestamps',
             dest='use_server_timestamps',
             action='store_false',
             default=True,
             help=_('don’t set the last-modified time on files'),
         )
-        self.add_argument(
+        group.add_argument(
             '-S',
             '--server-response',
             action='store_true',
@@ -255,32 +263,32 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             action='store_true',
 #             help=_('don’t download but check if URLs exist'),
 #         )
-        self.add_argument(
+        group.add_argument(
             '-T',
             '--timeout',
             metavar='SECONDS',
             type=float,
             help=_('set all timeout options to SECONDS'),
         )
-        self.add_argument(
+        group.add_argument(
             '--dns-timeout',
             metavar='SECS',
             type=float,
             help=_('timeout after SECS seconds for DNS requests'),
         )
-        self.add_argument(
+        group.add_argument(
             '--connect-timeout',
             metavar='SECS',
             type=float,
             help=_('timeout after SECS seconds for connection requests'),
         )
-        self.add_argument(
+        group.add_argument(
             '--read-timeout',
             metavar='SECS',
             type=float,
             help=_('timeout after SECS seconds for reading requests'),
         )
-        self.add_argument(
+        group.add_argument(
             '-w',
             '--wait',
             metavar='SECONDS',
@@ -288,14 +296,14 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=0.0,
             help=_('wait SECONDS seconds between requests'),
         )
-        self.add_argument(
+        group.add_argument(
             '--waitretry',
             metavar='SECONDS',
             type=float,
             default=10.0,
             help=_('wait up to SECONDS seconds on retries'),
         )
-        self.add_argument(
+        group.add_argument(
             '--random-wait',
             action='store_true',
             help=_('randomly perturb the time between requests'),
@@ -312,7 +320,7 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             type=self.int_bytes,
 #             help=_('stop after downloading NUMBER bytes'),
 #         )
-        self.add_argument(
+        group.add_argument(
             '--bind-address',
             metavar='ADDRESS',
             help=_('bind to ADDRESS on the local host'),
@@ -343,7 +351,7 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             action='store_true',
 #             help=_('use case-insensitivity on URLs'),
 #         )
-        inet_group = self.add_mutually_exclusive_group()
+        inet_group = group.add_mutually_exclusive_group()
         inet_group.add_argument(
             '-4',
             '--inet4-only',
@@ -393,7 +401,8 @@ class AppArgumentParser(argparse.ArgumentParser):
 #         )
 
     def _add_directories_args(self):
-        dir_group = self.add_mutually_exclusive_group()
+        group = self.add_argument_group(_('directories'))
+        dir_group = group.add_mutually_exclusive_group()
         dir_group.add_argument(
             '-nd',
             '--no-directories',
@@ -410,7 +419,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             dest='use_directories',
             help=_('always create directories'),
         )
-        self.add_argument(
+        group.add_argument(
             '-nH',
             '--no-host-directories',
             dest='host_directories',
@@ -418,19 +427,19 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=True,
             help=_('don’t create directories for hostnames')
         )
-        self.add_argument(
+        group.add_argument(
             '--protocol-directories',
             action='store_true',
             help=_('create directories for URL schemes'),
         )
-        self.add_argument(
+        group.add_argument(
             '-P',
             '--directory-prefix',
             metavar='PREFIX',
             default=os.curdir,
             help=_('save everything under the directory PREFIX'),
         )
-        self.add_argument(
+        group.add_argument(
             '--cut-dirs',
             metavar='NUMBER',
             type=int,
@@ -438,6 +447,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         )
 
     def _add_http_args(self):
+        group = self.add_argument_group('HTTP')
 #         self.add_argument(
 #             '--http-user',
 #         )
@@ -448,7 +458,7 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--no-cache',
 #             action='store_true',
 #         )
-        self.add_argument(
+        group.add_argument(
             '--default-page',
             metavar='NAME',
             default='index.html',
@@ -463,14 +473,14 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--ignore-length',
 #             action='store_true',
 #         )
-        self.add_argument(
+        group.add_argument(
             '--header',
             metavar='STRING',
             default=[],
             action='append',
             help=_('adds STRING to the HTTP header')
         )
-        self.add_argument(
+        group.add_argument(
             '--max-redirect',
             metavar='NUMBER',
             type=int,
@@ -485,23 +495,23 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--proxy-password',
 #             metavar='PASS'
 #         )
-        self.add_argument(
+        group.add_argument(
             '--referer',
             metavar='URL',
             help=_('always use URL as the referrer'),
         )
-        self.add_argument(
+        group.add_argument(
             '--save-headers',
             action='store_true',
             help=_('include server header responses in files'),
         )
-        self.add_argument(
+        group.add_argument(
             '-U',
             '--user-agent',
             metavar='AGENT',
             help=_('use AGENT instead of Wpull’s user agent'),
         )
-        self.add_argument(
+        group.add_argument(
             '--no-robots',
             dest='robots',
             action='store_false',
@@ -629,12 +639,13 @@ class AppArgumentParser(argparse.ArgumentParser):
 #         )
 
     def _add_warc_args(self):
-        self.add_argument(
+        group = self.add_argument_group('WARC')
+        group.add_argument(
             '--warc-file',
             metavar='FILENAME',
             help=_('save WARC file to filename prefixed with FILENAME'),
         )
-        self.add_argument(
+        group.add_argument(
             '--warc-header',
             metavar='STRING',
             action='append',
@@ -651,7 +662,7 @@ class AppArgumentParser(argparse.ArgumentParser):
 #         self.add_argument(
 #             '--warc-dedup',
 #         )
-        self.add_argument(
+        group.add_argument(
             '--no-warc-compression',
             action='store_true',
             help=_('do not compress the WARC file'),
@@ -660,27 +671,28 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--no-warc-digests',
 #             action='store_true',
 #         )
-        self.add_argument(
+        group.add_argument(
             '--no-warc-keep-log',
             action='store_false',
             dest='warc_log',
             default=True,
             help=_('do not save a log into the WARC file'),
         )
-        self.add_argument(
+        group.add_argument(
             '--warc-tempdir',
             metavar='DIRECTORY',
             help=_('use temporary DIRECTORY for preparing WARC files'),
         )
 
     def _add_recursive_args(self):
-        self.add_argument(
+        group = self.add_argument_group(_('recursion'))
+        group.add_argument(
             '-r',
             '--recursive',
             action='store_true',
             help=_('follow links and download them'),
         )
-        self.add_argument(
+        group.add_argument(
             '-l',
             '--level',
             metavar='NUMBER',
@@ -688,7 +700,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=5,
             help=_('limit recursion depth to NUMBER')
         )
-        self.add_argument(
+        group.add_argument(
             '--delete-after',
             action='store_true',
             help=_('delete the file after downloading it'),
@@ -711,7 +723,7 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             action='store_true',
 #             help=_('use options "-N -r -l inf --no-remove-listing"')
 #         )
-        self.add_argument(
+        group.add_argument(
             '-p',
             '--page-requisites',
             action='store_true',
@@ -724,6 +736,7 @@ class AppArgumentParser(argparse.ArgumentParser):
 #         )
 
     def _add_accept_args(self):
+        group = self.add_argument_group(_('Filters'))
 #         self.add_argument(
 #             '-A',
 #             '--accept',
@@ -737,42 +750,42 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             metavar='LIST',
 #             help=_('don’t download files with extension in LIST'),
 #         )
-        self.add_argument(
+        group.add_argument(
             '--accept-regex',
             metavar='REGEX',
             help=_('download only URLs matching REGEX'),
         )
-        self.add_argument(
+        group.add_argument(
             '--reject-regex',
             metavar='REGEX',
             help=_('don’t download URLs matching REGEX'),
         )
-        self.add_argument(
+        group.add_argument(
             '--regex-type',
             metavar='TYPE',
             choices=['posix'],
             help=_('use regex TYPE')
         )
-        self.add_argument(
+        group.add_argument(
             '-D',
             '--domains',
             metavar='LIST',
             type=self.comma_list,
             help=_('download only from LIST of hostname suffixes')
         )
-        self.add_argument(
+        group.add_argument(
             '--exclude-domains',
             metavar='LIST',
             type=self.comma_list,
             help=_('don’t download from LIST of hostname suffixes')
         )
-        self.add_argument(
+        group.add_argument(
             '--hostnames',
             metavar='LIST',
             type=self.comma_list,
             help=_('download only from LIST of hostnames')
         )
-        self.add_argument(
+        group.add_argument(
             '--exclude-hostnames',
             metavar='LIST',
             type=self.comma_list,
@@ -783,31 +796,31 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             action='store_true',
 #             help=_('follow links to FTP sites')
 #         )
-        self.add_argument(
+        group.add_argument(
             '--follow-tags',
             metavar='LIST',
             type=self.comma_list,
             help=_('follow only links contained in LIST of HTML tags'),
         )
-        self.add_argument(
+        group.add_argument(
             '--ignore-tags',
             metavar='LIST',
             type=self.comma_list,
             help=_('don’t follow links contained in LIST of HTML tags'),
         )
-        self.add_argument(
+        group.add_argument(
             '-H',
             '--span-hosts',
             action='store_true',
             help=_('follow links to other hostnames')
         )
-        self.add_argument(
+        group.add_argument(
             '-L',
             '--relative',
             action='store_true',
             help=_('follow only relative links')
         )
-        self.add_argument(
+        group.add_argument(
             '-I',
             '--include-directories',
             metavar='LIST',
@@ -819,14 +832,14 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             action='store_true',
 #             help=_('use the last given filename by the server for filenames')
 #         )
-        self.add_argument(
+        group.add_argument(
             '-X',
             '--exclude-directories',
             metavar='LIST',
             type=self.comma_list,
             help=_('don’t download paths in LIST')
         )
-        self.add_argument(
+        group.add_argument(
             '-np',
             '--no-parent',
             action='store_true',

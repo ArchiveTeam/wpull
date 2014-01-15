@@ -128,7 +128,8 @@ class Engine(object):
         _logger.info(_('Fetching ‘{url}’.').format(url=request.url_info.url))
 
         try:
-            response = yield self._request_client.fetch(request)
+            response = yield self._request_client.fetch(request,
+                response_factory=session.response_factory())
         except (NetworkError, ProtocolError) as error:
             _logger.error(
                 _('Fetching ‘{url}’ encountered an error: {error}')\
@@ -173,7 +174,8 @@ class Engine(object):
         self._url_table.update(url, increment_try_count=True, status=status)
 
     def _add_urls_from_session(self, url_record, session):
-        inline_urls = session.inline_urls()
+        inline_url_infos = session.inline_url_infos()
+        inline_urls = tuple([info.url for info in inline_url_infos])
         _logger.debug('Adding inline URLs {0}'.format(inline_urls))
         self._url_table.add(
             inline_urls,
@@ -182,7 +184,8 @@ class Engine(object):
             referrer=url_record.url,
             top_url=url_record.top_url or url_record.url
         )
-        linked_urls = session.linked_urls()
+        linked_url_infos = session.linked_url_infos()
+        linked_urls = tuple([info.url for info in linked_url_infos])
         _logger.debug('Adding linked URLs {0}'.format(linked_urls))
         self._url_table.add(
             linked_urls,

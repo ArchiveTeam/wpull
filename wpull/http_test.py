@@ -138,6 +138,15 @@ class TestConnection(BadAppTestCase):
         self.assertEqual(200, response.status_code)
         self.assertEqual('🐱', response.fields['whoa'])
 
+    @tornado.testing.gen_test
+    def test_short_close(self):
+        try:
+            yield self.fetch('/short_close')
+        except NetworkError:
+            pass
+        else:
+            self.assertFalse(True)
+
 
 class TestClient(BadAppTestCase):
     @tornado.testing.gen_test

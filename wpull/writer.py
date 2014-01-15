@@ -2,6 +2,9 @@
 # Wpull. Copyright 2013-2014: Christopher Foo. License: GPL v3.
 import abc
 import email.utils
+import gettext
+import http.client
+import itertools
 import logging
 import os
 import shutil
@@ -12,51 +15,77 @@ import urllib.parse
 import wpull.util
 
 
+_ = gettext.gettext
 _logger = logging.getLogger(__name__)
 
 
 class BaseWriter(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def rewrite_request(self, request):
+    def session(self):
+        pass
+
+
+class BaseWriterSession(object, metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def process_request(self, request):
         pass
 
     @abc.abstractmethod
-    def write_response(self, request, response):
+    def process_response(self, response):
+        pass
+
+    @abc.abstractmethod
+    def save_document(self, response):
+        pass
+
+    @abc.abstractmethod
+    def discard_document(self, response):
         pass
 
 
-class FileWriter(BaseWriter):
-    def __init__(self, path_namer, document_converter=None, headers=False,
-    timestamps=True):
+class BaseFileWriter(BaseWriter):
+    def __init__(self, path_namer, file_continuing=False,
+    headers_included=False, local_timestamping=True):
         self._path_namer = path_namer
-        self._document_converter = document_converter
-        self._headers = headers
-        self._timestamps = timestamps
+        self._file_continuing = file_continuing
+        self._headers_included = headers_included
+        self._local_timestamping = local_timestamping
 
-    def rewrite_request(self, request):
-        # TODO: consult path namer and use ranges for continuing files
+    @abc.abstractproperty
+    def session_class(self):
         pass
 
-    def write_response(self, request, response):
-        filename = self._path_namer.get_filename(request, response)
+    def session(self):
+        return self.session_class(
+            self._path_namer,
+            self._file_continuing,
+            self._headers_included,
+            self._local_timestamping,
+        )
 
-        _logger.debug('Saving file to {0}.'.format(filename))
+
+class BaseFileWriterSession(BaseWriterSession):
+    def __init__(self, path_namer, file_continuing,
+    headers_included, local_timestamping):
+        self._path_namer = path_namer
+        self._file_continuing = file_continuing
+        self._headers_included = headers_included
+        self._local_timestamping = local_timestamping
+        self._filename = None
+
+    @classmethod
+    def open_file(cls, filename, response, mode='wb+'):
+        _logger.debug('Saving file to {0}, mode={1}.'.format(
+            filename, mode))
 
         dir_path = os.path.dirname(filename)
         if dir_path and not os.path.exists(dir_path):
             os.makedirs(dir_path)
 
-        with wpull.util.reset_file_offset(response.body.content_file):
-            with open(filename, 'wb') as out_file:
-                if self._headers:
-                    for data in response.iter_header_bytes():
-                        out_file.write(data)
-                shutil.copyfileobj(response.body.content_file, out_file)
+        response.body.content_file = open(filename, mode)
 
-        if self._timestamps:
-            self._set_timestamp(response, filename)
-
-    def _set_timestamp(self, response, filename):
+    @classmethod
+    def set_timestamp(cls, filename, response):
         last_modified = response.fields.get('Last-Modified')
 
         if not last_modified:
@@ -70,20 +99,157 @@ class FileWriter(BaseWriter):
 
         last_modified = time.mktime(last_modified)
 
-        os.utime(filename, times=(time.time(), last_modified))
+        os.utime(filename, (time.time(), last_modified))
+
+    @classmethod
+    def save_headers(cls, filename, response):
+        new_filename = filename + '-new'
+
+        with open('wb') as new_file:
+            new_file.write(response.header())
+
+            with wpull.util.reset_file_offset(response.body.content_file):
+                response.body.content_file.seek(0)
+                shutil.copyfileobj(response.body.content_file, new_file)
+
+        os.remove(filename)
+        os.rename(new_filename, filename)
+
+    def process_request(self, request):
+        if not self._filename:
+            self._filename = self._compute_filename(request)
+
+            if self._file_continuing and self._filename:
+                self._process_file_continue_request(request)
+
+        return request
+
+    def _compute_filename(self, request):
+        return self._path_namer.get_filename(request.url_info)
+
+    def _process_file_continue_request(self, request):
+        if os.path.exists(self._filename):
+            size = os.path.getsize(self._filename)
+            request.fields['Range'] = 'bytes={0}-'.format(size)
+
+            _logger.debug('Continue file from {0}.'.format(size))
+        else:
+            _logger.debug('No file to continue.')
+
+    def process_response(self, response):
+        if not self._filename:
+            return
+
+        code = response.status_code
+
+        if self._file_continuing:
+            self._process_file_continue_response(response)
+        elif code == http.client.OK:
+            self.open_file(self._filename, response)
+
+    def _process_file_continue_response(self, response):
+        code = response.status_code
+
+        if code == http.client.PARTIAL_CONTENT:
+            self.open_file(self._filename, response, mode='ab+')
+        else:
+            raise IOError(
+                _('Could not continue file download: {filename}.')\
+                    .format(filename=self._filename))
+
+    def save_document(self, response):
+        if self._filename and os.path.exists(self._filename):
+            if self._headers_included:
+                self.save_headers(self._filename, response)
+
+            if self._local_timestamping:
+                self.set_timestamp(self._filename, response)
+
+    def discard_document(self, response):
+        if self._filename and os.path.exists(self._filename):
+            os.remove(self._filename)
+
+
+class OverwriteFileWriter(BaseFileWriter):
+    @property
+    def session_class(self):
+        return OverwriteFileWriterSession
+
+
+class OverwriteFileWriterSession(BaseFileWriterSession):
+    pass
+
+
+class IgnoreFileWriter(BaseFileWriter):
+    @property
+    def session_class(self):
+        return IgnoreFileWriterSession
+
+
+class IgnoreFileWriterSession(BaseFileWriterSession):
+    def process_request(self, request):
+        if not self._filename or not os.path.exists(self._filename):
+            return super().process_request(request)
+
+
+class AntiClobberFileWriter(BaseFileWriter):
+    @property
+    def session_class(self):
+        return AntiClobberFileWriterSession
+
+
+class AntiClobberFileWriterSession(BaseFileWriterSession):
+    def _compute_filename(self, request):
+        original_filename = self._path_namer.get_filename(request.url_info)
+        candidate_filename = original_filename
+
+        for suffix in itertools.count():
+            if suffix:
+                candidate_filename = '{0}.{1}'.format(original_filename,
+                    suffix)
+
+            if not os.path.exists(candidate_filename):
+                return candidate_filename
+
+
+class TimestampingFileWriter(BaseFileWriter):
+    @property
+    def session_class(self):
+        return TimestampingFileWriterSession
+
+
+class TimestampingFileWriterSession(BaseFileWriterSession):
+    def process_request(self, request):
+        request = super().request(request)
+
+        date_str = email.utils.formatdate(os.path.getmtime(self._filename))
+        request.fields['If-Modified-Since'] = date_str
+
+        return request
 
 
 class NullWriter(BaseWriter):
-    def rewrite_request(self, request):
+    def session(self):
+        return NullWriterSession()
+
+
+class NullWriterSession(BaseWriterSession):
+    def process_request(self, request):
+        return request
+
+    def process_response(self, response):
+        return response
+
+    def discard_document(self, response):
         pass
 
-    def write_response(self, request, response):
+    def save_document(self, response):
         pass
 
 
 class BasePathNamer(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def get_filename(self, request, response):
+    def get_filename(self, url_info):
         pass
 
 
@@ -97,8 +263,8 @@ class PathNamer(BasePathNamer):
         self._hostname = hostname
         self._use_dir = use_dir
 
-    def get_filename(self, request, response):
-        url = request.url_info.url
+    def get_filename(self, url_info):
+        url = url_info.url
         filename = url_to_filename(url, self._index)
 
         if self._use_dir:
