@@ -1,5 +1,6 @@
 # encoding=utf-8
 import sys
+import time
 import tornado.testing
 
 from wpull.backport.testing import unittest
@@ -40,10 +41,30 @@ class TestUtil(unittest.TestCase):
 class TestUtilAsync(tornado.testing.AsyncTestCase):
     @tornado.testing.gen_test
     def test_sleep(self):
+        start_time = time.time()
         yield sleep(1.0)
+        end_time = time.time()
+
+        self.assertAlmostEqual(1.0, end_time - start_time, delta=0.5)
 
     @tornado.testing.gen_test
     def test_wait_future(self):
+        @tornado.gen.coroutine
+        def test_func():
+            yield sleep(0.1)
+
+        yield wait_future(test_func(), 2)
+
+    @tornado.testing.gen_test
+    def test_wait_future_none(self):
+        @tornado.gen.coroutine
+        def test_func():
+            yield sleep(0.1)
+
+        yield wait_future(test_func(), None)
+
+    @tornado.testing.gen_test
+    def test_wait_future_timeout(self):
         @tornado.gen.coroutine
         def test_func():
             yield sleep(60.0)
