@@ -18,7 +18,7 @@ from wpull.waiter import LinearWaiter
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
 REDIRECT_STATUS_CODES = (301, 302, 303, 307, 308)
-DOCUMENT_STATUS_CODES = (200,)
+DOCUMENT_STATUS_CODES = (200, 206)
 NO_DOCUMENT_STATUS_CODES = (401, 403, 404, 405, 410,)
 
 
@@ -161,11 +161,11 @@ class RobotsTxtSubsession(object):
 
     def check_response(self, response):
         if self._attempts_remaining == 0:
-            _logger.warn(_('Too many failed attempts to get robots.txt.'))
+            _logger.warning(_('Too many failed attempts to get robots.txt.'))
             return self.Result.fail
 
         if self._redirects_remaining == 0:
-            _logger.warn(_('Ignoring robots.txt redirect loop.'))
+            _logger.warning(_('Ignoring robots.txt redirect loop.'))
             return self.Result.done
 
         if not response or 500 <= response.status_code <= 599:

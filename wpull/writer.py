@@ -2,6 +2,7 @@
 # Wpull. Copyright 2013-2014: Christopher Foo. License: GPL v3.
 import abc
 import email.utils
+import gettext
 import http.client
 import itertools
 import logging
@@ -14,6 +15,7 @@ import urllib.parse
 import wpull.util
 
 
+_ = gettext.gettext
 _logger = logging.getLogger(__name__)
 
 
@@ -116,10 +118,23 @@ class BaseFileWriterSession(BaseWriterSession):
     def process_request(self, request):
         if not self._filename:
             self._filename = self._compute_filename(request)
+
+            if self._file_continuing and self._filename:
+                self._process_file_continue_request(request)
+
         return request
 
     def _compute_filename(self, request):
         return self._path_namer.get_filename(request.url_info)
+
+    def _process_file_continue_request(self, request):
+        if os.path.exists(self._filename):
+            size = os.path.getsize(self._filename)
+            request.fields['Range'] = 'bytes={0}-'.format(size)
+
+            _logger.debug('Continue file from {0}.'.format(size))
+        else:
+            _logger.debug('No file to continue.')
 
     def process_response(self, response):
         if not self._filename:
@@ -127,11 +142,23 @@ class BaseFileWriterSession(BaseWriterSession):
 
         code = response.status_code
 
-        if code == http.client.OK:
+        if self._file_continuing:
+            self._process_file_continue_response(response)
+        elif code == http.client.OK:
             self.open_file(self._filename, response)
 
+    def _process_file_continue_response(self, response):
+        code = response.status_code
+
+        if code == http.client.PARTIAL_CONTENT:
+            self.open_file(self._filename, response, mode='ab+')
+        else:
+            raise IOError(
+                _('Could not continue file download: {filename}.')\
+                    .format(filename=self._filename))
+
     def save_document(self, response):
-        if self._filename:
+        if self._filename and os.path.exists(self._filename):
             if self._headers_included:
                 self.save_headers(self._filename, response)
 

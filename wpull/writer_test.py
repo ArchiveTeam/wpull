@@ -1,4 +1,5 @@
 # encoding=utf-8
+import hashlib
 import os.path
 import tornado.testing
 import unittest
@@ -49,3 +50,25 @@ class TestWriterApp(GoodAppTestCase):
             expected_filename = os.path.join(temp_dir, 'my_file.txt.1')
 
             self.assertTrue(os.path.exists(expected_filename))
+
+    @tornado.testing.gen_test
+    def test_file_continue(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([self.get_url('/static/my_file.txt'),
+            '--continue', '--debug'])
+        with cd_tempdir() as temp_dir:
+            filename = os.path.join(temp_dir, 'my_file.txt')
+
+            with open(filename, 'wb') as in_file:
+                in_file.write(b'START')
+
+            engine = Builder(args).build()
+            exit_code = yield engine()
+
+            self.assertEqual(0, exit_code)
+
+            with open(filename, 'rb') as in_file:
+                data = in_file.read()
+
+                self.assertEqual('54388a281352fdb2cfa66009ac0e35dd8916af7c',
+                    hashlib.sha1(data).hexdigest())

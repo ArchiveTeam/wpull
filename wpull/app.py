@@ -221,7 +221,7 @@ class Builder(object):
             hostname=args.host_directories,
         )
 
-        if args.recursive or args.page_requisites:
+        if args.recursive or args.page_requisites or args.continue_file:
             if args.clobber_method == 'disable':
                 file_class = OverwriteFileWriter
             else:
@@ -233,6 +233,7 @@ class Builder(object):
 
         return file_class(
             path_namer,
+            file_continuing=args.continue_file,
             headers_included=args.save_headers,
             local_timestamping=args.use_server_timestamps
         )

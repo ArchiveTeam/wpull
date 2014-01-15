@@ -225,12 +225,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             const='disable',
             help=_('don’t use anti-clobbering filenames'),
         )
-#         self.add_argument(
-#             '-c',
-#             '--continue',
-#             action='store_true',
-#             help=_('resume downloading a partially-downloaded file'),
-#         )
+        self.add_argument(
+            '-c',
+            '--continue',
+            action='store_true',
+            dest='continue_file',
+            help=_('resume downloading a partially-downloaded file'),
+        )
 #         self.add_argument(
 #             '--progress',
 #             metavar='TYPE',
