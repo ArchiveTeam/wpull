@@ -3,6 +3,7 @@ import logging
 import socket
 import tornado.gen
 
+from wpull.cache import Cache
 from wpull.errors import NetworkError, DNSNotFound
 import wpull.util
 
@@ -17,8 +18,11 @@ class Resolver(object):
 
     def __init__(self, cache_enabled=True, families=(IPv4, IPv6),
     timeout=None):
-        # TODO: cache
-        self._cache_enabled = cache_enabled
+        if cache_enabled:
+            self._cache = Cache(max_items=100, time_to_live=3600)
+        else:
+            self._cache = None
+
         self._families = families
         self._timeout = timeout
 
@@ -29,6 +33,13 @@ class Resolver(object):
         addresses = []
 
         for family in self._families:
+            results = self._get_cache(host, port, family)
+
+            if results is not None:
+                _logger.debug('DNS cache hit.')
+                addresses.extend(results)
+                continue
+
             future = self._resolve_tornado(host, port, family)
             try:
                 results = yield wpull.util.wait_future(future, self._timeout)
@@ -37,6 +48,7 @@ class Resolver(object):
 
             if results:
                 addresses.extend(results)
+                self._put_cache(host, port, family, results)
 
         if not addresses:
             raise DNSNotFound('DNS resolution did not return any results.')
@@ -57,3 +69,16 @@ class Resolver(object):
         except socket.error:
             _logger.debug(
                 'Failed to resolve {0} {1} {2}.'.format(host, port, family))
+
+    def _get_cache(self, host, port, family):
+        if self._cache is None:
+            return None
+
+        key = (host, port, family)
+
+        if key in self._cache:
+            return self._cache[key]
+
+    def _put_cache(self, host, port, family, results):
+        key = (host, port, family)
+        self._cache[key] = results
