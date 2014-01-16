@@ -70,6 +70,7 @@ class TestApp(GoodAppTestCase):
             '--exclude-domains', 'asdf.invalid',
             '--exclude-hostnames', 'qwerty.invalid,uiop.invalid',
             '--no-clobber',
+            '--rotate-dns',
         ])
         with cd_tempdir():
             engine = Builder(args).build()

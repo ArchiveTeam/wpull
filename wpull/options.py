@@ -336,11 +336,11 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             action='store_true',
 #             help=_('disable caching of DNS lookups'),
 #         )
-#         self.add_argument(
-#             '--rotate-dns',
-#             action='store_true',
-#             help=_('use different resolved IP addresses on requests'),
-#         )
+        group.add_argument(
+            '--rotate-dns',
+            action='store_true',
+            help=_('use different resolved IP addresses on requests'),
+        )
 #         self.add_argument(
 #             '--restrict-file-names',
 #             metavar='OS',

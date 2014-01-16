@@ -6,6 +6,7 @@ import tornado.gen
 from wpull.cache import Cache
 from wpull.errors import NetworkError, DNSNotFound
 import wpull.util
+import random
 
 
 _logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ class Resolver(object):
     tornado_resolver = tornado.netutil.ThreadedResolver()
 
     def __init__(self, cache_enabled=True, families=(IPv4, IPv6),
-    timeout=None):
+    timeout=None, rotate=False):
         if cache_enabled:
             self._cache = Cache(max_items=100, time_to_live=3600)
         else:
@@ -25,6 +26,7 @@ class Resolver(object):
 
         self._families = families
         self._timeout = timeout
+        self._rotate = rotate
 
     @tornado.gen.coroutine
     def resolve(self, host, port):
@@ -55,7 +57,10 @@ class Resolver(object):
 
         _logger.debug('Resolved addresses: {0}.'.format(addresses))
 
-        address = addresses[0]
+        if self._rotate:
+            address = random.choice(addresses)
+        else:
+            address = addresses[0]
         _logger.debug('Selected {0} as address.'.format(address))
 
         raise tornado.gen.Return(address)

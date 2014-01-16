@@ -278,7 +278,8 @@ class Builder(object):
         else:
             families = [Resolver.IPv4, Resolver.IPv6]
 
-        resolver = Resolver(families=families, timeout=dns_timeout)
+        resolver = Resolver(families=families, timeout=dns_timeout,
+            rotate=args.rotate_dns)
 
         def connection_factory(*args, **kwargs):
             return Connection(
