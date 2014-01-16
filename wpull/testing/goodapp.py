@@ -52,4 +52,4 @@ class GoodAppTestCase(AsyncHTTPTestCase):
 if __name__ == '__main__':
     app = GoodApp()
     app.listen(8888)
-    tornado.ioloop.IOLoop.instance().start()
+    tornado.ioloop.IOLoop.current().start()

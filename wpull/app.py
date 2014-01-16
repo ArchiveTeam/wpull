@@ -45,7 +45,7 @@ class Builder(object):
         )
 
     def build_and_run(self):
-        io_loop = tornado.ioloop.IOLoop.instance()
+        io_loop = tornado.ioloop.IOLoop.current()
         engine = self.build()
         exit_code = io_loop.run_sync(engine)
         return exit_code
@@ -56,7 +56,7 @@ class Builder(object):
             format='%(levelname)s %(message)s')
 
         if self._args.verbosity == logging.DEBUG:
-            tornado.ioloop.IOLoop.instance().set_blocking_log_threshold(5)
+            tornado.ioloop.IOLoop.current().set_blocking_log_threshold(5)
 
     def _setup_file_logger(self):
         args = self._args
