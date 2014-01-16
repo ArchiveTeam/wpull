@@ -223,7 +223,7 @@ class Engine(object):
         time_length = stats.stop_time - stats.start_time
 
         _logger.info(_('FINISHED.'))
-        _logger.info(_('Time length: {time:.1} seconds.')\
+        _logger.info(_('Time length: {time:.1f} seconds.')\
             .format(time=time_length))
         _logger.info(_('Downloaded: {num_files} files, {total_size} bytes.')\
             .format(num_files=stats.files, total_size=stats.size))
