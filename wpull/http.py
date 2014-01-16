@@ -510,6 +510,11 @@ class HostConnectionPool(collections.Set):
     def __len__(self):
         return len(self._connections)
 
+    def close(self):
+        for connection in self._connections:
+            _logger.debug('Closing {0}.'.format(connection))
+            connection.close()
+
 
 class ConnectionPool(collections.Mapping):
     Entry = collections.namedtuple('RequestQueueEntry', ['queue', 'pool'])
@@ -550,6 +555,12 @@ class ConnectionPool(collections.Mapping):
     def __len__(self):
         return len(self._subqueues)
 
+    def close(self):
+        for key in self._subqueues:
+            _logger.debug('Closing pool for {0}.'.format(key))
+            subpool = self._subqueues[key].pool
+            subpool.close()
+
 
 class Client(object):
     def __init__(self, connection_pool=None, recorder=None):
@@ -576,5 +587,8 @@ class Client(object):
             raise tornado.gen.Return(response)
 
     def close(self):
+        _logger.debug('Client closing.')
+        self._connection_pool.close()
+
         if self._recorder:
             self._recorder.close()
