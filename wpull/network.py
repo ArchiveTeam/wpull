@@ -49,9 +49,8 @@ class Resolver(object):
             except wpull.util.TimedOut as error:
                 raise NetworkError('DNS resolve timed out') from error
 
-            if results:
-                addresses.extend(results)
-                self._put_cache(host, port, family, results)
+            addresses.extend(results)
+            self._put_cache(host, port, family, results)
 
         if not addresses:
             raise DNSNotFound('DNS resolution did not return any results.')
@@ -75,6 +74,7 @@ class Resolver(object):
         except socket.error:
             _logger.debug(
                 'Failed to resolve {0} {1} {2}.'.format(host, port, family))
+            raise tornado.gen.Return(())
 
     def _get_cache(self, host, port, family):
         if self._cache is None:
