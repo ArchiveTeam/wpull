@@ -165,7 +165,8 @@ class Connection(object):
     DEFAULT_BUFFER_SIZE = 1048576
 
     def __init__(self, host, port, ssl=False, bind_address=None,
-    resolver=None, connect_timeout=None, read_timeout=None):
+    resolver=None, connect_timeout=None, read_timeout=None,
+    keep_alive=True):
         self._host = host
         self._port = port
         self._ssl = ssl
@@ -178,6 +179,7 @@ class Connection(object):
         self._resolver = resolver or Resolver()
         self._connect_timeout = connect_timeout
         self._read_timeout = read_timeout
+        self._keep_alive = keep_alive
 
     @tornado.gen.coroutine
     def _make_socket(self):
@@ -238,9 +240,16 @@ class Connection(object):
             else:
                 response = yield self._process_request(request,
                     response_factory)
+        except:
+            _logger.debug('Fetch exception.')
+            self.close()
+            raise
         finally:
             self._events.clear()
+
+        if not self._keep_alive:
             self.close()
+
         raise tornado.gen.Return(response)
 
     @tornado.gen.coroutine

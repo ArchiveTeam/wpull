@@ -518,9 +518,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=True,
             help=_('ignore robots.txt directives'),
         )
-#         self.add_argument(
-#             '--no-http-keep-alive',
-#         )
+        group.add_argument(
+            '--no-http-keep-alive',
+            dest='http_keep_alive',
+            action='store_false',
+            default=True,
+            help=_('disable persistent HTTP connections')
+        )
 #         self.add_argument(
 #             '--no-cookies'
 #         )

@@ -286,6 +286,7 @@ class Builder(object):
                 resolver=resolver,
                 connect_timeout=connect_timeout,
                 read_timeout=read_timeout,
+                keep_alive=self._args.http_keep_alive,
                 **kwargs)
 
         def host_connection_pool_factory(*args, **kwargs):
