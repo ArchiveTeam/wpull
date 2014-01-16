@@ -248,7 +248,10 @@ class Connection(object):
             self._events.clear()
 
         if not self._keep_alive:
+            _logger.debug('Closing connection.')
             self.close()
+
+        _logger.debug('Fetching done.')
 
         raise tornado.gen.Return(response)
 
@@ -413,11 +416,16 @@ class Connection(object):
 
     def _stream_closed_callback(self):
         _logger.debug('Stream closed.')
+
         self._connected = False
+
         if self._io_stream.error:
+            _logger.debug('Throwing error {0}.'.format(self._io_stream.error))
             raise self._io_stream.error
+
         if self._io_stream.buffer_full:
-            raise ProtocolError()
+            _logger.debug('Buffer full.')
+            raise ProtocolError('Buffer full.')
 
 
 class HostConnectionPool(collections.Set):
