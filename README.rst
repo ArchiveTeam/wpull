@@ -9,12 +9,14 @@ Features:
 * Modular
 * Asynchronous
 
-[![Build Status](https://travis-ci.org/chfoo/wpull.png)](https://travis-ci.org/chfoo/wpull)
+.. image:: https://travis-ci.org/chfoo/wpull.png
+   :target: https://travis-ci.org/chfoo/wpull
+   :alt: Travis CI build status
 
 **Currently in beta quality! Some features are not implemented yet and the API is not considered stable.**
 
 Install
--------
++++++++
 
 Requires:
 
@@ -24,30 +26,31 @@ Requires:
 * lxml
 * robotexclusionrulesparser
 
-Install from GitHub:
+Install from GitHub::
 
     pip3 install git+https://github.com/chfoo/wpull.git#egg=wpull
 
-Dependencies can be installed using pip as well:
+Dependencies can be installed using pip as well::
 
     pip3 install -r requirements.txt
 
 Tip: Adding the `--user` option will install into your home directory.
 
-### Python 2.6/2.7
+Python 2.6/2.7
+--------------
 
-Install lib3to2 before installing Wpull:
+Install lib3to2 before installing Wpull::
 
     pip install hg+https://bitbucket.org/amentajo/lib3to2#egg=3to2
 
 Run
----
++++
 
-To download the About page of Google.com:
+To download the About page of Google.com::
 
     python3 -m wpull google.com/about
 
-To archive a website:
+To archive a website::
 
     python3 -m wpull billy.blogsite.example --warc-file blogsite-billy \
     --no-robots --user-agent "InconspiuousWebBrowser/1.0" \
@@ -60,20 +63,20 @@ To archive a website:
     --delete-after --database blogsite-billy.db \
     --quiet --output-file blogsite-billy.log
 
-To see all options:
+To see all options::
 
     python3 -m wpull --help
 
 
 Todo
-----
+++++
 
 * lot's of TODO markers in code
 * docstrings
 
 
 Credits
--------
++++++++
 
 Copyright 2013-2014 by Christopher Foo. License GPL v3.
 
