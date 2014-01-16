@@ -225,7 +225,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             const='disable',
             help=_('don’t use anti-clobbering filenames'),
         )
-        self.add_argument(
+        group.add_argument(
             '-c',
             '--continue',
             action='store_true',
