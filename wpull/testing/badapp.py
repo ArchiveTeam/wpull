@@ -169,8 +169,11 @@ class Server(threading.Thread):
         self._port = self._server.server_address[1]
         _logger.debug(
             'Server bound to {0}'.format(self._server.server_address))
+        self.started_event = threading.Event()
 
     def run(self):
+        self.started_event.set()
+        _logger.debug('Server running.')
         self._server.serve_forever()
 
     def stop(self):
@@ -186,6 +189,7 @@ class BadAppTestCase(AsyncTestCase):
         super().setUp()
         self.http_server = Server()
         self.http_server.start()
+        self.http_server.started_event.wait(timeout=5.0)
         self._port = self.http_server.port
         self.connection = Connection('localhost', self._port,
             connect_timeout=2.0, read_timeout=5.0)
