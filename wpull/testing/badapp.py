@@ -3,6 +3,7 @@
 import abc
 import http.server
 import logging
+import socketserver
 import threading
 import time
 import tornado.gen
@@ -38,10 +39,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
     def do_GET(self):
-        _logger.debug('do_GET here')
+        _logger.debug('do_GET here. path={0}'.format(self.path))
         route = self._routes[self.path]
         route()
-        _logger.debug('do_GET done')
+        _logger.debug('do_GET done. path={0}'.format(self.path))
 
     def basic(self):
         self.send_response(200)
@@ -158,13 +159,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.close_connection = 1
 
 
+class ConcurrentHTTPServer(socketserver.ThreadingMixIn,
+http.server.HTTPServer):
+    def __init__(self, *args, **kwargs):
+        http.server.HTTPServer.__init__(self, *args, **kwargs)
+        self.daemon_threads = True
+
+
 class Server(threading.Thread):
     def __init__(self, port=0):
         threading.Thread.__init__(self)
         self.daemon = True
         self._port = port
         self._server = None
-        self._server = http.server.HTTPServer(
+        self._server = ConcurrentHTTPServer(
             ('localhost', self._port), Handler)
         self._port = self._server.server_address[1]
         _logger.debug(
@@ -177,7 +185,9 @@ class Server(threading.Thread):
         self._server.serve_forever()
 
     def stop(self):
+        _logger.debug('Server stopping...')
         self._server.shutdown()
+        _logger.debug('Server stopped.')
 
     @property
     def port(self):
@@ -213,6 +223,7 @@ class BadAppTestCase(AsyncTestCase):
 
     def tearDown(self):
         self.http_server.stop()
+        self.http_server.join(timeout=5)
         super().tearDown()
 
 if __name__ == '__main__':

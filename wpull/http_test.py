@@ -169,6 +169,7 @@ class TestClient(BadAppTestCase):
             response = yield client.fetch(
                 Request.new(self.get_url('/sleep_short')))
             self.assertEqual(200, response.status_code)
+            self.assertEqual(b'12', response.body.content)
 
         self.assertEqual(1, len(connection_pool))
         connection_pool_entry = list(connection_pool.values())[0]
@@ -185,6 +186,7 @@ class TestClient(BadAppTestCase):
 
         for response in responses:
             self.assertEqual(200, response.status_code)
+            self.assertEqual(b'12', response.body.content)
 
         self.assertEqual(1, len(connection_pool))
         connection_pool_entry = list(connection_pool.values())[0]
@@ -201,6 +203,7 @@ class TestClient(BadAppTestCase):
 
         for response in responses:
             self.assertEqual(200, response.status_code)
+            self.assertEqual(b'12', response.body.content)
 
         self.assertEqual(1, len(connection_pool))
         connection_pool_entry = list(connection_pool.values())[0]
