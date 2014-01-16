@@ -15,18 +15,19 @@ _logger = logging.getLogger(__name__)
 class Resolver(object):
     IPv4 = socket.AF_INET
     IPv6 = socket.AF_INET6
-    tornado_resolver = tornado.netutil.ThreadedResolver()
+    global_cache = Cache(max_items=100, time_to_live=3600)
 
     def __init__(self, cache_enabled=True, families=(IPv4, IPv6),
     timeout=None, rotate=False):
         if cache_enabled:
-            self._cache = Cache(max_items=100, time_to_live=3600)
+            self._cache = self.global_cache
         else:
             self._cache = None
 
         self._families = families
         self._timeout = timeout
         self._rotate = rotate
+        self._tornado_resolver = tornado.netutil.ThreadedResolver()
 
     @tornado.gen.coroutine
     def resolve(self, host, port):
@@ -69,7 +70,7 @@ class Resolver(object):
     def _resolve_tornado(self, host, port, family):
         _logger.debug('Resolving {0} {1} {2}.'.format(host, port, family))
         try:
-            results = yield self.tornado_resolver.resolve(host, port, family)
+            results = yield self._tornado_resolver.resolve(host, port, family)
             raise tornado.gen.Return(results)
         except socket.error:
             _logger.debug(
