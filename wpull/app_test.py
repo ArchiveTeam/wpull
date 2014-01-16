@@ -15,6 +15,9 @@ except ImportError:
     from wpull.backport.tempfile import TemporaryDirectory
 
 
+DEFAULT_TIMEOUT = 30
+
+
 @contextlib.contextmanager
 def cd_tempdir():
     original_dir = os.getcwd()
@@ -27,7 +30,11 @@ def cd_tempdir():
 
 
 class TestApp(GoodAppTestCase):
-    @tornado.testing.gen_test
+    def setUp(self):
+        super().setUp()
+        tornado.ioloop.IOLoop.current().set_blocking_log_threshold(0.5)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_one_page(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([self.get_url('/')])
@@ -36,7 +43,7 @@ class TestApp(GoodAppTestCase):
             exit_code = yield engine()
         self.assertEqual(0, exit_code)
 
-    @tornado.testing.gen_test(timeout=10)
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_many_page_with_some_fail(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -50,7 +57,7 @@ class TestApp(GoodAppTestCase):
             exit_code = yield engine()
         self.assertEqual(ExitStatus.server_error, exit_code)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_args(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([

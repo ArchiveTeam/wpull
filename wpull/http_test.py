@@ -8,8 +8,15 @@ from wpull.http import (Request, Connection, NetworkError, ProtocolError, Client
 from wpull.testing.badapp import BadAppTestCase
 
 
+DEFAULT_TIMEOUT = 30
+
+
 class TestConnection(BadAppTestCase):
-    @tornado.testing.gen_test
+    def setUp(self):
+        super().setUp()
+        tornado.ioloop.IOLoop.current().set_blocking_log_threshold(0.5)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_no_such_host(self):
         connection = Connection('wpull-no-exist.invalid', 80)
         try:
@@ -20,7 +27,7 @@ class TestConnection(BadAppTestCase):
         else:
             self.assertTrue(False)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_refused(self):
         connection = Connection('localhost', 1)
         try:
@@ -31,7 +38,7 @@ class TestConnection(BadAppTestCase):
         else:
             self.assertTrue(False)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_timeout(self):
         connection = Connection('1.0.0.0', 1, connect_timeout=0.1)
         try:
@@ -42,7 +49,7 @@ class TestConnection(BadAppTestCase):
         else:
             self.assertTrue(False)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_reuse(self):
         connection = Connection('localhost', self._port)
         request = Request.new(self.get_url('/'))
@@ -52,7 +59,7 @@ class TestConnection(BadAppTestCase):
         response = yield connection.fetch(request)
         self.assertEqual(200, response.status_code)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_read_timeout(self):
         connection = Connection('localhost', self._port, read_timeout=0.1)
         request = Request.new(self.get_url('/sleep_long'))
@@ -63,13 +70,13 @@ class TestConnection(BadAppTestCase):
         else:
             self.assertTrue(False)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_basic(self):
         response = yield self.fetch('/')
         self.assertEqual(200, response.status_code)
         self.assertEqual(b'hello world!', response.body.content)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_basic_content_length(self):
         response = yield self.fetch('/content_length')
         self.assertEqual(200, response.status_code)
@@ -77,14 +84,14 @@ class TestConnection(BadAppTestCase):
         self.assertEqual(b'a' * 100, response.body.content)
         self.assertEqual(100, response.body.content_size)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_basic_chunked(self):
         response = yield self.fetch('/chunked')
         self.assertEqual(200, response.status_code)
         self.assertEqual('chunked', response.fields['Transfer-Encoding'])
         self.assertEqual(b'hello world!', response.body.content)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_basic_chunked_trailer(self):
         response = yield self.fetch('/chunked_trailer')
         self.assertEqual(200, response.status_code)
@@ -92,7 +99,7 @@ class TestConnection(BadAppTestCase):
         self.assertEqual('dolphin', response.fields['Animal'])
         self.assertEqual(b'hello world!', response.body.content)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_malformed_chunked(self):
         try:
             yield self.fetch('/malformed_chunked')
@@ -101,7 +108,7 @@ class TestConnection(BadAppTestCase):
         else:
             self.assertTrue(False)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_buffer_overflow(self):
         try:
             yield self.fetch('/buffer_overflow')
@@ -110,7 +117,7 @@ class TestConnection(BadAppTestCase):
         else:
             self.assertTrue(False)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_bad_chunk_size(self):
         try:
             yield self.fetch('/bad_chunk_size')
@@ -119,26 +126,26 @@ class TestConnection(BadAppTestCase):
         else:
             self.assertTrue(False)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_content_length_and_chunked(self):
         response = yield self.fetch('/content_length_and_chunked')
         self.assertEqual(200, response.status_code)
         self.assertEqual('chunked', response.fields['Transfer-Encoding'])
         self.assertEqual(b'hello world!', response.body.content)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_bad_header_delminators(self):
         response = yield self.fetch('/bad_header_deliminators')
         self.assertEqual(200, response.status_code)
         self.assertEqual(b'hi\n', response.body.content)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_utf8_header(self):
         response = yield self.fetch('/utf8_header')
         self.assertEqual(200, response.status_code)
         self.assertEqual('🐱', response.fields['whoa'])
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_short_close(self):
         try:
             yield self.fetch('/short_close')
@@ -149,7 +156,11 @@ class TestConnection(BadAppTestCase):
 
 
 class TestClient(BadAppTestCase):
-    @tornado.testing.gen_test
+    def setUp(self):
+        super().setUp()
+        tornado.ioloop.IOLoop.current().set_blocking_log_threshold(0.5)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_pool_min(self):
         connection_pool = ConnectionPool()
         client = Client(connection_pool)
@@ -164,7 +175,7 @@ class TestClient(BadAppTestCase):
         self.assertIsInstance(connection_pool_entry, ConnectionPool.Entry)
         self.assertEqual(1, len(connection_pool_entry.pool))
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_pool_max(self):
         connection_pool = ConnectionPool()
         client = Client(connection_pool)
@@ -180,7 +191,7 @@ class TestClient(BadAppTestCase):
         self.assertIsInstance(connection_pool_entry, ConnectionPool.Entry)
         self.assertEqual(6, len(connection_pool_entry.pool))
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_pool_over_max(self):
         connection_pool = ConnectionPool()
         client = Client(connection_pool)
@@ -196,7 +207,7 @@ class TestClient(BadAppTestCase):
         self.assertIsInstance(connection_pool_entry, ConnectionPool.Entry)
         self.assertEqual(6, len(connection_pool_entry.pool))
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_client_exception_throw(self):
         client = Client()
 
