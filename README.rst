@@ -68,11 +68,18 @@ To see all options::
     python3 -m wpull --help
 
 
+API
++++
+
+Note: This library is not thread safe.
+
+
 Todo
 ++++
 
 * lot's of TODO markers in code
 * docstrings
+* sphinx doc config
 
 
 Credits
