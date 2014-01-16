@@ -107,8 +107,6 @@ class Engine(object):
 
             _logger.debug('Table size: {0}.'.format(self._url_table.count()))
         except Exception as error:
-            # FIXME: figure out why tornado doesn't catch the errors for us
-            traceback.print_exc()
             _logger.exception('Fatal exception.')
             self._update_exit_code_from_error(error)
             self._stop()
