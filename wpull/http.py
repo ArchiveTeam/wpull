@@ -14,6 +14,7 @@ import tempfile
 import tornado.gen
 from tornado.iostream import StreamClosedError
 import toro
+import traceback
 
 from wpull.actor import Event
 from wpull.errors import ProtocolError, NetworkError, ConnectionRefused
@@ -180,6 +181,7 @@ class Connection(object):
         self._connect_timeout = connect_timeout
         self._read_timeout = read_timeout
         self._keep_alive = keep_alive
+        self._active = False
 
     @tornado.gen.coroutine
     def _make_socket(self):
@@ -231,6 +233,8 @@ class Connection(object):
     def fetch(self, request, recorder=None, response_factory=Response):
         _logger.debug('Request {0}.'.format(request))
 
+        self._active = True
+
         try:
             if recorder:
                 with recorder.session() as recorder_session:
@@ -246,6 +250,7 @@ class Connection(object):
             raise
         finally:
             self._events.clear()
+            self._active = False
 
         if not self._keep_alive:
             _logger.debug('Closing connection.')
@@ -402,9 +407,8 @@ class Connection(object):
             streaming_callback=response_callback)
 
     @property
-    def ready(self):
-        # TODO: return value for checking if connection is not used
-        raise NotImplementedError()
+    def active(self):
+        return self._active
 
     @property
     def connected(self):
@@ -415,7 +419,15 @@ class Connection(object):
             self._io_stream.close()
 
     def _stream_closed_callback(self):
-        _logger.debug('Stream closed.')
+        _logger.debug('Stream closed. '
+            'active={0} connected={1} ' \
+            'closed={2} reading={3} writing={3}'.format(
+                self._active,
+                self._connected,
+                self._io_stream.closed(),
+                self._io_stream.reading(),
+                self._io_stream.writing())
+        )
 
         self._connected = False
 
@@ -465,6 +477,7 @@ class HostConnectionPool(collections.Set):
         except Exception as error:
             _logger.debug('Host pool got an error from fetch: {error}'\
                 .format(error=error))
+            _logger.debug(traceback.format_exc())
             yield async_result.set(error)
         else:
             yield async_result.set(response)
@@ -558,7 +571,7 @@ class Client(object):
         yield self._connection_pool.put(request, kwargs, async_result)
         response = yield async_result.get()
         if isinstance(response, Exception):
-            raise response
+            raise response from response
         else:
             raise tornado.gen.Return(response)
 
