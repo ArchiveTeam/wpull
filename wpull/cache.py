@@ -1,7 +1,12 @@
 import collections
-import functools
-import time
 import heapq
+import time
+
+
+try:
+    from functools import total_ordering
+except ImportError:
+    from wpull.backport.functools import total_ordering
 
 
 class Cache(collections.MutableMapping):
@@ -60,7 +65,7 @@ class Cache(collections.MutableMapping):
         return len(self._data)
 
 
-@functools.total_ordering
+@total_ordering
 class CacheItem(object):
     def __init__(self, key, value, time_to_live=None, access_time=None):
         self.key = key
