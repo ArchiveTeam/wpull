@@ -41,7 +41,7 @@ class GoodApp(tornado.web.Application):
                 'templates'),
             static_path=os.path.join(os.path.dirname(__file__),
                 'static'),
-            debug=True,
+            serve_traceback=True,
         )
 
 
