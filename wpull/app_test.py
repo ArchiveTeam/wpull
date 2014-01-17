@@ -65,7 +65,6 @@ class TestApp(GoodAppTestCase):
             '--no-parent',
             '--recursive',
             '--page-requisites',
-            '--warc-file', 'test',
             '--database', 'test.db',
             '--server-response',
             '--random-wait',
@@ -83,3 +82,49 @@ class TestApp(GoodAppTestCase):
             engine = Builder(args).build()
             exit_code = yield engine()
         self.assertEqual(0, exit_code)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_args_warc(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--no-parent',
+            '--recursive',
+            '--page-requisites',
+            '--warc-file', 'test',
+        ])
+        with cd_tempdir():
+            engine = Builder(args).build()
+            exit_code = yield engine()
+        self.assertEqual(0, exit_code)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_sanity(self):
+        arg_items = [
+            ('--verbose', '--quiet'),
+            ('--timestamp', '--no-clobber'),
+            ('--inet4-only', '--inet6-only'),
+            ('--warc-file=test', '--no-clobber'),
+            ('--warc-file=test', '--timestamping'),
+            ('--warc-file=test', '--continue'),
+        ]
+
+        for arg_item in arg_items:
+            def silence(dummy=None):
+                pass
+
+            def test_exit(status=0, message=None):
+                raise ValueError(status, message)
+
+            arg_parser = AppArgumentParser()
+            arg_parser.exit = test_exit
+            arg_parser.print_help = silence
+            arg_parser.print_usage = silence
+
+            try:
+                print(arg_item)
+                arg_parser.parse_args([self.get_url('/')] + list(arg_item))
+            except ValueError as error:
+                self.assertEqual(2, error.args[0])
+            else:
+                self.assertTrue(False)

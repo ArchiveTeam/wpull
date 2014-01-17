@@ -3,6 +3,7 @@ import argparse
 import gettext
 import logging
 import os
+import sys
 
 import wpull.version
 
@@ -53,6 +54,11 @@ class AppArgumentParser(argparse.ArgumentParser):
         items = string.split(',')
         items = list([item.strip() for item in items])
         return items
+
+    def parse_args(self, args=None, namespace=None):
+        args = super().parse_args(args=args, namespace=namespace)
+        self._post_parse_args(args)
+        return args
 
     def _add_app_args(self):
         self.add_argument(
@@ -229,7 +235,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             '-c',
             '--continue',
             action='store_true',
-            dest='continue_file',
+            dest='continue_download',
             help=_('resume downloading a partially-downloaded file'),
         )
 #         self.add_argument(
@@ -241,8 +247,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         clobber_group.add_argument(
             '-N',
             '--timestamping',
-            action='store_const',
-            const='timestamping',
+            action='store_true',
             help=_('only download files that are newer than local files'),
         )
         group.add_argument(
@@ -849,3 +854,17 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('don’t follow to parent directories on URL path'),
         )
+
+    def _post_parse_args(self, args):
+        if args.warc_file:
+            self._post_warc_args(args)
+
+    def _post_warc_args(self, args):
+        option_names = ('clobber_method', 'timestamping', 'continue_download')
+
+        for option_name in option_names:
+            if vars(args).get(option_name):
+                self.error(
+                    _('WARC output cannot be combined with {option_name}.') \
+                        .format(option_name=option_name)
+                )
