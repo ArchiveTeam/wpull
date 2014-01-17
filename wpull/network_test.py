@@ -6,6 +6,9 @@ from wpull.network import Resolver
 import wpull.util
 
 
+DEFAULT_TIMEOUT = 30
+
+
 class MockFaultyResolver(Resolver):
     @tornado.gen.coroutine
     def _resolve_tornado(self, host, port, family):
@@ -14,13 +17,13 @@ class MockFaultyResolver(Resolver):
 
 
 class TestNetwork(tornado.testing.AsyncTestCase):
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver(self):
         resolver = Resolver()
         address = yield resolver.resolve('google.com', 80)
         self.assertTrue(address)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver_timeout(self):
         resolver = MockFaultyResolver(timeout=0.1)
         try:
@@ -31,7 +34,7 @@ class TestNetwork(tornado.testing.AsyncTestCase):
             self.assertFalse(address)
             self.assertTrue(False)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver_fail(self):
         resolver = Resolver()
         try:
