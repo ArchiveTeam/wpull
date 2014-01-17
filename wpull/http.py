@@ -233,6 +233,8 @@ class Connection(object):
     def fetch(self, request, recorder=None, response_factory=Response):
         _logger.debug('Request {0}.'.format(request))
 
+        assert not self._active
+
         self._active = True
 
         try:
