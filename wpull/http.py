@@ -444,13 +444,14 @@ class Connection(object):
 
 class HostConnectionPool(collections.Set):
     # TODO: remove old connection instances
-    def __init__(self, host, port, request_queue, max_count=6,
+    def __init__(self, host, port, request_queue, ssl=False, max_count=6,
     connection_factory=Connection):
         assert isinstance(host, str)
         assert isinstance(port, int) and port
         self._host = host
         self._port = port
         self._request_queue = request_queue
+        self._ssl = ssl
         self._connection_factory = connection_factory
         self._connections = set()
         self._connection_ready_queue = toro.Queue()
@@ -461,8 +462,8 @@ class HostConnectionPool(collections.Set):
     @tornado.gen.coroutine
     def _run(self):
         while True:
-            _logger.debug('Host pool running ({0}:{1}).'.format(
-                self._host, self._port))
+            _logger.debug('Host pool running ({0}:{1} SSL={2}).'.format(
+                self._host, self._port, self._ssl))
             yield self._max_count_semaphore.acquire()
             self._process_request()
 
@@ -496,7 +497,8 @@ class HostConnectionPool(collections.Set):
         except queue.Empty:
             if len(self._connections) < self._max_count:
                 _logger.debug('Making another connection.')
-                connection = self._connection_factory(self._host, self._port)
+                connection = self._connection_factory(
+                    self._host, self._port, ssl=self._ssl)
                 self._connections.add(connection)
                 raise tornado.gen.Return(connection)
 
@@ -535,18 +537,22 @@ class ConnectionPool(collections.Mapping):
             host = request.url_info.hostname
             port = request.url_info.port
             address = (host, port)
+            ssl = (request.url_info.scheme == 'https')
 
         if address not in self._subqueues:
             _logger.debug('New host pool.')
-            self._subqueues[address] = self._subqueue_constructor(host, port)
+            self._subqueues[address] = self._subqueue_constructor(
+                host, port, ssl)
 
         yield self._subqueues[address].queue.put(
             (request, kwargs, async_result))
 
-    def _subqueue_constructor(self, host, port):
+    def _subqueue_constructor(self, host, port, ssl):
         subqueue = toro.Queue()
         return self.Entry(
-            subqueue, self._host_connection_pool_factory(host, port, subqueue))
+            subqueue,
+            self._host_connection_pool_factory(host, port, subqueue, ssl=ssl)
+        )
 
     def __getitem__(self, key):
         return self._subqueues[key]
