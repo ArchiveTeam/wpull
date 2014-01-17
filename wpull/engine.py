@@ -3,7 +3,6 @@ import gettext
 import logging
 import tornado.gen
 import toro
-import traceback
 
 from wpull.database import Status, NotFound
 from wpull.errors import ExitStatus, ServerError, ConnectionRefused, DNSNotFound
@@ -37,6 +36,7 @@ class Engine(object):
         self._concurrent = concurrent
         self._num_worker_busy = 0
         self._exit_code = 0
+        self._stopping = False
 
     @tornado.gen.coroutine
     def __call__(self):
@@ -84,12 +84,15 @@ class Engine(object):
     def _process_input(self):
         try:
             while True:
-                url_record = self._get_next_url_record()
+                if not self._stopping:
+                    url_record = self._get_next_url_record()
+                else:
+                    url_record = None
 
                 if not url_record:
                     # TODO: need better check if we are done
                     if self._num_worker_busy == 0:
-                        self._stop()
+                        self.stop(force=True)
                     yield wpull.util.sleep(1.0)
                 else:
                     break
@@ -109,7 +112,7 @@ class Engine(object):
         except Exception as error:
             _logger.exception('Fatal exception.')
             self._update_exit_code_from_error(error)
-            self._stop()
+            self.stop(force=True)
 
         self._num_worker_busy -= 1
         self._worker_semaphore.release()
@@ -192,8 +195,13 @@ class Engine(object):
             top_url=url_record.top_url or url_record.url
         )
 
-    def _stop(self):
-        self._done_event.set()
+    def stop(self, force=False):
+        _logger.debug('Stopping. force={0}'.format(force))
+
+        self._stopping = True
+
+        if force:
+            self._done_event.set()
 
     def _update_exit_code_from_error(self, error):
         for error_type, exit_code in self.ERROR_CODE_MAP.items():
