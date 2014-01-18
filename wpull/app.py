@@ -42,6 +42,7 @@ class Builder(object):
             url_table,
             http_client,
             processor,
+            concurrent=self._args.concurrent,
         )
 
     def build_and_run(self):
@@ -164,6 +165,7 @@ class Builder(object):
                     extra_fields=extra_fields,
                     temp_dir=args.warc_tempdir,
                     log=args.warc_log,
+                    appending=args.warc_append,
                 )
             )
 

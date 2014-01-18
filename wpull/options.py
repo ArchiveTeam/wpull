@@ -116,6 +116,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=':memory:',
             help=_('save database tables into FILE instead of memory'),
         )
+        group.add_argument(
+            '--concurrent',
+            metavar='N',
+            default=1,
+            type=self.int_0_inf,
+            help=_('run at most N downloads at the same time'),
+        )
 
     def _add_log_and_input_args(self):
         group = self.add_argument_group(_('logging and input'))
@@ -295,6 +302,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         group.add_argument(
             '--read-timeout',
             metavar='SECS',
+            default=900,
             type=float,
             help=_('timeout after SECS seconds for reading requests'),
         )
@@ -658,6 +666,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--warc-file',
             metavar='FILENAME',
             help=_('save WARC file to filename prefixed with FILENAME'),
+        )
+        group.add_argument(
+            '--warc-append',
+            action='store_true',
+            help=_('append instead of overwrite the output WARC file')
         )
         group.add_argument(
             '--warc-header',

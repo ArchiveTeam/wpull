@@ -39,6 +39,9 @@ coverage.xml
 .project
 .pydevproject
 
+# eclipse
+.settings
+
 # Rope
 .ropeproject
 
@@ -51,5 +54,5 @@ docs/_build/
 
 
 *~
-
+MANIFEST
 py2src_noedit/

@@ -6,6 +6,7 @@ import gettext
 import hashlib
 import io
 import logging
+import os.path
 import sys
 from tempfile import NamedTemporaryFile
 import tempfile
@@ -186,13 +187,16 @@ class WARCRecord(object):
 
 class WARCRecorder(BaseRecorder):
     def __init__(self, filename, compress=True, extra_fields=None,
-    temp_dir=None, log=True):
+    temp_dir=None, log=True, appending=False):
         self._filename = filename
         self._gzip_enabled = compress
         self._temp_dir = temp_dir
         self._warcinfo_record = WARCRecord()
         self._log_record = None
         self._log_handler = None
+
+        if not appending:
+            self._truncate_existing_file()
 
         self._populate_warcinfo(extra_fields)
 
@@ -201,6 +205,11 @@ class WARCRecorder(BaseRecorder):
             self._setup_log()
 
         self.write_record(self._warcinfo_record)
+
+    def _truncate_existing_file(self):
+        if os.path.exists(self._filename):
+            with open(self._filename, 'wb'):
+                pass
 
     def _populate_warcinfo(self, extra_fields=None):
         self._warcinfo_record.set_common_fields(
@@ -259,6 +268,10 @@ class WARCRecorder(BaseRecorder):
             self._log_handler.close()
             self._log_record.block_file.seek(0)
             self._log_record.set_common_fields('resource', 'text/plain')
+
+            self._log_record.fields['WARC-Target-URI'] = \
+                'urn:X-wpull:log'
+
             self._log_record.compute_checksum()
             self.write_record(self._log_record)
 

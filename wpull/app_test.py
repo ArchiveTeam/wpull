@@ -79,6 +79,7 @@ class TestApp(GoodAppTestCase):
             '--no-clobber',
             '--rotate-dns',
             '-4',
+            '--concurrent', '2',
         ])
         with cd_tempdir():
             engine = Builder(args).build()

@@ -115,8 +115,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header('transfer-encoding', 'chunked')
         self.end_headers()
 
-        while True:
-            self.wfile.write(b'0' * 1000)
+        for dummy in range(100):
+            self.wfile.write(b'0' * 100000)
+            time.sleep(0.001)
 
     def bad_chunk_size(self):
         self.send_response(200)

@@ -1,2 +1,2 @@
-recursive-include wpull *.html *.css
-include README.md requirements*.txt LICENSE.txt 3to2runner.py backport.py backport.conf
+recursive-include wpull *.html *.css *.txt
+include README.rst requirements*.txt LICENSE.txt 3to2runner.py backport.py backport.conf
