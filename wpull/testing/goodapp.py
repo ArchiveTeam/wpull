@@ -1,5 +1,6 @@
 # encoding=utf-8
 import os.path
+import time
 from tornado.testing import AsyncHTTPTestCase
 from tornado.web import HTTPError
 import tornado.web
@@ -41,15 +42,20 @@ class GoodApp(tornado.web.Application):
                 'templates'),
             static_path=os.path.join(os.path.dirname(__file__),
                 'static'),
-            debug=True,
+            serve_traceback=True,
         )
 
 
 class GoodAppTestCase(AsyncHTTPTestCase):
+    def setUp(self):
+        AsyncHTTPTestCase.setUp(self)
+        # Wait for the app to start up properly (for good luck).
+        time.sleep(0.5)
+
     def get_app(self):
         return GoodApp()
 
 if __name__ == '__main__':
     app = GoodApp()
     app.listen(8888)
-    tornado.ioloop.IOLoop.instance().start()
+    tornado.ioloop.IOLoop.current().start()

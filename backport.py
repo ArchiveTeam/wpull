@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2011-2014 Shawn Brown. License BSD 3-Clause ("BSD New").
+# Version 727027eadace
+assert ''.__class__.__name__ == 'str', 'Must not translate with 3to2.'
+
 import itertools
 import re
 import shutil
@@ -43,7 +46,7 @@ except AttributeError:
 
         i = len(os.path.commonprefix([start_list, path_list]))
 
-        rel_list = [os.path.pardir] * (len(start_list)-i) + path_list[i:]
+        rel_list = [os.path.pardir] * (len(start_list) - i) + path_list[i:]
         if not rel_list:
             return curdir
         return os.path.join(*rel_list)
@@ -121,11 +124,12 @@ def _get_config(config_string, config_fname='<string>'):
         return [(x, option) for option in options]
     package_options = getopt('src_package_dir') + getopt('dst_package_dir')
 
-    # Normalize paths.
+    # Normalize package options (names) and values (paths).
     for section, option in package_options:
         value = config.get(section, option)
         value = os.path.normpath(value)
-        config.set(section, option, value)
+        config.remove_option(section, option)
+        config.set(section, str(option), value)
 
     # Assert that src and dst package names match.
     src_keys = set(config.options('src_package_dir'))
@@ -322,7 +326,6 @@ def translate_project(config_file=_config_file, stdout=None, stderr=None):
 #################################
 # TEST RUNNER SUPPORT
 #################################
-#pass
 import unittest
 import traceback
 import imp
@@ -531,30 +534,5 @@ def redirect_import(orig_name, alt_name=None, alt_path=None):
     sys.meta_path.insert(0, redirect)  # Register import hook.
 
 
-
 if __name__ == '__main__':
     translate_project()
-
-    #def makereldir(dirpath, filenames):
-    #    nonlocal top  # <- means that makereldir cannot be tested independently from _get_filenames :(
-    #                  #    this is solved by dependency injection!
-    #    dirpath = dirpath[len(top):].lstrip(os.sep)
-    #    return [makerelfile(dirpath, x) for x in filenames if _isprojectfile(x)]
-
-    ## Looped version of above...
-    ##  * ungrounded/unlabeled logical symbols -- fixed w/ fn names
-    ##  * variables mushed together in same scope (e.g., dirpath) -- fixed with injection & explicit nonlocal
-    ##  * behavior must be tested together -- after fix, labelled functions tested in isolation! "do one thing well"
-    #for dirpath, dirnames, filenames in os.walk(top):
-    #    if not dirpath.endswith('__pycache__'):
-    #        dirpath = dirpath[len(top):].lstrip(os.sep)
-    #        dir_filenames = []
-    #        for filename in filenames:
-    #            if filename.endswith('.pyc'):
-    #                continue
-    #            if not  filename.endswith('.pyc'):
-    #                dir_filenames.append(os.path.join(dirpath, filename))
-    #            all_filenames.append(filename)
-    #
-    #    all_filenames += dir_filenames
-    #return all_filenames

@@ -14,6 +14,7 @@ import tempfile
 import tornado.gen
 from tornado.iostream import StreamClosedError
 import toro
+import traceback
 
 from wpull.actor import Event
 from wpull.errors import ProtocolError, NetworkError, ConnectionRefused
@@ -165,7 +166,8 @@ class Connection(object):
     DEFAULT_BUFFER_SIZE = 1048576
 
     def __init__(self, host, port, ssl=False, bind_address=None,
-    resolver=None, connect_timeout=None, read_timeout=None):
+    resolver=None, connect_timeout=None, read_timeout=None,
+    keep_alive=True):
         self._host = host
         self._port = port
         self._ssl = ssl
@@ -178,6 +180,8 @@ class Connection(object):
         self._resolver = resolver or Resolver()
         self._connect_timeout = connect_timeout
         self._read_timeout = read_timeout
+        self._keep_alive = keep_alive
+        self._active = False
 
     @tornado.gen.coroutine
     def _make_socket(self):
@@ -229,6 +233,10 @@ class Connection(object):
     def fetch(self, request, recorder=None, response_factory=Response):
         _logger.debug('Request {0}.'.format(request))
 
+        assert not self._active
+
+        self._active = True
+
         try:
             if recorder:
                 with recorder.session() as recorder_session:
@@ -238,9 +246,20 @@ class Connection(object):
             else:
                 response = yield self._process_request(request,
                     response_factory)
+        except:
+            _logger.debug('Fetch exception.')
+            self.close()
+            raise
         finally:
             self._events.clear()
+            self._active = False
+
+        if not self._keep_alive:
+            _logger.debug('Closing connection.')
             self.close()
+
+        _logger.debug('Fetching done.')
+
         raise tornado.gen.Return(response)
 
     @tornado.gen.coroutine
@@ -304,7 +323,6 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _read_response_body(self, response):
-        _logger.debug('Reading body.')
         gzipped = 'gzip' in response.fields.get('Content-Encoding', '')
         # TODO: handle gzip responses
 
@@ -320,6 +338,8 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _read_response_by_length(self, response):
+        _logger.debug('Reading body by length.')
+
         body_size = int(response.fields['Content-Length'])
 
         def response_callback(data):
@@ -382,6 +402,8 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _read_response_until_close(self, response):
+        _logger.debug('Reading body until close.')
+
         def response_callback(data):
             self._events.response_data.fire(data)
             response.body.content_file.write(data)
@@ -390,9 +412,8 @@ class Connection(object):
             streaming_callback=response_callback)
 
     @property
-    def ready(self):
-        # TODO: return value for checking if connection is not used
-        raise NotImplementedError()
+    def active(self):
+        return self._active
 
     @property
     def connected(self):
@@ -403,23 +424,37 @@ class Connection(object):
             self._io_stream.close()
 
     def _stream_closed_callback(self):
-        _logger.debug('Stream closed.')
+        _logger.debug('Stream closed. '
+            'active={0} connected={1} ' \
+            'closed={2} reading={3} writing={3}'.format(
+                self._active,
+                self._connected,
+                self._io_stream.closed(),
+                self._io_stream.reading(),
+                self._io_stream.writing())
+        )
+
         self._connected = False
+
         if self._io_stream.error:
+            _logger.debug('Throwing error {0}.'.format(self._io_stream.error))
             raise self._io_stream.error
+
         if self._io_stream.buffer_full:
-            raise ProtocolError()
+            _logger.debug('Buffer full.')
+            raise ProtocolError('Buffer full.')
 
 
 class HostConnectionPool(collections.Set):
     # TODO: remove old connection instances
-    def __init__(self, host, port, request_queue, max_count=6,
+    def __init__(self, host, port, request_queue, ssl=False, max_count=6,
     connection_factory=Connection):
         assert isinstance(host, str)
         assert isinstance(port, int) and port
         self._host = host
         self._port = port
         self._request_queue = request_queue
+        self._ssl = ssl
         self._connection_factory = connection_factory
         self._connections = set()
         self._connection_ready_queue = toro.Queue()
@@ -430,8 +465,8 @@ class HostConnectionPool(collections.Set):
     @tornado.gen.coroutine
     def _run(self):
         while True:
-            _logger.debug('Host pool running ({0}:{1}).'.format(
-                self._host, self._port))
+            _logger.debug('Host pool running ({0}:{1} SSL={2}).'.format(
+                self._host, self._port, self._ssl))
             yield self._max_count_semaphore.acquire()
             self._process_request()
 
@@ -448,6 +483,7 @@ class HostConnectionPool(collections.Set):
         except Exception as error:
             _logger.debug('Host pool got an error from fetch: {error}'\
                 .format(error=error))
+            _logger.debug(traceback.format_exc())
             yield async_result.set(error)
         else:
             yield async_result.set(response)
@@ -464,7 +500,8 @@ class HostConnectionPool(collections.Set):
         except queue.Empty:
             if len(self._connections) < self._max_count:
                 _logger.debug('Making another connection.')
-                connection = self._connection_factory(self._host, self._port)
+                connection = self._connection_factory(
+                    self._host, self._port, ssl=self._ssl)
                 self._connections.add(connection)
                 raise tornado.gen.Return(connection)
 
@@ -479,6 +516,11 @@ class HostConnectionPool(collections.Set):
 
     def __len__(self):
         return len(self._connections)
+
+    def close(self):
+        for connection in self._connections:
+            _logger.debug('Closing {0}.'.format(connection))
+            connection.close()
 
 
 class ConnectionPool(collections.Mapping):
@@ -498,18 +540,22 @@ class ConnectionPool(collections.Mapping):
             host = request.url_info.hostname
             port = request.url_info.port
             address = (host, port)
+            ssl = (request.url_info.scheme == 'https')
 
         if address not in self._subqueues:
             _logger.debug('New host pool.')
-            self._subqueues[address] = self._subqueue_constructor(host, port)
+            self._subqueues[address] = self._subqueue_constructor(
+                host, port, ssl)
 
         yield self._subqueues[address].queue.put(
             (request, kwargs, async_result))
 
-    def _subqueue_constructor(self, host, port):
+    def _subqueue_constructor(self, host, port, ssl):
         subqueue = toro.Queue()
         return self.Entry(
-            subqueue, self._host_connection_pool_factory(host, port, subqueue))
+            subqueue,
+            self._host_connection_pool_factory(host, port, subqueue, ssl=ssl)
+        )
 
     def __getitem__(self, key):
         return self._subqueues[key]
@@ -519,6 +565,12 @@ class ConnectionPool(collections.Mapping):
 
     def __len__(self):
         return len(self._subqueues)
+
+    def close(self):
+        for key in self._subqueues:
+            _logger.debug('Closing pool for {0}.'.format(key))
+            subpool = self._subqueues[key].pool
+            subpool.close()
 
 
 class Client(object):
@@ -541,10 +593,13 @@ class Client(object):
         yield self._connection_pool.put(request, kwargs, async_result)
         response = yield async_result.get()
         if isinstance(response, Exception):
-            raise response
+            raise response from response
         else:
             raise tornado.gen.Return(response)
 
     def close(self):
+        _logger.debug('Client closing.')
+        self._connection_pool.close()
+
         if self._recorder:
             self._recorder.close()

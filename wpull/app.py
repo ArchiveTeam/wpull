@@ -45,7 +45,7 @@ class Builder(object):
         )
 
     def build_and_run(self):
-        io_loop = tornado.ioloop.IOLoop.instance()
+        io_loop = tornado.ioloop.IOLoop.current()
         engine = self.build()
         exit_code = io_loop.run_sync(engine)
         return exit_code
@@ -56,7 +56,7 @@ class Builder(object):
             format='%(levelname)s %(message)s')
 
         if self._args.verbosity == logging.DEBUG:
-            tornado.ioloop.IOLoop.instance().set_blocking_log_threshold(5)
+            tornado.ioloop.IOLoop.current().set_blocking_log_threshold(5)
 
     def _setup_file_logger(self):
         args = self._args
@@ -221,7 +221,7 @@ class Builder(object):
             hostname=args.host_directories,
         )
 
-        if args.recursive or args.page_requisites or args.continue_file:
+        if args.recursive or args.page_requisites or args.continue_download:
             if args.clobber_method == 'disable':
                 file_class = OverwriteFileWriter
             else:
@@ -233,7 +233,7 @@ class Builder(object):
 
         return file_class(
             path_namer,
-            file_continuing=args.continue_file,
+            file_continuing=args.continue_download,
             headers_included=args.save_headers,
             local_timestamping=args.use_server_timestamps
         )
@@ -278,7 +278,8 @@ class Builder(object):
         else:
             families = [Resolver.IPv4, Resolver.IPv6]
 
-        resolver = Resolver(families=families, timeout=dns_timeout)
+        resolver = Resolver(families=families, timeout=dns_timeout,
+            rotate=args.rotate_dns)
 
         def connection_factory(*args, **kwargs):
             return Connection(
@@ -286,6 +287,7 @@ class Builder(object):
                 resolver=resolver,
                 connect_timeout=connect_timeout,
                 read_timeout=read_timeout,
+                keep_alive=self._args.http_keep_alive,
                 **kwargs)
 
         def host_connection_pool_factory(*args, **kwargs):

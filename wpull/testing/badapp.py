@@ -3,6 +3,8 @@
 import abc
 import http.server
 import logging
+import socket
+import socketserver
 import threading
 import time
 import tornado.gen
@@ -17,6 +19,8 @@ _dummy = abc
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
+    protocol_version = 'HTTP/1.1'
+
     def __init__(self, *args, **kwargs):
         self._routes = {
             '/': self.basic,
@@ -38,15 +42,31 @@ class Handler(http.server.BaseHTTPRequestHandler):
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
     def do_GET(self):
-        _logger.debug('do_GET here')
+        _logger.debug('do_GET here. path={0}'.format(self.path))
         route = self._routes[self.path]
         route()
-        _logger.debug('do_GET done')
+        _logger.debug('do_GET done. path={0}'.format(self.path))
+
+    def log_message(self, message, *args):
+        _logger.debug(message, *args)
+
+    def finish(self):
+        # This function is backported for 2.6
+        if not self.wfile.closed:
+            try:
+                self.wfile.flush()
+            except socket.error:
+                # An final socket error may have occurred here, such as
+                # the local error ECONNABORTED.
+                pass
+        self.wfile.close()
+        self.rfile.close()
 
     def basic(self):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b'hello world!')
+        self.close_connection = True
 
     def basic_content_length(self):
         length = 100
@@ -56,7 +76,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(b'a' * length)
 
     def basic_chunked(self):
-        self.protocol_version = 'HTTP/1.1'
         self.send_response(200)
         self.send_header('transfer-ENCODING', 'chunked')
         self.end_headers()
@@ -64,7 +83,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             b'5\r\nhello\r\n7\r\n world!\r\n0\r\n\r\n')
 
     def basic_chunked_trailer(self):
-        self.protocol_version = 'HTTP/1.1'
         self.send_response(200)
         self.send_header('transfer-encoding', 'chunked')
         self.end_headers()
@@ -73,7 +91,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def underrun_response(self):
         length = 100
-        self.protocol_version = 'HTTP/1.1'
         self.send_response(200)
         self.send_header('Content-length', length)
         self.end_headers()
@@ -81,14 +98,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def overrun_response(self):
         length = 100
-        self.protocol_version = 'HTTP/1.1'
         self.send_response(200)
         self.send_header('Content-length', length)
         self.end_headers()
         self.wfile.write(b'a' * (length * 2))
 
     def malformed_chunked(self):
-        self.protocol_version = 'HTTP/1.1'
         self.send_response(200)
         self.send_header('transfer-encoding', 'chunked')
         self.end_headers()
@@ -96,7 +111,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             b'5\r\nhello\r\n5\r\n world!\r\n0\r\n\r\n')
 
     def buffer_overflow(self):
-        self.protocol_version = 'HTTP/1.1'
         self.send_response(200)
         self.send_header('transfer-encoding', 'chunked')
         self.end_headers()
@@ -105,7 +119,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(b'0' * 1000)
 
     def bad_chunk_size(self):
-        self.protocol_version = 'HTTP/1.1'
         self.send_response(200)
         self.send_header('transfer-encoding', 'chunked')
         self.end_headers()
@@ -113,7 +126,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(b'FAIL\r\nHello world!')
 
     def content_length_and_chunked(self):
-        self.protocol_version = 'HTTP/1.1'
         self.send_response(200)
         self.send_header('transfer-encoding', 'chunked')
         self.send_header('content-length', '42')
@@ -158,23 +170,35 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.close_connection = 1
 
 
+class ConcurrentHTTPServer(socketserver.ThreadingMixIn,
+http.server.HTTPServer):
+    def __init__(self, *args, **kwargs):
+        http.server.HTTPServer.__init__(self, *args, **kwargs)
+#         self.daemon_threads = True
+
+
 class Server(threading.Thread):
     def __init__(self, port=0):
         threading.Thread.__init__(self)
         self.daemon = True
         self._port = port
         self._server = None
-        self._server = http.server.HTTPServer(
+        self._server = ConcurrentHTTPServer(
             ('localhost', self._port), Handler)
         self._port = self._server.server_address[1]
         _logger.debug(
             'Server bound to {0}'.format(self._server.server_address))
+        self.started_event = threading.Event()
 
     def run(self):
+        self.started_event.set()
+        _logger.debug('Server running.')
         self._server.serve_forever()
 
     def stop(self):
+        _logger.debug('Server stopping...')
         self._server.shutdown()
+        _logger.debug('Server stopped.')
 
     @property
     def port(self):
@@ -186,9 +210,10 @@ class BadAppTestCase(AsyncTestCase):
         super().setUp()
         self.http_server = Server()
         self.http_server.start()
+        self.http_server.started_event.wait(timeout=5.0)
         self._port = self.http_server.port
         self.connection = Connection('localhost', self._port,
-            connect_timeout=2.0, read_timeout=4.0)
+            connect_timeout=2.0, read_timeout=5.0)
 
     @tornado.gen.coroutine
     def fetch(self, path):
@@ -209,6 +234,7 @@ class BadAppTestCase(AsyncTestCase):
 
     def tearDown(self):
         self.http_server.stop()
+        self.http_server.join(timeout=5)
         super().tearDown()
 
 if __name__ == '__main__':

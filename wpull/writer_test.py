@@ -11,6 +11,9 @@ from wpull.testing.goodapp import GoodAppTestCase
 from wpull.writer import url_to_dir_path, url_to_filename
 
 
+DEFAULT_TIMEOUT = 30
+
+
 class TestWriter(unittest.TestCase):
     def test_writer_filename(self):
         url = 'http://../sométhing/'
@@ -25,7 +28,7 @@ class TestWriter(unittest.TestCase):
 
 
 class TestWriterApp(GoodAppTestCase):
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_new_file_and_clobber(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([self.get_url('/static/my_file.txt')])
@@ -51,7 +54,7 @@ class TestWriterApp(GoodAppTestCase):
 
             self.assertTrue(os.path.exists(expected_filename))
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_file_continue(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([self.get_url('/static/my_file.txt'),

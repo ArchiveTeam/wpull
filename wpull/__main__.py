@@ -1,4 +1,7 @@
 # encoding=utf-8
+import gettext
+import logging
+import signal
 import sys
 import tornado.ioloop
 
@@ -6,10 +9,34 @@ from wpull.app import Builder
 from wpull.options import AppArgumentParser
 
 
+_logger = logging.getLogger(__name__)
+_ = gettext.gettext
+
+
 if __name__ == '__main__':
     arg_parser = AppArgumentParser()
     args = arg_parser.parse_args()
-    io_loop = tornado.ioloop.IOLoop.instance()
-    exit_code = Builder(args).build_and_run()
+    io_loop = tornado.ioloop.IOLoop.current()
+    engine = Builder(args).build()
+    status = {'graceful_called': False}
+
+    def graceful_stop_handler(dummy1, dummy2):
+        if status['graceful_called']:
+            forceful_stop_handler(dummy1, dummy2)
+            return
+
+        status['graceful_called'] = True
+
+        _logger.info(_('Stopping once all requests complete...'))
+        _logger.info(_('Interrupt again to force stopping immediately.'))
+        engine.stop()
+
+    def forceful_stop_handler(dummy1, dummy2):
+        _logger.info(_('Forcing immediate stop...'))
+        engine.stop(force=True)
+
+    signal.signal(signal.SIGINT, graceful_stop_handler)
+    signal.signal(signal.SIGTERM, forceful_stop_handler)
+
+    exit_code = io_loop.run_sync(engine)
     sys.exit(exit_code)
-    # TODO: catch SIGTERM and call stop()
