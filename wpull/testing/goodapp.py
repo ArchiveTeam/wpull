@@ -49,7 +49,7 @@ class GoodApp(tornado.web.Application):
 class GoodAppTestCase(AsyncHTTPTestCase):
     def setUp(self):
         AsyncHTTPTestCase.setUp(self)
-        # Wait for the app to start up propery
+        # Wait for the app to start up properly (for good luck).
         time.sleep(0.5)
 
     def get_app(self):

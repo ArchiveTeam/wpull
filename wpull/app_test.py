@@ -51,6 +51,7 @@ class TestApp(GoodAppTestCase):
             '--no-parent',
             '--recursive',
             '--page-requisites',
+            '-4',
         ])
         with cd_tempdir():
             engine = Builder(args).build()
@@ -77,6 +78,7 @@ class TestApp(GoodAppTestCase):
             '--exclude-hostnames', 'qwerty.invalid,uiop.invalid',
             '--no-clobber',
             '--rotate-dns',
+            '-4',
         ])
         with cd_tempdir():
             engine = Builder(args).build()
@@ -92,6 +94,7 @@ class TestApp(GoodAppTestCase):
             '--recursive',
             '--page-requisites',
             '--warc-file', 'test',
+            '-4',
         ])
         with cd_tempdir():
             engine = Builder(args).build()
