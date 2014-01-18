@@ -1,5 +1,4 @@
 # encoding=utf-8
-import argparse
 import contextlib
 import os
 import tornado.testing
@@ -101,8 +100,6 @@ class TestApp(GoodAppTestCase):
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_sanity(self):
-        print(getattr(argparse, '__file__'), None)
-
         arg_items = [
             ('--verbose', '--quiet'),
             ('--timestamp', '--no-clobber'),

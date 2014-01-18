@@ -2,32 +2,18 @@
 import gettext
 import logging
 import os
+import sys
 
 import wpull.version
 
 
-try:
+if sys.version_info >= (2, 7):
     import argparse
-except ImportError:
+else:
     from wpull.backport import argparse
 
 
 _ = gettext.gettext
-
-
-def check_argparse_version():
-    if getattr(argparse, '__file__', None) \
-    and os.path.exists(argparse.__file__):
-        with open(argparse.__file__, 'rb') as arg_parse_file:
-            arg_parse_content = arg_parse_file.read(1024)
-
-        if b'2006-2009' in arg_parse_content:
-            import warnings
-            warnings.warn('The module argparse is outdated and buggy!')
-            return True
-
-
-check_argparse_version()
 
 
 class AppArgumentParser(argparse.ArgumentParser):
