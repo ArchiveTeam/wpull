@@ -116,6 +116,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=':memory:',
             help=_('save database tables into FILE instead of memory'),
         )
+        group.add_argument(
+            '--concurrent',
+            metavar='N',
+            default=1,
+            type=self.int_0_inf,
+            help=_('run at most N downloads at the same time'),
+        )
 
     def _add_log_and_input_args(self):
         group = self.add_argument_group(_('logging and input'))

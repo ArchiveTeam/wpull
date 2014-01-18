@@ -42,6 +42,7 @@ class Builder(object):
             url_table,
             http_client,
             processor,
+            concurrent=self._args.concurrent,
         )
 
     def build_and_run(self):
