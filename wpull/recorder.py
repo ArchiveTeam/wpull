@@ -259,6 +259,10 @@ class WARCRecorder(BaseRecorder):
             self._log_handler.close()
             self._log_record.block_file.seek(0)
             self._log_record.set_common_fields('resource', 'text/plain')
+
+            self._log_record.fields['WARC-Target-URI'] = \
+                'urn:X-wpull:log'
+
             self._log_record.compute_checksum()
             self.write_record(self._log_record)
 
