@@ -302,6 +302,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         group.add_argument(
             '--read-timeout',
             metavar='SECS',
+            default=900,
             type=float,
             help=_('timeout after SECS seconds for reading requests'),
         )
