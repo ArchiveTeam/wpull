@@ -323,7 +323,6 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _read_response_body(self, response):
-        _logger.debug('Reading body.')
         gzipped = 'gzip' in response.fields.get('Content-Encoding', '')
         # TODO: handle gzip responses
 
@@ -339,6 +338,8 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _read_response_by_length(self, response):
+        _logger.debug('Reading body by length.')
+
         body_size = int(response.fields['Content-Length'])
 
         def response_callback(data):
@@ -401,6 +402,8 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _read_response_until_close(self, response):
+        _logger.debug('Reading body until close.')
+
         def response_callback(data):
             self._events.response_data.fire(data)
             response.body.content_file.write(data)
