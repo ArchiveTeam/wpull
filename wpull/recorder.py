@@ -208,7 +208,8 @@ class WARCRecorder(BaseRecorder):
 
     def _truncate_existing_file(self):
         if os.path.exists(self._filename):
-            os.truncate(self._filename, 0)
+            with open(self._filename, 'wb'):
+                pass
 
     def _populate_warcinfo(self, extra_fields=None):
         self._warcinfo_record.set_common_fields(
