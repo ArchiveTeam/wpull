@@ -165,6 +165,7 @@ class Builder(object):
                     extra_fields=extra_fields,
                     temp_dir=args.warc_tempdir,
                     log=args.warc_log,
+                    appending=args.warc_append,
                 )
             )
 

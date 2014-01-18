@@ -667,6 +667,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             help=_('save WARC file to filename prefixed with FILENAME'),
         )
         group.add_argument(
+            '--warc-append',
+            action='store_true',
+            help=_('append instead of overwrite the output WARC file')
+        )
+        group.add_argument(
             '--warc-header',
             metavar='STRING',
             action='append',
