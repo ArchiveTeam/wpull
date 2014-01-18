@@ -1,5 +1,6 @@
 # encoding=utf-8
 import os.path
+import time
 from tornado.testing import AsyncHTTPTestCase
 from tornado.web import HTTPError
 import tornado.web
@@ -46,6 +47,11 @@ class GoodApp(tornado.web.Application):
 
 
 class GoodAppTestCase(AsyncHTTPTestCase):
+    def setUp(self):
+        AsyncHTTPTestCase.setUp(self)
+        # Wait for the app to start up propery
+        time.sleep(0.5)
+
     def get_app(self):
         return GoodApp()
 
