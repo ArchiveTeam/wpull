@@ -58,7 +58,10 @@ class RobotsTxtSessionMixin(object):
             return False
 
         if self._robots_state == self.RobotsState.not_checked:
-            return self._check_robots_txt_pool()
+            ok = self._check_robots_txt_pool()
+            if not ok:
+                self._url_item.skip()
+            return ok
         elif self._robots_state == self.RobotsState.need_fetch:
             return True
         else:

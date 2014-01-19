@@ -147,9 +147,12 @@ class WebProcessorSession(BaseProcessorSession):
 
         if self._test_url_filter(url_info, url_record):
             return True
+
         else:
             _logger.debug('Rejecting {url} due to filters.'.format(
                 url=url_info.url))
+            self._url_item.skip()
+
             return False
 
     def new_request(self):

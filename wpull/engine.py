@@ -104,6 +104,8 @@ class Engine(object):
 
             yield self._process_url_item(url_item)
 
+            assert url_item.is_processed
+
             _logger.debug('Table size: {0}.'.format(self._url_table.count()))
         except Exception as error:
             _logger.exception('Fatal exception.')
@@ -121,7 +123,6 @@ class Engine(object):
         with self._processor.session(url_item) as session:
             while True:
                 if not session.should_fetch():
-                    url_item.skip()
                     break
 
                 should_reprocess = yield self._process_session(
@@ -220,7 +221,7 @@ class URLItem(object):
         self._url_info = url_info
         self._url_record = url_record
         self._url = self._url_record.url
-        self._status_was_set = False
+        self._processed = False
 
     @property
     def url_info(self):
@@ -230,12 +231,18 @@ class URLItem(object):
     def url_record(self):
         return self._url_record
 
+    @property
+    def is_processed(self):
+        return self._processed
+
     def skip(self):
         _logger.debug(_('Skipping ‘{url}’.').format(url=self._url))
         self._url_table.update(self._url, status=Status.skipped)
 
+        self._processed = True
+
     def set_status(self, status, increment_try_count=True):
-        assert not self._status_was_set
+        assert not self._processed
 
         _logger.debug('Marking URL {0} status {1}.'.format(self._url, status))
         self._url_table.update(
@@ -244,7 +251,7 @@ class URLItem(object):
             status=status
         )
 
-        self._status_was_set = True
+        self._processed = True
 
     def set_value(self, **kwargs):
         self._url_table.update(self._url, **kwargs)
