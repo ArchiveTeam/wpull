@@ -57,7 +57,8 @@ class RobotsTxtSessionMixin(object):
         if not super().should_fetch():
             return False
 
-        if self._robots_state == self.RobotsState.not_checked:
+        if self._robots_state in (self.RobotsState.not_checked,
+        self.RobotsState.fetched):
             ok = self._check_robots_txt_pool()
             if not ok:
                 self._url_item.skip()
@@ -68,7 +69,7 @@ class RobotsTxtSessionMixin(object):
             return super().should_fetch()
 
     def _check_robots_txt_pool(self):
-        url_info = self._url_item.url_info
+        url_info = self._next_url_info
         request = self._new_request_instance(url_info.url)
         user_agent = request.fields.get('user-agent', '')
 
@@ -89,14 +90,14 @@ class RobotsTxtSessionMixin(object):
     def new_request(self):
         if self._robots_state == self.RobotsState.need_fetch:
             if self._robots_redirect_url:
-                self._robots_request = self._request_factory(
+                self._robots_request = self._new_request_instance(
                     self._robots_redirect_url)
                 self._robots_redirect_url = None
             else:
-                url_info = self._url_item.url_info
+                url_info = self._next_url_info
                 url = URLInfo.parse('{0}://{1}:{2}/robots.txt'.format(
                     url_info.scheme, url_info.hostname, url_info.port)).url
-                self._robots_request = self._request_factory(url)
+                self._robots_request = self._new_request_instance(url)
 
             _logger.debug('Making request for robots.txt')
             return self._robots_request
@@ -135,19 +136,24 @@ class RobotsTxtSessionMixin(object):
             if response.status_code == 200:
                 self._accept_ok(response)
             else:
-                self._accept_empty(self._url_item.url_info)
+                self._accept_empty(self._robots_request.url_info)
 
     def _accept_ok(self, response):
+        url_info = self._robots_request.url_info
+
         try:
-            self._robots_txt_pool.load_robots_txt(self._url_item.url_info,
+            self._robots_txt_pool.load_robots_txt(
+                url_info,
                 response.body.content_segment())
         except ValueError:
-            _logger.warning(_('Failed to parse {url}. Ignoring.').format(
-                self._request.url_info.url))
-            self._accept_empty(self._url_item.url_info)
+            _logger.warning(
+                _('Failed to parse {url} for robots exclusion rules. '
+                    'Ignoring.').format(url_info.url))
+            self._accept_empty(url_info)
         else:
-            _logger.debug('Got a good robots.txt.')
+            _logger.debug('Got a good robots.txt for {0}.'.format(
+                url_info.url))
 
     def _accept_empty(self, url_info):
-        _logger.debug('Got empty robots.txt.')
+        _logger.debug('Got empty robots.txt for {0}.'.format(url_info.url))
         self._robots_txt_pool.load_robots_txt(url_info, '')
