@@ -9,8 +9,7 @@ from wpull.database import Status
 from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
     DNSNotFound)
 from wpull.http import Request, Response
-from wpull.robotstxt import (RobotsTxtPool, RobotsTxtSubsession,
-    RobotsTxtNotLoaded)
+from wpull.robotstxt import RobotsTxtPool, RobotsTxtSessionMixin
 from wpull.stats import Statistics
 from wpull.url import URLInfo
 from wpull.waiter import LinearWaiter
@@ -35,6 +34,10 @@ class BaseProcessor(object, metaclass=abc.ABCMeta):
 
 
 class BaseProcessorSession(object, metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def should_fetch(self):
+        pass
+
     @abc.abstractmethod
     def new_request(self):
         pass
@@ -76,14 +79,16 @@ class WebProcessor(BaseProcessor):
 
         if robots:
             self._robots_txt_pool = RobotsTxtPool()
+            self._session_class = WebProcessorWithRobotsTxtSession
         else:
             self._robots_txt_pool = None
+            self._session_class = WebProcessorSession
 
         self._statistics.start()
 
     @contextlib.contextmanager
     def session(self, url_item):
-        session = WebProcessorSession(
+        session = self._session_class(
             url_item,
             self._url_filters,
             self._document_scrapers,
@@ -94,7 +99,6 @@ class WebProcessor(BaseProcessor):
             self._retry_connrefused,
             self._retry_dns_error,
             self._max_redirects,
-            self._robots_txt_pool,
         )
         yield session
 
@@ -113,59 +117,52 @@ class WebProcessorSession(BaseProcessorSession):
 
     def __init__(self, url_item, url_filters, document_scrapers,
     file_writer_session, waiter, statistics, request_factory,
-    retry_connrefused, retry_dns_error, max_redirects, robots_txt_pool):
+    retry_connrefused, retry_dns_error, max_redirects):
         self._url_item = url_item
         self._url_filters = url_filters
         self._document_scrapers = document_scrapers
         self._file_writer_session = file_writer_session
-        self._request = None
-        self._inline_urls = set()
-        self._linked_urls = set()
-        self._redirect_url = None
         self._waiter = waiter
         self._statistics = statistics
         self._request_factory = request_factory
+
         self._retry_connrefused = retry_connrefused
         self._retry_dns_error = retry_dns_error
-        self._redirects_remaining = max_redirects
-        self._state = self.State.normal
+
         self._redirect_codes = WebProcessor.REDIRECT_STATUS_CODES
         self._document_codes = WebProcessor.DOCUMENT_STATUS_CODES
         self._no_document_codes = WebProcessor.NO_DOCUMENT_STATUS_CODES
 
-        if robots_txt_pool:
-            self._robots_txt_subsession = RobotsTxtSubsession(robots_txt_pool,
-                self._new_request_instance)
-        else:
-            self._robots_txt_subsession = None
+        self._request = None
+        self._redirect_url_info = None
+        self._redirects_remaining = max_redirects
 
-    def new_request(self):
-        url_info = self._url_item.url_info
+    @property
+    def _next_url_info(self):
+        return self._redirect_url_info or self._url_item.url_info
+
+    def should_fetch(self):
+        url_info = self._next_url_info
         url_record = self._url_item.url_record
 
-        if not self._filter_test_url(url_info, url_record):
+        if self._test_url_filter(url_info, url_record):
+            return True
+        else:
             _logger.debug('Rejecting {url} due to filters.'.format(
                 url=url_info.url))
-            self._url_item.skip()
-            return
+            return False
+
+    def new_request(self):
+        url_info = self._next_url_info
+        url_record = self._url_item.url_record
 
         self._request = self._new_request_instance(
             url_info.url,
             url_record.referrer,
         )
 
-        if self._redirect_url:
-            self._request = self._new_request_instance(
-                self._redirect_url,
-                url_record.referrer,
-            )
-
-        if self._robots_txt_subsession:
-            self._check_robots_and_rewrite()
-
         if self._file_writer_session \
-        and self._state == self.State.normal \
-        and not self._redirect_url and self._request:
+        and not self._redirect_url_info and self._request:
             self._request = self._file_writer_session.process_request(
                 self._request)
 
@@ -179,23 +176,6 @@ class WebProcessorSession(BaseProcessorSession):
 
         return request
 
-    def _check_robots_and_rewrite(self):
-        if self._state == self.State.normal:
-            try:
-                ok = self._robots_txt_subsession.can_fetch(self._request)
-            except RobotsTxtNotLoaded:
-                self._state = self.State.robotstxt
-                self._request = self._robots_txt_subsession.rewrite_request(
-                    self._request)
-            else:
-                if not ok:
-                    _logger.debug('Rejecting {url} due to robots.txt'.format(
-                        url=self._request.url_info.url))
-                    self._request = None
-        else:
-            self._request = self._robots_txt_subsession.rewrite_request(
-                self._request)
-
     def response_factory(self):
         def factory(*args, **kwargs):
             response = Response(*args, **kwargs)
@@ -208,11 +188,7 @@ class WebProcessorSession(BaseProcessorSession):
         return factory
 
     def handle_response(self, response):
-        if self._state == self.State.robotstxt:
-            self._handle_robots_txt_response(response)
-            return
-
-        self._redirect_url = None
+        self._redirect_url_info = None
 
         self._url_item.set_value(status_code=response.status_code)
 
@@ -225,28 +201,16 @@ class WebProcessorSession(BaseProcessorSession):
         else:
             return self._handle_document_error(response)
 
-    def _handle_robots_txt_response(self, response):
-        result = self._robots_txt_subsession.check_response(response)
-
-        if result == RobotsTxtSubsession.Result.done \
-        or result == RobotsTxtSubsession.Result.fail:
-            self._state = self.State.normal
-            self._waiter.reset()
-        elif result == RobotsTxtSubsession.Result.redirect:
-            self._waiter.reset()
-        elif result == RobotsTxtSubsession.Result.retry:
-            self._waiter.increment()
-        else:
-            raise NotImplementedError()
-
     def _handle_document(self, response):
         _logger.debug('Got a document.')
 
-        self._scrape_document(self._request, response)
+        inline_urls, linked_urls = self._scrape_document(
+            self._request, response)
+
         self._url_item.add_inline_url_infos(
-            [URLInfo.parse(url) for url in self._inline_urls])
+            [URLInfo.parse(url) for url in inline_urls])
         self._url_item.add_linked_url_infos(
-            [URLInfo.parse(url) for url in self._linked_urls])
+            [URLInfo.parse(url) for url in linked_urls])
 
         if self._file_writer_session:
             self._file_writer_session.save_document(response)
@@ -298,22 +262,28 @@ class WebProcessorSession(BaseProcessorSession):
         if 'location' in response.fields and self._redirects_remaining > 0:
             url = response.fields['location']
             url = urllib.parse.urljoin(self._request.url_info.url, url)
+
             _logger.debug('Got redirect to {url}.'.format(url=url))
-            self._redirect_url = url
+
+            self._redirect_url_info = URLInfo.parse(url)
             self._redirects_remaining -= 1
         else:
             _logger.warning(_('Redirection failure.'))
+
             self._statistics.errors[ProtocolError] += 1
             self._url_item.set_status(Status.error)
+
             return True
 
     def wait_time(self):
         return self._waiter.get()
 
-    def _filter_test_url(self, url_info, url_record):
+    def _test_url_filter(self, url_info, url_record):
         results = []
+
         for url_filter in self._url_filters:
             result = url_filter.test(url_info, url_record)
+
             _logger.debug(
                 'URL Filter test {0} returned {1}'.format(url_filter, result))
             results.append(result)
@@ -321,12 +291,22 @@ class WebProcessorSession(BaseProcessorSession):
         return all(results)
 
     def _scrape_document(self, request, response):
+        inline_urls = set()
+        linked_urls = set()
+
         for scraper in self._document_scrapers:
             new_inline_urls, new_linked_urls = scraper.scrape(
                 request, response) or ((), ())
-            self._inline_urls.update(new_inline_urls)
-            self._linked_urls.update(new_linked_urls)
+            inline_urls.update(new_inline_urls)
+            linked_urls.update(new_linked_urls)
 
         _logger.debug('Found URLs: inline={0} linked={1}'.format(
-            len(self._inline_urls), len(self._linked_urls)
+            len(inline_urls), len(linked_urls)
         ))
+
+        return inline_urls, linked_urls
+
+
+class WebProcessorWithRobotsTxtSession(
+RobotsTxtSessionMixin, WebProcessorSession):
+    pass

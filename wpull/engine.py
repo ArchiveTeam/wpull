@@ -102,11 +102,7 @@ class Engine(object):
             url_info = URLInfo.parse(url_record.url)
             url_item = URLItem(self._url_table, url_info, url_record)
 
-            with self._processor.session(url_item) as session:
-                while True:
-                    reprocess = yield self._process_session(session, url_item)
-                    if not reprocess:
-                        break
+            yield self._process_url_item(url_item)
 
             _logger.debug('Table size: {0}.'.format(self._url_table.count()))
         except Exception as error:
@@ -118,17 +114,34 @@ class Engine(object):
         self._worker_semaphore.release()
 
     @tornado.gen.coroutine
-    def _process_session(self, session, url_item):
-        url_record = url_item.url_record
-        url_info = url_item.url_info
+    def _process_url_item(self, url_item):
+        _logger.debug('Begin session for {0} {1}.'.format(
+            url_item.url_record, url_item.url_info))
 
-        _logger.debug('Begin session for {0} {1}'.format(url_record, url_info))
+        with self._processor.session(url_item) as session:
+            while True:
+                if not session.should_fetch():
+                    url_item.skip()
+                    break
+
+                should_reprocess = yield self._process_session(
+                    session, url_item)
+
+                wait_time = session.wait_time()
+
+                if wait_time:
+                    _logger.debug('Sleeping {0}.'.format(wait_time))
+                    yield wpull.util.sleep(wait_time)
+
+                if not should_reprocess:
+                    break
+
+    @tornado.gen.coroutine
+    def _process_session(self, session, url_item):
+        _logger.debug('Session iteration for {0} {1}'.format(
+            url_item.url_record, url_item.url_info))
 
         request = session.new_request()
-
-        if not request:
-            # We are done with this item
-            return
 
         _logger.info(_('Fetching ‘{url}’.').format(url=request.url_info.url))
 
@@ -138,9 +151,10 @@ class Engine(object):
         except (NetworkError, ProtocolError) as error:
             _logger.error(
                 _('Fetching ‘{url}’ encountered an error: {error}')\
-                    .format(url=url_info.url, error=error)
+                    .format(url=request.url_info.url, error=error)
             )
-            should_continue = session.handle_error(error)
+
+            is_done = session.handle_error(error)
         else:
             _logger.info(
                 _('Fetched ‘{url}’: {status_code} {reason}. '
@@ -152,15 +166,10 @@ class Engine(object):
                     content_type=response.fields.get('Content-Type'),
                 )
             )
-            should_continue = session.handle_response(response)
 
-        wait_time = session.wait_time()
+            is_done = session.handle_response(response)
 
-        if wait_time:
-            _logger.debug('Sleeping {0}.'.format(wait_time))
-            yield wpull.util.sleep(wait_time)
-
-        if not should_continue:
+        if not is_done:
             # Retry request for things such as redirects
             raise tornado.gen.Return(True)
 
@@ -260,3 +269,7 @@ class URLItem(object):
             referrer=self._url_record.url,
             top_url=self._url_record.top_url or self._url_record.url
         )
+
+    def add_url_item(self, url_info, request):
+        # TODO: the request should be serialized into the url_table
+        raise NotImplementedError()
