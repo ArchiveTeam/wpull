@@ -1,6 +1,6 @@
 import gettext
 import logging
-import robotexclusionrulesparser
+from wpull.thirdparty import robotexclusionrulesparser
 
 from wpull.url import URLInfo
 
