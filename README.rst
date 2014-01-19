@@ -20,13 +20,12 @@ Install
 
 Requires:
 
-* Python 2.6, 2.7, or 3.2+
-* Tornado
-* toro
-* lxml
-* robotexclusionrulesparser
+* `Python 2.6, 2.7, or 3.2+ <http://python.org/download/>`_
+* `Tornado <https://pypi.python.org/pypi/tornado>`_
+* `Toro <https://pypi.python.org/pypi/toro>`_
+* `lxml <https://pypi.python.org/pypi/lxml>`_
 
-Install from GitHub::
+Install Wpull from GitHub::
 
     pip3 install git+https://github.com/chfoo/wpull.git#egg=wpull
 
@@ -34,14 +33,17 @@ Dependencies can be installed using pip as well::
 
     pip3 install -r requirements.txt
 
-Tip: Adding the `--user` option will install into your home directory.
+Tip: Adding the ``--user`` option will install into your home directory.
 
 Python 2.6/2.7
 --------------
 
-Install lib3to2 before installing Wpull::
+Install lib3to2 and additional requirements before installing Wpull::
 
     pip install hg+https://bitbucket.org/amentajo/lib3to2#egg=3to2
+    pip install -r requirements-2py.txt
+
+Invoking ``setup.py`` will trigger the 3to2 process. The Python 2 compatible source code will be placed in ``py2src_noedit/``.
 
 Run
 +++
@@ -68,10 +70,18 @@ To see all options::
     python3 -m wpull --help
 
 
-API
-+++
+Documentation
++++++++++++++
 
-Note: This library is not thread safe.
+Documentation is not yet written.
+
+API Note: This library is not thread safe.
+
+
+Help
+++++
+
+Issues can be reported to the issue tracker: https://github.com/chfoo/wpull/issues.
 
 
 Todo
@@ -86,6 +96,15 @@ Credits
 +++++++
 
 Copyright 2013-2014 by Christopher Foo. License GPL v3.
+
+This project contains third-party source code licensed under different terms:
+
+* backport
+* wpull.backport.argparse
+* wpull.backport.collections
+* wpull.backport.functools
+* wpull.backport.tempfile
+* wpull.thirdparty.robotexclusionrulesparser
 
 We would like to acknowledge the authors of GNU Wget as Wpull uses algorithms from Wget.
 
