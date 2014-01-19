@@ -100,13 +100,11 @@ class Engine(object):
             self._num_worker_busy += 1
 
             url_info = URLInfo.parse(url_record.url)
+            url_item = URLItem(self._url_table, url_info, url_record)
 
-            with self._processor.session() as session:
-                while True:
-                    reprocess = yield self._process_session(
-                        session, url_record, url_info)
-                    if not reprocess:
-                        break
+            yield self._process_url_item(url_item)
+
+            assert url_item.is_processed
 
             _logger.debug('Table size: {0}.'.format(self._url_table.count()))
         except Exception as error:
@@ -118,13 +116,33 @@ class Engine(object):
         self._worker_semaphore.release()
 
     @tornado.gen.coroutine
-    def _process_session(self, session, url_record, url_info):
-        _logger.debug('Begin session for {0} {1}'.format(url_record, url_info))
-        request = session.new_request(url_record, url_info)
+    def _process_url_item(self, url_item):
+        _logger.debug('Begin session for {0} {1}.'.format(
+            url_item.url_record, url_item.url_info))
 
-        if not request:
-            self._skip_url(url_record.url)
-            return
+        with self._processor.session(url_item) as session:
+            while True:
+                if not session.should_fetch():
+                    break
+
+                should_reprocess = yield self._process_session(
+                    session, url_item)
+
+                wait_time = session.wait_time()
+
+                if wait_time:
+                    _logger.debug('Sleeping {0}.'.format(wait_time))
+                    yield wpull.util.sleep(wait_time)
+
+                if not should_reprocess:
+                    break
+
+    @tornado.gen.coroutine
+    def _process_session(self, session, url_item):
+        _logger.debug('Session iteration for {0} {1}'.format(
+            url_item.url_record, url_item.url_info))
+
+        request = session.new_request()
 
         _logger.info(_('Fetching ‘{url}’.').format(url=request.url_info.url))
 
@@ -134,9 +152,10 @@ class Engine(object):
         except (NetworkError, ProtocolError) as error:
             _logger.error(
                 _('Fetching ‘{url}’ encountered an error: {error}')\
-                    .format(url=url_info.url, error=error)
+                    .format(url=request.url_info.url, error=error)
             )
-            session.handle_error(error)
+
+            is_done = session.handle_error(error)
         else:
             _logger.info(
                 _('Fetched ‘{url}’: {status_code} {reason}. '
@@ -148,52 +167,12 @@ class Engine(object):
                     content_type=response.fields.get('Content-Type'),
                 )
             )
-            session.handle_response(response)
 
-        wait_time = session.wait_time()
+            is_done = session.handle_response(response)
 
-        if wait_time:
-            _logger.debug('Sleeping {0}.'.format(wait_time))
-            yield wpull.util.sleep(wait_time)
-
-        # TODO: need status_code for setting its value in the table
-
-        if session.url_record_status():
-            self._set_url_status(url_record.url, session.url_record_status())
-            self._add_urls_from_session(url_record, session)
-        else:
+        if not is_done:
             # Retry request for things such as redirects
-            _logger.debug('Retrying request.')
             raise tornado.gen.Return(True)
-
-    def _skip_url(self, url):
-        _logger.debug(_('Skipping ‘{url}’.').format(url=url))
-        self._url_table.update(url, status=Status.skipped)
-
-    def _set_url_status(self, url, status):
-        _logger.debug('Marking URL {0} status {1}.'.format(url, status))
-        self._url_table.update(url, increment_try_count=True, status=status)
-
-    def _add_urls_from_session(self, url_record, session):
-        inline_url_infos = session.inline_url_infos()
-        inline_urls = tuple([info.url for info in inline_url_infos])
-        _logger.debug('Adding inline URLs {0}'.format(inline_urls))
-        self._url_table.add(
-            inline_urls,
-            inline=1,
-            level=url_record.level + 1,
-            referrer=url_record.url,
-            top_url=url_record.top_url or url_record.url
-        )
-        linked_url_infos = session.linked_url_infos()
-        linked_urls = tuple([info.url for info in linked_url_infos])
-        _logger.debug('Adding linked URLs {0}'.format(linked_urls))
-        self._url_table.add(
-            linked_urls,
-            level=url_record.level + 1,
-            referrer=url_record.url,
-            top_url=url_record.top_url or url_record.url
-        )
 
     def stop(self, force=False):
         _logger.debug('Stopping. force={0}'.format(force))
@@ -234,3 +213,70 @@ class Engine(object):
         _logger.info(_('Downloaded: {num_files} files, {total_size} bytes.')\
             .format(num_files=stats.files, total_size=stats.size))
         _logger.info(_('Exiting with status {0}.').format(self._exit_code))
+
+
+class URLItem(object):
+    def __init__(self, url_table, url_info, url_record):
+        self._url_table = url_table
+        self._url_info = url_info
+        self._url_record = url_record
+        self._url = self._url_record.url
+        self._processed = False
+
+    @property
+    def url_info(self):
+        return self._url_info
+
+    @property
+    def url_record(self):
+        return self._url_record
+
+    @property
+    def is_processed(self):
+        return self._processed
+
+    def skip(self):
+        _logger.debug(_('Skipping ‘{url}’.').format(url=self._url))
+        self._url_table.update(self._url, status=Status.skipped)
+
+        self._processed = True
+
+    def set_status(self, status, increment_try_count=True):
+        assert not self._processed
+
+        _logger.debug('Marking URL {0} status {1}.'.format(self._url, status))
+        self._url_table.update(
+            self._url,
+            increment_try_count=increment_try_count,
+            status=status
+        )
+
+        self._processed = True
+
+    def set_value(self, **kwargs):
+        self._url_table.update(self._url, **kwargs)
+
+    def add_inline_url_infos(self, url_infos):
+        inline_urls = tuple([info.url for info in url_infos])
+        _logger.debug('Adding inline URLs {0}'.format(inline_urls))
+        self._url_table.add(
+            inline_urls,
+            inline=1,
+            level=self._url_record.level + 1,
+            referrer=self._url_record.url,
+            top_url=self._url_record.top_url or self._url_record.url
+        )
+
+    def add_linked_url_infos(self, url_infos):
+        linked_urls = tuple([info.url for info in url_infos])
+        _logger.debug('Adding linked URLs {0}'.format(linked_urls))
+        self._url_table.add(
+            linked_urls,
+            level=self._url_record.level + 1,
+            referrer=self._url_record.url,
+            top_url=self._url_record.top_url or self._url_record.url
+        )
+
+    def add_url_item(self, url_info, request):
+        # TODO: the request should be serialized into the url_table
+        raise NotImplementedError()

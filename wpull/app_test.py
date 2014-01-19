@@ -96,6 +96,7 @@ class TestApp(GoodAppTestCase):
             '--page-requisites',
             '--warc-file', 'test',
             '-4',
+            '--no-robots',
         ])
         with cd_tempdir():
             engine = Builder(args).build()

@@ -80,7 +80,9 @@ class SQLiteURLTable(BaseURLTable):
                 top_url TEXT,
                 status_code INTEGER,
                 referrer TEXT,
-                inline INTEGER
+                inline INTEGER,
+                url_encoding TEXT,
+                request BLOB
             )
             '''
         )

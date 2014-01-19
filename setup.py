@@ -33,7 +33,7 @@ else:
 
 extras = {}
 install_requires = [
-    'tornado', 'toro', 'lxml', 'robotexclusionrulesparser'
+    'tornado', 'toro', 'lxml',
 ]
 
 if sys.version_info[0] == 2:
@@ -52,7 +52,12 @@ if __name__ == '__main__':
         author='Christopher Foo',
         author_email='chris.foo@gmail.com',
         url='https://github.com/chfoo/wpull',
-        packages=['wpull', 'wpull.testing', 'wpull.backport'],
+        packages=[
+            'wpull',
+            'wpull.backport',
+            'wpull.testing',
+            'wpull.thirdparty',
+        ],
         package_data={'': ['testing/*/*.html', 'testing/*/*.css']},
         install_requires=install_requires,
         classifiers=[

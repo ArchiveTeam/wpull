@@ -326,7 +326,7 @@ class Connection(object):
         gzipped = 'gzip' in response.fields.get('Content-Encoding', '')
         # TODO: handle gzip responses
 
-        if re.search(r'chunked$|;',
+        if re.match(r'chunked($|;)',
         response.fields.get('Transfer-Encoding', '')):
             yield self._read_response_by_chunk(response)
         elif 'Content-Length' in response.fields:
