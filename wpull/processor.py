@@ -145,7 +145,7 @@ class WebProcessorSession(BaseProcessorSession):
         url_info = self._next_url_info
         url_record = self._url_item.url_record
 
-        if self._test_url_filter(url_info, url_record):
+        if self._is_url_filtered(url_info, url_record):
             return True
 
         else:
@@ -281,17 +281,26 @@ class WebProcessorSession(BaseProcessorSession):
     def wait_time(self):
         return self._waiter.get()
 
-    def _test_url_filter(self, url_info, url_record):
-        results = []
+    def _filter_url(self, url_info, url_record):
+        passed = set()
+        failed = set()
 
         for url_filter in self._url_filters:
             result = url_filter.test(url_info, url_record)
 
             _logger.debug(
                 'URL Filter test {0} returned {1}'.format(url_filter, result))
-            results.append(result)
 
-        return all(results)
+            if result:
+                passed.add(url_filter)
+            else:
+                failed.add(url_filter)
+
+        return passed, failed
+
+    def _is_url_filtered(self, url_info, url_record):
+        failed = self._filter_url(url_info, url_record)[1]
+        return len(failed) == 0
 
     def _scrape_document(self, request, response):
         inline_urls = set()
