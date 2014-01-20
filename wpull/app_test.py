@@ -133,3 +133,17 @@ class TestApp(GoodAppTestCase):
                 self.assertEqual(2, error.args[0])
             else:
                 self.assertTrue(False)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_python_script(self):
+        arg_parser = AppArgumentParser()
+        filename = os.path.join(os.path.dirname(__file__),
+            'testing', 'py_hook_script.py')
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--python-script', filename,
+        ])
+        with cd_tempdir():
+            engine = Builder(args).build()
+            exit_code = yield engine()
+        self.assertEqual(42, exit_code)
