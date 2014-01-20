@@ -150,6 +150,7 @@ class Engine(object):
             response = yield self._request_client.fetch(request,
                 response_factory=session.response_factory())
         except (NetworkError, ProtocolError) as error:
+            response = None
             _logger.error(
                 _('Fetching ‘{url}’ encountered an error: {error}')\
                     .format(url=request.url_info.url, error=error)
@@ -173,6 +174,15 @@ class Engine(object):
         if not is_done:
             # Retry request for things such as redirects
             raise tornado.gen.Return(True)
+        else:
+            self._close_instance_body(request)
+            self._close_instance_body(response)
+
+    def _close_instance_body(self, instance):
+        if hasattr(instance, 'body') \
+        and hasattr(instance.body, 'content_file') \
+        and instance.body.content_file:
+            instance.body.content_file.close()
 
     def stop(self, force=False):
         _logger.debug('Stopping. force={0}'.format(force))
