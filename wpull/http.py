@@ -100,6 +100,13 @@ class Response(object):
             reason=self.status_reason
         )
 
+    def to_dict(self):
+        return {
+            'version': self.version,
+            'status_code': self.status_code,
+            'status_reason': self.status_reason,
+        }
+
 
 class Body(object, metaclass=abc.ABCMeta):
     def __init__(self):

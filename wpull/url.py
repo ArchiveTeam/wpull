@@ -86,6 +86,21 @@ class URLInfo(URLInfoType):
             b''
         ])
 
+    def to_dict(self):
+        return {
+            'scheme': self.scheme,
+            'netloc': self.netloc,
+            'path': self.path,
+            'query': self.query,
+            'fragment': self.fragment,
+            'username': self.username,
+            'password': self.password,
+            'hostname': self.hostname,
+            'port': self.port,
+            'raw': self.raw,
+            'url': self.url,
+        }
+
 
 class BaseURLFilter(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
