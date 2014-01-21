@@ -160,7 +160,7 @@ def filter_pem(data):
 
             certs.add(b'\n'.join(new_list))
 
-            new_list.clear()
+            new_list = []
         elif in_pem_block:
             new_list.append(line)
 
