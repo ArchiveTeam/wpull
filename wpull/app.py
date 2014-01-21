@@ -126,7 +126,7 @@ class Builder(object):
             self._classes['Resolver'] = hook_environment.resolver_factory
 
             code = compile(in_file.read(), filename, 'exec')
-            context = {'wpull': hook_environment}
+            context = {'wpull_hook': hook_environment}
             exec(code, context, context)
 
     def _build_input_urls(self, default_scheme='http'):
