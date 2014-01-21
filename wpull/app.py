@@ -118,7 +118,7 @@ class Builder(object):
         _logger.info(_('Using Python hook script {filename}.').format(
             filename=filename))
 
-        with open(filename) as in_file:
+        with open(filename, 'rb') as in_file:
             hook_environment = HookEnvironment()
             self._classes['Engine'] = hook_environment.engine_factory
             self._classes['WebProcessor'] = \
