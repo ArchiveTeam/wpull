@@ -53,11 +53,13 @@ Invoking ``setup.py`` will trigger the 3to2 process. The Python 2 compatible sou
 Lua Scripting
 -------------
 
-To enable Lua scripting support, Lunatic Python can be installed using pip::
+To enable Lua scripting support, Lunatic Python (bastibe version) can be installed using pip::
 
     pip install git+https://github.com/bastibe/lunatic-python.git
 
 At time of writing, Lunatic Python uses Lua 5.2. If you desire a different version of Lua, please see below.
+
+At time of writing, Lunatic Python does not support Python 3.2.
 
 
 Specify Lua version
