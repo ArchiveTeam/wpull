@@ -8,12 +8,14 @@ Features:
 * Written in Python
 * Modular
 * Asynchronous
+* Lua scripting support
 
 .. image:: https://travis-ci.org/chfoo/wpull.png
    :target: https://travis-ci.org/chfoo/wpull
    :alt: Travis CI build status
 
 **Currently in beta quality! Some features are not implemented yet and the API is not considered stable.**
+
 
 Install
 +++++++
@@ -24,6 +26,7 @@ Requires:
 * `Tornado <https://pypi.python.org/pypi/tornado>`_
 * `Toro <https://pypi.python.org/pypi/toro>`_
 * `lxml <https://pypi.python.org/pypi/lxml>`_
+* `Lunatic Python (bastibe version) <https://github.com/bastibe/lunatic-python>`_ (optional for Lua support)
 
 Install Wpull from GitHub::
 
@@ -35,6 +38,7 @@ Dependencies can be installed using pip as well::
 
 Tip: Adding the ``--user`` option will install into your home directory.
 
+
 Python 2.6/2.7
 --------------
 
@@ -44,6 +48,29 @@ Install lib3to2 and additional requirements before installing Wpull::
     pip install -r requirements-2py.txt
 
 Invoking ``setup.py`` will trigger the 3to2 process. The Python 2 compatible source code will be placed in ``py2src_noedit/``.
+
+
+Lua Scripting
+-------------
+
+To enable Lua scripting support, Lunatic Python can be installed using pip::
+
+    pip install git+https://github.com/bastibe/lunatic-python.git
+
+At time of writing, Lunatic Python uses Lua 5.2. If you desire a different version of Lua, please see below.
+
+
+Specify Lua version
+...................
+
+Download lunatic-python from https://github.com/bastibe/lunatic-python using the "Download ZIP" link or ``git clone``.
+
+Inside ``setup.py``, edit ``LUAVERSION`` to reflect the current Lua library installed. On Ubuntu it is known by ``libluaX.Y-dev``.
+
+Run pip to install Lunatic Python with ``LOCATION`` replaced with the location of the Lunatic Python source code.::
+
+    pip install LOCATION
+
 
 Run
 +++

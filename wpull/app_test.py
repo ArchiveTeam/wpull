@@ -112,6 +112,7 @@ class TestApp(GoodAppTestCase):
             ('--warc-file=test', '--no-clobber'),
             ('--warc-file=test', '--timestamping'),
             ('--warc-file=test', '--continue'),
+            ('--lua-script=blah.lua', '--python-script=blah.py'),
         ]
 
         for arg_item in arg_items:
@@ -142,6 +143,20 @@ class TestApp(GoodAppTestCase):
         args = arg_parser.parse_args([
             self.get_url('/'),
             '--python-script', filename,
+        ])
+        with cd_tempdir():
+            engine = Builder(args).build()
+            exit_code = yield engine()
+        self.assertEqual(42, exit_code)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_lua_script(self):
+        arg_parser = AppArgumentParser()
+        filename = os.path.join(os.path.dirname(__file__),
+            'testing', 'lua_hook_script.lua')
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--lua-script', filename,
         ])
         with cd_tempdir():
             engine = Builder(args).build()

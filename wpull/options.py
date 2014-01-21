@@ -110,11 +110,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='FILE',
             help=_('load Python hook script from FILE')
         )
-#         script_group.add_argument(
-#             '--lua-script',
-#             metavar='FILE',
-#             help=_('load Lua hook script from FILE')
-#         )
+        script_group.add_argument(
+            '--lua-script',
+            metavar='FILE',
+            help=_('load Lua hook script from FILE')
+        )
         group.add_argument(
             '--database',
             metavar='FILE',

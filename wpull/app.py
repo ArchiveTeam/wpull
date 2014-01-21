@@ -22,6 +22,7 @@ from wpull.waiter import LinearWaiter
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
     IgnoreFileWriter, TimestampingFileWriter, AntiClobberFileWriter)
 
+# Module lua is imported later on demand.
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
@@ -113,21 +114,43 @@ class Builder(object):
     def _install_script_hooks(self):
         if self._args.python_script:
             self._install_python_script(self._args.python_script)
+        elif self._args.lua_script:
+            self._install_lua_script(self._args.lua_script)
 
     def _install_python_script(self, filename):
         _logger.info(_('Using Python hook script {filename}.').format(
             filename=filename))
 
-        with open(filename, 'rb') as in_file:
-            hook_environment = HookEnvironment()
-            self._classes['Engine'] = hook_environment.engine_factory
-            self._classes['WebProcessor'] = \
-                hook_environment.web_processor_factory
-            self._classes['Resolver'] = hook_environment.resolver_factory
+        hook_environment = HookEnvironment()
 
+        self._setup_hook_environment(hook_environment)
+
+        with open(filename, 'rb') as in_file:
             code = compile(in_file.read(), filename, 'exec')
             context = {'wpull_hook': hook_environment}
             exec(code, context, context)
+
+    def _install_lua_script(self, filename):
+        _logger.info(_('Using Lua hook script {filename}.').format(
+            filename=filename))
+
+        import lua
+
+        hook_environment = HookEnvironment()
+
+        self._setup_hook_environment(hook_environment)
+
+        lua_globals = lua.globals()
+        lua_globals.wpull_hook = hook_environment
+
+        with open(filename, 'rb') as in_file:
+            lua.execute(in_file.read())
+
+    def _setup_hook_environment(self, hook_environment):
+        self._classes['Engine'] = hook_environment.engine_factory
+        self._classes['WebProcessor'] = \
+            hook_environment.web_processor_factory
+        self._classes['Resolver'] = hook_environment.resolver_factory
 
     def _build_input_urls(self, default_scheme='http'):
         if self._args.input_file:
