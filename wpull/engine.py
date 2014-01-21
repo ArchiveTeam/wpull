@@ -5,27 +5,34 @@ import tornado.gen
 import toro
 
 from wpull.database import Status, NotFound
-from wpull.errors import ExitStatus, ServerError, ConnectionRefused, DNSNotFound
+from wpull.errors import (ExitStatus, ServerError, ConnectionRefused, DNSNotFound, 
+    SSLVerficationError)
 from wpull.http import NetworkError, ProtocolError
 from wpull.url import URLInfo
 import wpull.util
 
+
+try:
+    from collections import OrderedDict
+except ImportError:
+    from wpull.backport.collections import OrderedDict
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
 
 
 class Engine(object):
-    ERROR_CODE_MAP = {
-        NetworkError: ExitStatus.network_failure,
-        ProtocolError: ExitStatus.protocol_error,
-        ValueError: ExitStatus.parser_error,
-        ServerError: ExitStatus.server_error,
-        OSError: ExitStatus.file_io_error,
-        IOError: ExitStatus.file_io_error,
-        ConnectionRefused: ExitStatus.network_failure,
-        DNSNotFound: ExitStatus.network_failure,
-    }
+    ERROR_CODE_MAP = OrderedDict([
+        (ServerError, ExitStatus.server_error),
+        (ProtocolError, ExitStatus.protocol_error),
+        (SSLVerficationError, ExitStatus.ssl_verification_error),
+        (DNSNotFound, ExitStatus.network_failure),
+        (ConnectionRefused, ExitStatus.network_failure),
+        (NetworkError, ExitStatus.network_failure),
+        (OSError, ExitStatus.file_io_error),
+        (IOError, ExitStatus.file_io_error),
+        (ValueError, ExitStatus.parser_error),
+    ])
 
     def __init__(self, url_table, request_client, processor, concurrent=1):
         self._url_table = url_table
@@ -46,9 +53,14 @@ class Engine(object):
         yield self._done_event.wait()
 
         self._compute_exit_code_from_stats()
+
+        if self._exit_code == ExitStatus.ssl_verification_error:
+            self._print_ssl_error()
+
         self._processor.close()
         self._print_stats()
         self._request_client.close()
+
         raise tornado.gen.Return(self._exit_code)
 
     def _release_in_progress(self):
@@ -223,6 +235,11 @@ class Engine(object):
         _logger.info(_('Downloaded: {num_files} files, {total_size} bytes.')\
             .format(num_files=stats.files, total_size=stats.size))
         _logger.info(_('Exiting with status {0}.').format(self._exit_code))
+
+    def _print_ssl_error(self):
+        _logger.info(_('A SSL certificate could not be verified.'))
+        _logger.info(_('To ignore and proceed insecurely, '
+            'use ‘--no-check-certificate’.'))
 
 
 class URLItem(object):

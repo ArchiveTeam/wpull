@@ -82,6 +82,7 @@ class TestApp(GoodAppTestCase):
             '--rotate-dns',
             '-4',
             '--concurrent', '2',
+            '--no-check-certificate',
         ])
         with cd_tempdir():
             engine = Builder(args).build()

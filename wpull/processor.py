@@ -3,12 +3,13 @@ import abc
 import contextlib
 import gettext
 import logging
+import os
 import urllib.parse
 
 from wpull.database import Status
 from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
     DNSNotFound)
-from wpull.http import Request, Response
+from wpull.http import Request, Response, Body
 from wpull.robotstxt import RobotsTxtPool, RobotsTxtSessionMixin
 from wpull.stats import Statistics
 from wpull.url import URLInfo
@@ -181,7 +182,10 @@ class WebProcessorSession(BaseProcessorSession):
 
     def response_factory(self):
         def factory(*args, **kwargs):
+            # TODO: Response should be dependency injected
             response = Response(*args, **kwargs)
+            # FIXME: we should be using --directory-prefix instead of CWD.
+            response.body.content_file = Body.new_temp_file(os.getcwd())
 
             if self._file_writer_session:
                 self._file_writer_session.process_response(response)

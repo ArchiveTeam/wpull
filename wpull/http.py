@@ -9,6 +9,7 @@ import os
 import queue
 import re
 import socket
+import ssl
 import sys
 import tempfile
 import tornado.gen
@@ -17,7 +18,8 @@ import toro
 import traceback
 
 from wpull.actor import Event
-from wpull.errors import ProtocolError, NetworkError, ConnectionRefused
+from wpull.errors import (ProtocolError, NetworkError, ConnectionRefused,
+    SSLVerficationError)
 from wpull.extended import SSLIOStream, IOStream
 from wpull.namevalue import NameValueRecord
 from wpull.network import Resolver
@@ -134,8 +136,9 @@ class Body(object, metaclass=abc.ABCMeta):
             return self.content_file.read(max_length)
 
     @classmethod
-    def new_temp_file(cls):
-        return tempfile.SpooledTemporaryFile(max_size=4194304)
+    def new_temp_file(cls, directory=None):
+        return tempfile.SpooledTemporaryFile(
+            max_size=4194304, prefix='wpull-', suffix='.tmp', dir=directory)
 
     @property
     def content_size(self):
@@ -174,7 +177,7 @@ class Connection(object):
 
     def __init__(self, host, port, ssl=False, bind_address=None,
     resolver=None, connect_timeout=None, read_timeout=None,
-    keep_alive=True):
+    keep_alive=True, ssl_options=None):
         self._host = host
         self._port = port
         self._ssl = ssl
@@ -189,6 +192,7 @@ class Connection(object):
         self._read_timeout = read_timeout
         self._keep_alive = keep_alive
         self._active = False
+        self._ssl_options = ssl_options
 
     @tornado.gen.coroutine
     def _make_socket(self):
@@ -204,14 +208,19 @@ class Connection(object):
 
         if self._ssl:
             self._io_stream = SSLIOStream(
-                self._socket, max_buffer_size=self.DEFAULT_BUFFER_SIZE,
+                self._socket,
+                max_buffer_size=self.DEFAULT_BUFFER_SIZE,
                 connect_timeout=self._connect_timeout,
-                read_timeout=self._read_timeout)
+                read_timeout=self._read_timeout,
+                ssl_options=self._ssl_options,
+            )
         else:
             self._io_stream = IOStream(
-                self._socket, max_buffer_size=self.DEFAULT_BUFFER_SIZE,
+                self._socket,
+                max_buffer_size=self.DEFAULT_BUFFER_SIZE,
                 connect_timeout=self._connect_timeout,
-                read_timeout=self._read_timeout)
+                read_timeout=self._read_timeout,
+            )
 
         self._io_stream.set_close_callback(self._stream_closed_callback)
 
@@ -224,7 +233,11 @@ class Connection(object):
 
         _logger.debug('Connecting to {0}.'.format(self._address))
         try:
-            yield self._io_stream.connect(self._address)
+            yield self._io_stream.connect(self._address, self._host)
+        except (ssl.SSLError, tornado.netutil.SSLCertificateError,
+        SSLVerficationError) as error:
+            raise SSLVerficationError('SSLError: {error}'.format(
+                error=error)) from error
         except socket.error as error:
             if error.errno == errno.ECONNREFUSED:
                 raise ConnectionRefused('Connection refused: {error}'.format(
@@ -475,7 +488,16 @@ class HostConnectionPool(collections.Set):
             _logger.debug('Host pool running ({0}:{1} SSL={2}).'.format(
                 self._host, self._port, self._ssl))
             yield self._max_count_semaphore.acquire()
-            self._process_request()
+
+            self._process_request_wrapper()
+
+    @tornado.gen.coroutine
+    def _process_request_wrapper(self):
+        try:
+            yield self._process_request()
+        except:
+            _logger.exception('Fatal error processing request.')
+            sys.exit('Fatal error.')
 
     @tornado.gen.coroutine
     def _process_request(self):
@@ -491,13 +513,13 @@ class HostConnectionPool(collections.Set):
             _logger.debug('Host pool got an error from fetch: {error}'\
                 .format(error=error))
             _logger.debug(traceback.format_exc())
-            yield async_result.set(error)
+            async_result.set(error)
         else:
-            yield async_result.set(response)
+            async_result.set(response)
         finally:
             _logger.debug('Host pool done {0}'.format(request))
             yield self._connection_ready_queue.put(connection)
-            yield self._max_count_semaphore.release()
+            self._max_count_semaphore.release()
 
     @tornado.gen.coroutine
     def _get_ready_connection(self):

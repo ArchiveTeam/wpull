@@ -1,7 +1,11 @@
 # encoding=utf-8
+import atexit
 import gettext
 import itertools
 import logging
+import os.path
+import ssl
+import tempfile
 import tornado.ioloop
 
 from wpull.database import URLTable
@@ -22,8 +26,8 @@ from wpull.waiter import LinearWaiter
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
     IgnoreFileWriter, TimestampingFileWriter, AntiClobberFileWriter)
 
-# Module lua is imported later on demand.
 
+# Module lua is imported later on demand.
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
 
@@ -53,6 +57,7 @@ class Builder(object):
             'Engine': Engine,
         }
         self._url_infos = tuple(self._build_input_urls())
+        self._ca_certs_file = None
 
     def build(self):
         self._setup_logging()
@@ -360,6 +365,7 @@ class Builder(object):
                 connect_timeout=connect_timeout,
                 read_timeout=read_timeout,
                 keep_alive=self._args.http_keep_alive,
+                ssl_options=self._build_ssl_options(),
                 **kwargs)
 
         def host_connection_pool_factory(*args, **kwargs):
@@ -372,3 +378,54 @@ class Builder(object):
 
         return self._classes['Client'](
             connection_pool=connection_pool, recorder=recorder)
+
+    def _build_ssl_options(self):
+        ssl_options = {}
+
+        if self._args.check_certificate:
+            ssl_options['cert_reqs'] = ssl.CERT_REQUIRED
+            ssl_options['ca_certs'] = self._load_ca_certs()
+        else:
+            ssl_options['cert_reqs'] = ssl.CERT_NONE
+
+        return ssl_options
+
+    def _load_ca_certs(self):
+        if self._ca_certs_file:
+            return self._ca_certs_file
+
+        certs = set()
+
+        if self._args.use_internal_ca_certs:
+            pem_filename = os.path.join(os.path.dirname(__file__),
+                'cert', 'ca-bundle.pem')
+            certs.update(self._read_pem_file(pem_filename))
+
+        if self._args.ca_directory:
+            for filename in os.listdir(self._args.ca_directory):
+                if os.path.isfile(filename):
+                    certs.update(self._read_pem_file(filename))
+
+        if self._args.ca_certificate:
+            certs.update(self._read_pem_file(self._args.ca_certificate))
+
+        self._ca_certs_file = certs_filename = tempfile.mkstemp()[1]
+
+        def clean_certs_file():
+            os.remove(certs_filename)
+
+        atexit.register(clean_certs_file)
+
+        with open(certs_filename, 'w+b') as certs_file:
+            for cert in certs:
+                certs_file.write(cert)
+
+        _logger.debug('CA certs loaded.')
+
+        return certs_filename
+
+    def _read_pem_file(self, filename):
+        _logger.debug('Reading PEM {0}.'.format(filename))
+
+        with open(filename, 'rb') as in_file:
+            return wpull.util.filter_pem(in_file.read())

@@ -1,8 +1,9 @@
 # encoding=utf-8
 import tornado.testing
+import tornado.web
 
 from wpull.backport.testing import unittest
-from wpull.errors import ConnectionRefused
+from wpull.errors import ConnectionRefused, SSLVerficationError
 from wpull.http import (Request, Connection, NetworkError, ProtocolError, Client,
     ConnectionPool)
 from wpull.testing.badapp import BadAppTestCase
@@ -25,7 +26,7 @@ class TestConnection(BadAppTestCase):
         except NetworkError:
             pass
         else:
-            self.assertTrue(False)
+            self.fail()
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_refused(self):
@@ -36,7 +37,7 @@ class TestConnection(BadAppTestCase):
         except ConnectionRefused:
             pass
         else:
-            self.assertTrue(False)
+            self.fail()
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_timeout(self):
@@ -47,7 +48,7 @@ class TestConnection(BadAppTestCase):
         except NetworkError:
             pass
         else:
-            self.assertTrue(False)
+            self.fail()
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_reuse(self):
@@ -68,7 +69,7 @@ class TestConnection(BadAppTestCase):
         except NetworkError:
             pass
         else:
-            self.assertTrue(False)
+            self.fail()
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_basic(self):
@@ -106,7 +107,7 @@ class TestConnection(BadAppTestCase):
         except ProtocolError:
             pass
         else:
-            self.assertTrue(False)
+            self.fail()
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_buffer_overflow(self):
@@ -115,7 +116,7 @@ class TestConnection(BadAppTestCase):
         except ProtocolError:
             pass
         else:
-            self.assertTrue(False)
+            self.fail()
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_bad_chunk_size(self):
@@ -124,7 +125,7 @@ class TestConnection(BadAppTestCase):
         except ProtocolError:
             pass
         else:
-            self.assertTrue(False)
+            self.fail()
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_content_length_and_chunked(self):
@@ -219,7 +220,7 @@ class TestClient(BadAppTestCase):
         except NetworkError:
             pass
         else:
-            self.assertTrue(False)
+            self.fail()
 
 
 class TestHTTP(unittest.TestCase):
@@ -231,3 +232,17 @@ class TestHTTP(unittest.TestCase):
             b'\r\n'),
             request.header()
         )
+
+
+class TestSSL(tornado.testing.AsyncHTTPSTestCase):
+    def get_app(self):
+        return tornado.web.Application()
+
+    def test_ssl_fail(self):
+        connection = Connection('localhost', self.get_http_port())
+        try:
+            yield connection.fetch(Request.new(self.get_url('/')))
+        except SSLVerficationError:
+            pass
+        else:
+            self.fail()
