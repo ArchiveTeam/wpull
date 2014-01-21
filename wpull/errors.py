@@ -9,6 +9,10 @@ class ProtocolError(ValueError):
     pass
 
 
+class SSLVerficationError(OSError):
+    pass
+
+
 class NetworkError(OSError):
     pass
 

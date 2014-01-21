@@ -5,27 +5,34 @@ import tornado.gen
 import toro
 
 from wpull.database import Status, NotFound
-from wpull.errors import ExitStatus, ServerError, ConnectionRefused, DNSNotFound
+from wpull.errors import (ExitStatus, ServerError, ConnectionRefused, DNSNotFound, 
+    SSLVerficationError)
 from wpull.http import NetworkError, ProtocolError
 from wpull.url import URLInfo
 import wpull.util
 
+
+try:
+    from collections import OrderedDict
+except ImportError:
+    from wpull.backport.collections import OrderedDict
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
 
 
 class Engine(object):
-    ERROR_CODE_MAP = {
-        NetworkError: ExitStatus.network_failure,
-        ProtocolError: ExitStatus.protocol_error,
-        ValueError: ExitStatus.parser_error,
-        ServerError: ExitStatus.server_error,
-        OSError: ExitStatus.file_io_error,
-        IOError: ExitStatus.file_io_error,
-        ConnectionRefused: ExitStatus.network_failure,
-        DNSNotFound: ExitStatus.network_failure,
-    }
+    ERROR_CODE_MAP = OrderedDict([
+        (ServerError, ExitStatus.server_error),
+        (ProtocolError, ExitStatus.protocol_error),
+        (SSLVerficationError, ExitStatus.ssl_verification_error),
+        (DNSNotFound, ExitStatus.network_failure),
+        (ConnectionRefused, ExitStatus.network_failure),
+        (NetworkError, ExitStatus.network_failure),
+        (OSError, ExitStatus.file_io_error),
+        (IOError, ExitStatus.file_io_error),
+        (ValueError, ExitStatus.parser_error),
+    ])
 
     def __init__(self, url_table, request_client, processor, concurrent=1):
         self._url_table = url_table
