@@ -181,14 +181,14 @@ class HookedWebProcessorSessionMixin(object):
         if new_urls:
             if to_lua_type(1) in new_urls:
                 # Lua doesn't have sequences
-                for i in itertools.count(to_lua_type(1)):
-                    new_url_info = new_urls[i]
-
-                    if new_url_info is None:
-                        break
+                for i in itertools.count(1):
+                    new_url_info = new_urls[to_lua_type(i)]
 
                     _logger.debug('Got lua new url info {0}'.format(
                         new_url_info))
+
+                    if new_url_info is None:
+                        break
 
                     new_url = new_url_info[to_lua_type('url')]
                     assert new_url
