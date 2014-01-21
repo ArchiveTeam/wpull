@@ -53,9 +53,14 @@ class Engine(object):
         yield self._done_event.wait()
 
         self._compute_exit_code_from_stats()
+
+        if self._exit_code == ExitStatus.ssl_verification_error:
+            self._print_ssl_error()
+
         self._processor.close()
         self._print_stats()
         self._request_client.close()
+
         raise tornado.gen.Return(self._exit_code)
 
     def _release_in_progress(self):
@@ -230,6 +235,11 @@ class Engine(object):
         _logger.info(_('Downloaded: {num_files} files, {total_size} bytes.')\
             .format(num_files=stats.files, total_size=stats.size))
         _logger.info(_('Exiting with status {0}.').format(self._exit_code))
+
+    def _print_ssl_error(self):
+        _logger.info(_('A SSL certificate could not be verified.'))
+        _logger.info(_('To ignore and proceed insecurely, '
+            'use ‘--no-check-certificate’.'))
 
 
 class URLItem(object):

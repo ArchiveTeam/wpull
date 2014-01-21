@@ -1,8 +1,12 @@
 # encoding=utf-8
+import logging
 import tornado.iostream
 
-from wpull.errors import NetworkError
+from wpull.errors import NetworkError, SSLVerficationError
 import wpull.util
+
+
+_logger = logging.getLogger(__name__)
 
 
 class BaseIOStream(object):
@@ -18,7 +22,7 @@ class IOStreamMixin(object):
         return self._read_buffer_size >= self.max_buffer_size
 
     @tornado.gen.coroutine
-    def connect_gen(self, address, server_hostname=None):
+    def connect_gen(self, address, server_hostname):
         @tornado.gen.coroutine
         def connect():
             yield tornado.gen.Task(
@@ -54,7 +58,7 @@ class IOStreamMixin(object):
             raise tornado.gen.Return(result)
 
     @tornado.gen.coroutine
-    def connect(self, address, server_hostname=None):
+    def connect(self, address, server_hostname):
         yield self.connect_gen(address, server_hostname)
 
     @tornado.gen.coroutine
@@ -106,3 +110,20 @@ class SSLIOStream(BaseIOStream, tornado.iostream.SSLIOStream, IOStreamMixin):
     read_until = IOStreamMixin.read_until
     read_until_close = IOStreamMixin.read_until_close
     read_until_regex = IOStreamMixin.read_until_regex
+
+    def _do_ssl_handshake(self):
+        _logger.debug('Do SSL handshake.')
+        return super()._do_ssl_handshake()
+
+    def _verify_cert(self, peercert):
+        result = super()._verify_cert(peercert)
+        _logger.debug('Verify cert ok={0}.'.format(result))
+
+        if not result:
+            raise SSLVerficationError('Invalid SSL certificate')
+
+        return result
+
+    def _handle_connect(self):
+        _logger.debug('Handle connect. Wrap socket.')
+        return super()._handle_connect()

@@ -593,14 +593,18 @@ class AppArgumentParser(argparse.ArgumentParser):
 #         )
 
     def _add_ssl_args(self):
-        pass
+        group = self.add_argument_group('SSL')
 #         self.add_argument(
 #             '--secure-protocol',
 #             metavar='PR'
 #         )
-#         self.add_argument(
-#             '--no-check-certificate'
-#         )
+        group.add_argument(
+            '--no-check-certificate',
+            dest='check_certificate',
+            action='store_false',
+            default=True,
+            help=_('don’t validate SSL server certificates'),
+        )
 #         self.add_argument(
 #             '--certificate',
 #             metavar='FILE'
@@ -617,14 +621,24 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--private-key-type',
 #             metavar='TYPE'
 #         )
-#         self.add_argument(
-#             '--ca-certificate',
-#             metavar='FILE'
-#         )
-#         self.add_argument(
-#             '--ca-directory',
-#             metavar='DIR'
-#         )
+        group.add_argument(
+            '--ca-certificate',
+            metavar='FILE',
+            default='/etc/ssl/certs/ca-certificates.crt',
+            help=_('load and use CA certificate bundle from FILE'),
+        )
+        group.add_argument(
+            '--ca-directory',
+            metavar='DIR',
+            default='/etc/ssl/certs/',
+            help=_('load and use CA certificates from DIR'),
+        )
+        group.add_argument(
+            '--no-use-internal-ca-certs',
+            action='store_false',
+            dest='use_internal_ca_certs',
+            help=_('don’t use CA certificates included with Wpull')
+        )
 #         self.add_argument(
 #             '--random-file',
 #             metavar='FILE'
