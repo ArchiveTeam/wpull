@@ -2,6 +2,7 @@
 import collections
 import contextlib
 import copy
+import re
 import sys
 import time
 import tornado.gen
@@ -136,3 +137,31 @@ def wait_future(future, seconds=None):
 def python_version():
     major, minor, patch = sys.version_info[0:3]
     return '{0}.{1}.{2}'.format(major, minor, patch)
+
+
+def filter_pem(data):
+    assert isinstance(data, bytes)
+    certs = set()
+    new_list = []
+    in_pem_block = False
+
+    for line in re.split(br'[\r\n]+', data):
+        if line == b'-----BEGIN CERTIFICATE-----':
+            assert not in_pem_block
+            in_pem_block = True
+            new_list.append(line)
+        elif line == b'-----END CERTIFICATE-----':
+            assert in_pem_block
+            in_pem_block = False
+            new_list.append(line)
+
+            # Add trailing new line
+            new_list.append(b'')
+
+            certs.add(b'\n'.join(new_list))
+
+            new_list.clear()
+        elif in_pem_block:
+            new_list.append(line)
+
+    return certs

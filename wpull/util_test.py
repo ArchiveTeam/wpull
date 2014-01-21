@@ -5,7 +5,7 @@ import tornado.testing
 
 from wpull.backport.testing import unittest
 from wpull.util import (to_bytes, sleep, to_str, datetime_str, OrderedDefaultDict,
-    wait_future, TimedOut, python_version)
+    wait_future, TimedOut, python_version, filter_pem)
 
 
 class TestUtil(unittest.TestCase):
@@ -38,6 +38,32 @@ class TestUtil(unittest.TestCase):
         nums = tuple([int(n) for n in version_string.split('.')])
         self.assertEqual(3, len(nums))
         self.assertEqual(nums, sys.version_info[0:3])
+
+    def test_filter_pem(self):
+        unclean = (b'Kitten\n'
+            b'-----BEGIN CERTIFICATE-----\n'
+            b'ABCDEFG\n'
+            b'-----END CERTIFICATE-----\n'
+            b'Puppy\n'
+            b'-----BEGIN CERTIFICATE-----\n'
+            b'QWERTY\n'
+            b'-----END CERTIFICATE-----\n'
+            b'Kit\n'
+        )
+        clean = set([
+            (
+                b'-----BEGIN CERTIFICATE-----\n'
+                b'ABCDEFG\n'
+                b'-----END CERTIFICATE-----\n'
+            ),
+            (
+                b'-----BEGIN CERTIFICATE-----\n'
+                b'QWERTY\n'
+                b'-----END CERTIFICATE-----\n'
+            )
+        ])
+
+        self.assertEqual(clean, filter_pem(unclean))
 
 
 class TestUtilAsync(tornado.testing.AsyncTestCase):
