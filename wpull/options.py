@@ -104,12 +104,17 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             action='append',
 #             help=_('runs Wgetrc COMMAND'),
 #         )
-#         self.add_argument(
-#             '--lua-script',
-#             metavar='FILE',
-#             type=argparse.FileType('rt'),
-#             help=_('load Lua script from FILE')
-#         )
+        script_group = group.add_mutually_exclusive_group()
+        script_group.add_argument(
+            '--python-script',
+            metavar='FILE',
+            help=_('load Python hook script from FILE')
+        )
+        script_group.add_argument(
+            '--lua-script',
+            metavar='FILE',
+            help=_('load Lua hook script from FILE')
+        )
         group.add_argument(
             '--database',
             metavar='FILE',

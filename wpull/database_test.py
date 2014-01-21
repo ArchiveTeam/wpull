@@ -43,3 +43,8 @@ class TestDatabase(unittest.TestCase):
         self.assertEqual(200, url_record.status_code)
         self.assertEqual(Status.done, url_record.status)
         self.assertEqual(1, url_record.try_count)
+
+        url_record_dict = url_record.to_dict()
+        self.assertEqual(200, url_record_dict['status_code'])
+        self.assertEqual(Status.done, url_record_dict['status'])
+        self.assertEqual(1, url_record_dict['try_count'])

@@ -1,9 +1,11 @@
 # encoding=utf-8
 import contextlib
 import os
+import sys
 import tornado.testing
 
 from wpull.app import Builder
+from wpull.backport.testing import unittest
 from wpull.errors import ExitStatus
 from wpull.options import AppArgumentParser
 from wpull.testing.goodapp import GoodAppTestCase
@@ -112,6 +114,7 @@ class TestApp(GoodAppTestCase):
             ('--warc-file=test', '--no-clobber'),
             ('--warc-file=test', '--timestamping'),
             ('--warc-file=test', '--continue'),
+            ('--lua-script=blah.lua', '--python-script=blah.py'),
         ]
 
         for arg_item in arg_items:
@@ -133,3 +136,47 @@ class TestApp(GoodAppTestCase):
                 self.assertEqual(2, error.args[0])
             else:
                 self.assertTrue(False)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_python_script(self):
+        arg_parser = AppArgumentParser()
+        filename = os.path.join(os.path.dirname(__file__),
+            'testing', 'py_hook_script.py')
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--python-script', filename,
+        ])
+        with cd_tempdir():
+            engine = Builder(args).build()
+            exit_code = yield engine()
+        self.assertEqual(42, exit_code)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_python_script_stop(self):
+        arg_parser = AppArgumentParser()
+        filename = os.path.join(os.path.dirname(__file__),
+            'testing', 'py_hook_script_stop.py')
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--python-script', filename,
+        ])
+        with cd_tempdir():
+            engine = Builder(args).build()
+            exit_code = yield engine()
+        self.assertEqual(1, exit_code)
+
+    @unittest.skipIf(sys.version_info[0:2] == (3, 2),
+        'lua module not working in this python version')
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_lua_script(self):
+        arg_parser = AppArgumentParser()
+        filename = os.path.join(os.path.dirname(__file__),
+            'testing', 'lua_hook_script.lua')
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--lua-script', filename,
+        ])
+        with cd_tempdir():
+            engine = Builder(args).build()
+            exit_code = yield engine()
+        self.assertEqual(42, exit_code)

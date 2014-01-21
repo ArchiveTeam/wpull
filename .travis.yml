@@ -5,6 +5,10 @@ python:
   - 3.2
   - 3.3
 
+before_install:
+  - sudo apt-get install liblua5.2-dev
+
+
 # command to install dependencies
 install:
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then
@@ -14,6 +18,7 @@ install:
     else
       pip install -r requirements.txt;
     fi
+  - pip install git+https://github.com/bastibe/lunatic-python.git@f3f68d2c8638c6f423912264aeb750f5f7eb14ee
 
 
 # command to run tests

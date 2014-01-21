@@ -26,11 +26,14 @@ class URLRecord(sqlite3.Row, object):
     def __getattribute__(self, key):
         try:
             return self[key]
-        except KeyError:
+        except (IndexError, KeyError):
             return super().__getattribute__(key)
 
     def __repr__(self):
         return 'Record{0}'.format(tuple(self))
+
+    def to_dict(self):
+        return dict([(key, self[key]) for key in self.keys()])
 
 
 class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):

@@ -1,4 +1,5 @@
 # encoding=utf-8
+import gettext
 import itertools
 import logging
 import tornado.ioloop
@@ -6,6 +7,7 @@ import tornado.ioloop
 from wpull.database import URLTable
 from wpull.document import HTMLScraper, CSSScraper
 from wpull.engine import Engine
+from wpull.hook import HookEnvironment
 from wpull.http import (Client, Connection, HostConnectionPool, ConnectionPool,
     Request)
 from wpull.network import Resolver
@@ -20,25 +22,48 @@ from wpull.waiter import LinearWaiter
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
     IgnoreFileWriter, TimestampingFileWriter, AntiClobberFileWriter)
 
+# Module lua is imported later on demand.
 
 _logger = logging.getLogger(__name__)
+_ = gettext.gettext
 
 
 class Builder(object):
     # TODO: expose the instances built so we can access stuff like Stats
     def __init__(self, args):
         self._args = args
+        self._classes = {
+            'URLInfo': URLInfo,
+            'URLTable': URLTable,
+            'HTMLScraper': HTMLScraper,
+            'CSSScraper': Engine,
+            'Client': Client,
+            'Connection': Connection,
+            'HostConnectionPool': HostConnectionPool,
+            'ConnectionPool': ConnectionPool,
+            'Request': Request,
+            'Resolver': Resolver,
+            'WebProcessor': WebProcessor,
+            'WARCRecorder': WARCRecorder,
+            'DemuxRecorder': DemuxRecorder,
+            'PrintServerResponseRecorder': PrintServerResponseRecorder,
+            'ProgressRecorder': ProgressRecorder,
+            'Waiter': LinearWaiter,
+            'PathNamer': PathNamer,
+            'Engine': Engine,
+        }
         self._url_infos = tuple(self._build_input_urls())
 
     def build(self):
         self._setup_logging()
         self._setup_file_logger()
+        self._install_script_hooks()
 
         url_table = self._build_url_table()
         processor = self._build_processor()
         http_client = self._build_http_client()
 
-        return Engine(
+        return self._classes['Engine'](
             url_table,
             http_client,
             processor,
@@ -86,6 +111,47 @@ class Builder(object):
         else:
             handler.setLevel(logging.INFO)
 
+    def _install_script_hooks(self):
+        if self._args.python_script:
+            self._install_python_script(self._args.python_script)
+        elif self._args.lua_script:
+            self._install_lua_script(self._args.lua_script)
+
+    def _install_python_script(self, filename):
+        _logger.info(_('Using Python hook script {filename}.').format(
+            filename=filename))
+
+        hook_environment = HookEnvironment()
+
+        self._setup_hook_environment(hook_environment)
+
+        with open(filename, 'rb') as in_file:
+            code = compile(in_file.read(), filename, 'exec')
+            context = {'wpull_hook': hook_environment}
+            exec(code, context, context)
+
+    def _install_lua_script(self, filename):
+        _logger.info(_('Using Lua hook script {filename}.').format(
+            filename=filename))
+
+        import lua
+
+        hook_environment = HookEnvironment()
+
+        self._setup_hook_environment(hook_environment)
+
+        lua_globals = lua.globals()
+        lua_globals.wpull_hook = hook_environment
+
+        with open(filename, 'rb') as in_file:
+            lua.execute(in_file.read())
+
+    def _setup_hook_environment(self, hook_environment):
+        self._classes['Engine'] = hook_environment.engine_factory
+        self._classes['WebProcessor'] = \
+            hook_environment.web_processor_factory
+        self._classes['Resolver'] = hook_environment.resolver_factory
+
     def _build_input_urls(self, default_scheme='http'):
         if self._args.input_file:
             url_string_iter = itertools.chain(
@@ -95,7 +161,8 @@ class Builder(object):
             url_string_iter = self._args.urls
 
         for url_string in url_string_iter:
-            url_info = URLInfo.parse(url_string, default_scheme=default_scheme)
+            url_info = self._classes['URLInfo'].parse(
+                url_string, default_scheme=default_scheme)
             _logger.debug('Parsed URL {0}'.format(url_info))
             yield url_info
 
@@ -134,7 +201,7 @@ class Builder(object):
         return scrapers
 
     def _build_url_table(self):
-        url_table = URLTable(path=self._args.database)
+        url_table = self._classes['URLTable'](path=self._args.database)
         url_table.add([url_info.url for url_info in self._url_infos])
         return url_table
 
@@ -159,7 +226,7 @@ class Builder(object):
                 extra_fields.append((name, value))
 
             recorders.append(
-                WARCRecorder(
+                self._classes['WARCRecorder'](
                     warc_path,
                     compress=not args.no_warc_compression,
                     extra_fields=extra_fields,
@@ -170,12 +237,12 @@ class Builder(object):
             )
 
         if args.server_response:
-            recorders.append(PrintServerResponseRecorder())
+            recorders.append(self._classes['PrintServerResponseRecorder']())
 
         if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARN, None):
-            recorders.append(ProgressRecorder())
+            recorders.append(self._classes['ProgressRecorder']())
 
-        return DemuxRecorder(recorders)
+        return self._classes['DemuxRecorder'](recorders)
 
     def _build_processor(self):
         args = self._args
@@ -184,12 +251,12 @@ class Builder(object):
 
         file_writer = self._build_file_writer()
 
-        waiter = LinearWaiter(
+        waiter = self._classes['Waiter'](
             wait=args.wait,
             random_wait=args.random_wait,
             max_wait=args.waitretry
         )
-        processor = WebProcessor(
+        processor = self._classes['WebProcessor'](
             url_filters, document_scrapers, file_writer, waiter,
             request_factory=self._build_request_factory(),
             retry_connrefused=args.retry_connrefused,
@@ -214,7 +281,7 @@ class Builder(object):
         elif args.use_directories == 'no':
             use_dir = False
 
-        path_namer = PathNamer(
+        path_namer = self._classes['PathNamer'](
             args.directory_prefix,
             index=args.default_page,
             use_dir=use_dir,
@@ -242,7 +309,7 @@ class Builder(object):
 
     def _build_request_factory(self):
         def request_factory(*args, **kwargs):
-            request = Request.new(*args, **kwargs)
+            request = self._classes['Request'].new(*args, **kwargs)
 
             if self._args.user_agent:
                 user_agent = self._args.user_agent
@@ -280,11 +347,14 @@ class Builder(object):
         else:
             families = [Resolver.IPv4, Resolver.IPv6]
 
-        resolver = Resolver(families=families, timeout=dns_timeout,
-            rotate=args.rotate_dns)
+        resolver = self._classes['Resolver'](
+            families=families,
+            timeout=dns_timeout,
+            rotate=args.rotate_dns
+        )
 
         def connection_factory(*args, **kwargs):
-            return Connection(
+            return self._classes['Connection'](
                 *args,
                 resolver=resolver,
                 connect_timeout=connect_timeout,
@@ -293,11 +363,12 @@ class Builder(object):
                 **kwargs)
 
         def host_connection_pool_factory(*args, **kwargs):
-            return HostConnectionPool(
+            return self._classes['HostConnectionPool'](
                 *args, connection_factory=connection_factory, **kwargs)
 
-        connection_pool = ConnectionPool(
+        connection_pool = self._classes['ConnectionPool'](
             host_connection_pool_factory=host_connection_pool_factory)
         recorder = self._build_recorder()
 
-        return Client(connection_pool=connection_pool, recorder=recorder)
+        return self._classes['Client'](
+            connection_pool=connection_pool, recorder=recorder)

@@ -79,6 +79,14 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('http://example.com:80').url
         )
 
+    def test_url_info_to_dict(self):
+        url_info = URLInfo.parse('https://example.com/file.jpg')
+        url_info_dict = url_info.to_dict()
+        self.assertEqual('/file.jpg', url_info_dict['path'])
+        self.assertEqual('example.com', url_info_dict['hostname'])
+        self.assertEqual('https', url_info_dict['scheme'])
+        self.assertEqual(443, url_info_dict['port'])
+
     def test_http_filter(self):
         mock_record = MockURLTableRecord()
 
