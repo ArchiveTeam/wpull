@@ -232,6 +232,7 @@ class URLItem(object):
         self._url_record = url_record
         self._url = self._url_record.url
         self._processed = False
+        self._try_count_incremented = False
 
     @property
     def url_info(self):
@@ -252,7 +253,10 @@ class URLItem(object):
         self._processed = True
 
     def set_status(self, status, increment_try_count=True):
-        assert not self._processed
+        assert not self._try_count_incremented
+
+        if increment_try_count:
+            self._try_count_incremented = True
 
         _logger.debug('Marking URL {0} status {1}.'.format(self._url, status))
         self._url_table.update(

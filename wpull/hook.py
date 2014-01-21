@@ -1,4 +1,5 @@
 import contextlib
+import itertools
 import logging
 import tornado.gen
 
@@ -159,7 +160,7 @@ class HookedWebProcessorSessionMixin(object):
         elif action == Actions.FINISH:
             return True
         elif action == Actions.STOP:
-            raise HookStop()
+            raise HookStop('Script requested immediate stop.')
         else:
             raise NotImplementedError()
 
@@ -173,10 +174,18 @@ class HookedWebProcessorSessionMixin(object):
         new_urls = self.callbacks_hook.get_urls(
             filename, url_info_dict, document_info_dict)
 
-        for new_url_dict in new_urls or ():
-            linked_urls.add(new_url_dict['url'])
-
         _logger.debug('Hooked scrape returned {0}'.format(new_urls))
+
+        if new_urls:
+            if 1 in new_urls:
+                # Lua doesn't have sequences
+                for i in itertools.count(1):
+                    if new_urls[i] is None:
+                        break
+                    linked_urls.add(new_urls[i]['url'])
+            else:
+                for new_url_dict in new_urls:
+                    linked_urls.add(new_url_dict['url'])
 
         return inline_urls, linked_urls
 

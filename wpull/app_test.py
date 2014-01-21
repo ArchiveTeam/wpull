@@ -150,6 +150,20 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(42, exit_code)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_python_script_stop(self):
+        arg_parser = AppArgumentParser()
+        filename = os.path.join(os.path.dirname(__file__),
+            'testing', 'py_hook_script_stop.py')
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--python-script', filename,
+        ])
+        with cd_tempdir():
+            engine = Builder(args).build()
+            exit_code = yield engine()
+        self.assertEqual(1, exit_code)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_lua_script(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
