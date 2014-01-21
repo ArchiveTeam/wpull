@@ -76,6 +76,10 @@ def to_bytes(instance, encoding='utf-8'):
         return list([to_bytes(item, encoding) for item in instance])
     elif isinstance(instance, tuple):
         return tuple([to_bytes(item, encoding) for item in instance])
+    elif isinstance(instance, dict):
+        return dict(
+            [(to_bytes(key, encoding), to_bytes(value, encoding))
+                for key, value in instance.items()])
     return instance
 
 
@@ -86,6 +90,10 @@ def to_str(instance, encoding='utf-8'):
         return list([to_str(item, encoding) for item in instance])
     elif isinstance(instance, tuple):
         return tuple([to_str(item, encoding) for item in instance])
+    elif isinstance(instance, dict):
+        return dict(
+            [(to_str(key, encoding), to_str(value, encoding))
+                for key, value in instance.items()])
     return instance
 
 

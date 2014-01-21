@@ -12,10 +12,12 @@ class TestUtil(unittest.TestCase):
     def test_to_bytes(self):
         self.assertEqual(b'hi', to_bytes('hi'))
         self.assertEqual([b'hi'], to_bytes(['hi']))
+        self.assertEqual({b'hi': b'hello'}, to_bytes({'hi': 'hello'}))
 
     def test_to_str(self):
         self.assertEqual('hi', to_str(b'hi'))
         self.assertEqual(['hi'], to_str([b'hi']))
+        self.assertEqual({'hi': 'hello'}, to_str({b'hi': b'hello'}))
 
     def test_datetime_str(self):
         self.assertEqual(20, len(datetime_str()))
