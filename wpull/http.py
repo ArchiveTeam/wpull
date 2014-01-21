@@ -134,8 +134,9 @@ class Body(object, metaclass=abc.ABCMeta):
             return self.content_file.read(max_length)
 
     @classmethod
-    def new_temp_file(cls):
-        return tempfile.SpooledTemporaryFile(max_size=4194304)
+    def new_temp_file(cls, directory=None):
+        return tempfile.SpooledTemporaryFile(
+            max_size=4194304, prefix='wpull-', suffix='.tmp', dir=directory)
 
     @property
     def content_size(self):
