@@ -1,9 +1,11 @@
 # encoding=utf-8
 import contextlib
 import os
+import sys
 import tornado.testing
 
 from wpull.app import Builder
+from wpull.backport.testing import unittest
 from wpull.errors import ExitStatus
 from wpull.options import AppArgumentParser
 from wpull.testing.goodapp import GoodAppTestCase
@@ -163,6 +165,8 @@ class TestApp(GoodAppTestCase):
             exit_code = yield engine()
         self.assertEqual(1, exit_code)
 
+    @unittest.skipIf(sys.version_info[0:2] == (3, 2),
+        'lua module not working in this python version')
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_lua_script(self):
         arg_parser = AppArgumentParser()
