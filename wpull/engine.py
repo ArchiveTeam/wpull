@@ -90,6 +90,8 @@ class Engine(object):
             except NotFound:
                 url_record = None
 
+        _logger.debug('Return record {0}.'.format(url_record))
+
         return url_record
 
     @tornado.gen.coroutine
