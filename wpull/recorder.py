@@ -284,6 +284,8 @@ class WARCRecorder(BaseRecorder):
             self._log_record.compute_checksum()
             self.write_record(self._log_record)
 
+            self._log_record.block_file.close()
+
 
 class WARCRecorderSession(BaseRecorderSession):
     def __init__(self, recorder, temp_dir=None):
