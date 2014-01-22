@@ -148,6 +148,10 @@ class Body(object, metaclass=abc.ABCMeta):
             return self.content_file.tell()
 
     def to_dict(self):
+        if not hasattr(self.content_file, 'name'):
+            # Make SpooledTemporaryFile rollover to real file
+            self.content_file.fileno()
+
         return {
             'filename': self.content_file.name,
             'content_size': self.content_size,
