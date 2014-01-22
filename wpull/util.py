@@ -60,13 +60,15 @@ class OrderedDefaultDict(OrderedDict):
 
 
 class ASCIIStreamWriter(codecs.StreamWriter):
-    def __init__(self, stream, errors='replace'):
+    DEFAULT_ERROR = 'backslashreplace'
+
+    def __init__(self, stream, errors=DEFAULT_ERROR):
         codecs.StreamWriter.__init__(self, stream, errors)
 
-    def encode(self, instance, errors='replace'):
+    def encode(self, instance, errors=DEFAULT_ERROR):
         return instance.encode('ascii', errors)
 
-    def decode(self, instance, errors='replace'):
+    def decode(self, instance, errors=DEFAULT_ERROR):
         return instance.encode('ascii', errors)
 
     def write(self, instance):
