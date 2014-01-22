@@ -5,6 +5,7 @@ import itertools
 import logging
 import os.path
 import ssl
+import sys
 import tempfile
 import tornado.ioloop
 
@@ -139,9 +140,8 @@ class Builder(object):
         _logger.info(_('Using Lua hook script {filename}.').format(
             filename=filename))
 
-        import lua
-
-        hook_environment = HookEnvironment()
+        lua = wpull.hook.load_lua()
+        hook_environment = HookEnvironment(is_lua=True)
 
         self._setup_hook_environment(hook_environment)
 

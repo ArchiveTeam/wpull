@@ -38,6 +38,9 @@ class URLInfo(URLInfoType):
 
     @classmethod
     def parse(cls, string, default_scheme='http'):
+        if not string:
+            raise ValueError('Empty URL')
+
         url_split_result = urllib.parse.urlsplit(string, scheme=default_scheme)
 
         if not url_split_result.hostname \

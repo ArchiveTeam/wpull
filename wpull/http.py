@@ -107,6 +107,7 @@ class Response(object):
             'version': self.version,
             'status_code': self.status_code,
             'status_reason': self.status_reason,
+            'body': self.body.to_dict(),
         }
 
 
@@ -145,6 +146,16 @@ class Body(object, metaclass=abc.ABCMeta):
         with wpull.util.reset_file_offset(self.content_file):
             self.content_file.seek(0, os.SEEK_END)
             return self.content_file.tell()
+
+    def to_dict(self):
+        if not hasattr(self.content_file, 'name'):
+            # Make SpooledTemporaryFile rollover to real file
+            self.content_file.fileno()
+
+        return {
+            'filename': self.content_file.name,
+            'content_size': self.content_size,
+        }
 
 
 class Connection(object):

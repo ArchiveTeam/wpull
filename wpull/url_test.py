@@ -78,6 +78,7 @@ class TestURL(unittest.TestCase):
             'http://example.com/',
             URLInfo.parse('http://example.com:80').url
         )
+        self.assertRaises(ValueError, URLInfo.parse, '')
 
     def test_url_info_to_dict(self):
         url_info = URLInfo.parse('https://example.com/file.jpg')

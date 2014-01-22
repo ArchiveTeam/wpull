@@ -84,6 +84,7 @@ To download the About page of Google.com::
 To archive a website::
 
     python3 -m wpull billy.blogsite.example --warc-file blogsite-billy \
+    --no-check-certificate \
     --no-robots --user-agent "InconspiuousWebBrowser/1.0" \
     --wait 0.5 --random-wait --wait-retry 600 \
     --page-requisites --recursive --level inf \

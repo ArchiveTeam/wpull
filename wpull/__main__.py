@@ -13,7 +13,7 @@ _logger = logging.getLogger(__name__)
 _ = gettext.gettext
 
 
-if __name__ == '__main__':
+def main():
     arg_parser = AppArgumentParser()
     args = arg_parser.parse_args()
     io_loop = tornado.ioloop.IOLoop.current()
@@ -40,3 +40,7 @@ if __name__ == '__main__':
 
     exit_code = io_loop.run_sync(engine)
     sys.exit(exit_code)
+
+
+if __name__ == '__main__':
+    main()
