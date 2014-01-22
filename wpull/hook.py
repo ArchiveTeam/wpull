@@ -14,6 +14,20 @@ import wpull.util
 _logger = logging.getLogger(__name__)
 
 
+def load_lua():
+    # http://stackoverflow.com/a/8403467/1524507
+    import DLFCN
+    sys.setdlopenflags(DLFCN.RTLD_NOW | DLFCN.RTLD_GLOBAL)
+    import lua
+    return lua
+
+
+try:
+    lua = load_lua()
+except ImportError:
+    lua = None
+
+
 class HookStop(Exception):
     pass
 
@@ -26,6 +40,9 @@ class Actions(object):
 
 
 class Callbacks(object):
+    def __init__(self, is_lua=False):
+        self.is_lua = is_lua
+
     @staticmethod
     def resolve_dns(host):
         return None
@@ -53,6 +70,11 @@ class Callbacks(object):
     @staticmethod
     def exit_status(exit_code):
         return exit_code
+
+    def to_native_type(self, instance):
+        if self.is_lua:
+            return to_lua_type(instance)
+        return instance
 
 
 class HookedResolver(Resolver):
@@ -100,7 +122,8 @@ class HookedWebProcessorSessionMixin(object):
         verdict = super().should_fetch()
 
         referrer = self._url_item.url_record.referrer
-        url_info_dict = to_lua_type(self._next_url_info.to_dict())
+        url_info_dict = self.callbacks_hook.to_native_type(
+            self._next_url_info.to_dict())
 
         record_info_dict = self._url_item.url_record.to_dict()
 
@@ -108,12 +131,13 @@ class HookedWebProcessorSessionMixin(object):
             record_info_dict['referrer_info'] = URLInfo.parse(referrer)\
                 .to_dict()
 
-        record_info_dict = to_lua_type(record_info_dict)
+        record_info_dict = self.callbacks_hook.to_native_type(
+            record_info_dict)
 
         reasons = {
             'filters': self._get_filter_info(),
         }
-        reasons = to_lua_type(reasons)
+        reasons = self.callbacks_hook.to_native_type(reasons)
 
         verdict = self.callbacks_hook.accept_url(
             url_info_dict, record_info_dict, verdict, reasons)
@@ -139,8 +163,10 @@ class HookedWebProcessorSessionMixin(object):
         return filter_info_dict
 
     def handle_response(self, response):
-        url_info_dict = to_lua_type(self._next_url_info.to_dict())
-        response_info_dict = to_lua_type(response.to_dict())
+        url_info_dict = self.callbacks_hook.to_native_type(
+            self._next_url_info.to_dict())
+        response_info_dict = self.callbacks_hook.to_native_type(
+            response.to_dict())
         action = self.callbacks_hook.handle_response(
             url_info_dict, response_info_dict)
 
@@ -158,8 +184,9 @@ class HookedWebProcessorSessionMixin(object):
             raise NotImplementedError()
 
     def handle_error(self, error):
-        url_info_dict = to_lua_type(self._next_url_info.to_dict())
-        error_info_dict = to_lua_string({
+        url_info_dict = self.callbacks_hook.to_native_type(
+            self._next_url_info.to_dict())
+        error_info_dict = self.callbacks_hook.to_native_type({
             'error': error.__class__.__name__,
         })
         action = self.callbacks_hook.handle_error(
@@ -181,9 +208,12 @@ class HookedWebProcessorSessionMixin(object):
     def _scrape_document(self, request, response):
         inline_urls, linked_urls = super()._scrape_document(request, response)
 
-        filename = to_lua_type(response.body.content_file.name)
-        url_info_dict = to_lua_type(self._next_url_info.to_dict())
-        document_info_dict = to_lua_type(response.body.to_dict())
+        filename = self.callbacks_hook.to_native_type(
+            response.body.content_file.name)
+        url_info_dict = self.callbacks_hook.to_native_type(
+            self._next_url_info.to_dict())
+        document_info_dict = self.callbacks_hook.to_native_type(
+            response.body.to_dict())
 
         new_urls = self.callbacks_hook.get_urls(
             filename, url_info_dict, document_info_dict)
@@ -191,10 +221,11 @@ class HookedWebProcessorSessionMixin(object):
         _logger.debug('Hooked scrape returned {0}'.format(new_urls))
 
         if new_urls:
-            if to_lua_type(1) in new_urls:
+            if self.callbacks_hook.to_native_type(1) in new_urls:
                 # Lua doesn't have sequences
                 for i in itertools.count(1):
-                    new_url_info = new_urls[to_lua_type(i)]
+                    new_url_info = new_urls[
+                        self.callbacks_hook.to_native_type(i)]
 
                     _logger.debug('Got lua new url info {0}'.format(
                         new_url_info))
@@ -202,13 +233,16 @@ class HookedWebProcessorSessionMixin(object):
                     if new_url_info is None:
                         break
 
-                    new_url = new_url_info[to_lua_type('url')]
+                    new_url = new_url_info[
+                        self.callbacks_hook.to_native_type('url')]
                     assert new_url
 
                     linked_urls.add(new_url)
             else:
                 for new_url_dict in new_urls:
-                    linked_urls.add(new_url_dict['url'])
+                    url = self.callbacks_hook.to_native_type(
+                        new_url_dict['url'])
+                    linked_urls.add(url)
 
         return inline_urls, linked_urls
 
@@ -231,7 +265,7 @@ class HookedEngine(Engine):
     def _compute_exit_code_from_stats(self):
         super()._compute_exit_code_from_stats()
         exit_code = self._callbacks_hook.exit_status(
-            to_lua_type(self._exit_code))
+            self._callbacks_hook.to_native_type(self._exit_code))
 
         _logger.debug('Hooked exit returned {0}.'.format(exit_code))
 
@@ -253,9 +287,9 @@ class HookedEngine(Engine):
 
 
 class HookEnvironment(object):
-    def __init__(self):
+    def __init__(self, is_lua=False):
         self.actions = Actions()
-        self.callbacks = Callbacks()
+        self.callbacks = Callbacks(is_lua)
 
     def resolver_factory(self, *args, **kwargs):
         return HookedResolver(
@@ -280,7 +314,7 @@ class HookEnvironment(object):
 
 
 def to_lua_type(instance):
-    return to_lua_string(to_lua_number(instance))
+    return to_lua_table(to_lua_string(to_lua_number(instance)))
 
 
 def to_lua_string(instance):
@@ -305,3 +339,14 @@ def to_lua_number(instance):
         return instance
     else:
         return instance
+
+
+def to_lua_table(instance):
+    if isinstance(instance, dict):
+        table = lua.eval('{}')
+
+        for key, value in instance.items():
+            table[to_lua_table(key)] = to_lua_table(value)
+
+        return table
+    return instance

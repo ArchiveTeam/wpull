@@ -19,6 +19,9 @@ def accept_url(url_info, record_info, verdict, reasons):
     assert record_info['url']
     assert reasons['filters']['HTTPFilter']
 
+    for name, passed in reasons['filters'].items():
+        assert name
+
     if url_info['path'] == '/':
         assert verdict
     elif url_info['path'] == '/test_script':

@@ -18,13 +18,17 @@ wpull_hook.callbacks.accept_url = function(url_info, record_info, verdict, reaso
   assert(record_info['url'])
   assert(reasons['filters']['HTTPFilter'])
 
+  for name, passed in pairs(reasons.filters) do
+    assert(name)
+  end
+
   if url_info['path'] == '/' then
     assert(verdict)
   elseif url_info['path'] == '/test_script' then
     assert(not verdict)
     verdict = true
   end
-  
+
   return verdict
 end
 
