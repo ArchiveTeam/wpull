@@ -145,7 +145,8 @@ class Builder(object):
             filename = args.append_output
             mode = 'a'
 
-        self._file_log_handler = handler = logging.FileHandler(filename, mode)
+        self._file_log_handler = handler = logging.FileHandler(
+            filename, mode, encoding='utf-8')
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
