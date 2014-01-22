@@ -7,6 +7,7 @@ import tornado.gen
 from wpull.engine import Engine
 from wpull.network import Resolver
 from wpull.processor import WebProcessor, WebProcessorSession
+from wpull.url import URLInfo
 import wpull.util
 
 
@@ -38,7 +39,7 @@ class Callbacks(object):
         return Actions.NORMAL
 
     @staticmethod
-    def handle_error(url_info, error):
+    def handle_error(url_info, error_info):
         return Actions.NORMAL
 
     @staticmethod
@@ -97,12 +98,23 @@ class HookedWebProcessorSessionMixin(object):
 
     def should_fetch(self):
         verdict = super().should_fetch()
+
+        referrer = self._url_item.url_record.referrer
         url_info_dict = to_lua_type(self._next_url_info.to_dict())
-        record_info_dict = to_lua_type(self._url_item.url_record.to_dict())
+
+        record_info_dict = self._url_item.url_record.to_dict()
+
+        if referrer:
+            record_info_dict['referrer_info'] = URLInfo.parse(referrer)\
+                .to_dict()
+
+        record_info_dict = to_lua_type(record_info_dict)
+
         reasons = {
             'filters': self._get_filter_info(),
         }
         reasons = to_lua_type(reasons)
+
         verdict = self.callbacks_hook.accept_url(
             url_info_dict, record_info_dict, verdict, reasons)
 
@@ -148,7 +160,7 @@ class HookedWebProcessorSessionMixin(object):
     def handle_error(self, error):
         url_info_dict = to_lua_type(self._next_url_info.to_dict())
         error_info_dict = to_lua_string({
-            'error', error.__class__.__name__,
+            'error': error.__class__.__name__,
         })
         action = self.callbacks_hook.handle_error(
             url_info_dict, error_info_dict)
@@ -171,7 +183,7 @@ class HookedWebProcessorSessionMixin(object):
 
         filename = to_lua_type(response.body.content_file.name)
         url_info_dict = to_lua_type(self._next_url_info.to_dict())
-        document_info_dict = to_lua_type({})
+        document_info_dict = to_lua_type(response.body.to_dict())
 
         new_urls = self.callbacks_hook.get_urls(
             filename, url_info_dict, document_info_dict)

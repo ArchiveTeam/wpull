@@ -32,6 +32,7 @@ def handle_response(url_info, http_info):
     print('handle_response', url_info)
 
     if url_info['path'] == '/':
+        assert http_info['body']['content_size']
         assert http_info['status_code'] == 200
     elif url_info['path'] == '/test_script':
         global injected_url_found
@@ -40,9 +41,9 @@ def handle_response(url_info, http_info):
     return wpull_hook.actions.NORMAL
 
 
-def handle_error(url_info, error):
-    print('handle_response', url_info, error)
-    assert error['error']
+def handle_error(url_info, error_info):
+    print('handle_response', url_info, error_info)
+    assert error_info['error']
     return wpull_hook.actions.NORMAL
 
 

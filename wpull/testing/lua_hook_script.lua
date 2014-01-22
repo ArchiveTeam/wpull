@@ -33,6 +33,7 @@ wpull_hook.callbacks.handle_response = function(url_info, http_info)
 
   if url_info['path'] == '/' then
     assert(http_info['status_code'] == 200)
+    assert(http_info.body['content_size'])
   elseif url_info['path'] == '/test_script' then
     injected_url_found = true
   end
@@ -40,9 +41,9 @@ wpull_hook.callbacks.handle_response = function(url_info, http_info)
   return wpull_hook.actions.NORMAL
 end
 
-wpull_hook.callbacks.handle_error = function(url_info, error)
+wpull_hook.callbacks.handle_error = function(url_info, error_info)
   --  print('handle_response', url_info, error)
-  assert(error['error'])
+  assert(error_info['error'])
   return wpull_hook.actions.NORMAL
 end
 
