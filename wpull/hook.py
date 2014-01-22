@@ -4,6 +4,7 @@ import logging
 import sys
 import tornado.gen
 
+from wpull.database import Status
 from wpull.engine import Engine
 from wpull.network import Resolver
 from wpull.processor import WebProcessor, WebProcessorSession
@@ -121,6 +122,10 @@ class HookedWebProcessorSessionMixin(object):
     def should_fetch(self):
         verdict = super().should_fetch()
 
+        # super() may have skipped this already. We undo it.
+        self._url_item.set_status(Status.in_progress,
+            increment_try_count=False)
+
         referrer = self._url_item.url_record.referrer
         url_info_dict = self.callbacks_hook.to_native_type(
             self._next_url_info.to_dict())
@@ -143,6 +148,9 @@ class HookedWebProcessorSessionMixin(object):
             url_info_dict, record_info_dict, verdict, reasons)
 
         _logger.debug('Hooked should fetch returned {0}'.format(verdict))
+
+        if not verdict:
+            self._url_item.skip()
 
         return verdict
 
@@ -177,6 +185,7 @@ class HookedWebProcessorSessionMixin(object):
         elif action == Actions.RETRY:
             return False
         elif action == Actions.FINISH:
+            self._url_item.set_status(Status.done)
             return True
         elif action == Actions.STOP:
             raise HookStop()
@@ -199,6 +208,7 @@ class HookedWebProcessorSessionMixin(object):
         elif action == Actions.RETRY:
             return False
         elif action == Actions.FINISH:
+            self._url_item.set_status(Status.done)
             return True
         elif action == Actions.STOP:
             raise HookStop('Script requested immediate stop.')

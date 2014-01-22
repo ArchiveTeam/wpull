@@ -177,6 +177,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             const=logging.WARNING,
             help=_('print program warning and informative messages only')
         )
+        group.add_argument(
+            '--ascii-print',
+            action='store_true',
+            help=_('print program messages in ASCII only'),
+        )
 #         self.add_argument(
 #             '--report-speed',
 #             metavar='TYPE',

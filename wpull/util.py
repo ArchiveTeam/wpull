@@ -8,6 +8,7 @@ import time
 import tornado.gen
 import tornado.ioloop
 import toro
+import codecs
 
 
 try:
@@ -56,6 +57,32 @@ class OrderedDefaultDict(OrderedDict):
     def __repr__(self):
         return 'OrderedDefaultDict(%s, %s)' % (
             self.default_factory, collections.OrderedDict.__repr__(self))
+
+
+class ASCIIStreamWriter(codecs.StreamWriter):
+    DEFAULT_ERROR = 'backslashreplace'
+
+    def __init__(self, stream, errors=DEFAULT_ERROR):
+        codecs.StreamWriter.__init__(self, stream, errors)
+
+    def encode(self, instance, errors=DEFAULT_ERROR):
+        return instance.encode('ascii', errors)
+
+    def decode(self, instance, errors=DEFAULT_ERROR):
+        return instance.encode('ascii', errors)
+
+    def write(self, instance):
+        if hasattr(instance, 'encode'):
+            instance = instance.encode('ascii', self.errors)
+
+        if hasattr(instance, 'decode'):
+            instance = instance.decode('ascii', self.errors)
+
+        self.stream.write(instance)
+
+    def writelines(self, list_instance):
+        for item in list_instance:
+            self.write(item)
 
 
 @contextlib.contextmanager

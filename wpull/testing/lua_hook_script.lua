@@ -27,6 +27,8 @@ wpull_hook.callbacks.accept_url = function(url_info, record_info, verdict, reaso
   elseif url_info['path'] == '/test_script' then
     assert(not verdict)
     verdict = true
+  elseif url_info['path'] == '/robots.txt' then
+    verdict = false
   end
 
   return verdict
@@ -40,6 +42,7 @@ wpull_hook.callbacks.handle_response = function(url_info, http_info)
     assert(http_info.body['content_size'])
   elseif url_info['path'] == '/test_script' then
     injected_url_found = true
+    return wpull_hook.actions.FINISH
   end
 
   return wpull_hook.actions.NORMAL

@@ -240,7 +240,7 @@ class WARCRecorder(BaseRecorder):
             suffix='.log',
         )
         self._log_handler = handler = logging.FileHandler(
-            self._log_record.block_file.name)
+            self._log_record.block_file.name, encoding='utf-8')
 
         handler.setFormatter(formatter)
         logger.addHandler(handler)
@@ -283,6 +283,8 @@ class WARCRecorder(BaseRecorder):
 
             self._log_record.compute_checksum()
             self.write_record(self._log_record)
+
+            self._log_record.block_file.close()
 
 
 class WARCRecorderSession(BaseRecorderSession):
@@ -380,28 +382,31 @@ class PrintServerResponseRecorderSession(BaseRecorderSession):
 
 
 class ProgressRecorder(BaseRecorder):
-    def __init__(self, bar_style=False):
+    def __init__(self, bar_style=False, stream=sys.stderr):
         self._bar_style = bar_style
+        self._stream = stream
 
     @contextlib.contextmanager
     def session(self):
-        yield ProgressRecorderSession(self._bar_style)
+        yield ProgressRecorderSession(self._bar_style, self._stream)
 
 
 class ProgressRecorderSession(BaseRecorderSession):
-    def __init__(self, bar_style):
+    def __init__(self, bar_style, stream=sys.stderr):
         self._content_length = None
         self._bytes_received = 0
         self._response = None
         self._last_flush_time = 0
         self._bar_style = bar_style
+        self._stream = stream
 
     def pre_request(self, request):
         print(
             _('Requesting {url}... ').format(url=request.url_info.url),
-            end=''
+            end='',
+            file=self._stream,
         )
-        sys.stdout.flush()
+        self._stream.flush()
 
     def pre_response(self, response):
         print(response.status_code, response.status_reason)
@@ -415,7 +420,8 @@ class ProgressRecorderSession(BaseRecorderSession):
             _('Length: {content_length} [{content_type}]').format(
                 content_length=self._content_length,
                 content_type=response.fields.get('Content-Type')
-            )
+            ),
+            file=self._stream,
         )
 
         self._response = response
@@ -439,11 +445,14 @@ class ProgressRecorderSession(BaseRecorderSession):
         time_now = time.time()
 
         if time_now - self._last_flush_time > 2.0:
-            print('.', end='')
-            sys.stdout.flush()
+            print('.', end='', file=self._stream)
+            self._stream.flush()
             self._last_flush_time = time.time()
 
     def response(self, response):
-        print()
-        print(_('Bytes received: {bytes_received}').format(
-            bytes_received=self._bytes_received))
+        print(file=self._stream)
+        print(
+            _('Bytes received: {bytes_received}').format(
+                bytes_received=self._bytes_received),
+            file=self._stream
+        )

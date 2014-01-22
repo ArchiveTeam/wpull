@@ -27,6 +27,8 @@ def accept_url(url_info, record_info, verdict, reasons):
     elif url_info['path'] == '/test_script':
         assert not verdict
         verdict = True
+    elif url_info['path'] == '/robots.txt':
+        verdict = False
 
     return verdict
 
@@ -40,6 +42,7 @@ def handle_response(url_info, http_info):
     elif url_info['path'] == '/test_script':
         global injected_url_found
         injected_url_found = True
+        return wpull_hook.actions.FINISH
 
     return wpull_hook.actions.NORMAL
 
