@@ -40,6 +40,7 @@ def handle_response(url_info, http_info):
     elif url_info['path'] == '/test_script':
         global injected_url_found
         injected_url_found = True
+        return wpull_hook.actions.FINISH
 
     return wpull_hook.actions.NORMAL
 

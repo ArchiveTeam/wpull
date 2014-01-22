@@ -40,6 +40,7 @@ wpull_hook.callbacks.handle_response = function(url_info, http_info)
     assert(http_info.body['content_size'])
   elseif url_info['path'] == '/test_script' then
     injected_url_found = true
+    return wpull_hook.actions.FINISH
   end
 
   return wpull_hook.actions.NORMAL

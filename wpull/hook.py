@@ -4,6 +4,7 @@ import logging
 import sys
 import tornado.gen
 
+from wpull.database import Status
 from wpull.engine import Engine
 from wpull.network import Resolver
 from wpull.processor import WebProcessor, WebProcessorSession
@@ -177,6 +178,7 @@ class HookedWebProcessorSessionMixin(object):
         elif action == Actions.RETRY:
             return False
         elif action == Actions.FINISH:
+            self._url_item.set_status(Status.done)
             return True
         elif action == Actions.STOP:
             raise HookStop()
@@ -199,6 +201,7 @@ class HookedWebProcessorSessionMixin(object):
         elif action == Actions.RETRY:
             return False
         elif action == Actions.FINISH:
+            self._url_item.set_status(Status.done)
             return True
         elif action == Actions.STOP:
             raise HookStop('Script requested immediate stop.')
