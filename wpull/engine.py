@@ -4,8 +4,9 @@ import logging
 import tornado.gen
 import toro
 
+import wpull.actor
 from wpull.database import Status, NotFound
-from wpull.errors import (ExitStatus, ServerError, ConnectionRefused, DNSNotFound, 
+from wpull.errors import (ExitStatus, ServerError, ConnectionRefused, DNSNotFound,
     SSLVerficationError)
 from wpull.http import NetworkError, ProtocolError
 from wpull.url import URLInfo
@@ -44,6 +45,7 @@ class Engine(object):
         self._num_worker_busy = 0
         self._exit_code = 0
         self._stopping = False
+        self.stop_event = wpull.actor.Event()
 
     @tornado.gen.coroutine
     def __call__(self):
@@ -60,6 +62,7 @@ class Engine(object):
         self._processor.close()
         self._print_stats()
         self._request_client.close()
+        self.stop_event.fire()
 
         raise tornado.gen.Return(self._exit_code)
 

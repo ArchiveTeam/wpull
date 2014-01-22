@@ -234,7 +234,11 @@ class WARCRecorder(BaseRecorder):
         logger = logging.getLogger()
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        self._log_record.block_file = NamedTemporaryFile(dir=self._temp_dir)
+        self._log_record.block_file = NamedTemporaryFile(
+            prefix='wpull-warc-',
+            dir=self._temp_dir,
+            suffix='.log',
+        )
         self._log_handler = handler = logging.FileHandler(
             self._log_record.block_file.name)
 
@@ -266,6 +270,11 @@ class WARCRecorder(BaseRecorder):
         if self._log_record:
             self._log_handler.flush()
             self._log_handler.close()
+
+            logger = logging.getLogger()
+            logger.removeHandler(self._log_handler)
+            self._log_handler = None
+
             self._log_record.block_file.seek(0)
             self._log_record.set_common_fields('resource', 'text/plain')
 

@@ -59,9 +59,12 @@ class Builder(object):
         }
         self._url_infos = tuple(self._build_input_urls())
         self._ca_certs_file = None
+        self._file_log_handler = None
+        self._console_log_handler = None
 
     def build(self):
         self._setup_logging()
+        self._setup_console_logger()
         self._setup_file_logger()
         self._install_script_hooks()
 
@@ -69,12 +72,17 @@ class Builder(object):
         processor = self._build_processor()
         http_client = self._build_http_client()
 
-        return self._classes['Engine'](
+        engine = self._classes['Engine'](
             url_table,
             http_client,
             processor,
             concurrent=self._args.concurrent,
         )
+
+        self._setup_file_logger_close(engine)
+        self._setup_console_logger_close(engine)
+
+        return engine
 
     def build_and_run(self):
         io_loop = tornado.ioloop.IOLoop.current()
@@ -83,12 +91,31 @@ class Builder(object):
         return exit_code
 
     def _setup_logging(self):
-        logging.basicConfig(
-            level=self._args.verbosity or logging.INFO,
-            format='%(levelname)s %(message)s')
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.DEBUG)
+        root_logger.debug('Wpull needs the root logger level set to DEBUG.')
 
+    def _setup_console_logger(self):
         if self._args.verbosity == logging.DEBUG:
             tornado.ioloop.IOLoop.current().set_blocking_log_threshold(5)
+
+        logger = logging.getLogger()
+        self._console_log_handler = handler = logging.StreamHandler()
+
+        formatter = logging.Formatter('%(levelname)s %(message)s')
+
+        handler.setFormatter(formatter)
+        handler.setLevel(self._args.verbosity or logging.INFO)
+        logger.addHandler(handler)
+
+    def _setup_console_logger_close(self, engine):
+        def remove_handler():
+            logger = logging.getLogger()
+            logger.removeHandler(self._console_log_handler)
+            self._console_log_handler = None
+
+        if self._console_log_handler:
+            engine.stop_event.handle(remove_handler)
 
     def _setup_file_logger(self):
         args = self._args
@@ -108,7 +135,7 @@ class Builder(object):
             filename = args.append_output
             mode = 'a'
 
-        handler = logging.FileHandler(filename, mode)
+        self._file_log_handler = handler = logging.FileHandler(filename, mode)
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
@@ -116,6 +143,15 @@ class Builder(object):
             handler.setLevel(logging.DEBUG)
         else:
             handler.setLevel(logging.INFO)
+
+    def _setup_file_logger_close(self, engine):
+        def remove_handler():
+            logger = logging.getLogger()
+            logger.removeHandler(self._file_log_handler)
+            self._file_log_handler = None
+
+        if self._file_log_handler:
+            engine.stop_event.handle(remove_handler)
 
     def _install_script_hooks(self):
         if self._args.python_script:
