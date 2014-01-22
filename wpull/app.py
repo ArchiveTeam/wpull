@@ -1,5 +1,6 @@
 # encoding=utf-8
 import atexit
+import codecs
 import gettext
 import itertools
 import logging
@@ -22,6 +23,7 @@ from wpull.recorder import (WARCRecorder, DemuxRecorder,
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     RecursiveFilter, SpanHostsFilter, ParentFilter, RegexFilter, HTTPFilter,
     DirectoryFilter, HostnameFilter)
+from wpull.util import ASCIIStreamWriter
 import wpull.version
 from wpull.waiter import LinearWaiter
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
@@ -90,6 +92,12 @@ class Builder(object):
         exit_code = io_loop.run_sync(engine)
         return exit_code
 
+    def _new_encoded_stream(self, stream):
+        if self._args.ascii_print:
+            return ASCIIStreamWriter(stream)
+        else:
+            return stream
+
     def _setup_logging(self):
         root_logger = logging.getLogger()
         root_logger.setLevel(logging.DEBUG)
@@ -99,8 +107,10 @@ class Builder(object):
         if self._args.verbosity == logging.DEBUG:
             tornado.ioloop.IOLoop.current().set_blocking_log_threshold(5)
 
+        stream = self._new_encoded_stream(sys.stderr)
+
         logger = logging.getLogger()
-        self._console_log_handler = handler = logging.StreamHandler()
+        self._console_log_handler = handler = logging.StreamHandler(stream)
 
         formatter = logging.Formatter('%(levelname)s %(message)s')
 
@@ -281,7 +291,9 @@ class Builder(object):
             recorders.append(self._classes['PrintServerResponseRecorder']())
 
         if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARN, None):
-            recorders.append(self._classes['ProgressRecorder']())
+            stream = self._new_encoded_stream(sys.stderr)
+
+            recorders.append(self._classes['ProgressRecorder'](stream=stream))
 
         return self._classes['DemuxRecorder'](recorders)
 
