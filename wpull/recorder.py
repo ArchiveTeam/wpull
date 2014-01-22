@@ -240,7 +240,7 @@ class WARCRecorder(BaseRecorder):
             suffix='.log',
         )
         self._log_handler = handler = logging.FileHandler(
-            self._log_record.block_file.name)
+            self._log_record.block_file.name, encoding='utf-8')
 
         handler.setFormatter(formatter)
         logger.addHandler(handler)
