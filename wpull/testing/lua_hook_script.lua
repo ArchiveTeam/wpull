@@ -27,6 +27,8 @@ wpull_hook.callbacks.accept_url = function(url_info, record_info, verdict, reaso
   elseif url_info['path'] == '/test_script' then
     assert(not verdict)
     verdict = true
+  elseif url_info['path'] == '/robots.txt' then
+    verdict = false
   end
 
   return verdict

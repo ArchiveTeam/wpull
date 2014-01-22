@@ -27,6 +27,8 @@ def accept_url(url_info, record_info, verdict, reasons):
     elif url_info['path'] == '/test_script':
         assert not verdict
         verdict = True
+    elif url_info['path'] == '/robots.txt':
+        verdict = False
 
     return verdict
 
