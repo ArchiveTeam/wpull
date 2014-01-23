@@ -21,14 +21,15 @@ version = get_version()
 
 StrictVersion(version)
 
-SOURCE_PACKAGE = 'wpull'
-TRANSLATED_PACKAGE = 'py2src_noedit/wpull/'
 
-
-if sys.version_info[0] == 2:
-    PACKAGE = TRANSLATED_PACKAGE
+# Get version-appropriate package info via backport.
+config = backport.get_config('backport.conf')
+if sys.version_info[0] == 3:
+    config_section = 'src_package_dir'
 else:
-    PACKAGE = SOURCE_PACKAGE
+    config_section = 'dst_package_dir'
+PROJECT_PACKAGES = config.options(config_section)
+PROJECT_PACKAGE_DIR = dict(config.items(config_section))
 
 
 extras = {}
@@ -37,14 +38,12 @@ install_requires = [
 ]
 
 if sys.version_info[0] == 2:
-    extras['package_dir'] = {SOURCE_PACKAGE: TRANSLATED_PACKAGE}
     install_requires.append('futures')
 
 
 if __name__ == '__main__':
     if sys.version_info[0] == 2:
         backport.translate_project('backport.conf')
-        backport.redirect_import(SOURCE_PACKAGE, TRANSLATED_PACKAGE)
 
     setup(name='wpull',
         version=version,
@@ -52,12 +51,6 @@ if __name__ == '__main__':
         author='Christopher Foo',
         author_email='chris.foo@gmail.com',
         url='https://github.com/chfoo/wpull',
-        packages=[
-            'wpull',
-            'wpull.backport',
-            'wpull.testing',
-            'wpull.thirdparty',
-        ],
         package_data={'': ['testing/*/*.html', 'testing/*/*.css']},
         install_requires=install_requires,
         classifiers=[
@@ -70,5 +63,6 @@ if __name__ == '__main__':
             'Topic :: Internet :: WWW/HTTP',
             'Topic :: System :: Archiving',
         ],
-        **extras
+        packages=PROJECT_PACKAGES,
+        package_dir=PROJECT_PACKAGE_DIR
 )
