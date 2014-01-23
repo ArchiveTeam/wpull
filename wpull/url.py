@@ -2,9 +2,10 @@
 import abc
 import collections
 import fnmatch
+import itertools
 import re
-import urllib.parse
 import sys
+import urllib.parse
 
 
 URLInfoType = collections.namedtuple(
@@ -58,12 +59,12 @@ class URLInfo(URLInfoType):
         return URLInfo(
             url_split_result.scheme,
             url_split_result.netloc,
-            url_split_result.path or '/',
-            url_split_result.query,
+            cls.normalize_path(url_split_result.path),
+            cls.normalize_query(url_split_result.query),
             url_split_result.fragment,
             url_split_result.username,
             url_split_result.password,
-            url_split_result.hostname,
+            cls.normalize_hostname(url_split_result.hostname),
             port,
             string,
             cls.normalize(url_split_result),
@@ -77,17 +78,75 @@ class URLInfo(URLInfoType):
         default_port = cls.DEFAULT_PORTS.get(url_split_result.scheme)
 
         if default_port == url_split_result.port:
-            host_with_port = url_split_result.hostname
+            host_with_port = cls.normalize_hostname(url_split_result.hostname)
         else:
             host_with_port = url_split_result.netloc.split('@', 1)[-1]
+            if ':' in host_with_port:
+                host, port = host_with_port.rsplit(':', 1)
+                host_with_port = '{0}:{1}'.format(
+                    cls.normalize_hostname(host), port)
+            else:
+                host_with_port = cls.normalize_hostname(host_with_port)
 
         return urllib.parse.urlunsplit([
             url_split_result.scheme,
             host_with_port,
-            url_split_result.path or '/',
-            url_split_result.query,
+            cls.normalize_path(url_split_result.path),
+            cls.normalize_query(url_split_result.query),
             b''
         ])
+
+    @classmethod
+    def normalize_hostname(cls, hostname):
+        if hostname:
+            return hostname.encode('idna').decode('ascii')
+        else:
+            return hostname
+
+    @classmethod
+    def normalize_path(cls, path):
+        if path is None:
+            return
+
+        # First assume the path is quoted
+        unquoted_path = urllib.parse.unquote(path)
+
+        # Then quote it back
+        requoted_path = urllib.parse.quote(unquoted_path)
+
+        # If they match, they are indeed quoted correctly:
+        if path == requoted_path:
+            return path or '/'
+
+        # Otherwise, we'll assume that itis unquoted
+        return urllib.parse.quote(path) or '/'
+
+    @classmethod
+    def normalize_query(cls, query):
+        if query is None:
+            return
+
+        query_list = urllib.parse.parse_qsl(query, keep_blank_values=True)
+
+        query_test_str = ''.join(itertools.chain(*query_list))
+
+        # First assume the query is quoted
+        unquoted_query_test_str = urllib.parse.unquote_plus(query_test_str)
+
+        # Then quote it back
+        requoted_query_test_str = urllib.parse.quote_plus(
+            unquoted_query_test_str)
+
+        # If they match, they are indeed quoted correctly:
+        if query_test_str == requoted_query_test_str:
+            return query
+
+        # Otherwise, we'll assume that it's unquoted
+        return '&'.join([
+            '='.join((urllib.parse.quote_plus(name),
+                    urllib.parse.quote_plus(value)
+            ))
+            for name, value in query_list])
 
     def to_dict(self):
         return {

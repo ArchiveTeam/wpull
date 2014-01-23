@@ -63,11 +63,7 @@ class TestURL(unittest.TestCase):
                 'HTTP://username:password@example.com/asdf/ghjk/').url
         )
         self.assertEqual(
-            'http://example.com/ð',
-            URLInfo.parse('http://example.com/ð').url
-        )
-        self.assertEqual(
-            'http://example.com/ð',
+            'http://example.com/%C3%B0',
             URLInfo.parse('http://example.com/ð').url
         )
         self.assertEqual(
@@ -82,6 +78,26 @@ class TestURL(unittest.TestCase):
         self.assertEqual(
             'http://example.com/blah',
             URLInfo.parse('//example.com/blah').url
+        )
+        self.assertEqual(
+            'http://example.com/blah%20blah/',
+            URLInfo.parse('example.com/blah blah/').url
+        )
+        self.assertEqual(
+            'http://example.com/blah%20blah/',
+            URLInfo.parse('example.com/blah%20blah/').url
+        )
+        self.assertEqual(
+            'http://www.xn--hda.com/asdf',
+            URLInfo.parse('www.ð.com/asdf').url
+        )
+        self.assertEqual(
+            'http://example.com/?blah=%C3%B0',
+            URLInfo.parse('example.com?blah=ð').url
+        )
+        self.assertEqual(
+            'http://example.com/?blah=%C3%B0',
+            URLInfo.parse('example.com?blah=%c3%b0').url
         )
 
     def test_url_info_to_dict(self):
