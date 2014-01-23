@@ -239,7 +239,8 @@ class WebProcessorSession(BaseProcessorSession):
 
         return True
 
-    def _parse_url(self, url):
+    @classmethod
+    def _parse_url(cls, url):
         try:
             url_info = URLInfo.parse(url)
         except ValueError as error:
