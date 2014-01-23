@@ -5,7 +5,7 @@ import tornado.testing
 
 from wpull.backport.testing import unittest
 from wpull.util import (to_bytes, sleep, to_str, datetime_str, OrderedDefaultDict,
-    wait_future, TimedOut, python_version, filter_pem)
+    wait_future, TimedOut, python_version, filter_pem, detect_encoding)
 
 
 class TestUtil(unittest.TestCase):
@@ -64,6 +64,19 @@ class TestUtil(unittest.TestCase):
         ])
 
         self.assertEqual(clean, filter_pem(unclean))
+
+    def test_detect_encoding(self):
+        mojibake = b'\x95\xb6\x8e\x9a\x89\xbb\x82\xaf'
+        krakozyabry = b'\xeb\xd2\xc1\xcb\xcf\xda\xd1\xc2\xd2\xd9'
+
+        self.assertEqual(
+            'shift_jis',
+            detect_encoding(mojibake, 'shift_jis')
+        )
+        self.assertEqual(
+            'koi8-r',
+            detect_encoding(krakozyabry, 'koi8-r')
+        )
 
 
 class TestUtilAsync(tornado.testing.AsyncTestCase):

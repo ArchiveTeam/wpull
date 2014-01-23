@@ -5,7 +5,7 @@ import tornado.web
 from wpull.backport.testing import unittest
 from wpull.errors import ConnectionRefused, SSLVerficationError
 from wpull.http import (Request, Connection, NetworkError, ProtocolError, Client,
-    ConnectionPool)
+    ConnectionPool, parse_charset)
 from wpull.testing.badapp import BadAppTestCase
 
 
@@ -231,6 +231,32 @@ class TestHTTP(unittest.TestCase):
             b'Host: example.com\r\n'
             b'\r\n'),
             request.header()
+        )
+
+    def test_parse_charset(self):
+        self.assertEqual(
+            None,
+            parse_charset('text/plain')
+        )
+        self.assertEqual(
+            None,
+            parse_charset('text/plain; charset=')
+        )
+        self.assertEqual(
+            'utf_8',
+            parse_charset('text/plain; charset=utf_8')
+        )
+        self.assertEqual(
+            'UTF-8',
+            parse_charset('text/plain; charset="UTF-8"')
+        )
+        self.assertEqual(
+            'Utf8',
+            parse_charset("text/plain; charset='Utf8'")
+        )
+        self.assertEqual(
+            'UTF-8',
+            parse_charset('text/plain; CHARSET="UTF-8"')
         )
 
 

@@ -643,3 +643,14 @@ class Client(object):
 
         if self._recorder:
             self._recorder.close()
+
+
+def parse_charset(header_string):
+    match = re.search(
+        r'''charset[ ]?=[ ]?["']?([a-z0-9_-]+)''',
+        header_string,
+        re.IGNORECASE
+    )
+
+    if match:
+        return match.group(1)
