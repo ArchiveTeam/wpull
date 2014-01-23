@@ -1,8 +1,10 @@
 # encoding=utf-8
+
 from wpull.backport.testing import unittest
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     ParentFilter, RecursiveFilter, SpanHostsFilter, RegexFilter, HTTPFilter,
-    HostnameFilter, schemes_similar, is_subdir, DirectoryFilter)
+    HostnameFilter, schemes_similar, is_subdir, DirectoryFilter, unquote,
+    unquote_plus, quote, quote_plus, split_query, uppercase_percent_encoding)
 
 
 class MockURLTableRecord(object):
@@ -63,11 +65,7 @@ class TestURL(unittest.TestCase):
                 'HTTP://username:password@example.com/asdf/ghjk/').url
         )
         self.assertEqual(
-            'http://example.com/ð',
-            URLInfo.parse('http://example.com/ð').url
-        )
-        self.assertEqual(
-            'http://example.com/ð',
+            'http://example.com/%C3%B0',
             URLInfo.parse('http://example.com/ð').url
         )
         self.assertEqual(
@@ -79,6 +77,30 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('http://example.com:80').url
         )
         self.assertRaises(ValueError, URLInfo.parse, '')
+        self.assertEqual(
+            'http://example.com/blah',
+            URLInfo.parse('//example.com/blah').url
+        )
+        self.assertEqual(
+            'http://example.com/blah%20blah/',
+            URLInfo.parse('example.com/blah blah/').url
+        )
+        self.assertEqual(
+            'http://example.com/blah%20blah/',
+            URLInfo.parse('example.com/blah%20blah/').url
+        )
+        self.assertEqual(
+            'http://www.xn--hda.com/asdf',
+            URLInfo.parse('www.ð.com/asdf').url
+        )
+        self.assertEqual(
+            'http://example.com/?blah=%C3%B0',
+            URLInfo.parse('example.com?blah=ð').url
+        )
+        self.assertEqual(
+            'http://example.com/?blah=%C3%B0',
+            URLInfo.parse('example.com?blah=%c3%b0').url
+        )
 
     def test_url_info_to_dict(self):
         url_info = URLInfo.parse('https://example.com/file.jpg')
@@ -366,3 +388,41 @@ class TestURL(unittest.TestCase):
             wildcards=True))
         self.assertFalse(is_subdir('/profile/blog-*-', '/profile/',
             wildcards=True))
+
+    def test_split_query(self):
+        self.assertEqual([],
+            split_query('&'))
+        self.assertEqual([('a', 'ð')],
+            split_query('a=ð'))
+        self.assertEqual([('a', 'ð')],
+            split_query('a=ð&b'))
+        self.assertEqual([('a', 'ð')],
+            split_query('a=ð&b='))
+        self.assertEqual([('a', 'ð'), ('b', '')],
+            split_query('a=ð&b=', keep_blank_values=True))
+        self.assertEqual([('a', 'ð'), ('b', '%2F')],
+            split_query('a=ð&b=%2F'))
+
+    def test_url_quote(self):
+        self.assertEqual('a ', unquote('a%20'))
+        self.assertEqual('að', unquote('a%C3%B0'))
+        self.assertEqual('a ', unquote_plus('a+'))
+        self.assertEqual('að', unquote_plus('a%C3%B0'))
+        self.assertEqual('a%20', quote('a '))
+        self.assertEqual('a%C3%B0', quote('að'))
+        self.assertEqual('a+', quote_plus('a '))
+        self.assertEqual('a%C3%B0', quote_plus('að'))
+
+    def test_uppercase_percent_encoding(self):
+        self.assertEqual(
+            'ð',
+            uppercase_percent_encoding('ð')
+        )
+        self.assertEqual(
+            'qwerty%%asdf',
+            uppercase_percent_encoding('qwerty%%asdf')
+        )
+        self.assertEqual(
+            'cAt%2F%EE%AB',
+            uppercase_percent_encoding('cAt%2f%ee%ab')
+        )
