@@ -243,7 +243,7 @@ class WebProcessorSession(BaseProcessorSession):
         try:
             url_info = URLInfo.parse(url)
         except ValueError as error:
-            _logger.warning(_('Discarding malformed URL {url}: {error}.')\
+            _logger.warning(_('Discarding malformed URL ‘{url}’: {error}.')\
                 .format(url=url, error=error))
         else:
             return url_info
