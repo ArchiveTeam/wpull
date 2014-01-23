@@ -20,7 +20,11 @@ class TestDocument(unittest.TestCase):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
-        inline_urls, linked_urls = scraper.scrape(request, response)
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual('UTF-8', scrape_info['encoding'])
 
         self.assertEqual({
             'http://example.com/style_import_url.css',
@@ -88,7 +92,9 @@ class TestDocument(unittest.TestCase):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
-        inline_urls, html_urls = scraper.scrape(request, response)
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
 
         self.assertEqual(
             {'http://example.com/ABOUTM~1.JPG'},
@@ -96,7 +102,7 @@ class TestDocument(unittest.TestCase):
         )
         self.assertEqual(
             {'http://example.com/BLOG'},
-            html_urls
+            linked_urls
         )
 
     def test_scrape_css_urls(self):
@@ -149,7 +155,9 @@ class TestDocument(unittest.TestCase):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
-        inline_urls, linked_urls = scraper.scrape(request, response)
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
 
         self.assertEqual({
             'http://example.com/mobile.css',

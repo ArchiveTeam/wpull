@@ -118,7 +118,12 @@ class HTMLScraper(BaseDocumentScraper):
         if self._robots and self._robots_cannot_follow(root):
             linked_urls.clear()
 
-        return inline_urls, linked_urls
+        return {
+            'inline_urls': inline_urls,
+            'linked_urls': linked_urls,
+            'base_url': to_str(root.base_url),
+            'encoding': to_str(root.getroottree().docinfo.encoding),
+        }
 
     def _scrape_tree(self, root):
         for element in root.iter():
@@ -282,7 +287,9 @@ class CSSScraper(BaseDocumentScraper):
 
         base_url = request.url_info.url
         inline_urls = set()
-        text = response.body.content.decode()
+        # FIXME: need to detect encoding
+        encoding = 'UTF-8'
+        text = response.body.content.decode(encoding)
         iterable = itertools.chain(self.scrape_urls(text),
             self.scrape_imports(text))
 
@@ -290,7 +297,11 @@ class CSSScraper(BaseDocumentScraper):
             inline_urls.add(urllib.parse.urljoin(base_url, link,
                 allow_fragments=False))
 
-        return inline_urls, ()
+        return {
+            'inline_urls': inline_urls,
+            'linked_urls': (),
+            'encoding': encoding,
+        }
 
     @classmethod
     def is_css(cls, request, response):
