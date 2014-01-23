@@ -26,6 +26,7 @@ Requires:
 * `Tornado <https://pypi.python.org/pypi/tornado>`_
 * `Toro <https://pypi.python.org/pypi/toro>`_
 * `lxml <https://pypi.python.org/pypi/lxml>`_
+* `chardet <https://pypi.python.org/pypi/chardet>`_
 * `Lunatic Python (bastibe version) <https://github.com/bastibe/lunatic-python>`_ (optional for Lua support)
 
 Install Wpull from GitHub::
