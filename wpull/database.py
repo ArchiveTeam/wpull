@@ -84,6 +84,7 @@ class SQLiteURLTable(BaseURLTable):
                 status_code INTEGER,
                 referrer TEXT,
                 inline INTEGER,
+                link_type TEXT,
                 url_encoding TEXT,
                 request BLOB
             )
