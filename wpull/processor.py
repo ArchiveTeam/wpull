@@ -214,10 +214,21 @@ class WebProcessorSession(BaseProcessorSession):
         inline_urls, linked_urls = self._scrape_document(
             self._request, response)
 
-        self._url_item.add_inline_url_infos(
-            [URLInfo.parse(url) for url in inline_urls])
-        self._url_item.add_linked_url_infos(
-            [URLInfo.parse(url) for url in linked_urls])
+        inline_url_infos = set()
+        linked_url_infos = set()
+
+        for url in inline_urls:
+            url_info = self._parse_url(url)
+            if url_info:
+                inline_url_infos.add(url_info)
+
+        for url in linked_urls:
+            url_info = self._parse_url(url)
+            if url_info:
+                linked_url_infos.add(url_info)
+
+        self._url_item.add_inline_url_infos(inline_url_infos)
+        self._url_item.add_linked_url_infos(linked_url_infos)
 
         if self._file_writer_session:
             self._file_writer_session.save_document(response)
@@ -227,6 +238,15 @@ class WebProcessorSession(BaseProcessorSession):
         self._url_item.set_status(Status.done)
 
         return True
+
+    def _parse_url(self, url):
+        try:
+            url_info = URLInfo.parse(url)
+        except ValueError as error:
+            _logger.warning(_('Discarding malformed URL {url}: {error}.')\
+                .format(url=url, error=error))
+        else:
+            return url_info
 
     def _handle_no_document(self, response):
         self._waiter.reset()
