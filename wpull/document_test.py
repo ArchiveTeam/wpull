@@ -74,6 +74,9 @@ class TestDocument(unittest.TestCase):
             linked_urls
         )
 
+        for url in inline_urls | linked_urls:
+            self.assertIsInstance(url, str)
+
     def test_html_soup(self):
         scraper = HTMLScraper()
         request = Request.new('http://example.com/')

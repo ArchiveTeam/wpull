@@ -42,6 +42,8 @@ class URLInfo(URLInfoType):
         if not string:
             raise ValueError('Empty URL')
 
+        assert isinstance(string, str)
+
         url_split_result = urllib.parse.urlsplit(string, scheme=default_scheme)
 
         if not url_split_result.hostname \
@@ -93,7 +95,7 @@ class URLInfo(URLInfoType):
             host_with_port,
             cls.normalize_path(url_split_result.path),
             cls.normalize_query(url_split_result.query),
-            b''
+            ''
         ])
 
     @classmethod

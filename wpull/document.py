@@ -6,6 +6,7 @@ import lxml.html
 import re
 import urllib.parse
 
+from wpull.util import to_str
 import wpull.util
 
 
@@ -147,16 +148,21 @@ class HTMLScraper(BaseDocumentScraper):
 
         if 'style' in attrib:
             for link in CSSScraper.scrape_urls(attrib['style']):
-                yield ScrapedLink(element.tag, 'style', link, True, False,
-                    None)
+                yield ScrapedLink(
+                    element.tag, 'style',
+                    to_str(link), True,
+                    False, None)
 
     def _scrape_link_element(self, element):
         rel = element.get('rel', '')
         inline = 'stylesheet' in rel or 'icon' in rel
 
         for attrib_name, link in self._scrape_links_by_attrib(element):
-            yield ScrapedLink(element.tag, attrib_name, link, inline,
-                not inline, None)
+            yield ScrapedLink(
+                element.tag, attrib_name,
+                to_str(link), inline,
+                not inline, None
+            )
 
     def _scrape_meta_element(self, element):
         if element.get('http-equiv', '').lower() == 'refresh':
@@ -164,34 +170,47 @@ class HTMLScraper(BaseDocumentScraper):
             match = re.search(r'url=(.+)', content_value, re.IGNORECASE)
             if match:
                 yield ScrapedLink(
-                    element.tag, 'http-equiv', match.group(1), False, True,
-                    None)
+                    element.tag, 'http-equiv',
+                    to_str(match.group(1)), False,
+                    True, None
+                )
 
     def _scrape_object_element(self, element):
-        base_link = element.get('codebase', None)
+        base_link = to_str(element.get('codebase', None))
 
         if base_link:
             # lxml returns codebase as inline
-            yield ScrapedLink(element.tag, 'codebase', base_link, True, False,
-                None)
+            yield ScrapedLink(
+                element.tag, 'codebase',
+                base_link, True,
+                False, None
+            )
 
         for attribute in ('code', 'src', 'classid', 'data'):
             if attribute in element.attrib:
-                yield ScrapedLink(element.tag, attribute,
-                    element.get(attribute), True, False, base_link)
+                yield ScrapedLink(
+                    element.tag, attribute,
+                    to_str(element.get(attribute)), True,
+                    False, base_link
+                )
 
         if 'archive' in element.attrib:
             for match in re.finditer(r'[^ ]+', element.get('archive')):
                 value = match.group(0)
-                yield ScrapedLink(element.tag, 'archive', value, True, False,
-                   base_link)
+                yield ScrapedLink(
+                    element.tag, 'archive',
+                    to_str(value), True,
+                    False, base_link
+                )
 
     def _scrape_param_element(self, element):
         valuetype = element.get('valuetype', '')
 
         if valuetype.lower() == 'ref' and 'value' in element.attrib:
             yield ScrapedLink(
-                element.tag, 'value', element.get('value'), True, False, None)
+                element.tag, 'value',
+                to_str(element.get('value')), True,
+                False, None)
 
     def _scrape_style_element(self, element):
         if element.text:
@@ -200,14 +219,21 @@ class HTMLScraper(BaseDocumentScraper):
                 CSSScraper.scrape_urls(element.text)
             )
             for link in link_iter:
-                yield ScrapedLink(element.tag, None, link, True, False, None)
+                yield ScrapedLink(
+                    element.tag, None,
+                    to_str(link), True,
+                    False, None
+                )
 
     def _scrape_plain_element(self, element):
         for attrib_name, link in self._scrape_links_by_attrib(element):
             inline = self._is_link_inline(element.tag, attrib_name)
             linked = self._is_html_link(element.tag, attrib_name)
-            yield ScrapedLink(element.tag, attrib_name, link, inline, linked,
-                None)
+            yield ScrapedLink(
+                element.tag, attrib_name,
+                to_str(link), inline,
+                linked, None
+            )
 
     def _scrape_links_by_attrib(self, element):
         for attrib_name in self.LINK_ATTRIBUTES:
