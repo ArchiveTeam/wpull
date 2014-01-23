@@ -55,3 +55,19 @@ class TestNameValue(unittest.TestCase):
             'When/Created: 1888\r\n'),
             str(record)
         )
+
+    def test_name_value_utf8(self):
+        text = '''Name: dogé'''
+        record = NameValueRecord()
+        record.parse(text)
+
+        self.assertEqual('dogé', record['name'])
+
+    def test_name_value_fallback(self):
+        text = '''Name: Кракозябры'''.encode('koi8-r')
+        record = NameValueRecord()
+        record.parse(text)
+
+        self.assertEqual(
+            'Кракозябры'.encode('koi8-r').decode('latin1'),
+            record['name'])

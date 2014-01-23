@@ -38,6 +38,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/sleep_short': self.sleep_short,
             '/sleep_long': self.sleep_long,
             '/short_close': self.short_close,
+            '/unclean_8bit_header': self.unclean_8bit_header,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -169,6 +170,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b'1')
         self.close_connection = 1
+
+    def unclean_8bit_header(self):
+        self.wfile.write(b'HTTP/1.1 200 OK\r\n')
+        self.wfile.write(b'Content-Length: 3\r\n')
+        self.wfile.write('K: Кракозябры\r\n'.encode('koi8-r'))
+        self.wfile.write('M: 文字化け\r\n'.encode('shift_jis'))
+        self.wfile.write(b'\r\n')
+        self.wfile.write(b'hi\n')
 
 
 class ConcurrentHTTPServer(socketserver.ThreadingMixIn,

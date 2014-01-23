@@ -153,7 +153,11 @@ class TestConnection(BadAppTestCase):
         except NetworkError:
             pass
         else:
-            self.assertFalse(True)
+            self.fail()
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_unclean_8bit_header(self):
+        yield self.fetch('/unclean_8bit_header')
 
 
 class TestClient(BadAppTestCase):
