@@ -7,6 +7,7 @@ import os
 import urllib.parse
 
 from wpull.database import Status
+from wpull.document import HTMLScraper
 from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
     DNSNotFound)
 from wpull.http import Request, Response, Body
@@ -211,28 +212,10 @@ class WebProcessorSession(BaseProcessorSession):
     def _handle_document(self, response):
         _logger.debug('Got a document.')
 
-        inline_urls, linked_urls = self._scrape_document(
-            self._request, response)
-
-        inline_url_infos = set()
-        linked_url_infos = set()
-
-        for url in inline_urls:
-            url_info = self._parse_url(url)
-            if url_info:
-                inline_url_infos.add(url_info)
-
-        for url in linked_urls:
-            url_info = self._parse_url(url)
-            if url_info:
-                linked_url_infos.add(url_info)
-
-        self._url_item.add_inline_url_infos(inline_url_infos)
-        self._url_item.add_linked_url_infos(linked_url_infos)
-
         if self._file_writer_session:
             self._file_writer_session.save_document(response)
 
+        self._scrape_document(self._request, response)
         self._waiter.reset()
         self._statistics.increment(response.body.content_size)
         self._url_item.set_status(Status.done)
@@ -328,20 +311,54 @@ class WebProcessorSession(BaseProcessorSession):
         return len(failed) == 0
 
     def _scrape_document(self, request, response):
-        inline_urls = set()
-        linked_urls = set()
+        num_inline_urls = 0
+        num_linked_urls = 0
 
         for scraper in self._document_scrapers:
-            new_inline_urls, new_linked_urls = scraper.scrape(
-                request, response) or ((), ())
-            inline_urls.update(new_inline_urls)
-            linked_urls.update(new_linked_urls)
+            new_inline, new_linked = self._process_scraper(
+                scraper, request, response
+            )
+            num_inline_urls += new_inline
+            num_linked_urls += new_linked
 
         _logger.debug('Found URLs: inline={0} linked={1}'.format(
-            len(inline_urls), len(linked_urls)
+            num_inline_urls, num_linked_urls
         ))
 
-        return inline_urls, linked_urls
+    def _process_scraper(self, scraper, request, response):
+        scrape_info = scraper.scrape(request, response)
+
+        if not scrape_info:
+            return 0, 0
+
+        if isinstance(scraper, HTMLScraper):
+            link_type = 'html'
+        else:
+            link_type = None
+
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+        encoding = scrape_info['encoding']
+
+        inline_url_infos = set()
+        linked_url_infos = set()
+
+        for url in inline_urls:
+            url_info = self._parse_url(url)
+            if url_info:
+                inline_url_infos.add(url_info)
+
+        for url in linked_urls:
+            url_info = self._parse_url(url)
+            if url_info:
+                linked_url_infos.add(url_info)
+
+        self._url_item.add_inline_url_infos(
+            inline_url_infos, encoding=encoding)
+        self._url_item.add_linked_url_infos(
+            linked_url_infos, encoding=encoding, link_type=link_type)
+
+        return len(inline_url_infos), len(linked_url_infos)
 
 
 class WebProcessorWithRobotsTxtSession(
