@@ -1,5 +1,6 @@
 # encoding=utf-8
 import abc
+import codecs
 import collections
 import itertools
 import lxml.html
@@ -86,9 +87,15 @@ class HTMLScraper(BaseDocumentScraper):
             return
 
         content_file = response.body.content_file
+        encoding = get_heading_encoding(response)
+        parser = lxml.html.HTMLParser(encoding=encoding)
+
         with wpull.util.reset_file_offset(content_file):
-            root = lxml.html.parse(content_file, base_url=request.url_info.url
-                ).getroot()
+            root = lxml.html.parse(
+                content_file,
+                base_url=request.url_info.url,
+                parser=parser,
+            ).getroot()
 
         linked_urls = set()
         inline_urls = set()
@@ -287,8 +294,7 @@ class CSSScraper(BaseDocumentScraper):
 
         base_url = request.url_info.url
         inline_urls = set()
-        # FIXME: need to detect encoding
-        encoding = 'UTF-8'
+        encoding = get_encoding(response)
         text = response.body.content.decode(encoding)
         iterable = itertools.chain(self.scrape_urls(text),
             self.scrape_imports(text))
@@ -333,3 +339,28 @@ class CSSScraper(BaseDocumentScraper):
                     yield url
             else:
                 yield url_str_fragment.strip('"\'')
+
+
+def get_heading_encoding(response):
+    encoding = wpull.http.parse_charset(
+        response.fields.get('content-type', ''))
+
+    if encoding:
+        try:
+            codec = codecs.lookup(encoding)
+        except LookupError:
+            return None
+        else:
+            return codec.name
+    else:
+        return None
+
+
+def get_encoding(response):
+    encoding = wpull.http.parse_charset(
+        response.fields.get('content-type', ''))
+
+    encoding = wpull.util.detect_encoding(
+        wpull.util.peek_file(response.body.content_file), encoding)
+
+    return encoding

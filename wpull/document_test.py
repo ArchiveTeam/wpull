@@ -105,6 +105,60 @@ class TestDocument(unittest.TestCase):
             linked_urls
         )
 
+    def test_html_mojibake(self):
+        scraper = HTMLScraper()
+        request = Request.new('http://example.com/')
+        response = Response('HTTP/1.0', 200, '')
+        response.fields['content-type'] = 'text/html; charset=Shift_JIS'
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'mojibake.html')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual('shift_jis', scrape_info['encoding'])
+
+        self.assertEqual(
+            set(),
+            inline_urls
+        )
+        self.assertEqual(
+            {'http://example.com/文字化け'},
+            linked_urls
+        )
+
+    def test_html_krokozyabry(self):
+        scraper = HTMLScraper()
+        request = Request.new('http://example.com/')
+        response = Response('HTTP/1.0', 200, '')
+        response.fields['content-type'] = 'text/html; charset=KOI8-R'
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'krokozyabry.html')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual('koi8-r', scrape_info['encoding'])
+
+        self.assertEqual(
+            set(),
+            inline_urls
+        )
+        self.assertEqual(
+            {'http://example.com/Кракозябры'},
+            linked_urls
+        )
+
     def test_scrape_css_urls(self):
         text = '''
         @import url("fineprint.css") print;
@@ -162,6 +216,50 @@ class TestDocument(unittest.TestCase):
         self.assertEqual({
             'http://example.com/mobile.css',
             'http://example.com/images/star.gif',
+            },
+            inline_urls
+        )
+        self.assertFalse(linked_urls)
+
+    def test_css_scraper_mojibake(self):
+        scraper = CSSScraper()
+        request = Request.new('http://example.com/styles.css')
+        response = Response('HTTP/1.0', 200, 'OK')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'mojibake.css')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual({
+            'http://example.com/文字化け.png',
+            },
+            inline_urls
+        )
+        self.assertFalse(linked_urls)
+
+    def test_css_scraper_krokozyabry(self):
+        scraper = CSSScraper()
+        request = Request.new('http://example.com/styles.css')
+        response = Response('HTTP/1.0', 200, 'OK')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'krokozyabry.css')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual({
+            'http://example.com/Кракозябры.png',
             },
             inline_urls
         )

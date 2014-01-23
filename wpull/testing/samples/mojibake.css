@@ -1,0 +1,6 @@
+/* the encoding of this document should be in Shift_JIS */
+/* 私はガラスを食べられます。それは私を傷つけません。 */
+body {
+    background-image: url('/文字化け.png');
+}
+
