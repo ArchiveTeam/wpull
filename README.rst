@@ -38,8 +38,17 @@ Install Wpull with dependencies automatically from PyPI::
 
     pip3 install wpull
 
+* Note: Python 2 users, please see note in the next subsection.
 * Tip: Adding the ``--upgrade`` option will upgrade Wpull to the latest release.
 * Tip: Adding the ``--user`` option will install Wpull into your home directory.
+
+
+Python 2.6/2.7
+--------------
+
+Please ensure you have the latest lib3to2 from Bitbucket before installing Wpull::
+
+    pip install hg+https://bitbucket.org/amentajo/lib3to2#egg=3to2
 
 
 Manual Install
@@ -47,7 +56,7 @@ Manual Install
 
 Install the dependencies::
 
-    pip3 install -r requirements.txt
+    pip3 install -r https://raw2.github.com/chfoo/wpull/master/requirements.txt
 
 Install Wpull from GitHub::
 
@@ -62,11 +71,11 @@ Python 2.6/2.7
 Requires
 
 * `futures <https://pypi.python.org/pypi/futures>`_
-* `lib3to2 <https://bitbucket.org/amentajo/lib3to2>`_
+* `lib3to2 <https://bitbucket.org/amentajo/lib3to2>`_ (the one on PyPI is very outdated!)
 
 Install additional dependencies before installing Wpull::
 
-    pip install -r requirements-2py.txt
+    pip install -r https://raw2.github.com/chfoo/wpull/master/requirements-py2.txt
 
 Invoking ``setup.py`` will trigger the 3to2 process. The Python 2 compatible source code will be placed in ``py2src_noedit/``.
 
