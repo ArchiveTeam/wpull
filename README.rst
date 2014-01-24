@@ -1,3 +1,4 @@
+=====
 Wpull
 =====
 
@@ -18,7 +19,7 @@ Features:
 
 
 Install
-+++++++
+=======
 
 Requires:
 
@@ -29,34 +30,53 @@ Requires:
 * `chardet <https://pypi.python.org/pypi/chardet>`_
 * `Lunatic Python (bastibe version) <https://github.com/bastibe/lunatic-python>`_ (optional for Lua support)
 
+
+Automatic Install
++++++++++++++++++
+
+Install Wpull with dependencies automatically from PyPI::
+
+    pip3 install wpull
+
+* Tip: Adding the ``--upgrade`` option will upgrade Wpull to the latest release.
+* Tip: Adding the ``--user`` option will install Wpull into your home directory.
+
+
+Manual Install
+++++++++++++++
+
+Install the dependencies::
+
+    pip3 install -r requirements.txt
+
 Install Wpull from GitHub::
 
     pip3 install git+https://github.com/chfoo/wpull.git#egg=wpull
 
-Dependencies can be installed using pip as well::
-
-    pip3 install -r requirements.txt
-
-Tip: Adding the ``--user`` option will install into your home directory.
+Tip: Using ``git+https://github.com/chfoo/wpull.git@develop#egg=wpull`` as the path will install Wpull's develop branch.
 
 
 Python 2.6/2.7
 --------------
 
-Install lib3to2 and additional requirements before installing Wpull::
+Requires
 
-    pip install hg+https://bitbucket.org/amentajo/lib3to2#egg=3to2
+* `futures` <https://pypi.python.org/pypi/futures>`_
+* `lib3to2 <https://bitbucket.org/amentajo/lib3to2>`_
+
+Install additional dependencies before installing Wpull::
+
     pip install -r requirements-2py.txt
 
 Invoking ``setup.py`` will trigger the 3to2 process. The Python 2 compatible source code will be placed in ``py2src_noedit/``.
 
 
 Lua Scripting
--------------
++++++++++++++
 
 To enable Lua scripting support, Lunatic Python (bastibe version) can be installed using pip::
 
-    pip install git+https://github.com/bastibe/lunatic-python.git
+    pip3 install git+https://github.com/bastibe/lunatic-python.git#egg=lunatic-python
 
 At time of writing, Lunatic Python uses Lua 5.2. If you desire a different version of Lua, please see below.
 
@@ -64,7 +84,7 @@ At time of writing, Lunatic Python does not support Python 3.2.
 
 
 Specify Lua version
-...................
+-------------------
 
 Download lunatic-python from https://github.com/bastibe/lunatic-python using the "Download ZIP" link or ``git clone``.
 
@@ -76,7 +96,7 @@ Run pip to install Lunatic Python with ``LOCATION`` replaced with the location o
 
 
 Run
-+++
+===
 
 To download the About page of Google.com::
 
@@ -102,7 +122,7 @@ To see all options::
 
 
 Documentation
-+++++++++++++
+=============
 
 Documentation is not yet written.
 
@@ -110,13 +130,13 @@ API Note: This library is not thread safe.
 
 
 Help
-++++
+====
 
-Issues can be reported to the issue tracker: https://github.com/chfoo/wpull/issues.
+Issues can be reported to the issue tracker: https://github.com/chfoo/wpull/issues. You can also use the issue tracker to ask questions.
 
 
 Todo
-++++
+====
 
 * lot's of TODO markers in code
 * docstrings
@@ -124,7 +144,7 @@ Todo
 
 
 Credits
-+++++++
+=======
 
 Copyright 2013-2014 by Christopher Foo. License GPL v3.
 
