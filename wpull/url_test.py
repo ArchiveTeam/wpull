@@ -59,19 +59,45 @@ class TestURL(unittest.TestCase):
             'http://example.com/asdf/ghjk',
             URLInfo.parse('example.com/asdf/ghjk#blah').url
         )
+
+        url_info = URLInfo.parse(
+            'HTTP://username:password@example.com/asdf/ghjk/')
         self.assertEqual(
             'http://example.com/asdf/ghjk/',
-            URLInfo.parse(
-                'HTTP://username:password@example.com/asdf/ghjk/').url
+            url_info.url
         )
+        self.assertEqual(
+            'http',
+            url_info.scheme
+        )
+        self.assertEqual(
+            'username',
+            url_info.username
+        )
+        self.assertEqual(
+            'password',
+            url_info.password
+        )
+        self.assertEqual(
+            'utf-8',
+            url_info.encoding
+        )
+
         self.assertEqual(
             'http://example.com/%C3%B0',
             URLInfo.parse('http://example.com/ð').url
         )
+
+        url_info = URLInfo.parse('mailto:user@example.com')
         self.assertEqual(
             'mailto:user@example.com',
-            URLInfo.parse('mailto:user@example.com').url
+            url_info.url
         )
+        self.assertEqual(
+            'mailto',
+            url_info.scheme
+        )
+
         self.assertEqual(
             'http://example.com/',
             URLInfo.parse('http://example.com:80').url
@@ -94,12 +120,36 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('www.ð.com/asdf').url
         )
         self.assertEqual(
+            'www.xn--hda.com',
+            URLInfo.parse('www.ð.com/asdf').hostname
+        )
+        self.assertEqual(
             'http://example.com/?blah=%C3%B0',
             URLInfo.parse('example.com?blah=ð').url
         )
         self.assertEqual(
             'http://example.com/?blah=%C3%B0',
             URLInfo.parse('example.com?blah=%c3%b0').url
+        )
+
+        url_info = URLInfo.parse('example.com/文字化け/?blah=文字化け',
+            encoding='shift_jis')
+        self.assertEqual(
+            'http://example.com/%95%B6%8E%9A%89%BB%82%AF/'
+                '?blah=%95%B6%8E%9A%89%BB%82%AF',
+            url_info.url
+        )
+        self.assertEqual(
+            '/%95%B6%8E%9A%89%BB%82%AF/',
+            url_info.path
+        )
+        self.assertEqual(
+            'blah=%95%B6%8E%9A%89%BB%82%AF',
+            url_info.query
+        )
+        self.assertEqual(
+            'shift_jis',
+            url_info.encoding
         )
 
     def test_url_info_to_dict(self):

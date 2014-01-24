@@ -7,6 +7,8 @@ import re
 import sys
 import urllib.parse
 
+import wpull.util
+
 
 URLInfoType = collections.namedtuple(
     'URLInfoTuple',
@@ -22,6 +24,7 @@ URLInfoType = collections.namedtuple(
         'port',
         'raw',
         'url',
+        'encoding',
     ]
 )
 
@@ -38,7 +41,7 @@ class URLInfo(URLInfoType):
     }
 
     @classmethod
-    def parse(cls, string, default_scheme='http'):
+    def parse(cls, string, default_scheme='http', encoding='utf8'):
         if not string:
             raise ValueError('Empty URL')
 
@@ -61,19 +64,20 @@ class URLInfo(URLInfoType):
         return URLInfo(
             url_split_result.scheme,
             url_split_result.netloc,
-            cls.normalize_path(url_split_result.path),
-            cls.normalize_query(url_split_result.query),
+            cls.normalize_path(url_split_result.path, encoding=encoding),
+            cls.normalize_query(url_split_result.query, encoding=encoding),
             url_split_result.fragment,
             url_split_result.username,
             url_split_result.password,
             cls.normalize_hostname(url_split_result.hostname),
             port,
             string,
-            cls.normalize(url_split_result),
+            cls.normalize(url_split_result, encoding=encoding),
+            wpull.util.normalize_codec_name(encoding),
         )
 
     @classmethod
-    def normalize(cls, url_split_result):
+    def normalize(cls, url_split_result, encoding='utf8'):
         if url_split_result.scheme not in ('http', 'https'):
             return url_split_result.geturl()
 
@@ -93,8 +97,8 @@ class URLInfo(URLInfoType):
         return urllib.parse.urlunsplit([
             url_split_result.scheme,
             host_with_port,
-            cls.normalize_path(url_split_result.path),
-            cls.normalize_query(url_split_result.query),
+            cls.normalize_path(url_split_result.path, encoding=encoding),
+            cls.normalize_query(url_split_result.query, encoding=encoding),
             ''
         ])
 
@@ -106,25 +110,25 @@ class URLInfo(URLInfoType):
             return hostname
 
     @classmethod
-    def normalize_path(cls, path):
+    def normalize_path(cls, path, encoding='utf8'):
         if path is None:
             return
 
         # First assume the path is quoted
-        unquoted_path = unquote(path)
+        unquoted_path = unquote(path, encoding=encoding)
 
         # Then quote it back
-        requoted_path = quote(unquoted_path)
+        requoted_path = quote(unquoted_path, encoding=encoding)
 
         # If they match, they are indeed quoted correctly:
         if uppercase_percent_encoding(path) == requoted_path:
             return path or '/'
 
         # Otherwise, we'll assume that it's unquoted
-        return quote(path) or '/'
+        return quote(path, encoding=encoding) or '/'
 
     @classmethod
-    def normalize_query(cls, query):
+    def normalize_query(cls, query, encoding='utf8'):
         if query is None:
             return
 
@@ -132,10 +136,12 @@ class URLInfo(URLInfoType):
         query_test_str = ''.join(itertools.chain(*query_list))
 
         # First assume the query is quoted
-        unquoted_query_test_str = unquote_plus(query_test_str)
+        unquoted_query_test_str = unquote_plus(
+            query_test_str, encoding=encoding)
 
         # Then quote it back
-        requoted_query_test_str = quote_plus(unquoted_query_test_str)
+        requoted_query_test_str = quote_plus(
+            unquoted_query_test_str, encoding=encoding)
 
         # If they match, they are indeed quoted correctly:
         if uppercase_percent_encoding(query_test_str) \
@@ -145,8 +151,8 @@ class URLInfo(URLInfoType):
         # Otherwise, we'll assume that it's unquoted
         return '&'.join([
             '='.join((
-                quote_plus(name),
-                quote_plus(value)
+                quote_plus(name, encoding=encoding),
+                quote_plus(value, encoding=encoding)
             ))
             for name, value in query_list])
 
@@ -163,6 +169,7 @@ class URLInfo(URLInfoType):
             'port': self.port,
             'raw': self.raw,
             'url': self.url,
+            'encoding': self.encoding,
         }
 
 
