@@ -3,3 +3,4 @@ toro>=0.5
 lxml>=3.1.0
 chardet>=2.0.1
 futures>=2.1.5
+hg+https://bitbucket.org/amentajo/lib3to2@381fa83058b601eb57051d785f8b24d0f779ad96#egg=3to2
