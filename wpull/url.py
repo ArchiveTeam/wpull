@@ -4,6 +4,7 @@ import collections
 import fnmatch
 import itertools
 import re
+import string
 import sys
 import urllib.parse
 
@@ -114,45 +115,28 @@ class URLInfo(URLInfoType):
         if path is None:
             return
 
-        # First assume the path is quoted
-        unquoted_path = unquote(path, encoding=encoding)
-
-        # Then quote it back
-        requoted_path = quote(unquoted_path, encoding=encoding)
-
-        # If they match, they are indeed quoted correctly:
-        if uppercase_percent_encoding(path) == requoted_path:
-            return path or '/'
-
-        # Otherwise, we'll assume that it's unquoted
-        return quote(path, encoding=encoding) or '/'
+        if is_percent_encoded(path):
+            return quasi_quote(path, encoding=encoding) or '/'
+        else:
+            return quote(path, encoding=encoding) or '/'
 
     @classmethod
     def normalize_query(cls, query, encoding='utf8'):
-        if query is None:
+        if not query:
             return
 
         query_list = split_query(query, keep_blank_values=True)
         query_test_str = ''.join(itertools.chain(*query_list))
 
-        # First assume the query is quoted
-        unquoted_query_test_str = unquote_plus(
-            query_test_str, encoding=encoding)
+        if is_percent_encoded(query_test_str):
+            quote_func = quasi_quote_plus
+        else:
+            quote_func = quote_plus
 
-        # Then quote it back
-        requoted_query_test_str = quote_plus(
-            unquoted_query_test_str, encoding=encoding)
-
-        # If they match, they are indeed quoted correctly:
-        if uppercase_percent_encoding(query_test_str) \
-        == requoted_query_test_str:
-            return uppercase_percent_encoding(query)
-
-        # Otherwise, we'll assume that it's unquoted
         return '&'.join([
             '='.join((
-                quote_plus(name, encoding=encoding),
-                quote_plus(value, encoding=encoding)
+                quote_func(name, encoding=encoding),
+                quote_func(value, encoding=encoding)
             ))
             for name, value in query_list])
 
@@ -400,6 +384,20 @@ def unquote_plus(string, encoding='utf-8', errors='strict'):
         return urllib.parse.unquote_plus(string, encoding, errors)
 
 
+def quasi_quote(string, safe='/', encoding='utf-8', errors='strict'):
+    return quote(
+        unquote(string, encoding, errors),
+        safe, encoding, errors
+    )
+
+
+def quasi_quote_plus(string, safe='', encoding='utf-8', errors='strict'):
+    return quote_plus(
+        unquote_plus(string, encoding, errors),
+        safe, encoding, errors
+    )
+
+
 def split_query(qs, keep_blank_values=False):
     new_list = []
 
@@ -426,3 +424,21 @@ def uppercase_percent_encoding(string):
         r'%[a-f0-9][a-f0-9]',
         lambda match: match.group(0).upper(),
         string)
+
+
+def is_percent_encoded(url):
+    input_chars = frozenset(url)
+    printable_chars = frozenset(string.printable)
+    hex_chars = frozenset(string.hexdigits)
+
+    if not input_chars <= printable_chars:
+        return False
+
+    if frozenset(' &=') & input_chars:
+        return False
+
+    for match_str in re.findall('%(..)', url):
+        if not frozenset(match_str) <= hex_chars:
+            return False
+
+    return True

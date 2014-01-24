@@ -159,6 +159,21 @@ class TestURL(unittest.TestCase):
                 '?blah=%95%B6%8E%9A%89%BB%82%AF', encoding='shift_jis').url
         )
 
+        self.assertEqual(
+            'http://example.com/'
+                '?blah=http%3A%2F%2Fexample.com%2F%3Ffail%3Dtrue',
+            URLInfo.parse(
+                'http://example.com/'
+                    '?blah=http%3A%2F%2Fexample.com%2F%3Ffail%3Dtrue').url
+        )
+        self.assertEqual(
+            'http://example.com/'
+                '?blah=http%3A%2F%2Fexample.com%2F%3Ffail%3Dtrue',
+            URLInfo.parse(
+                'http://example.com/'
+                    '?blah=http://example.com/?fail%3Dtrue').url
+        )
+
     def test_url_info_to_dict(self):
         url_info = URLInfo.parse('https://example.com/file.jpg')
         url_info_dict = url_info.to_dict()
