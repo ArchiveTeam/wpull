@@ -61,7 +61,7 @@ Python 2.6/2.7
 
 Requires
 
-* `futures` <https://pypi.python.org/pypi/futures>`_
+* `futures <https://pypi.python.org/pypi/futures>`_
 * `lib3to2 <https://bitbucket.org/amentajo/lib3to2>`_
 
 Install additional dependencies before installing Wpull::
