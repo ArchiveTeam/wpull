@@ -64,14 +64,14 @@ class TestApp(GoodAppTestCase):
     def test_app_args(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            self.get_url('/'),
+            self.get_url('/').encode('utf-8'),
             '--no-parent',
             '--recursive',
             '--page-requisites',
-            '--database', 'test.db',
+            '--database', b'test.db',
             '--server-response',
             '--random-wait',
-            '--wait', '0.1',
+            b'--wait', b'0.1',
             '--protocol-directories',
             '--referer', 'http://test.test',
             '--accept-regex', r'.*',

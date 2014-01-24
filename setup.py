@@ -34,11 +34,12 @@ PROJECT_PACKAGE_DIR = dict(config.items(config_section))
 
 extras = {}
 install_requires = [
-    'tornado', 'toro', 'lxml',
+    'tornado', 'toro', 'lxml', 'chardet',
 ]
 
 if sys.version_info[0] == 2:
     install_requires.append('futures')
+    install_requires.append('3to2')
 
 
 if __name__ == '__main__':

@@ -13,12 +13,11 @@ before_install:
 install:
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then
       pip install -r requirements-py2.txt &&
-      pip install unittest2 &&
-      pip install hg+https://bitbucket.org/amentajo/lib3to2#egg=3to2;
+      pip install unittest2;
     else
       pip install -r requirements.txt;
     fi
-  - pip install git+https://github.com/bastibe/lunatic-python.git@f3f68d2c8638c6f423912264aeb750f5f7eb14ee
+  - pip install git+https://github.com/bastibe/lunatic-python.git@f3f68d2c8638c6f423912264aeb750f5f7eb14ee#egg=lunatic-python
 
 
 # command to run tests

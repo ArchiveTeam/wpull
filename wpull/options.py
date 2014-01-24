@@ -61,7 +61,12 @@ class AppArgumentParser(argparse.ArgumentParser):
         return items
 
     def parse_args(self, args=None, namespace=None):
-        args = super().parse_args(args=args, namespace=namespace)
+        if args is None:
+            args = sys.argv[1:]
+
+        args = super().parse_args(
+            args=wpull.util.to_str(args), namespace=namespace)
+
         self._post_parse_args(args)
         return args
 
