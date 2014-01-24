@@ -13,7 +13,7 @@ before_install:
 install:
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then
       pip install -r requirements-py2.txt &&
-      pip install unittest2 &&
+      pip install unittest2;
     else
       pip install -r requirements.txt;
     fi
