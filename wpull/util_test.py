@@ -78,6 +78,17 @@ class TestUtil(unittest.TestCase):
             detect_encoding(krakozyabry, 'koi8-r')
         )
 
+        self.assertEqual(
+            'latin1',
+            detect_encoding(b'\xff\xff\xff\x81')
+        )
+
+        self.assertRaises(
+            ValueError,
+            detect_encoding, b'\xff\xff\xff\x81',
+            'utf8', fallback=()
+        )
+
 
 class TestUtilAsync(tornado.testing.AsyncTestCase):
     @tornado.testing.gen_test

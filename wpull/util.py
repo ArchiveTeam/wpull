@@ -218,6 +218,8 @@ def detect_encoding(data, encoding=None, fallback=('utf8', 'latin1')):
         if try_decoding(data, candidate):
             return candidate
 
+    raise ValueError('Unable to detect encoding.')
+
 
 def try_decoding(data, encoding):
     try:
