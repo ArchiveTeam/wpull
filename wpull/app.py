@@ -210,7 +210,7 @@ class Builder(object):
                 self._args.urls,
                 self._args.input_file)
         else:
-            url_string_iter = wpull.util.to_str(self._args.urls)
+            url_string_iter = self._args.urls
 
         for url_string in url_string_iter:
             url_info = self._classes['URLInfo'].parse(
