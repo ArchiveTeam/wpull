@@ -116,8 +116,8 @@ class Engine(object):
 
             self._num_worker_busy += 1
 
-            url_info = URLInfo.parse(url_record.url,
-                encoding=url_record.url_encoding)
+            url_encoding = url_record.url_encoding or 'utf8'
+            url_info = URLInfo.parse(url_record.url, encoding=url_encoding)
             url_item = URLItem(self._url_table, url_info, url_record)
 
             yield self._process_url_item(url_item)
