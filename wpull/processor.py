@@ -223,9 +223,9 @@ class WebProcessorSession(BaseProcessorSession):
         return True
 
     @classmethod
-    def _parse_url(cls, url):
+    def _parse_url(cls, url, encoding):
         try:
-            url_info = URLInfo.parse(url)
+            url_info = URLInfo.parse(url, encoding=encoding)
         except ValueError as error:
             _logger.warning(_('Discarding malformed URL ‘{url}’: {error}.')\
                 .format(url=url, error=error))
@@ -340,16 +340,18 @@ class WebProcessorSession(BaseProcessorSession):
         linked_urls = scrape_info['linked_urls']
         encoding = scrape_info['encoding']
 
+        assert encoding
+
         inline_url_infos = set()
         linked_url_infos = set()
 
         for url in inline_urls:
-            url_info = self._parse_url(url)
+            url_info = self._parse_url(url, encoding)
             if url_info:
                 inline_url_infos.add(url_info)
 
         for url in linked_urls:
-            url_info = self._parse_url(url)
+            url_info = self._parse_url(url, encoding)
             if url_info:
                 linked_url_infos.add(url_info)
 

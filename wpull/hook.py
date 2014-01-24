@@ -255,7 +255,7 @@ class HookedWebProcessorSessionMixin(object):
                 self._add_hooked_linked_url(url, link_type=link_type)
 
     def _add_hooked_linked_url(self, url, link_type=None):
-        url_info = self._parse_url(url)
+        url_info = self._parse_url(url, 'utf-8')
 
         if url_info:
             self._url_item.add_linked_url_infos(
