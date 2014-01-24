@@ -182,3 +182,12 @@ class TestApp(GoodAppTestCase):
             engine = Builder(args).build()
             exit_code = yield engine()
         self.assertEqual(42, exit_code)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_iri_handling(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([self.get_url('/static/mojibake.html')])
+        with cd_tempdir():
+            engine = Builder(args).build()
+            exit_code = yield engine()
+        self.assertEqual(0, exit_code)

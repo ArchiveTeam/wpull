@@ -1,4 +1,5 @@
-tornado==3.1.1
-toro==0.5
+tornado>=3.1.1
+toro>=0.5
 lxml>=3.1.0
-futures==2.1.5
+chardet>=2.0.1
+futures>=2.1.5

@@ -116,7 +116,8 @@ class Engine(object):
 
             self._num_worker_busy += 1
 
-            url_info = URLInfo.parse(url_record.url)
+            url_encoding = url_record.url_encoding or 'utf8'
+            url_info = URLInfo.parse(url_record.url, encoding=url_encoding)
             url_item = URLItem(self._url_table, url_info, url_record)
 
             yield self._process_url_item(url_item)
@@ -292,7 +293,7 @@ class URLItem(object):
     def set_value(self, **kwargs):
         self._url_table.update(self._url, **kwargs)
 
-    def add_inline_url_infos(self, url_infos):
+    def add_inline_url_infos(self, url_infos, encoding=None):
         inline_urls = tuple([info.url for info in url_infos])
         _logger.debug('Adding inline URLs {0}'.format(inline_urls))
         self._url_table.add(
@@ -300,17 +301,20 @@ class URLItem(object):
             inline=1,
             level=self._url_record.level + 1,
             referrer=self._url_record.url,
-            top_url=self._url_record.top_url or self._url_record.url
+            top_url=self._url_record.top_url or self._url_record.url,
+            url_encoding=encoding,
         )
 
-    def add_linked_url_infos(self, url_infos):
+    def add_linked_url_infos(self, url_infos, link_type=None, encoding=None):
         linked_urls = tuple([info.url for info in url_infos])
         _logger.debug('Adding linked URLs {0}'.format(linked_urls))
         self._url_table.add(
             linked_urls,
             level=self._url_record.level + 1,
             referrer=self._url_record.url,
-            top_url=self._url_record.top_url or self._url_record.url
+            top_url=self._url_record.top_url or self._url_record.url,
+            link_type=link_type,
+            url_encoding=encoding,
         )
 
     def add_url_item(self, url_info, request):

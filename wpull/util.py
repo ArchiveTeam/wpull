@@ -1,14 +1,16 @@
 # encoding=utf-8
+import chardet
+import codecs
 import collections
 import contextlib
 import copy
+import itertools
 import re
 import sys
 import time
 import tornado.gen
 import tornado.ioloop
 import toro
-import codecs
 
 
 try:
@@ -98,7 +100,9 @@ def peek_file(file):
 
 
 def to_bytes(instance, encoding='utf-8'):
-    if hasattr(instance, 'encode'):
+    if isinstance(instance, bytes):
+        return instance
+    elif hasattr(instance, 'encode'):
         return instance.encode(encoding)
     elif isinstance(instance, list):
         return list([to_bytes(item, encoding) for item in instance])
@@ -112,7 +116,9 @@ def to_bytes(instance, encoding='utf-8'):
 
 
 def to_str(instance, encoding='utf-8'):
-    if hasattr(instance, 'decode'):
+    if isinstance(instance, str):
+        return instance
+    elif hasattr(instance, 'decode'):
         return instance.decode(encoding)
     elif isinstance(instance, list):
         return list([to_str(item, encoding) for item in instance])
@@ -192,3 +198,33 @@ def filter_pem(data):
             new_list.append(line)
 
     return certs
+
+
+def normalize_codec_name(name):
+    if name:
+        return codecs.lookup(name).name
+
+
+def detect_encoding(data, encoding=None, fallback=('utf8', 'latin1')):
+    encoding = normalize_codec_name(encoding)
+    info = chardet.detect(data)
+    detected_encoding = normalize_codec_name(info['encoding'])
+    candidates = itertools.chain((encoding, detected_encoding), fallback)
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+
+        if try_decoding(data, candidate):
+            return candidate
+
+    raise ValueError('Unable to detect encoding.')
+
+
+def try_decoding(data, encoding):
+    try:
+        data.decode(encoding, 'strict')
+    except UnicodeError:
+        return False
+    else:
+        return True

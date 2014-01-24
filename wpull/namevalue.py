@@ -13,9 +13,18 @@ class NameValueRecord(collections.MutableMapping):
     def __init__(self):
         self._map = OrderedDefaultDict(list)
         self.raw = None
+        self.encoding = 'utf-8'
 
-    def parse(self, string):
-        string = to_str(string)
+    def parse(self, string, encoding_fallback='latin1'):
+        if isinstance(string, bytes):
+            try:
+                string = string.decode(self.encoding, 'strict')
+            except UnicodeError:
+                if encoding_fallback:
+                    string = string.decode(encoding_fallback)
+                    self.encoding = encoding_fallback
+                else:
+                    raise
 
         if not self.raw:
             self.raw = string
@@ -75,7 +84,7 @@ class NameValueRecord(collections.MutableMapping):
         return '\r\n'.join(pairs)
 
     def __bytes__(self):
-        return str(self).encode('utf-8')
+        return str(self).encode(self.encoding)
 
 
 def normalize_name(name):

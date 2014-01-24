@@ -4,8 +4,11 @@ import collections
 import fnmatch
 import itertools
 import re
+import string
 import sys
 import urllib.parse
+
+import wpull.util
 
 
 URLInfoType = collections.namedtuple(
@@ -22,6 +25,7 @@ URLInfoType = collections.namedtuple(
         'port',
         'raw',
         'url',
+        'encoding',
     ]
 )
 
@@ -38,9 +42,11 @@ class URLInfo(URLInfoType):
     }
 
     @classmethod
-    def parse(cls, string, default_scheme='http'):
+    def parse(cls, string, default_scheme='http', encoding='utf8'):
         if not string:
             raise ValueError('Empty URL')
+
+        assert isinstance(string, str)
 
         url_split_result = urllib.parse.urlsplit(string, scheme=default_scheme)
 
@@ -59,19 +65,20 @@ class URLInfo(URLInfoType):
         return URLInfo(
             url_split_result.scheme,
             url_split_result.netloc,
-            cls.normalize_path(url_split_result.path),
-            cls.normalize_query(url_split_result.query),
+            cls.normalize_path(url_split_result.path, encoding=encoding),
+            cls.normalize_query(url_split_result.query, encoding=encoding),
             url_split_result.fragment,
             url_split_result.username,
             url_split_result.password,
             cls.normalize_hostname(url_split_result.hostname),
             port,
             string,
-            cls.normalize(url_split_result),
+            cls.normalize(url_split_result, encoding=encoding),
+            wpull.util.normalize_codec_name(encoding),
         )
 
     @classmethod
-    def normalize(cls, url_split_result):
+    def normalize(cls, url_split_result, encoding='utf8'):
         if url_split_result.scheme not in ('http', 'https'):
             return url_split_result.geturl()
 
@@ -91,9 +98,9 @@ class URLInfo(URLInfoType):
         return urllib.parse.urlunsplit([
             url_split_result.scheme,
             host_with_port,
-            cls.normalize_path(url_split_result.path),
-            cls.normalize_query(url_split_result.query),
-            b''
+            cls.normalize_path(url_split_result.path, encoding=encoding),
+            cls.normalize_query(url_split_result.query, encoding=encoding),
+            ''
         ])
 
     @classmethod
@@ -104,47 +111,32 @@ class URLInfo(URLInfoType):
             return hostname
 
     @classmethod
-    def normalize_path(cls, path):
+    def normalize_path(cls, path, encoding='utf8'):
         if path is None:
             return
 
-        # First assume the path is quoted
-        unquoted_path = unquote(path)
-
-        # Then quote it back
-        requoted_path = quote(unquoted_path)
-
-        # If they match, they are indeed quoted correctly:
-        if uppercase_percent_encoding(path) == requoted_path:
-            return path or '/'
-
-        # Otherwise, we'll assume that it's unquoted
-        return quote(path) or '/'
+        if is_percent_encoded(path):
+            return quasi_quote(path, encoding=encoding) or '/'
+        else:
+            return quote(path, encoding=encoding) or '/'
 
     @classmethod
-    def normalize_query(cls, query):
-        if query is None:
+    def normalize_query(cls, query, encoding='utf8'):
+        if not query:
             return
 
         query_list = split_query(query, keep_blank_values=True)
         query_test_str = ''.join(itertools.chain(*query_list))
 
-        # First assume the query is quoted
-        unquoted_query_test_str = unquote_plus(query_test_str)
+        if is_percent_encoded(query_test_str):
+            quote_func = quasi_quote_plus
+        else:
+            quote_func = quote_plus
 
-        # Then quote it back
-        requoted_query_test_str = quote_plus(unquoted_query_test_str)
-
-        # If they match, they are indeed quoted correctly:
-        if uppercase_percent_encoding(query_test_str) \
-        == requoted_query_test_str:
-            return uppercase_percent_encoding(query)
-
-        # Otherwise, we'll assume that it's unquoted
         return '&'.join([
             '='.join((
-                quote_plus(name),
-                quote_plus(value)
+                quote_func(name, encoding=encoding),
+                quote_func(value, encoding=encoding)
             ))
             for name, value in query_list])
 
@@ -161,6 +153,7 @@ class URLInfo(URLInfoType):
             'port': self.port,
             'raw': self.raw,
             'url': self.url,
+            'encoding': self.encoding,
         }
 
 
@@ -391,6 +384,20 @@ def unquote_plus(string, encoding='utf-8', errors='strict'):
         return urllib.parse.unquote_plus(string, encoding, errors)
 
 
+def quasi_quote(string, safe='/', encoding='utf-8', errors='strict'):
+    return quote(
+        unquote(string, encoding, errors),
+        safe, encoding, errors
+    )
+
+
+def quasi_quote_plus(string, safe='', encoding='utf-8', errors='strict'):
+    return quote_plus(
+        unquote_plus(string, encoding, errors),
+        safe, encoding, errors
+    )
+
+
 def split_query(qs, keep_blank_values=False):
     new_list = []
 
@@ -417,3 +424,21 @@ def uppercase_percent_encoding(string):
         r'%[a-f0-9][a-f0-9]',
         lambda match: match.group(0).upper(),
         string)
+
+
+def is_percent_encoded(url):
+    input_chars = frozenset(url)
+    printable_chars = frozenset(string.printable)
+    hex_chars = frozenset(string.hexdigits)
+
+    if not input_chars <= printable_chars:
+        return False
+
+    if frozenset(' &=') & input_chars:
+        return False
+
+    for match_str in re.findall('%(..)', url):
+        if not frozenset(match_str) <= hex_chars:
+            return False
+
+    return True

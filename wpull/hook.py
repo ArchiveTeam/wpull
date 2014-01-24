@@ -216,45 +216,50 @@ class HookedWebProcessorSessionMixin(object):
             raise NotImplementedError()
 
     def _scrape_document(self, request, response):
-        inline_urls, linked_urls = super()._scrape_document(request, response)
+        super()._scrape_document(request, response)
 
-        filename = self.callbacks_hook.to_native_type(
-            response.body.content_file.name)
-        url_info_dict = self.callbacks_hook.to_native_type(
-            self._next_url_info.to_dict())
-        document_info_dict = self.callbacks_hook.to_native_type(
-            response.body.to_dict())
+        to_native_type = self.callbacks_hook.to_native_type
+        filename = to_native_type(response.body.content_file.name)
+        url_info_dict = to_native_type(self._next_url_info.to_dict())
+        document_info_dict = to_native_type(response.body.to_dict())
 
         new_urls = self.callbacks_hook.get_urls(
             filename, url_info_dict, document_info_dict)
 
         _logger.debug('Hooked scrape returned {0}'.format(new_urls))
 
-        if new_urls:
-            if self.callbacks_hook.to_native_type(1) in new_urls:
-                # Lua doesn't have sequences
-                for i in itertools.count(1):
-                    new_url_info = new_urls[
-                        self.callbacks_hook.to_native_type(i)]
+        if not new_urls:
+            return
 
-                    _logger.debug('Got lua new url info {0}'.format(
-                        new_url_info))
+        if to_native_type(1) in new_urls:
+            # Lua doesn't have sequences
+            for i in itertools.count(1):
+                new_url_info = new_urls[to_native_type(i)]
 
-                    if new_url_info is None:
-                        break
+                _logger.debug('Got lua new url info {0}'.format(new_url_info))
 
-                    new_url = new_url_info[
-                        self.callbacks_hook.to_native_type('url')]
-                    assert new_url
+                if new_url_info is None:
+                    break
 
-                    linked_urls.add(new_url)
-            else:
-                for new_url_dict in new_urls:
-                    url = self.callbacks_hook.to_native_type(
-                        new_url_dict['url'])
-                    linked_urls.add(url)
+                new_url = new_url_info[to_native_type('url')]
+                assert new_url
 
-        return inline_urls, linked_urls
+                link_type = new_url_info[to_native_type('link_type')]
+
+                self._add_hooked_linked_url(new_url, link_type=link_type)
+        else:
+            for new_url_dict in new_urls:
+                url = new_url_dict['url']
+                link_type = new_url_dict.get('link_type')
+
+                self._add_hooked_linked_url(url, link_type=link_type)
+
+    def _add_hooked_linked_url(self, url, link_type=None):
+        url_info = self._parse_url(url, 'utf-8')
+
+        if url_info:
+            self._url_item.add_linked_url_infos(
+                [url_info], link_type=link_type)
 
 
 class HookedWebProcessorSession(HookedWebProcessorSessionMixin,
