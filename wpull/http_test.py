@@ -5,7 +5,7 @@ import tornado.web
 from wpull.backport.testing import unittest
 from wpull.errors import ConnectionRefused, SSLVerficationError
 from wpull.http import (Request, Connection, NetworkError, ProtocolError, Client,
-    ConnectionPool, parse_charset)
+    ConnectionPool, parse_charset, Response)
 from wpull.testing.badapp import BadAppTestCase
 
 
@@ -262,6 +262,54 @@ class TestHTTP(unittest.TestCase):
             'UTF-8',
             parse_charset('text/plain; CHARSET="UTF-8"')
         )
+
+    def test_parse_status_line(self):
+        version, code, msg = Response.parse_status_line(b'HTTP/1.0 200 OK')
+        self.assertEqual('HTTP/1.0', version)
+        self.assertEqual(200, code)
+        self.assertEqual('OK', msg)
+
+        version, code, msg = Response.parse_status_line(
+            b'HTTP/1.0 404 Not Found')
+        self.assertEqual('HTTP/1.0', version)
+        self.assertEqual(404, code)
+        self.assertEqual('Not Found', msg)
+
+        version, code, msg = Response.parse_status_line(b'HTTP/1.1  200   OK')
+        self.assertEqual('HTTP/1.1', version)
+        self.assertEqual(200, code)
+        self.assertEqual('OK', msg)
+
+        version, code, msg = Response.parse_status_line(b'HTTP/1.1  200')
+        self.assertEqual('HTTP/1.1', version)
+        self.assertEqual(200, code)
+        self.assertEqual('', msg)
+
+        version, code, msg = Response.parse_status_line(b'HTTP/1.1  200  ')
+        self.assertEqual('HTTP/1.1', version)
+        self.assertEqual(200, code)
+        self.assertEqual('', msg)
+
+        version, code, msg = Response.parse_status_line(
+            'HTTP/1.1 200 ððð'.encode('latin-1'))
+        self.assertEqual('HTTP/1.1', version)
+        self.assertEqual(200, code)
+        self.assertEqual('ððð', msg)
+
+        self.assertRaises(
+            ProtocolError,
+            Response.parse_status_line, b'HTTP/1.0'
+        )
+        self.assertRaises(
+            ProtocolError,
+            Response.parse_status_line, b'HTTP/2.0'
+        )
+
+        version, code, msg = Response.parse_status_line(
+            b'HTTP/1.0 404 N\x99t \x0eounz\r\n')
+        self.assertEqual('HTTP/1.0', version)
+        self.assertEqual(404, code)
+        self.assertEqual(b'N\x99t \x0eounz'.decode('latin-1'), msg)
 
 
 class TestSSL(tornado.testing.AsyncHTTPSTestCase):
