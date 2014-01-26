@@ -5,7 +5,6 @@ import collections
 import itertools
 import lxml.html
 import re
-import urllib.parse
 
 from wpull.util import to_str
 import wpull.util
@@ -114,10 +113,9 @@ class HTMLScraper(BaseDocumentScraper):
             base_url = root.base_url
 
             if scraped_link.base_link:
-                base_url = urllib.parse.urljoin(base_url,
-                    scraped_link.base_link)
+                base_url = wpull.url.urljoin(base_url, scraped_link.base_link)
 
-            url = urllib.parse.urljoin(base_url, scraped_link.link,
+            url = wpull.url.urljoin(base_url, scraped_link.link,
                 allow_fragments=False)
 
             if scraped_link.inline:
@@ -303,7 +301,7 @@ class CSSScraper(BaseDocumentScraper):
             self.scrape_imports(text))
 
         for link in iterable:
-            inline_urls.add(urllib.parse.urljoin(base_url, link,
+            inline_urls.add(wpull.url.urljoin(base_url, link,
                 allow_fragments=False))
 
         return {
