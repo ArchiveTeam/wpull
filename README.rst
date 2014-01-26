@@ -46,7 +46,7 @@ Install Wpull with dependencies automatically from PyPI::
 Python 2.6/2.7
 --------------
 
-Please ensure you have the latest lib3to2 from Bitbucket before installing Wpull::
+Please ensure you have the *latest* lib3to2 from Bitbucket before installing Wpull::
 
     pip install hg+https://bitbucket.org/amentajo/lib3to2#egg=3to2
 
@@ -71,7 +71,7 @@ Python 2.6/2.7
 Requires
 
 * `futures <https://pypi.python.org/pypi/futures>`_
-* `lib3to2 <https://bitbucket.org/amentajo/lib3to2>`_ (the one on PyPI is very outdated!)
+* `lib3to2 <https://bitbucket.org/amentajo/lib3to2>`_ (the one on PyPI is *very* outdated!)
 
 Install additional dependencies before installing Wpull::
 
