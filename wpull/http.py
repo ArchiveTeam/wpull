@@ -24,7 +24,6 @@ from wpull.extended import SSLIOStream, IOStream
 from wpull.namevalue import NameValueRecord
 from wpull.network import Resolver
 from wpull.url import URLInfo
-from wpull.util import to_str
 import wpull.util
 
 
@@ -78,13 +77,16 @@ class Response(object):
     @classmethod
     def parse_status_line(cls, string):
         match = re.match(
-            br'(HTTP/1\.[01])[ \t]+([0-9]{1,3})[ \t]+([^\r\n]*)',
+            br'(HTTP/1\.[01])[ \t]+([0-9]{1,3})[ \t]*([^\r\n]*)',
             string
         )
         if match:
             groups = match.groups()
             if len(groups) == 3:
-                return to_str((groups[0], int(groups[1]), groups[2]))
+                return wpull.util.to_str(
+                    (groups[0], int(groups[1]), groups[2]),
+                    encoding='latin-1',
+                )
 
         raise ProtocolError('Error parsing status line ‘{0}’'.format(string))
 
@@ -347,7 +349,7 @@ class Connection(object):
         version, status_code, status_reason = Response.parse_status_line(
             status_line)
         response = response_factory(version, status_code, status_reason)
-        response.fields.parse(header)
+        response.fields.parse(header, strict=False)
         self._events.pre_response.fire(response)
 
         raise tornado.gen.Return(response)

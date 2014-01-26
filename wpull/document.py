@@ -91,11 +91,14 @@ class HTMLScraper(BaseDocumentScraper):
         parser = lxml.html.HTMLParser(encoding=encoding)
 
         with wpull.util.reset_file_offset(content_file):
-            root = lxml.html.parse(
+            tree = lxml.html.parse(
                 content_file,
                 base_url=request.url_info.url,
                 parser=parser,
-            ).getroot()
+            )
+            root = tree.getroot()
+            if root is None:
+                return
 
         linked_urls = set()
         inline_urls = set()

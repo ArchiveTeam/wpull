@@ -39,6 +39,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/sleep_long': self.sleep_long,
             '/short_close': self.short_close,
             '/unclean_8bit_header': self.unclean_8bit_header,
+            '/no_colon_header': self.no_colon_header,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -176,6 +177,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(b'Content-Length: 3\r\n')
         self.wfile.write('K: Кракозябры\r\n'.encode('koi8-r'))
         self.wfile.write('M: 文字化け\r\n'.encode('shift_jis'))
+        self.wfile.write(b'\r\n')
+        self.wfile.write(b'hi\n')
+
+    def no_colon_header(self):
+        self.wfile.write(b'HTTP/1.1 200 OK\r\n')
+        self.wfile.write(b'Content-Length: 3\r\n')
+        self.wfile.write(b'Oops\r\n')
         self.wfile.write(b'\r\n')
         self.wfile.write(b'hi\n')
 

@@ -159,6 +159,23 @@ class TestDocument(unittest.TestCase):
             linked_urls
         )
 
+    def test_html_garbage(self):
+        scraper = HTMLScraper()
+        request = Request.new('http://example.com/')
+        response = Response('HTTP/1.0', 200, '')
+        response.fields['content-type'] = 'text/html'
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            response.body.content_file.write(
+                b'\x01\x00\x01\x00l~Z\xff\x0f`y\x80\x00p<\x7f'
+                b'\xffndo\xff\xff-\x83{d\xec</\xfe\x80\x00\xb4Bo'
+                b'\x7f\xff\xff\xffV\xc1\xff\x7f\xff7'
+            )
+
+        scrape_info = scraper.scrape(request, response)
+
+        self.assertIsNone(scrape_info)
+
     def test_scrape_css_urls(self):
         text = '''
         @import url("fineprint.css") print;

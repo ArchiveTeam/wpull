@@ -206,8 +206,16 @@ class Builder(object):
 
     def _build_input_urls(self, default_scheme='http'):
         if self._args.input_file:
+            urls = wpull.util.to_str(tuple([
+                line.strip()
+                for line in self._args.input_file if line.strip()
+            ]))
+
+            if not urls:
+                raise ValueError(_('No URLs found in input file.'))
+
             url_string_iter = itertools.chain(
-                self._args.urls,
+                urls,
                 self._args.input_file)
         else:
             url_string_iter = self._args.urls
