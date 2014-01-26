@@ -46,7 +46,7 @@ Install Wpull with dependencies automatically from PyPI::
 Python 2.6/2.7
 --------------
 
-Please ensure you have the latest lib3to2 from Bitbucket before installing Wpull::
+Please ensure you have the *latest* lib3to2 from Bitbucket before installing Wpull::
 
     pip install hg+https://bitbucket.org/amentajo/lib3to2#egg=3to2
 
@@ -71,7 +71,7 @@ Python 2.6/2.7
 Requires
 
 * `futures <https://pypi.python.org/pypi/futures>`_
-* `lib3to2 <https://bitbucket.org/amentajo/lib3to2>`_ (the one on PyPI is very outdated!)
+* `lib3to2 <https://bitbucket.org/amentajo/lib3to2>`_ (the one on PyPI is *very* outdated!)
 
 Install additional dependencies before installing Wpull::
 
@@ -116,7 +116,7 @@ To archive a website::
     python3 -m wpull billy.blogsite.example --warc-file blogsite-billy \
     --no-check-certificate \
     --no-robots --user-agent "InconspiuousWebBrowser/1.0" \
-    --wait 0.5 --random-wait --wait-retry 600 \
+    --wait 0.5 --random-wait --waitretry 600 \
     --page-requisites --recursive --level inf \
     --span-hosts --domains blogsitecdn.example,cloudspeeder.example \
     --hostnames billy.blogsite.example \

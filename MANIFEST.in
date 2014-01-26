@@ -1,3 +1,3 @@
-recursive-include wpull *.html *.css *.txt *.lua *.pem
+recursive-include wpull *.html *.css *.txt *.lua *.pem *.rst
 include test/fuzz_fusil/runner.py
 include README.rst requirements*.txt LICENSE.txt 3to2runner.py backport.py backport.conf

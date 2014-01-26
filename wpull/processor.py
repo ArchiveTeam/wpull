@@ -163,7 +163,8 @@ class WebProcessorSession(BaseProcessorSession):
 
         self._request = self._new_request_instance(
             url_info.url,
-            url_record.referrer,
+            url_info.encoding,
+            referer=url_record.referrer,
         )
 
         if self._file_writer_session \
@@ -173,8 +174,8 @@ class WebProcessorSession(BaseProcessorSession):
 
         return self._request
 
-    def _new_request_instance(self, url, referer=None):
-        request = self._request_factory(url)
+    def _new_request_instance(self, url, encoding, referer=None):
+        request = self._request_factory(url, url_encoding=encoding)
 
         if 'Referer' not in request.fields and referer:
             request.fields['Referer'] = referer

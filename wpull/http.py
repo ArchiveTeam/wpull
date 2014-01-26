@@ -42,8 +42,8 @@ class Request(object):
         self.address = None
 
     @classmethod
-    def new(cls, url, method='GET'):
-        url_info = URLInfo.parse(url)
+    def new(cls, url, method='GET', url_encoding='utf-8'):
+        url_info = URLInfo.parse(url, encoding=url_encoding)
         resource_path = url_info.path
 
         if url_info.query:

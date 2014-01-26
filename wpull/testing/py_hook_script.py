@@ -15,7 +15,8 @@ def resolve_dns(host):
 def accept_url(url_info, record_info, verdict, reasons):
     print('accept_url', url_info)
     assert url_info['url']
-    assert url_info['path'] in ('/robots.txt', '/', '/test_script')
+    assert url_info['path'] in ('/robots.txt', '/', '/test_script',
+        '/%95%B6%8E%9A%89%BB%82%AF/')
     assert record_info['url']
     assert reasons['filters']['HTTPFilter']
 

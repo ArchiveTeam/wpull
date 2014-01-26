@@ -18,13 +18,63 @@ import random
 
 
 class FuzzedHttpServer(HttpServer):
+    SAMPLE_FILENAMES = (
+        'krokozyabry.css',
+        'soup.html',
+        'mojibake.html',
+        'styles.css',
+        'krokozyabry.html',
+        'webtv.net_tvfoutreach_cocountdownto666.html',
+        'many_urls.html',
+        'xkcd_1.html',
+        'mojibake.css',
+    )
+
     def __init__(self, *args, **kwargs):
         random.seed(1)
         HttpServer.__init__(self, *args, **kwargs)
-        self._config = MangleConfig(min_op=0, max_op=100)
+        self._config_light = MangleConfig(min_op=0, max_op=20)
+        self._config_heavy = MangleConfig(min_op=0, max_op=100)
+
+        self._data_samples = []
+
+        for filename in self.SAMPLE_FILENAMES:
+            path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                '../', '../', 'wpull', 'testing', 'samples',
+                filename
+            )
+
+            with open(path, 'rb') as in_file:
+                self._data_samples.append(in_file.read())
+
+        self._data_samples.append(
+            "<html><body><p>Hello World!</p></body></html>")
+
+    def serveRequest(self, client, request):
+        url = request.uri[1:]
+        if not url:
+            url = "index.html"
+
+        choice = random.randint(0, 1)
+
+        self.logger.info('request choice: ' + str(choice), self)
+
+        if choice == 1:
+            self.serveData(
+                client, 200, "OK", random.choice(self._data_samples))
+        else:
+            self.error404(client, url)
 
     def serveData(self, client, code, code_text, data=None,
     content_type="text/html"):
+        data_choice = random.random()
+        header_choice = random.random()
+
+        if data and data_choice < 0.5:
+            self.logger.info('Mangle content: YES', self)
+            data = self.mangle_data(data, self._config_heavy)
+
         if data:
             data_len = len(data)
         else:
@@ -41,13 +91,9 @@ class FuzzedHttpServer(HttpServer):
                 header += "%s: %s\r\n" % (key, value)
             header += "\r\n"
 
-            choice = random.randint(0, 2)
-            self.logger.info('mangle choice: ' + str(choice), self)
-
-            if choice == 1:
-                header = self.mangle_data(header)
-            elif data and choice == 2:
-                data = self.mangle_data(data)
+            if header_choice < 0.3:
+                self.logger.info('Mangle header: YES', self)
+                header = self.mangle_data(header, self._config_light)
 
             if data:
                 data = header + data
@@ -58,8 +104,8 @@ class FuzzedHttpServer(HttpServer):
         except ServerClientDisconnect:
             self.clientDisconnection(client)
 
-    def mangle_data(self, data):
-        mangler = Mangle(self._config, bytearray(data))
+    def mangle_data(self, data, config):
+        mangler = Mangle(config, bytearray(data))
         mangler.run()
 
         self.logger.info(
@@ -91,9 +137,15 @@ class Fuzzer(Application):
             os.path.join(
                 os.path.abspath(os.path.dirname(__file__)), '..', '..')
         )
-        WatchProcess(process)
-        WatchStdout(process)
 
+        WatchProcess(process, exitcode_score=0.45)
+        stdout_watcher = WatchStdout(process)
+        stdout_watcher.ignoreRegex(
+            r'Read timed out',
+        )
+        stdout_watcher.ignoreRegex(
+            r'Error parsing status line',
+        )
 
 if __name__ == "__main__":
     Fuzzer().main()

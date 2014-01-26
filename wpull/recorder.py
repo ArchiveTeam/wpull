@@ -409,7 +409,9 @@ class ProgressRecorderSession(BaseRecorderSession):
         self._stream.flush()
 
     def pre_response(self, response):
-        print(response.status_code, response.status_reason)
+        print(
+            response.status_code, response.status_reason, file=self._stream
+        )
 
         content_length = response.fields.get('Content-Length')
 
