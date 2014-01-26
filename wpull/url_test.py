@@ -158,6 +158,12 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('example.com/%95%B6%8E%9A%89%BB%82%AF/'
                 '?blah=%95%B6%8E%9A%89%BB%82%AF', encoding='shift_jis').url
         )
+        self.assertEqual(
+            'http://example.com/%95%B6%8E%9A%89%BB%82%AF/'
+                '?blah=%95%B6%8E%9A%89%BB%82%AF',
+            URLInfo.parse('example.com/%95%B6%8E%9A%89%BB%82%AF/'
+                '?blah=%95%B6%8E%9A%89%BB%82%AF').url
+        )
 
         self.assertEqual(
             'http://example.com/'
