@@ -124,7 +124,6 @@ class Engine(object):
 
             assert url_item.is_processed
 
-            _logger.debug('Table size: {0}.'.format(self._url_table.count()))
         except Exception as error:
             _logger.exception('Fatal exception.')
             self._update_exit_code_from_error(error)
