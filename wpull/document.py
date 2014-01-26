@@ -363,7 +363,6 @@ def get_encoding(response):
     encoding = wpull.http.parse_charset(
         response.fields.get('content-type', ''))
 
-    encoding = wpull.util.detect_encoding(
-        wpull.util.peek_file(response.body.content_file), encoding)
+    encoding = wpull.util.detect_encoding(response.body.content, encoding)
 
     return encoding
