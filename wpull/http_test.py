@@ -163,6 +163,14 @@ class TestConnection(BadAppTestCase):
     def test_no_colon_header(self):
         yield self.fetch('/no_colon_header')
 
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_malformed_content_length(self):
+        yield self.fetch('/malformed_content_length')
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_negative_content_length(self):
+        yield self.fetch('/negative_content_length')
+
 
 class TestClient(BadAppTestCase):
     def setUp(self):

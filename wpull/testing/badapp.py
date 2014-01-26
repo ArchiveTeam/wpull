@@ -40,6 +40,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/short_close': self.short_close,
             '/unclean_8bit_header': self.unclean_8bit_header,
             '/no_colon_header': self.no_colon_header,
+            '/malformed_content_length': self.malformed_content_length,
+            '/negative_content_length': self.negative_content_length,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -186,6 +188,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(b'Oops\r\n')
         self.wfile.write(b'\r\n')
         self.wfile.write(b'hi\n')
+
+    def malformed_content_length(self):
+        self.wfile.write(b'HTTP/1.1 200 OK\r\n')
+        self.wfile.write(b'Content-Length: 3-\r\n')
+        self.wfile.write(b'\r\n')
+        self.wfile.write(b'hi\n')
+        self.close_connection = 1
+
+    def negative_content_length(self):
+        self.wfile.write(b'HTTP/1.1 200 OK\r\n')
+        self.wfile.write(b'Content-Length: -3\r\n')
+        self.wfile.write(b'\r\n')
+        self.wfile.write(b'hi\n')
+        self.close_connection = 1
 
 
 class ConcurrentHTTPServer(socketserver.ThreadingMixIn,
