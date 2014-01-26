@@ -18,12 +18,13 @@ _ = gettext.gettext
 
 class AppArgumentParser(argparse.ArgumentParser):
     # TODO: implement all sane options
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, real_exit=True, **kwargs):
         super().__init__(
             *args,
             description=_('Wget-compatible web downloader.'),
             **kwargs
         )
+        self._real_exit = real_exit
         self._add_app_args()
 
     @classmethod
@@ -70,10 +71,16 @@ class AppArgumentParser(argparse.ArgumentParser):
         self._post_parse_args(args)
         return args
 
+    def exit(self, status=0, message=None):
+        if self._real_exit:
+            argparse.ArgumentParser.exit(self, status=status, message=message)
+        else:
+            raise ValueError(str(status) + ' ' + str(message))
+
     def _add_app_args(self):
         self.add_argument(
             'urls',
-            nargs='+',
+            nargs='*',
             metavar='URL',
             help=_('the URL to be downloaded'),
         )
@@ -196,6 +203,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             '-i',
             '--input-file',
             metavar='FILE',
+            type=argparse.FileType('rU'),
             help=_('download URLs listen from FILE'),
         )
 #         self.add_argument(
@@ -905,6 +913,8 @@ class AppArgumentParser(argparse.ArgumentParser):
     def _post_parse_args(self, args):
         if args.warc_file:
             self._post_warc_args(args)
+        if not args.input_file and not args.urls:
+            self.error('no URL provided')
 
     def _post_warc_args(self, args):
         option_names = ('clobber_method', 'timestamping', 'continue_download')

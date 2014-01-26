@@ -39,7 +39,10 @@ install_requires = [
 
 if sys.version_info[0] == 2:
     install_requires.append('futures')
-    install_requires.append('3to2')
+    # Requiring 3to2 doesn't mean it will be installed first
+    # Also it might cause confusion by downloading from PyPI which
+    # we do not want.
+    # install_requires.append('3to2')
 
 
 if __name__ == '__main__':

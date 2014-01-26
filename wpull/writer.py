@@ -329,4 +329,7 @@ def sanitize_path_parts(parts):
 
 
 def quote_filename(filename):
-    return wpull.url.quote(wpull.url.unquote(filename), safe='')
+    if wpull.url.is_percent_encoded(filename):
+        return wpull.url.quasi_quote(filename, safe='')
+    else:
+        return wpull.url.quote(filename, safe='')

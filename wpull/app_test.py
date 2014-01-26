@@ -2,6 +2,7 @@
 import contextlib
 import os
 import sys
+import tempfile
 import tornado.testing
 
 from wpull.app import Builder
@@ -35,6 +36,11 @@ class TestApp(GoodAppTestCase):
     def setUp(self):
         super().setUp()
         tornado.ioloop.IOLoop.current().set_blocking_log_threshold(0.5)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_no_args(self):
+        arg_parser = AppArgumentParser(real_exit=False)
+        self.assertRaises(ValueError, arg_parser.parse_args, [])
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_one_page(self):
@@ -88,6 +94,23 @@ class TestApp(GoodAppTestCase):
         with cd_tempdir():
             engine = Builder(args).build()
             exit_code = yield engine()
+        self.assertEqual(0, exit_code)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_input_file_arg(self):
+        arg_parser = AppArgumentParser(real_exit=False)
+        with tempfile.NamedTemporaryFile() as in_file:
+            in_file.write(self.get_url('/').encode('utf-8'))
+            in_file.write(b'\n')
+            in_file.write(self.get_url('/blog/').encode('utf-8'))
+            in_file.flush()
+
+            args = arg_parser.parse_args([
+                '--input-file', in_file.name
+            ])
+            with cd_tempdir():
+                engine = Builder(args).build()
+                exit_code = yield engine()
         self.assertEqual(0, exit_code)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)

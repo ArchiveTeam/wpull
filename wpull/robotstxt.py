@@ -70,7 +70,7 @@ class RobotsTxtSessionMixin(object):
 
     def _check_robots_txt_pool(self):
         url_info = self._next_url_info
-        request = self._new_request_instance(url_info.url)
+        request = self._new_request_instance(url_info.url, url_info.encoding)
         user_agent = request.fields.get('user-agent', '')
 
         if not self._robots_txt_pool.has_parser(url_info):
@@ -91,13 +91,14 @@ class RobotsTxtSessionMixin(object):
         if self._robots_state == self.RobotsState.need_fetch:
             if self._robots_redirect_url:
                 self._robots_request = self._new_request_instance(
-                    self._robots_redirect_url)
+                    self._robots_redirect_url, 'latin-1')
                 self._robots_redirect_url = None
             else:
                 url_info = self._next_url_info
                 url = URLInfo.parse('{0}://{1}:{2}/robots.txt'.format(
                     url_info.scheme, url_info.hostname, url_info.port)).url
-                self._robots_request = self._new_request_instance(url)
+                self._robots_request = self._new_request_instance(
+                    url, url_info.encoding)
 
             _logger.debug('Making request for robots.txt')
             return self._robots_request

@@ -2,6 +2,7 @@
 import abc
 import collections
 import fnmatch
+import functools
 import itertools
 import re
 import string
@@ -116,7 +117,7 @@ class URLInfo(URLInfoType):
             return
 
         if is_percent_encoded(path):
-            return quasi_quote(path, encoding=encoding) or '/'
+            return quasi_quote(path, encoding='latin-1') or '/'
         else:
             return quote(path, encoding=encoding) or '/'
 
@@ -129,14 +130,15 @@ class URLInfo(URLInfoType):
         query_test_str = ''.join(itertools.chain(*query_list))
 
         if is_percent_encoded(query_test_str):
-            quote_func = quasi_quote_plus
+            quote_func = functools.partial(
+                quasi_quote_plus, encoding='latin-1')
         else:
-            quote_func = quote_plus
+            quote_func = functools.partial(quote_plus, encoding=encoding)
 
         return '&'.join([
             '='.join((
-                quote_func(name, encoding=encoding),
-                quote_func(value, encoding=encoding)
+                quote_func(name),
+                quote_func(value)
             ))
             for name, value in query_list])
 
@@ -384,14 +386,14 @@ def unquote_plus(string, encoding='utf-8', errors='strict'):
         return urllib.parse.unquote_plus(string, encoding, errors)
 
 
-def quasi_quote(string, safe='/', encoding='utf-8', errors='strict'):
+def quasi_quote(string, safe='/', encoding='latin-1', errors='strict'):
     return quote(
         unquote(string, encoding, errors),
         safe, encoding, errors
     )
 
 
-def quasi_quote_plus(string, safe='', encoding='utf-8', errors='strict'):
+def quasi_quote_plus(string, safe='', encoding='latin-1', errors='strict'):
     return quote_plus(
         unquote_plus(string, encoding, errors),
         safe, encoding, errors
