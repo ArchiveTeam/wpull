@@ -191,6 +191,9 @@ class BackwardDomainFilter(BaseURLFilter):
 
     @classmethod
     def match(cls, domain_list, test_domain):
+        if not test_domain:
+            return False
+
         for domain in domain_list:
             if test_domain.endswith(domain):
                 return True
