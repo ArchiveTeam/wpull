@@ -8,7 +8,7 @@ from wpull.app import Builder
 from wpull.app_test import cd_tempdir
 from wpull.options import AppArgumentParser
 from wpull.testing.goodapp import GoodAppTestCase
-from wpull.writer import url_to_dir_path, url_to_filename
+from wpull.writer import url_to_dir_path, url_to_filename, quote_filename
 
 
 DEFAULT_TIMEOUT = 30
@@ -24,6 +24,12 @@ class TestWriter(unittest.TestCase):
                     url, include_protocol=True, include_hostname=True),
                 url_to_filename(url)
             )
+        )
+
+        filename = '%95%B6%8E%9A%89%BB%82%AF.html?'
+        self.assertEqual(
+            '%95%B6%8E%9A%89%BB%82%AF.html%3F',
+            quote_filename(filename)
         )
 
 
