@@ -12,7 +12,8 @@ wpull_hook.callbacks.accept_url = function(url_info, record_info, verdict, reaso
   local accepted_paths = {
     ['/robots.txt'] = true,
     ['/'] = true,
-    ['/test_script'] = true
+    ['/test_script'] = true,
+    ['/%95%B6%8E%9A%89%BB%82%AF/'] = true,
   }
   assert(accepted_paths[url_info['path']])
   assert(record_info['url'])
