@@ -71,3 +71,15 @@ class TestNameValue(unittest.TestCase):
         self.assertEqual(
             'Кракозябры'.encode('koi8-r').decode('latin1'),
             record['name'])
+
+    def test_missing_colon(self):
+        record = NameValueRecord()
+
+        self.assertRaises(ValueError, record.parse, 'text:hello\nhi\n')
+
+        record = NameValueRecord()
+
+        record.parse('text:hello\nhi\n', strict=False)
+
+        self.assertEqual('hello', record['text'])
+        self.assertNotIn('hi', record)

@@ -15,7 +15,7 @@ class NameValueRecord(collections.MutableMapping):
         self.raw = None
         self.encoding = 'utf-8'
 
-    def parse(self, string, encoding_fallback='latin1'):
+    def parse(self, string, encoding_fallback='latin1', strict=True):
         if isinstance(string, bytes):
             try:
                 string = string.decode(self.encoding, 'strict')
@@ -35,6 +35,12 @@ class NameValueRecord(collections.MutableMapping):
         lines = unfold_lines(string).split(line_ending)
         for line in lines:
             if line:
+                if ':' not in line:
+                    if strict:
+                        raise ValueError('Field missing colon.')
+                    else:
+                        continue
+
                 name, value = line.split(':', 1)
                 name = name.strip()
                 value = value.strip()
