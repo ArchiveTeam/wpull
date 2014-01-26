@@ -449,3 +449,16 @@ def is_percent_encoded(url):
             return False
 
     return True
+
+
+def urljoin(base_url, url, allow_fragments=True):
+    if url.startswith('//'):
+        scheme = urllib.parse.urlsplit(base_url).scheme
+        return urllib.parse.urljoin(
+            base_url,
+            '{0}:{1}'.format(scheme, url),
+            allow_fragments=allow_fragments
+        )
+    else:
+        return urllib.parse.urljoin(
+            base_url, url, allow_fragments=allow_fragments)
