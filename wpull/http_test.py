@@ -159,6 +159,10 @@ class TestConnection(BadAppTestCase):
     def test_unclean_8bit_header(self):
         yield self.fetch('/unclean_8bit_header')
 
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_no_colon_header(self):
+        yield self.fetch('/no_colon_header')
+
 
 class TestClient(BadAppTestCase):
     def setUp(self):

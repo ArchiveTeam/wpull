@@ -349,7 +349,7 @@ class Connection(object):
         version, status_code, status_reason = Response.parse_status_line(
             status_line)
         response = response_factory(version, status_code, status_reason)
-        response.fields.parse(header)
+        response.fields.parse(header, strict=False)
         self._events.pre_response.fire(response)
 
         raise tornado.gen.Return(response)
