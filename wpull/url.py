@@ -30,11 +30,6 @@ URLInfoType = collections.namedtuple(
     ]
 )
 
-KNOWN_SCHEMES = frozenset(['file', 'ftp', 'gopher', 'hdl', 'http', 'https',
-    'imap', 'mailto', 'mms', 'news', 'nntp', 'prospero', 'rsync', 'rtsp',
-    'rtspu', 'sftp', 'shttp', 'sip', 'sips', 'snews', 'svn', 'svn+ssh',
-    'telnet', 'wais'])
-
 
 class URLInfo(URLInfoType):
     DEFAULT_PORTS = {
@@ -49,18 +44,21 @@ class URLInfo(URLInfoType):
 
         assert isinstance(string, str)
 
-        url_split_result = urllib.parse.urlsplit(string, scheme=default_scheme)
+        url_split_result = urllib.parse.urlsplit(string)
 
-        if not url_split_result.hostname \
-        and (url_split_result.scheme in ('http', 'https') \
-        or (sys.version_info < (2, 7) \
-        and url_split_result.scheme not in KNOWN_SCHEMES)):
+        if not url_split_result.scheme:
             url_split_result = urllib.parse.urlsplit(
-               default_scheme + '://' + string)
+                '{0}://{1}'.format(default_scheme, string)
+            )
 
-        if url_split_result.scheme in ('http', 'https') \
-        and not url_split_result.hostname:
-            raise ValueError('Missing hostname for HTTP protocol.')
+        if url_split_result.scheme in ('http', 'https'):
+            if string.startswith('//'):
+                url_split_result = urllib.parse.urlsplit(
+                '{0}:{1}'.format(url_split_result.scheme, string)
+            )
+
+            elif not url_split_result.hostname:
+                raise ValueError('Missing hostname for HTTP protocol.')
 
         port = url_split_result.port
 
