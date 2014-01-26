@@ -201,6 +201,10 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('mailto:user@example.com'),
             mock_record
         ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse("javascript:alert('hello!')"),
+            mock_record
+        ))
 
     def test_wget_domain_filter(self):
         url_filter = BackwardDomainFilter(
@@ -216,6 +220,8 @@ class TestURL(unittest.TestCase):
             url_filter.test(URLInfo.parse('server1.cdn.test'), None))
         self.assertFalse(
             url_filter.test(URLInfo.parse('example.com'), None))
+        self.assertFalse(
+            url_filter.test(URLInfo.parse("javascript:alert('hello!')"), None))
 
         url_filter = BackwardDomainFilter(
             accepted=['g.example.com', 'cdn.example.com', 'cdn.test'],
@@ -247,6 +253,8 @@ class TestURL(unittest.TestCase):
             url_filter.test(URLInfo.parse('server1.cdn.test'), None))
         self.assertFalse(
             url_filter.test(URLInfo.parse('example.com'), None))
+        self.assertFalse(
+            url_filter.test(URLInfo.parse("javascript:alert('hello!')"), None))
 
         url_filter = HostnameFilter(
             accepted=['g.example.com', 'cdn.example.com', 'cdn.test'],
