@@ -58,6 +58,10 @@ class URLInfo(URLInfoType):
             url_split_result = urllib.parse.urlsplit(
                default_scheme + '://' + string)
 
+        if url_split_result.scheme in ('http', 'https') \
+        and not url_split_result.hostname:
+            raise ValueError('Missing hostname for HTTP protocol.')
+
         port = url_split_result.port
 
         if not port:
