@@ -12,6 +12,10 @@ import urllib.parse
 import wpull.util
 
 
+if sys.version_info < (2, 7):
+    from wpull.backport import urlparse
+
+
 URLInfoType = collections.namedtuple(
     'URLInfoTuple',
     [
