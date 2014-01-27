@@ -4,16 +4,16 @@ Wpull
 
 Wpull is a Wget-compatible (or remake/clone/replacement/alternative) web downloader.
 
+.. image:: icon/wpull_logo_full.png
+   :target: https://github.com/chfoo/wpull
+   :alt: A dog pulling a box via a harness.
+
 Features:
 
 * Written in Python
 * Modular
 * Asynchronous
 * Lua scripting support
-
-.. image:: https://travis-ci.org/chfoo/wpull.png
-   :target: https://travis-ci.org/chfoo/wpull
-   :alt: Travis CI build status
 
 **Currently in beta quality! Some features are not implemented yet and the API is not considered stable.**
 
@@ -146,6 +146,10 @@ Issues can be reported to the issue tracker: https://github.com/chfoo/wpull/issu
 
 Todo
 ====
+
+.. image:: https://travis-ci.org/chfoo/wpull.png
+   :target: https://travis-ci.org/chfoo/wpull
+   :alt: Travis CI build status
 
 * lot's of TODO markers in code
 * docstrings
