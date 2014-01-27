@@ -74,6 +74,7 @@ class TestDocument(unittest.TestCase):
             'http://example.com/overlay_src.html',
             'ftp://ftp.protocol.invalid/',
             'mailto:user@example.com',
+            'http://a-double-slash.example',
             },
             linked_urls
         )

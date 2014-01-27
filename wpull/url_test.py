@@ -4,7 +4,8 @@ from wpull.backport.testing import unittest
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     ParentFilter, RecursiveFilter, SpanHostsFilter, RegexFilter, HTTPFilter,
     HostnameFilter, schemes_similar, is_subdir, DirectoryFilter, unquote,
-    unquote_plus, quote, quote_plus, split_query, uppercase_percent_encoding)
+    unquote_plus, quote, quote_plus, split_query, uppercase_percent_encoding,
+    urljoin)
 
 
 class MockURLTableRecord(object):
@@ -104,6 +105,8 @@ class TestURL(unittest.TestCase):
         )
         self.assertRaises(ValueError, URLInfo.parse, '')
         self.assertRaises(ValueError, URLInfo.parse, '#')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://')
+
         self.assertEqual(
             'http://example.com/blah',
             URLInfo.parse('//example.com/blah').url
@@ -188,6 +191,7 @@ class TestURL(unittest.TestCase):
         self.assertEqual('example.com', url_info_dict['hostname'])
         self.assertEqual('https', url_info_dict['scheme'])
         self.assertEqual(443, url_info_dict['port'])
+        self.assertEqual('utf-8', url_info_dict['encoding'])
 
     def test_http_filter(self):
         mock_record = MockURLTableRecord()
@@ -199,6 +203,10 @@ class TestURL(unittest.TestCase):
         ))
         self.assertFalse(url_filter.test(
             URLInfo.parse('mailto:user@example.com'),
+            mock_record
+        ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse("javascript:alert('hello!')"),
             mock_record
         ))
 
@@ -216,6 +224,8 @@ class TestURL(unittest.TestCase):
             url_filter.test(URLInfo.parse('server1.cdn.test'), None))
         self.assertFalse(
             url_filter.test(URLInfo.parse('example.com'), None))
+        self.assertFalse(
+            url_filter.test(URLInfo.parse("javascript:alert('hello!')"), None))
 
         url_filter = BackwardDomainFilter(
             accepted=['g.example.com', 'cdn.example.com', 'cdn.test'],
@@ -247,6 +257,8 @@ class TestURL(unittest.TestCase):
             url_filter.test(URLInfo.parse('server1.cdn.test'), None))
         self.assertFalse(
             url_filter.test(URLInfo.parse('example.com'), None))
+        self.assertFalse(
+            url_filter.test(URLInfo.parse("javascript:alert('hello!')"), None))
 
         url_filter = HostnameFilter(
             accepted=['g.example.com', 'cdn.example.com', 'cdn.test'],
@@ -504,4 +516,38 @@ class TestURL(unittest.TestCase):
         self.assertEqual(
             'cAt%2F%EE%AB',
             uppercase_percent_encoding('cAt%2f%ee%ab')
+        )
+
+    def test_url_join(self):
+        self.assertEqual(
+            'http://example.net',
+            urljoin('http://example.com', '//example.net')
+        )
+        self.assertEqual(
+            'https://example.net',
+            urljoin('https://example.com', '//example.net')
+        )
+        self.assertEqual(
+            'https://example.com/asdf',
+            urljoin('https://example.com/cookies', '/asdf')
+        )
+        self.assertEqual(
+            'http://example.com/asdf',
+            urljoin('http://example.com/cookies', 'asdf')
+        )
+        self.assertEqual(
+            'http://example.com/cookies/asdf',
+            urljoin('http://example.com/cookies/', 'asdf')
+        )
+        self.assertEqual(
+            'https://example.net/asdf',
+            urljoin('https://example.net/', '/asdf')
+        )
+        self.assertEqual(
+            'http://example.net/asdf',
+            urljoin('https://example.com', 'http://example.net/asdf')
+        )
+        self.assertEqual(
+            'http://example.com/',
+            urljoin('http://example.com', '//example.com/')
         )

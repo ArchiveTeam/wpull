@@ -416,7 +416,10 @@ class ProgressRecorderSession(BaseRecorderSession):
         content_length = response.fields.get('Content-Length')
 
         if content_length:
-            self._content_length = int(content_length)
+            try:
+                self._content_length = int(content_length)
+            except ValueError:
+                self._content_length = None
 
         print(
             _('Length: {content_length} [{content_type}]').format(

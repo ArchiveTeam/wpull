@@ -373,7 +373,19 @@ class Connection(object):
     def _read_response_by_length(self, response):
         _logger.debug('Reading body by length.')
 
-        body_size = int(response.fields['Content-Length'])
+        try:
+            body_size = int(response.fields['Content-Length'])
+
+            if body_size < 0:
+                raise ValueError('Content length cannot be negative.')
+
+        except ValueError as error:
+            _logger.warning(
+                _('Invalid content length: {error}').format(error=error)
+            )
+
+            yield self._read_response_until_close(response)
+            return
 
         def response_callback(data):
             self._events.response_data.fire(data)

@@ -67,6 +67,7 @@ class SQLiteURLTable(BaseURLTable):
         self._connection = sqlite3.connect(path)
         self._apply_pragmas()
         self._create_tables()
+        self._create_indexes()
         self._connection.row_factory = URLRecord
 
     def _apply_pragmas(self):
@@ -89,6 +90,11 @@ class SQLiteURLTable(BaseURLTable):
                 request BLOB
             )
             '''
+        )
+
+    def _create_indexes(self):
+        self._connection.execute(
+            '''CREATE INDEX IF NOT EXISTS url_status_index ON urls (status)'''
         )
 
     def __getitem__(self, url):
