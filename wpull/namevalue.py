@@ -1,4 +1,5 @@
 # encoding=utf-8
+'''Key-value pairs.'''
 import collections
 import gettext
 import io
@@ -10,12 +11,29 @@ _ = gettext.gettext
 
 
 class NameValueRecord(collections.MutableMapping):
+    '''An ordered mapping of name-value pairs.
+
+    Duplicated names are accepted.
+
+    :seealso: http://tools.ietf.org/search/draft-kunze-anvl-02
+    '''
     def __init__(self):
         self._map = OrderedDefaultDict(list)
         self.raw = None
         self.encoding = 'utf-8'
 
     def parse(self, string, encoding_fallback='latin1', strict=True):
+        '''Parse the string or bytes.
+
+        Args:
+            encoding_fallback: If the data is bytes, it will attempt to decode
+                it as UTF-8, otherwise it will use the fallback (default
+                Latin-1) which should preserve the bytes.
+            script: If True, errors will not be ignored
+
+        Raises:
+            :class:`ValueError` if the record is malformed.
+        '''
         if isinstance(string, bytes):
             try:
                 string = string.decode(self.encoding, 'strict')
@@ -68,12 +86,15 @@ class NameValueRecord(collections.MutableMapping):
         return len(self._map)
 
     def add(self, name, value):
+        '''Append the name-value pair to the record.'''
         self._map[normalize_name(name)].append(value)
 
     def get_list(self, name):
+        '''Return all the values for given name.'''
         return self._map[normalize_name(name)]
 
     def get_all(self):
+        '''Return an iterator of name-value pairs.'''
         for name, values in self._map.items():
             for value in values:
                 yield (name, value)
@@ -94,10 +115,12 @@ class NameValueRecord(collections.MutableMapping):
 
 
 def normalize_name(name):
+    '''Normalize the key name to title case.'''
     return name.title()
 
 
 def guess_line_ending(string):
+    '''Return the most likely line deliminator from the string.'''
     assert isinstance(string, str)
     crlf_count = string.count('\r\n')
     lf_count = string.count('\n')
@@ -109,6 +132,11 @@ def guess_line_ending(string):
 
 
 def unfold_lines(string):
+    '''Join lines that are wrapped.
+
+    Any line that starts with a space or tab is joined to the previous
+    line.
+    '''
     assert isinstance(string, str)
     line_ending = guess_line_ending(string)
     lines = string.split(line_ending)

@@ -1,4 +1,5 @@
 # encoding=utf-8
+'''Program options.'''
 import gettext
 import logging
 import os
@@ -17,6 +18,7 @@ _ = gettext.gettext
 
 
 class AppArgumentParser(argparse.ArgumentParser):
+    '''An Argument Parser that builds up the application options.'''
     # TODO: implement all sane options
     def __init__(self, *args, real_exit=True, **kwargs):
         super().__init__(
@@ -29,6 +31,10 @@ class AppArgumentParser(argparse.ArgumentParser):
 
     @classmethod
     def int_0_inf(cls, string):
+        '''Convert string to int.
+
+        If ``inf`` is supplied, it returns ``0``.
+        '''
         if string == 'inf':
             return 0
 
@@ -44,6 +50,7 @@ class AppArgumentParser(argparse.ArgumentParser):
 
     @classmethod
     def int_bytes(cls, string):
+        '''Convert string describing size to int.'''
         if string[-1] in ('k', 'm'):
             value = cls.int_0_inf(string)
             unit = string[-1]
@@ -57,6 +64,7 @@ class AppArgumentParser(argparse.ArgumentParser):
 
     @classmethod
     def comma_list(cls, string):
+        '''Convert a comma seperated string to list.'''
         items = string.split(',')
         items = list([item.strip() for item in items])
         return items

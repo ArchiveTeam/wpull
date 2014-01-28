@@ -42,7 +42,7 @@ class Request(object):
         version: the HTTP version in the status line
         fields: :class:`.namevalue.NameValueRecord`
         body: :class:`Body`
-        address: an address tuple suitable for :function:`socket.connect`
+        address: an address tuple suitable for :func:`socket.connect`
     '''
     def __init__(self, method, resource_url, version='HTTP/1.1'):
         self.method = method
@@ -205,7 +205,25 @@ class Body(object, metaclass=abc.ABCMeta):
 
 
 class Connection(object):
-    '''A HTTP connection.'''
+    '''A single HTTP connection.
+
+    Args:
+        host: The hostname
+        port: The port number
+        ssl: If True, SSL is used
+        bind_address: The IP address to bind the socket. Must match
+            :func:`socket.SocketType.bind`. Use this if your local host has
+            multiple IP addresses.
+        resolver: :class:`.network.Resovler`
+        connect_timeout: If given, the time in seconds before the connection
+            is timed out during connection. Otherwise, depend on the
+            underlying libraries for timeout.
+        read_timeout: If given, the time in seconds before the connection
+            is timed out during reads. Otherwise, depend on the
+            underlying libraries for timeout.
+        keep_alive: If True, use HTTP keep-alive.
+        ssl_options: A ``dict`` containing options for :func:`ssl.wrap_socket`
+    '''
     class ConnectionEvents(object):
         def __init__(self):
             self.pre_request = Event()
@@ -254,6 +272,7 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _make_socket(self):
+        '''Make and wrap the socket with an IOStream.'''
         family, self._address = yield self._resolver.resolve(
             self._host, self._port)
         self._socket = socket.socket(family, socket.SOCK_STREAM)
@@ -284,6 +303,7 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _connect(self):
+        '''Connect the socket if not already connected.'''
         if self._connected:
             return
 
@@ -309,6 +329,16 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def fetch(self, request, recorder=None, response_factory=Response):
+        '''Fetch a document.
+
+        Args:
+            request: :class:`Request`
+            recorder: :class:`.recorder.BaseRecorder`
+            response_factory: a callable object that makes a :class:`Response`
+
+        Returns:
+            :class:`Response`
+        '''
         _logger.debug('Request {0}.'.format(request))
 
         assert not self._active
@@ -503,13 +533,17 @@ class Connection(object):
 
     @property
     def active(self):
+        '''Return whether the connection is in use due to a fetch in progress.
+        '''
         return self._active
 
     @property
     def connected(self):
+        '''Return whether the connection is connected.'''
         return self._connected
 
     def close(self):
+        '''Close the connection if open.'''
         if self._io_stream:
             self._io_stream.close()
 
@@ -536,6 +570,7 @@ class Connection(object):
 
 
 class HostConnectionPool(collections.Set):
+    '''A Connection pool to a particular server.'''
     # TODO: remove old connection instances
     def __init__(self, host, port, request_queue, ssl=False, max_count=6,
     connection_factory=Connection):
@@ -623,6 +658,7 @@ class HostConnectionPool(collections.Set):
 
 
 class ConnectionPool(collections.Mapping):
+    '''A pool of HostConnectionPool.'''
     Entry = collections.namedtuple('RequestQueueEntry', ['queue', 'pool'])
 
     def __init__(self, host_connection_pool_factory=HostConnectionPool):
@@ -673,6 +709,7 @@ class ConnectionPool(collections.Mapping):
 
 
 class Client(object):
+    '''HTTP client.'''
     def __init__(self, connection_pool=None, recorder=None):
         if connection_pool is not None:
             self._connection_pool = connection_pool
@@ -683,6 +720,7 @@ class Client(object):
 
     @tornado.gen.coroutine
     def fetch(self, request, **kwargs):
+        '''Fetch a document.'''
         _logger.debug('Client fetch request {0}.'.format(request))
 
         if 'recorder' not in kwargs:
@@ -697,6 +735,7 @@ class Client(object):
             raise tornado.gen.Return(response)
 
     def close(self):
+        '''Close the connection pool and recorders.'''
         _logger.debug('Client closing.')
         self._connection_pool.close()
 
@@ -705,6 +744,7 @@ class Client(object):
 
 
 def parse_charset(header_string):
+    '''Parse a "Content-Type" string for the document encoding.'''
     match = re.search(
         r'''charset[ ]?=[ ]?["']?([a-z0-9_-]+)''',
         header_string,
