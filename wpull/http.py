@@ -1,4 +1,5 @@
 # encoding=utf-8
+'''HTTP protocol.'''
 import abc
 import collections
 import errno
@@ -32,6 +33,17 @@ _logger = logging.getLogger(__name__)
 
 
 class Request(object):
+    '''Represents an HTTP request.
+
+    Attributes:
+        method: the HTTP method in the status line
+        resource_url: the "path" in the status line
+        url_info: :class:`.url.URLInfo` of the request
+        version: the HTTP version in the status line
+        fields: :class:`.namevalue.NameValueRecord`
+        body: :class:`Body`
+        address: an address tuple suitable for :function:`socket.connect`
+    '''
     def __init__(self, method, resource_url, version='HTTP/1.1'):
         self.method = method
         self.resource_url = resource_url
@@ -43,6 +55,7 @@ class Request(object):
 
     @classmethod
     def new(cls, url, method='GET', url_encoding='utf-8'):
+        '''Create a new request from the URL string.'''
         url_info = URLInfo.parse(url, encoding=url_encoding)
         resource_path = url_info.path
 
@@ -56,6 +69,7 @@ class Request(object):
         return request
 
     def header(self):
+        '''Return the HTTP header as bytes.'''
         return '{0} {1} {2}\r\n{3}\r\n'.format(
             self.method, self.resource_url, self.version, str(self.fields)
         ).encode('utf-8')
@@ -67,6 +81,15 @@ class Request(object):
 
 
 class Response(object):
+    '''Represents the HTTP response.
+
+    Attributes:
+        version: The HTTP version in the status line
+        status_code: :class:`int` the status code in the status line
+        status_reason: The status reason string in the status line
+        fields: :class:`.namevalue.NameValueRecord`
+        body: :class:`Body`
+    '''
     def __init__(self, version, status_code, status_reason):
         self.version = version
         self.status_code = status_code
@@ -76,6 +99,11 @@ class Response(object):
 
     @classmethod
     def parse_status_line(cls, string):
+        '''Parse the status line bytes.
+
+        Returns:
+            :class:`tuple` representing the version, code, and reason.
+        '''
         match = re.match(
             br'(HTTP/1\.[01])[ \t]+([0-9]{1,3})[ \t]*([^\r\n]*)',
             string
@@ -91,6 +119,7 @@ class Response(object):
         raise ProtocolError('Error parsing status line ‘{0}’'.format(string))
 
     def header(self):
+        '''Return the HTTP header as bytes.'''
         return '{0} {1} {2}\r\n{3}\r\n'.format(
             self.version,
             self.status_code,
@@ -105,6 +134,7 @@ class Response(object):
         )
 
     def to_dict(self):
+        '''Convert the response to a :class:`dict`.'''
         return {
             'version': self.version,
             'status_code': self.status_code,
@@ -114,6 +144,11 @@ class Response(object):
 
 
 class Body(object, metaclass=abc.ABCMeta):
+    '''Represents the HTTP content.
+
+    Attributes:
+        content_file: a file
+    '''
     def __init__(self):
         self.content_file = self.new_temp_file()
         self._content_data = None
@@ -128,6 +163,7 @@ class Body(object, metaclass=abc.ABCMeta):
 
     @property
     def content(self):
+        '''Return the file bytes.'''
         if not self._content_data:
             with wpull.util.reset_file_offset(self.content_file):
                 self._content_data = self.content_file.read()
@@ -135,21 +171,29 @@ class Body(object, metaclass=abc.ABCMeta):
         return self._content_data
 
     def content_segment(self, max_length=4096):
+        '''Return only a partial part of the file.'''
         with wpull.util.reset_file_offset(self.content_file):
             return self.content_file.read(max_length)
 
     @classmethod
     def new_temp_file(cls, directory=None):
+        '''Return a new temporary file.'''
         return tempfile.SpooledTemporaryFile(
             max_size=4194304, prefix='wpull-', suffix='.tmp', dir=directory)
 
     @property
     def content_size(self):
+        '''Return the size of the file.'''
         with wpull.util.reset_file_offset(self.content_file):
             self.content_file.seek(0, os.SEEK_END)
             return self.content_file.tell()
 
     def to_dict(self):
+        '''Convert the body to a :class:`dict`.
+
+        Returns:
+            :class:`dict` containing: ``filename``, ``content_size``
+        '''
         if not hasattr(self.content_file, 'name'):
             # Make SpooledTemporaryFile rollover to real file
             self.content_file.fileno()
@@ -161,6 +205,7 @@ class Body(object, metaclass=abc.ABCMeta):
 
 
 class Connection(object):
+    '''A HTTP connection.'''
     class ConnectionEvents(object):
         def __init__(self):
             self.pre_request = Event()

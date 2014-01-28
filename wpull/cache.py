@@ -1,3 +1,4 @@
+'''Caching.'''
 import collections
 import heapq
 import time
@@ -10,6 +11,12 @@ except ImportError:
 
 
 class Cache(collections.MutableMapping):
+    '''Object cache.
+
+    Args:
+        max_items: The maximum number of items to keep
+        time_to_live: The time in seconds of how long to keep the item
+    '''
     def __init__(self, max_items=None, time_to_live=None):
         self._data = {}
         self._heap = []
@@ -17,6 +24,7 @@ class Cache(collections.MutableMapping):
         self._time_to_live = time_to_live
 
     def expire(self):
+        '''Remove old items.'''
         now_time = time.time()
         while True:
             if not self._heap:
@@ -32,6 +40,7 @@ class Cache(collections.MutableMapping):
                 self.pop_top()
 
     def pop_top(self):
+        '''Delete and return the oldest item.'''
         item = heapq.heappop(self._heap)
         del self._data[item.key]
         return item
@@ -67,6 +76,14 @@ class Cache(collections.MutableMapping):
 
 @total_ordering
 class CacheItem(object):
+    '''Info about an item in the cache.
+
+    Args:
+        key: The key
+        value: The value
+        time_to_live: The time in seconds of how long to keep the item
+        access_time: The timestamp of the last use of the item
+    '''
     def __init__(self, key, value, time_to_live=None, access_time=None):
         self.key = key
         self.value = value

@@ -1,4 +1,5 @@
 # encoding=utf-8
+'''Item management.'''
 import gettext
 import logging
 import tornado.gen
@@ -23,6 +24,26 @@ _ = gettext.gettext
 
 
 class Engine(object):
+    '''Asks processors what to do with items.
+
+    The engine is described like the following:
+
+
+    1. Get a URL from the table.
+    2. Start a session on the URL.
+    3. Ask the processor what the engine should do.
+    4. Make a HTTP request.
+    5. Return the HTTP response to the processor.
+    6. Get the URLs from the processor.
+    7. Either return to step 3 or step 1.
+
+
+    Args:
+        url_table: :class:`.database.BaseURLTable`
+        request_client: :class:`.http.Client`
+        processor: :class:`.processor.BaseProcessor`
+        concurrent: The number of items to process at once
+    '''
     ERROR_CODE_MAP = OrderedDict([
         (ServerError, ExitStatus.server_error),
         (ProtocolError, ExitStatus.protocol_error),
@@ -67,16 +88,23 @@ class Engine(object):
         raise tornado.gen.Return(self._exit_code)
 
     def _release_in_progress(self):
+        '''Release any items in progress.'''
         _logger.debug('Release in-progress.')
         self._url_table.release()
 
     @tornado.gen.coroutine
     def _run_workers(self):
+        '''Start the worker tasks.'''
         while True:
             yield self._worker_semaphore.acquire()
             self._process_input()
 
     def _get_next_url_record(self):
+        '''Return the next available URL.
+
+        Returns:
+            :class:`.database.URLRecord`
+        '''
         _logger.debug('Get next URL todo.')
 
         try:
@@ -99,6 +127,7 @@ class Engine(object):
 
     @tornado.gen.coroutine
     def _process_input(self):
+        '''Loop and process until there are no more items to process.'''
         try:
             while True:
                 if not self._stopping:
@@ -134,6 +163,7 @@ class Engine(object):
 
     @tornado.gen.coroutine
     def _process_url_item(self, url_item):
+        '''Process a :class:`URLItem`.'''
         _logger.debug('Begin session for {0} {1}.'.format(
             url_item.url_record, url_item.url_info))
 
@@ -156,6 +186,7 @@ class Engine(object):
 
     @tornado.gen.coroutine
     def _process_session(self, session, url_item):
+        '''Make a HTTP request for the processor.'''
         _logger.debug('Session iteration for {0} {1}'.format(
             url_item.url_record, url_item.url_info))
 
@@ -196,12 +227,18 @@ class Engine(object):
             self._close_instance_body(response)
 
     def _close_instance_body(self, instance):
+        '''Close any files on instance.'''
         if hasattr(instance, 'body') \
         and hasattr(instance.body, 'content_file') \
         and instance.body.content_file:
             instance.body.content_file.close()
 
     def stop(self, force=False):
+        '''Stop the engine.
+
+        Args:
+            force: If True, don't wait for sessions to finish
+        '''
         _logger.debug('Stopping. force={0}'.format(force))
 
         self._stopping = True
@@ -210,6 +247,7 @@ class Engine(object):
             self._done_event.set()
 
     def _update_exit_code_from_error(self, error):
+        '''Set the exit code based on the error type.'''
         for error_type, exit_code in self.ERROR_CODE_MAP.items():
             if isinstance(error, error_type):
                 self._update_exit_code(exit_code)
@@ -218,6 +256,7 @@ class Engine(object):
             self._update_exit_code(ExitStatus.generic_error)
 
     def _update_exit_code(self, code):
+        '''Set the exit code if it is serious than before.'''
         if code:
             if self._exit_code:
                 self._exit_code = min(self._exit_code, code)
@@ -225,12 +264,14 @@ class Engine(object):
                 self._exit_code = code
 
     def _compute_exit_code_from_stats(self):
+        '''Set the exit code based on the statistics.'''
         for error_type in self._processor.statistics.errors:
             exit_code = self.ERROR_CODE_MAP.get(error_type)
             if exit_code:
                 self._update_exit_code(exit_code)
 
     def _print_stats(self):
+        '''Log the final statistics to the user.'''
         stats = self._processor.statistics
         time_length = stats.stop_time - stats.start_time
 
@@ -242,12 +283,14 @@ class Engine(object):
         _logger.info(_('Exiting with status {0}.').format(self._exit_code))
 
     def _print_ssl_error(self):
+        '''Print an invalid SSL certificate warning.'''
         _logger.info(_('A SSL certificate could not be verified.'))
         _logger.info(_('To ignore and proceed insecurely, '
             'use ‘--no-check-certificate’.'))
 
 
 class URLItem(object):
+    '''Item for a URL that needs to processed.'''
     def __init__(self, url_table, url_info, url_record):
         self._url_table = url_table
         self._url_info = url_info
@@ -258,23 +301,33 @@ class URLItem(object):
 
     @property
     def url_info(self):
+        '''Return the :class:`url.URLInfo`.'''
         return self._url_info
 
     @property
     def url_record(self):
+        '''Return the :class:`database.URLRecord`.'''
         return self._url_record
 
     @property
     def is_processed(self):
+        '''Return whether the item has been processed.'''
         return self._processed
 
     def skip(self):
+        '''Mark the item as processed without download.'''
         _logger.debug(_('Skipping ‘{url}’.').format(url=self._url))
         self._url_table.update(self._url, status=Status.skipped)
 
         self._processed = True
 
     def set_status(self, status, increment_try_count=True):
+        '''Mark the item with the given status.
+
+        Args:
+            status: a value from :class:`.database.Status`
+            increment_try_count: if True, increment the ``try_count`` value
+        '''
         assert not self._try_count_incremented
 
         if increment_try_count:
@@ -290,9 +343,16 @@ class URLItem(object):
         self._processed = True
 
     def set_value(self, **kwargs):
+        '''Set values for the URL in table.'''
         self._url_table.update(self._url, **kwargs)
 
     def add_inline_url_infos(self, url_infos, encoding=None):
+        '''Add inline links scraped from the document.
+
+        Args:
+            url_infos: a list of :class:`.url.URLInfo`
+            encoding: the encoding of the document
+        '''
         inline_urls = tuple([info.url for info in url_infos])
         _logger.debug('Adding inline URLs {0}'.format(inline_urls))
         self._url_table.add(
@@ -305,6 +365,12 @@ class URLItem(object):
         )
 
     def add_linked_url_infos(self, url_infos, link_type=None, encoding=None):
+        '''Add linked links scraped from the document.
+
+        Args:
+            url_infos: a list of :class:`.url.URLInfo`
+            encoding: the encoding of the document
+        '''
         linked_urls = tuple([info.url for info in url_infos])
         _logger.debug('Adding linked URLs {0}'.format(linked_urls))
         self._url_table.add(
