@@ -315,7 +315,7 @@ class Builder(object):
         '''Create the URL table.
 
         Returns:
-            :class:`database.BaseURLTable`
+            :class:`.database.BaseURLTable`
         '''
         url_table = self._classes['URLTable'](path=self._args.database)
         url_table.add([url_info.url for url_info in self._url_infos])
@@ -325,7 +325,7 @@ class Builder(object):
         '''Create the Recorder.
 
         Returns:
-            :class:`recorder.DemuxRecorder`
+            :class:`.recorder.DemuxRecorder`
         '''
         args = self._args
         recorders = []
@@ -371,7 +371,7 @@ class Builder(object):
         '''Create the Processor
 
         Returns:
-            :class:`processor.BaseProcessor`
+            :class:`.processor.BaseProcessor`
         '''
         args = self._args
         url_filters = self._build_url_filters()
@@ -399,7 +399,7 @@ class Builder(object):
         '''Create the File Writer.
 
         Returns:
-            :class:`writer.BaseFileWriter`
+            :class:`.writer.BaseFileWriter`
         '''
         args = self._args
 
@@ -444,7 +444,7 @@ class Builder(object):
         '''Create the request factory.
 
         A request factory is any callable object that returns a
-        :class:`http.Request`. The callable must accept the same
+        :class:`.http.Request`. The callable must accept the same
         arguments to Request.
 
         Returns:
@@ -475,7 +475,7 @@ class Builder(object):
         '''Create the HTTP client.
 
         Returns:
-            :class:`http.Client`
+            :class:`.http.Client`
         '''
         args = self._args
         dns_timeout = args.dns_timeout
@@ -524,7 +524,7 @@ class Builder(object):
     def _build_ssl_options(self):
         '''Create the SSL options.
 
-        The options must be accepted by the :module:`ssl` module.
+        The options must be accepted by the `ssl` module.
 
         Returns:
             :class:`dict`

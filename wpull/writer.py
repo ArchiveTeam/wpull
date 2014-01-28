@@ -66,7 +66,7 @@ class BaseWriterSession(object, metaclass=abc.ABCMeta):
     def discard_document(self, response):
         '''Don't save the document.
 
-         This function is called by a Processor once the Processor deemed
+        This function is called by a Processor once the Processor deemed
         the document should be deleted (i.e., a "404 Not Found" response).
         '''
         pass

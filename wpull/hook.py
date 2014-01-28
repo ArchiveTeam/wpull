@@ -110,6 +110,7 @@ class Callbacks(object):
             url_info: :class:`dict` containing the same information in
                 :class:`.url.URLInfo`
             http_info: :class:`dict` containing the values:
+
                 * 'error': The name of the exception (for example,
                   ``ProtocolError``)
 

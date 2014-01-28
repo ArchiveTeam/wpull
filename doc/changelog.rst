@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.10.9 (2014-01-27)
+0.10.9 (2014-01-28)
 ===================
 
 * Adds documentation. No program changes.

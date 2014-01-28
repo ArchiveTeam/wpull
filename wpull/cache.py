@@ -1,13 +1,17 @@
 '''Caching.'''
 import collections
 import heapq
+import sys
 import time
 
 
-try:
-    from functools import total_ordering
-except ImportError:
-    from wpull.backport.functools import total_ordering
+if 'sphinx' not in sys.modules:
+    try:
+        from functools import total_ordering
+    except ImportError:
+        from wpull.backport.functools import total_ordering
+else:
+    total_ordering = lambda obj: obj
 
 
 class Cache(collections.MutableMapping):
