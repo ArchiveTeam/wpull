@@ -1,4 +1,5 @@
 # encoding=utf-8
+'''Extended subclasses.'''
 import logging
 import tornado.iostream
 
@@ -10,6 +11,12 @@ _logger = logging.getLogger(__name__)
 
 
 class BaseIOStream(object):
+    '''Tornado IOStream with timeouts.
+
+    Args:
+        connect_timeout: A time in seconds to time out connecting
+        read_timeout: A time in seconds to time out reading
+    '''
     def __init__(self, *args, **kwargs):
         self._connect_timeout = kwargs.pop('connect_timeout', None)
         self._read_timeout = kwargs.pop('read_timeout', None)
@@ -19,10 +26,16 @@ class BaseIOStream(object):
 class IOStreamMixin(object):
     @property
     def buffer_full(self):
+        '''Return whether the buffer is full.'''
         return self._read_buffer_size >= self.max_buffer_size
 
     @tornado.gen.coroutine
     def connect_gen(self, address, server_hostname):
+        '''Connect with timeout.
+
+        Raises:
+            :class:`.errors.NetworkError`
+        '''
         @tornado.gen.coroutine
         def connect():
             yield tornado.gen.Task(
@@ -40,6 +53,11 @@ class IOStreamMixin(object):
 
     @tornado.gen.coroutine
     def read_gen(self, func_name, *args, **kwargs):
+        '''Read with timeout.
+
+        Raises:
+            :class:`.errors.NetworkError`
+        '''
         @tornado.gen.coroutine
         def read():
             result = yield tornado.gen.Task(

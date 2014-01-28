@@ -1,4 +1,5 @@
 # encoding=utf-8
+'''HTTP protocol.'''
 import abc
 import collections
 import errno
@@ -32,6 +33,17 @@ _logger = logging.getLogger(__name__)
 
 
 class Request(object):
+    '''Represents an HTTP request.
+
+    Attributes:
+        method: the HTTP method in the status line
+        resource_url: the "path" in the status line
+        url_info: :class:`.url.URLInfo` of the request
+        version: the HTTP version in the status line
+        fields: :class:`.namevalue.NameValueRecord`
+        body: :class:`Body`
+        address: an address tuple suitable for :func:`socket.connect`
+    '''
     def __init__(self, method, resource_url, version='HTTP/1.1'):
         self.method = method
         self.resource_url = resource_url
@@ -43,6 +55,7 @@ class Request(object):
 
     @classmethod
     def new(cls, url, method='GET', url_encoding='utf-8'):
+        '''Create a new request from the URL string.'''
         url_info = URLInfo.parse(url, encoding=url_encoding)
         resource_path = url_info.path
 
@@ -56,6 +69,7 @@ class Request(object):
         return request
 
     def header(self):
+        '''Return the HTTP header as bytes.'''
         return '{0} {1} {2}\r\n{3}\r\n'.format(
             self.method, self.resource_url, self.version, str(self.fields)
         ).encode('utf-8')
@@ -67,6 +81,15 @@ class Request(object):
 
 
 class Response(object):
+    '''Represents the HTTP response.
+
+    Attributes:
+        version: The HTTP version in the status line
+        status_code: :class:`int` the status code in the status line
+        status_reason: The status reason string in the status line
+        fields: :class:`.namevalue.NameValueRecord`
+        body: :class:`Body`
+    '''
     def __init__(self, version, status_code, status_reason):
         self.version = version
         self.status_code = status_code
@@ -76,6 +99,11 @@ class Response(object):
 
     @classmethod
     def parse_status_line(cls, string):
+        '''Parse the status line bytes.
+
+        Returns:
+            :class:`tuple` representing the version, code, and reason.
+        '''
         match = re.match(
             br'(HTTP/1\.[01])[ \t]+([0-9]{1,3})[ \t]*([^\r\n]*)',
             string
@@ -91,6 +119,7 @@ class Response(object):
         raise ProtocolError('Error parsing status line ‘{0}’'.format(string))
 
     def header(self):
+        '''Return the HTTP header as bytes.'''
         return '{0} {1} {2}\r\n{3}\r\n'.format(
             self.version,
             self.status_code,
@@ -105,6 +134,7 @@ class Response(object):
         )
 
     def to_dict(self):
+        '''Convert the response to a :class:`dict`.'''
         return {
             'version': self.version,
             'status_code': self.status_code,
@@ -114,6 +144,11 @@ class Response(object):
 
 
 class Body(object, metaclass=abc.ABCMeta):
+    '''Represents the HTTP content.
+
+    Attributes:
+        content_file: a file
+    '''
     def __init__(self):
         self.content_file = self.new_temp_file()
         self._content_data = None
@@ -128,6 +163,7 @@ class Body(object, metaclass=abc.ABCMeta):
 
     @property
     def content(self):
+        '''Return the file bytes.'''
         if not self._content_data:
             with wpull.util.reset_file_offset(self.content_file):
                 self._content_data = self.content_file.read()
@@ -135,21 +171,29 @@ class Body(object, metaclass=abc.ABCMeta):
         return self._content_data
 
     def content_segment(self, max_length=4096):
+        '''Return only a partial part of the file.'''
         with wpull.util.reset_file_offset(self.content_file):
             return self.content_file.read(max_length)
 
     @classmethod
     def new_temp_file(cls, directory=None):
+        '''Return a new temporary file.'''
         return tempfile.SpooledTemporaryFile(
             max_size=4194304, prefix='wpull-', suffix='.tmp', dir=directory)
 
     @property
     def content_size(self):
+        '''Return the size of the file.'''
         with wpull.util.reset_file_offset(self.content_file):
             self.content_file.seek(0, os.SEEK_END)
             return self.content_file.tell()
 
     def to_dict(self):
+        '''Convert the body to a :class:`dict`.
+
+        Returns:
+            :class:`dict` containing: ``filename``, ``content_size``
+        '''
         if not hasattr(self.content_file, 'name'):
             # Make SpooledTemporaryFile rollover to real file
             self.content_file.fileno()
@@ -161,6 +205,25 @@ class Body(object, metaclass=abc.ABCMeta):
 
 
 class Connection(object):
+    '''A single HTTP connection.
+
+    Args:
+        host: The hostname
+        port: The port number
+        ssl: If True, SSL is used
+        bind_address: The IP address to bind the socket. Must match
+            :func:`socket.SocketType.bind`. Use this if your local host has
+            multiple IP addresses.
+        resolver: :class:`.network.Resovler`
+        connect_timeout: If given, the time in seconds before the connection
+            is timed out during connection. Otherwise, depend on the
+            underlying libraries for timeout.
+        read_timeout: If given, the time in seconds before the connection
+            is timed out during reads. Otherwise, depend on the
+            underlying libraries for timeout.
+        keep_alive: If True, use HTTP keep-alive.
+        ssl_options: A ``dict`` containing options for :func:`ssl.wrap_socket`
+    '''
     class ConnectionEvents(object):
         def __init__(self):
             self.pre_request = Event()
@@ -209,6 +272,7 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _make_socket(self):
+        '''Make and wrap the socket with an IOStream.'''
         family, self._address = yield self._resolver.resolve(
             self._host, self._port)
         self._socket = socket.socket(family, socket.SOCK_STREAM)
@@ -239,6 +303,7 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _connect(self):
+        '''Connect the socket if not already connected.'''
         if self._connected:
             return
 
@@ -264,6 +329,16 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def fetch(self, request, recorder=None, response_factory=Response):
+        '''Fetch a document.
+
+        Args:
+            request: :class:`Request`
+            recorder: :class:`.recorder.BaseRecorder`
+            response_factory: a callable object that makes a :class:`Response`
+
+        Returns:
+            :class:`Response`
+        '''
         _logger.debug('Request {0}.'.format(request))
 
         assert not self._active
@@ -458,13 +533,17 @@ class Connection(object):
 
     @property
     def active(self):
+        '''Return whether the connection is in use due to a fetch in progress.
+        '''
         return self._active
 
     @property
     def connected(self):
+        '''Return whether the connection is connected.'''
         return self._connected
 
     def close(self):
+        '''Close the connection if open.'''
         if self._io_stream:
             self._io_stream.close()
 
@@ -491,6 +570,7 @@ class Connection(object):
 
 
 class HostConnectionPool(collections.Set):
+    '''A Connection pool to a particular server.'''
     # TODO: remove old connection instances
     def __init__(self, host, port, request_queue, ssl=False, max_count=6,
     connection_factory=Connection):
@@ -578,6 +658,7 @@ class HostConnectionPool(collections.Set):
 
 
 class ConnectionPool(collections.Mapping):
+    '''A pool of HostConnectionPool.'''
     Entry = collections.namedtuple('RequestQueueEntry', ['queue', 'pool'])
 
     def __init__(self, host_connection_pool_factory=HostConnectionPool):
@@ -628,6 +709,7 @@ class ConnectionPool(collections.Mapping):
 
 
 class Client(object):
+    '''HTTP client.'''
     def __init__(self, connection_pool=None, recorder=None):
         if connection_pool is not None:
             self._connection_pool = connection_pool
@@ -638,6 +720,7 @@ class Client(object):
 
     @tornado.gen.coroutine
     def fetch(self, request, **kwargs):
+        '''Fetch a document.'''
         _logger.debug('Client fetch request {0}.'.format(request))
 
         if 'recorder' not in kwargs:
@@ -652,6 +735,7 @@ class Client(object):
             raise tornado.gen.Return(response)
 
     def close(self):
+        '''Close the connection pool and recorders.'''
         _logger.debug('Client closing.')
         self._connection_pool.close()
 
@@ -660,6 +744,7 @@ class Client(object):
 
 
 def parse_charset(header_string):
+    '''Parse a "Content-Type" string for the document encoding.'''
     match = re.search(
         r'''charset[ ]?=[ ]?["']?([a-z0-9_-]+)''',
         header_string,

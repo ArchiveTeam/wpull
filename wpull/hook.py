@@ -1,3 +1,5 @@
+# encoding=utf-8
+'''Python and Lua scripting supprt.'''
 import contextlib
 import itertools
 import logging
@@ -16,7 +18,10 @@ _logger = logging.getLogger(__name__)
 
 
 def load_lua():
-    # http://stackoverflow.com/a/8403467/1524507
+    '''Load the Lua module.
+
+    :seealso: http://stackoverflow.com/a/8403467/1524507
+    '''
     import DLFCN
     sys.setdlopenflags(DLFCN.RTLD_NOW | DLFCN.RTLD_GLOBAL)
     import lua
@@ -30,10 +35,12 @@ except ImportError:
 
 
 class HookStop(Exception):
+    '''Stop the engine.'''
     pass
 
 
 class Actions(object):
+    '''Actions for ``handle_error`` and ``handle_response``.'''
     NORMAL = 'normal'
     RETRY = 'retry'
     FINISH = 'finish'
@@ -41,35 +48,123 @@ class Actions(object):
 
 
 class Callbacks(object):
+    '''Callback hooking instance.'''
     def __init__(self, is_lua=False):
         self.is_lua = is_lua
 
     @staticmethod
     def resolve_dns(host):
+        '''Resolve the hostname to an IP address.
+
+        This callback is to override the DNS response.
+
+        It is useful when the server is no longer available to the public.
+        Typically, large infrastructures will change the DNS settings to
+        make clients no longer hit the front-ends, but rather go towards
+        a static HTTP server with a "We've been acqui-hired!" page. In these
+        cases, the original servers may still be online.
+
+        Returns:
+            None to use the original behavior or a string containing
+            an IP address.
+        '''
         return None
 
     @staticmethod
     def accept_url(url_info, record_info, verdict, reasons):
+        '''Return whether to download this URL.
+
+        Args:
+            url_info: :class:`dict` containing the same information in
+                :class:`.url.URLInfo`
+            record_info: :class:`dict` containing the same information in
+                :class:`.database.URLRecord`
+            verdict: :class:`bool` indicating whether Wpull wants to download
+                the URL
+
+        Returns:
+            :class:`bool` indicating whether the URL should be downloaded
+        '''
         return verdict
 
     @staticmethod
     def handle_response(url_info, http_info):
+        '''Return an action to handle the response.
+
+        Args:
+            url_info: :class:`dict` containing the same information in
+                :class:`.url.URLInfo`
+            http_info: :class:`dict` containing the same information
+                in :class:`.http.Response`
+
+        Returns:
+            A value from :class:`Actions`. The default is `NORMAL`.
+        '''
         return Actions.NORMAL
 
     @staticmethod
     def handle_error(url_info, error_info):
+        '''Return an action to handle the error.
+
+        Args:
+            url_info: :class:`dict` containing the same information in
+                :class:`.url.URLInfo`
+            http_info: :class:`dict` containing the values:
+
+                * 'error': The name of the exception (for example,
+                  ``ProtocolError``)
+
+        Returns:
+            A value from :class:`Actions`. The default is `NORMAL`.
+        '''
         return Actions.NORMAL
 
     @staticmethod
     def get_urls(filename, url_info, document_info):
+        '''Return additional URLs to be processed.
+
+        Args:
+            filename: A string containing the path to the document
+            url_info: :class:`dict` containing the same information in
+                :class:`.url.URLInfo`
+            document_info: :class:`dict` containing the same information in
+                :class:`.http.Body`
+
+        Returns:
+            A :class:`list` of :class:`dict`. Each ``dict`` contains:
+
+                * ``url``: a string of the URL
+                * ``link_type`` (optional): ``html`` or ``None``.
+
+            .. Note:: The added URL is considered a "linked" URL (not a
+               "inline" URL).
+        '''
         return None
 
     @staticmethod
     def finishing_statistics(start_time, end_time, num_urls, bytes_downloaded):
+        '''Callback containing finial statistics.
+
+        Args:
+            start_time: timestamp when the engine started
+            end_time: timestamp when the engine stopped
+            num_urls: number of URLs downloaded
+            bytes_downloaded: size of files downloaded in bytes
+        '''
         pass
 
     @staticmethod
     def exit_status(exit_code):
+        '''Return the program exit status code.
+
+        Exit codes are values from :class:`errors.ExitStatus`.
+
+        Args:
+            exit_code: the exit code Wpull wants to return
+
+        Returns:
+            :class:`int`: the exit code
+        '''
         return exit_code
 
     def to_native_type(self, instance):
@@ -329,10 +424,12 @@ class HookEnvironment(object):
 
 
 def to_lua_type(instance):
+    '''Convert instance to appropriate Python types for Lua.'''
     return to_lua_table(to_lua_string(to_lua_number(instance)))
 
 
 def to_lua_string(instance):
+    '''If Lua, convert to bytes.'''
     if sys.version_info[0] == 2:
         return wpull.util.to_bytes(instance)
     else:
@@ -340,6 +437,7 @@ def to_lua_string(instance):
 
 
 def to_lua_number(instance):
+    '''If Lua and Python 2, convert to long.'''
     if sys.version_info[0] == 2:
         if isinstance(instance, int):
             return long(instance)
@@ -357,6 +455,7 @@ def to_lua_number(instance):
 
 
 def to_lua_table(instance):
+    '''If Lua and instance is ``dict``, convert to Lua table.'''
     if isinstance(instance, dict):
         table = lua.eval('{}')
 

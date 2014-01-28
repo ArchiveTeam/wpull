@@ -1,4 +1,5 @@
 # encoding=utf-8
+'''Document scrapers and parsers.'''
 import abc
 import codecs
 import collections
@@ -11,15 +12,38 @@ import wpull.util
 
 
 class BaseDocumentScraper(object, metaclass=abc.ABCMeta):
+    '''Document scraper.'''
     @abc.abstractmethod
     def scrape(self, request, response):
+        '''Extract the URLs from the document.
+
+        Args:
+            request: :class:`.http.Request`
+            response: :class:`http.Response`
+
+        Returns:
+            :class:`dict`: The mandatory values are:
+                * ``inline_urls``: URLs of objects embedded in the document
+                * ``linked_urls``': URLs of objects linked from the document
+                *  ``encoding``: the character encoding of the document
+        '''
         pass
 
+
 ScrapedLink = collections.namedtuple(
-    'ScrapedLink', ['tag', 'attrib', 'link', 'inline', 'linked', 'base_link'])
+    'ScrapedLinkType', ['tag', 'attrib', 'link', 'inline', 'linked', 'base_link'])
+'''Information about the scraped link.'''
 
 
 class HTMLScraper(BaseDocumentScraper):
+    '''Scraper for HTML documents.
+
+    Args:
+        followed_tags: A list of tags that should be scraped
+        ignored_tags: A list of tags that should not be scraped
+        robots: If True, discard any links if they cannot be followed
+        only_relative: If True, discard any links that are not absolute paths
+    '''
     LINK_ATTRIBUTES = frozenset([
         'action', 'archive', 'background', 'cite', 'classid',
         'codebase', 'data', 'href', 'longdesc', 'profile', 'src',
@@ -71,6 +95,7 @@ class HTMLScraper(BaseDocumentScraper):
 
     @classmethod
     def is_html(cls, request, response):
+        '''Check if the response is likely to be HTML.'''
         if 'html' in response.fields.get('content-type', '').lower() \
         or '.htm' in request.url_info.path.lower():
             return True
@@ -134,11 +159,13 @@ class HTMLScraper(BaseDocumentScraper):
         }
 
     def _scrape_tree(self, root):
+        '''Iterate the document tree.'''
         for element in root.iter():
             for scraped_link in self._scrape_element(element):
                 yield scraped_link
 
     def _scrape_element(self, element):
+        '''Scrape a HTML elmement.'''
         # reference: lxml.html.HtmlMixin.iterlinks()
         attrib = element.attrib
         tag = element.tag
@@ -167,6 +194,11 @@ class HTMLScraper(BaseDocumentScraper):
                     False, None)
 
     def _scrape_link_element(self, element):
+        '''Scrape a ``link`` for URLs.
+
+        This function handles stylesheets and icons in addition to
+        standard scraping rules.
+        '''
         rel = element.get('rel', '')
         inline = 'stylesheet' in rel or 'icon' in rel
 
@@ -178,6 +210,10 @@ class HTMLScraper(BaseDocumentScraper):
             )
 
     def _scrape_meta_element(self, element):
+        '''Scrape the ``meta`` element.
+
+        This function handles refresh URLs.
+        '''
         if element.get('http-equiv', '').lower() == 'refresh':
             content_value = element.get('content')
             match = re.search(r'url=(.+)', content_value, re.IGNORECASE)
@@ -189,6 +225,10 @@ class HTMLScraper(BaseDocumentScraper):
                 )
 
     def _scrape_object_element(self, element):
+        '''Scrape ``object`` and ``embed`` elements.
+
+        This function also looks at ``codebase`` and ``archive`` attributes.
+        '''
         base_link = to_str(element.get('codebase', None))
 
         if base_link:
@@ -217,6 +257,7 @@ class HTMLScraper(BaseDocumentScraper):
                 )
 
     def _scrape_param_element(self, element):
+        '''Scrape a ``param`` element.'''
         valuetype = element.get('valuetype', '')
 
         if valuetype.lower() == 'ref' and 'value' in element.attrib:
@@ -226,6 +267,7 @@ class HTMLScraper(BaseDocumentScraper):
                 False, None)
 
     def _scrape_style_element(self, element):
+        '''Scrape a ``style`` element.'''
         if element.text:
             link_iter = itertools.chain(
                 CSSScraper.scrape_imports(element.text),
@@ -239,6 +281,7 @@ class HTMLScraper(BaseDocumentScraper):
                 )
 
     def _scrape_plain_element(self, element):
+        '''Scrape any element using generic rules.'''
         for attrib_name, link in self._scrape_links_by_attrib(element):
             inline = self._is_link_inline(element.tag, attrib_name)
             linked = self._is_html_link(element.tag, attrib_name)
@@ -249,11 +292,13 @@ class HTMLScraper(BaseDocumentScraper):
             )
 
     def _scrape_links_by_attrib(self, element):
+        '''Scrape an element by looking at its attributes.'''
         for attrib_name in self.LINK_ATTRIBUTES:
             if attrib_name in element.attrib:
                 yield attrib_name, element.get(attrib_name)
 
     def _is_link_inline(self, tag, attribute):
+        '''Return whether the link is likely to be inline object.'''
         if tag in self.TAG_ATTRIBUTES \
         and attribute in self.TAG_ATTRIBUTES[tag]:
             attr_flags = self.TAG_ATTRIBUTES[tag][attribute]
@@ -262,6 +307,7 @@ class HTMLScraper(BaseDocumentScraper):
         return attribute != 'href'
 
     def _is_html_link(self, tag, attribute):
+        '''Return whether the link is likely to be external object.'''
         if tag in self.TAG_ATTRIBUTES \
         and attribute in self.TAG_ATTRIBUTES[tag]:
             attr_flags = self.TAG_ATTRIBUTES[tag][attribute]
@@ -270,6 +316,7 @@ class HTMLScraper(BaseDocumentScraper):
         return attribute == 'href'
 
     def _is_accepted(self, element_tag):
+        '''Return if the link is accepted by the filters.'''
         element_tag = element_tag.lower()
 
         if self._ignored_tags is not None \
@@ -282,6 +329,7 @@ class HTMLScraper(BaseDocumentScraper):
             return True
 
     def _robots_cannot_follow(self, root):
+        '''Return whether we can follow links due to robots.txt directives.'''
         for element in root.iter('meta'):
             if element.get('name', '').lower() == 'robots':
                 if 'nofollow' in element.get('value', '').lower():
@@ -289,6 +337,7 @@ class HTMLScraper(BaseDocumentScraper):
 
 
 class CSSScraper(BaseDocumentScraper):
+    '''Scrapes CSS stylesheet documents.'''
     def scrape(self, request, response):
         if not self.is_css(request, response):
             return
@@ -312,6 +361,7 @@ class CSSScraper(BaseDocumentScraper):
 
     @classmethod
     def is_css(cls, request, response):
+        '''Return whether the document is likely to be CSS.'''
         if 'css' in response.fields.get('content-type', '').lower() \
         or '.css' in request.url_info.path.lower():
             return True
@@ -328,11 +378,13 @@ class CSSScraper(BaseDocumentScraper):
 
     @classmethod
     def scrape_urls(cls, text):
+        '''Scrape any thing that is a ``url()``.'''
         for match in re.finditer(r'''url\(\s*['"]?(.*?)['"]?\s*\)''', text):
             yield match.group(1)
 
     @classmethod
     def scrape_imports(cls, text):
+        '''Scrape any thing that looks like an import.'''
         for match in re.finditer(r'''@import\s*([^\s]+).*?;''', text):
             url_str_fragment = match.group(1)
             if url_str_fragment.startswith('url('):
@@ -343,6 +395,7 @@ class CSSScraper(BaseDocumentScraper):
 
 
 def get_heading_encoding(response):
+    '''Return the document encoding from a HTTP header.'''
     encoding = wpull.http.parse_charset(
         response.fields.get('content-type', ''))
 
@@ -358,6 +411,7 @@ def get_heading_encoding(response):
 
 
 def get_encoding(response):
+    '''Return the likely encoding of the document.'''
     encoding = wpull.http.parse_charset(
         response.fields.get('content-type', ''))
 

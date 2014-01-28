@@ -1,6 +1,6 @@
 # encoding=utf-8
+'''Application support.'''
 import atexit
-import codecs
 import gettext
 import itertools
 import logging
@@ -36,6 +36,11 @@ _ = gettext.gettext
 
 
 class Builder(object):
+    '''Application builder.
+
+    Args:
+        args: Options from :class:`argparse.ArgumentParser`
+    '''
     # TODO: expose the instances built so we can access stuff like Stats
     def __init__(self, args):
         self._args = args
@@ -65,6 +70,11 @@ class Builder(object):
         self._console_log_handler = None
 
     def build(self):
+        '''Put the application together.
+
+        Returns:
+            :class:`.engine.Engine`
+        '''
         self._setup_logging()
         self._setup_console_logger()
         self._setup_file_logger()
@@ -87,23 +97,38 @@ class Builder(object):
         return engine
 
     def build_and_run(self):
+        '''Build and run the application.
+
+        Returns:
+            :class:`int`: The exit status
+        '''
         io_loop = tornado.ioloop.IOLoop.current()
         engine = self.build()
         exit_code = io_loop.run_sync(engine)
         return exit_code
 
     def _new_encoded_stream(self, stream):
+        '''Return a stream writer.'''
         if self._args.ascii_print:
             return ASCIIStreamWriter(stream)
         else:
             return stream
 
     def _setup_logging(self):
+        '''Set up the root logger if needed.
+
+        The root logger is set to DEBUG level so the file and WARC logs
+        work correctly.
+        '''
         root_logger = logging.getLogger()
         root_logger.setLevel(logging.DEBUG)
         root_logger.debug('Wpull needs the root logger level set to DEBUG.')
 
     def _setup_console_logger(self):
+        '''Set up the console logger.
+
+        A handler and with a formatter is added to the root logger.
+        '''
         if self._args.verbosity == logging.DEBUG:
             tornado.ioloop.IOLoop.current().set_blocking_log_threshold(5)
 
@@ -119,6 +144,7 @@ class Builder(object):
         logger.addHandler(handler)
 
     def _setup_console_logger_close(self, engine):
+        '''Add routine to remove log handler when the engine stops.'''
         def remove_handler():
             logger = logging.getLogger()
             logger.removeHandler(self._console_log_handler)
@@ -128,6 +154,10 @@ class Builder(object):
             engine.stop_event.handle(remove_handler)
 
     def _setup_file_logger(self):
+        '''Set up the file message logger.
+
+        A file log handler and with a formatter is added to the root logger.
+        '''
         args = self._args
 
         if not (args.output_file or args.append_output):
@@ -156,6 +186,8 @@ class Builder(object):
             handler.setLevel(logging.INFO)
 
     def _setup_file_logger_close(self, engine):
+        '''Add routine that removes the file log handler when the engine stops.
+        '''
         def remove_handler():
             logger = logging.getLogger()
             logger.removeHandler(self._file_log_handler)
@@ -165,12 +197,14 @@ class Builder(object):
             engine.stop_event.handle(remove_handler)
 
     def _install_script_hooks(self):
+        '''Set up the scripts if any.'''
         if self._args.python_script:
             self._install_python_script(self._args.python_script)
         elif self._args.lua_script:
             self._install_lua_script(self._args.lua_script)
 
     def _install_python_script(self, filename):
+        '''Load the Python script into an environment.'''
         _logger.info(_('Using Python hook script {filename}.').format(
             filename=filename))
 
@@ -184,6 +218,7 @@ class Builder(object):
             exec(code, context, context)
 
     def _install_lua_script(self, filename):
+        '''Load the Lua script into an environment.'''
         _logger.info(_('Using Lua hook script {filename}.').format(
             filename=filename))
 
@@ -199,12 +234,18 @@ class Builder(object):
             lua.execute(in_file.read())
 
     def _setup_hook_environment(self, hook_environment):
+        '''Override the classes needed for script hooks.
+
+        Args:
+            hook_environment: A :class:`hook.HookEnvironment` instance
+        '''
         self._classes['Engine'] = hook_environment.engine_factory
         self._classes['WebProcessor'] = \
             hook_environment.web_processor_factory
         self._classes['Resolver'] = hook_environment.resolver_factory
 
     def _build_input_urls(self, default_scheme='http'):
+        '''Read the URLs provided by the user.'''
         if self._args.input_file:
             urls = wpull.util.to_str(tuple([
                 line.strip()
@@ -227,6 +268,11 @@ class Builder(object):
             yield url_info
 
     def _build_url_filters(self):
+        '''Create the URL filter instances.
+
+        Returns:
+            A list of URL filter instances
+        '''
         args = self._args
 
         filters = [
@@ -248,6 +294,11 @@ class Builder(object):
         return filters
 
     def _build_document_scrapers(self):
+        '''Create the document scrapers.
+
+        Returns:
+            A list of document scrapers
+        '''
         scrapers = [
             HTMLScraper(
                 followed_tags=self._args.follow_tags,
@@ -261,11 +312,21 @@ class Builder(object):
         return scrapers
 
     def _build_url_table(self):
+        '''Create the URL table.
+
+        Returns:
+            :class:`.database.BaseURLTable`
+        '''
         url_table = self._classes['URLTable'](path=self._args.database)
         url_table.add([url_info.url for url_info in self._url_infos])
         return url_table
 
     def _build_recorder(self):
+        '''Create the Recorder.
+
+        Returns:
+            :class:`.recorder.DemuxRecorder`
+        '''
         args = self._args
         recorders = []
         if args.warc_file:
@@ -307,6 +368,11 @@ class Builder(object):
         return self._classes['DemuxRecorder'](recorders)
 
     def _build_processor(self):
+        '''Create the Processor
+
+        Returns:
+            :class:`.processor.BaseProcessor`
+        '''
         args = self._args
         url_filters = self._build_url_filters()
         document_scrapers = self._build_document_scrapers()
@@ -330,6 +396,11 @@ class Builder(object):
         return processor
 
     def _build_file_writer(self):
+        '''Create the File Writer.
+
+        Returns:
+            :class:`.writer.BaseFileWriter`
+        '''
         args = self._args
 
         if args.delete_after:
@@ -370,6 +441,15 @@ class Builder(object):
         )
 
     def _build_request_factory(self):
+        '''Create the request factory.
+
+        A request factory is any callable object that returns a
+        :class:`.http.Request`. The callable must accept the same
+        arguments to Request.
+
+        Returns:
+            A callable object
+        '''
         def request_factory(*args, **kwargs):
             request = self._classes['Request'].new(*args, **kwargs)
 
@@ -392,6 +472,11 @@ class Builder(object):
         return request_factory
 
     def _build_http_client(self):
+        '''Create the HTTP client.
+
+        Returns:
+            :class:`.http.Client`
+        '''
         args = self._args
         dns_timeout = args.dns_timeout
         connect_timeout = args.connect_timeout
@@ -437,6 +522,13 @@ class Builder(object):
             connection_pool=connection_pool, recorder=recorder)
 
     def _build_ssl_options(self):
+        '''Create the SSL options.
+
+        The options must be accepted by the `ssl` module.
+
+        Returns:
+            :class:`dict`
+        '''
         ssl_options = {}
 
         if self._args.check_certificate:
@@ -448,6 +540,11 @@ class Builder(object):
         return ssl_options
 
     def _load_ca_certs(self):
+        '''Load the Certificate Authority certificates.
+
+        Returns:
+            A filename to the bundled CA certs.
+        '''
         if self._ca_certs_file:
             return self._ca_certs_file
 
@@ -482,6 +579,11 @@ class Builder(object):
         return certs_filename
 
     def _read_pem_file(self, filename):
+        '''Read the PEM file.
+
+        Returns:
+            An iterable of certificates. The certificate data is :class:`byte`.
+        '''
         _logger.debug('Reading PEM {0}.'.format(filename))
 
         with open(filename, 'rb') as in_file:

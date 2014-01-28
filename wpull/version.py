@@ -1,2 +1,3 @@
 # encoding=utf-8
-__version__ = '0.10.8'
+'''Version information.'''
+__version__ = '0.10.9'

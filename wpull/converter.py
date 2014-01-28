@@ -1,4 +1,5 @@
 # encoding=utf-8
+import abc
 
 
 class BaseDocumentConverter(object, metaclass=abc.ABCMeta):

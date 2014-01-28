@@ -1,4 +1,5 @@
 # encoding=utf-8
+'''Processor.'''
 import abc
 import contextlib
 import gettext
@@ -22,45 +23,99 @@ _ = gettext.gettext
 
 
 class BaseProcessor(object, metaclass=abc.ABCMeta):
+    '''Base class for processors.
+
+    Processors contain the logic for processing requests.
+    '''
     @contextlib.contextmanager
     @abc.abstractmethod
     def session(self, url_item):
+        '''Return a new Processor Session.
+
+        Args:
+            url_item: :class:`.engine.URLItem`
+        '''
         pass
 
     @abc.abstractproperty
     def statistics(self):
+        '''Return the Statistics instance.'''
         pass
 
     def close(self):
+        '''Run any clean up actions.'''
         pass
 
 
 class BaseProcessorSession(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def should_fetch(self):
+        '''Return whether the item's URL should be fetched.
+
+        If a processor decides it does not need to fetch the URL,
+        it should call :func:`.engine.URLItem.skip`.
+        '''
         pass
 
     @abc.abstractmethod
     def new_request(self):
+        '''Return a new :class:`.http.Request`.'''
         pass
 
     @abc.abstractmethod
     def response_factory(self):
+        '''Return a callable object that should make :class:`.http.Response`.
+        '''
         pass
 
     @abc.abstractmethod
     def handle_response(self, response):
+        '''Process the response.
+
+        Args:
+            response: :class:`.http.Response`
+
+        Returns:
+            :class:`bool`: If True, the engine should not retry the item.
+        '''
         pass
 
     @abc.abstractmethod
     def handle_error(self, error):
+        '''Process the error.
+
+        Args:
+            error: An exceptin instance
+
+        Returns:
+            :class:`bool`: If True, the engine should not retry the item.
+        '''
         pass
 
     def wait_time(self):
+        '''Return the delay between requests.'''
         return 0
 
 
 class WebProcessor(BaseProcessor):
+    '''HTTP processor.
+
+    Args:
+        url_filters: URL filters
+        document_scrapers: Document scrapers
+        file_writer: File writer
+        waiter: Waiter
+        statistics: Statistics
+        request_factory: A callable object that returns a new
+            :class:`.http.Request`
+        retry_connrefused: If True, don't consider a connection refused error
+            to be a permanent error
+        retry_dns_error: If True, don't consider a DNS resolution error to be
+            permanent error
+        max_redirects: The maximum number of sequential redirects to be done
+            before considering it as a redirect loop
+        robots: If True, robots.txt handling is enabled.
+    '''
     REDIRECT_STATUS_CODES = (301, 302, 303, 307, 308)
     DOCUMENT_STATUS_CODES = (200, 206)
     NO_DOCUMENT_STATUS_CODES = (401, 403, 404, 405, 410,)
@@ -141,6 +196,11 @@ class WebProcessorSession(BaseProcessorSession):
 
     @property
     def _next_url_info(self):
+        '''Return the next URLInfo to be processed.
+
+        This returns either the original URLInfo or the next URLinfo
+        containing the redirect link.
+        '''
         return self._redirect_url_info or self._url_item.url_info
 
     def should_fetch(self):
@@ -175,6 +235,10 @@ class WebProcessorSession(BaseProcessorSession):
         return self._request
 
     def _new_request_instance(self, url, encoding, referer=None):
+        '''Return a new Request.
+
+        This function adds the referrer URL.
+        '''
         request = self._request_factory(url, url_encoding=encoding)
 
         if 'Referer' not in request.fields and referer:
@@ -225,6 +289,11 @@ class WebProcessorSession(BaseProcessorSession):
 
     @classmethod
     def _parse_url(cls, url, encoding):
+        '''Parse and return a URLInfo.
+
+        This function logs a warning if the URL cannot be parsed and returns
+        None.
+        '''
         try:
             url_info = URLInfo.parse(url, encoding=encoding)
         except ValueError as error:
@@ -234,6 +303,7 @@ class WebProcessorSession(BaseProcessorSession):
             return url_info
 
     def _handle_no_document(self, response):
+        '''Callback for when no useful document is received.'''
         self._waiter.reset()
 
         if self._file_writer_session:
@@ -244,6 +314,7 @@ class WebProcessorSession(BaseProcessorSession):
         return True
 
     def _handle_document_error(self, response):
+        '''Callback for when the document only describes an server error.'''
         self._waiter.increment()
 
         if self._file_writer_session:
@@ -269,6 +340,12 @@ class WebProcessorSession(BaseProcessorSession):
         return True
 
     def _handle_redirect(self, response):
+        '''Process a redirect.
+
+        Returns:
+            True if the redirect was finished. False if there is a redirect
+            remaining.
+        '''
         self._waiter.reset()
 
         if 'location' in response.fields and self._redirects_remaining > 0:
@@ -291,6 +368,12 @@ class WebProcessorSession(BaseProcessorSession):
         return self._waiter.get()
 
     def _filter_url(self, url_info, url_record):
+        '''Filter the URL and return the filters that were used.
+
+        Returns:
+            a tuple containing a set of filters that passed and a set of
+            filters that failed.
+        '''
         passed = set()
         failed = set()
 
@@ -308,10 +391,12 @@ class WebProcessorSession(BaseProcessorSession):
         return passed, failed
 
     def _is_url_filtered(self, url_info, url_record):
+        '''Return if any URL filter has failed.'''
         failed = self._filter_url(url_info, url_record)[1]
         return len(failed) == 0
 
     def _scrape_document(self, request, response):
+        '''Scrape the document for URLs.'''
         num_inline_urls = 0
         num_linked_urls = 0
 
@@ -327,6 +412,7 @@ class WebProcessorSession(BaseProcessorSession):
         ))
 
     def _process_scraper(self, scraper, request, response):
+        '''Run the scraper on the response.'''
         scrape_info = scraper.scrape(request, response)
 
         if not scrape_info:

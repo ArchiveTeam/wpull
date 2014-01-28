@@ -1,4 +1,5 @@
 # encoding=utf-8
+'''Networking.'''
 import logging
 import socket
 import tornado.gen
@@ -13,6 +14,7 @@ _logger = logging.getLogger(__name__)
 
 
 class Resolver(object):
+    '''Asynchronous resolver with cache and timeout.'''
     IPv4 = socket.AF_INET
     IPv6 = socket.AF_INET6
     global_cache = Cache(max_items=100, time_to_live=3600)

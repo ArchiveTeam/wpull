@@ -1,5 +1,5 @@
 # encoding=utf-8
-
+'''URL Tables.'''
 
 import abc
 import collections
@@ -7,14 +7,17 @@ import sqlite3
 
 
 class DatabaseError(Exception):
+    '''Any database error.'''
     pass
 
 
 class NotFound(DatabaseError):
+    '''Item not found in the table.'''
     pass
 
 
 class Status(object):
+    '''URL status.'''
     todo = 'todo'
     in_progress = 'in_progress'
     done = 'done'
@@ -23,6 +26,7 @@ class Status(object):
 
 
 class URLRecord(sqlite3.Row, object):
+    '''An entry in the table.'''
     def __getattribute__(self, key):
         try:
             return self[key]
@@ -37,31 +41,47 @@ class URLRecord(sqlite3.Row, object):
 
 
 class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
+    '''URL table.'''
     def __init__(self):
         super().__init__()
 
     @abc.abstractmethod
-    def add(self, urls):
+    def add(self, urls, **kwargs):
+        '''Add the URLs to the table.
+
+        Args:
+            urls: An iterable of URL strings
+            kwargs: Additional values to be saved for all the URLs
+        '''
         pass
 
     @abc.abstractmethod
     def get_and_update(self, status, new_status=None, level=None):
+        '''Find a URL, mark it in progress, and return it.'''
         pass
 
     @abc.abstractmethod
     def update(self, url, increment_try_count=False, **kwargs):
+        '''Set values for the URL.'''
         pass
 
     @abc.abstractmethod
     def count(self):
+        '''Return the number of URLs in the table.'''
         pass
 
     @abc.abstractmethod
     def release(self):
+        '''Mark any ``in_progress`` URLs to ``todo`` status.'''
         pass
 
 
 class SQLiteURLTable(BaseURLTable):
+    '''URL table with SQLite storage.
+
+    Args:
+        path: A SQLite filename
+    '''
     def __init__(self, path=':memory:'):
         super().__init__()
         self._connection = sqlite3.connect(path)
@@ -71,9 +91,14 @@ class SQLiteURLTable(BaseURLTable):
         self._connection.row_factory = URLRecord
 
     def _apply_pragmas(self):
+        '''Set SQLite pragmas.
+
+        Write-ahead logging is used.
+        '''
         self._connection.execute('PRAGMA journal_mode=WAL')
 
     def _create_tables(self):
+        '''Create the table.'''
         self._connection.execute(
             '''CREATE TABLE IF NOT EXISTS urls
             (
@@ -93,6 +118,10 @@ class SQLiteURLTable(BaseURLTable):
         )
 
     def _create_indexes(self):
+        '''Create indexes.
+
+        An index is built on the url status column.
+        '''
         self._connection.execute(
             '''CREATE INDEX IF NOT EXISTS url_status_index ON urls (status)'''
         )
@@ -179,4 +208,5 @@ class SQLiteURLTable(BaseURLTable):
 
 
 class URLTable(SQLiteURLTable):
+    '''The default URL table implementation.'''
     pass

@@ -1,4 +1,5 @@
 # encoding=utf-8
+'''URLs.'''
 import abc
 import collections
 import fnmatch
@@ -16,8 +17,8 @@ if sys.version_info < (2, 7):
     from wpull.backport import urlparse
 
 
-URLInfoType = collections.namedtuple(
-    'URLInfoTuple',
+_URLInfoType = collections.namedtuple(
+    'URLInfoType',
     [
         'scheme',
         'netloc',
@@ -35,7 +36,34 @@ URLInfoType = collections.namedtuple(
 )
 
 
-class URLInfo(URLInfoType):
+class URLInfo(_URLInfoType):
+    '''A named tuple containing the parts of the URL.
+
+    Attributes:
+        scheme: The protocol (for example, HTTP, FTP)
+        netloc: The "main" part of the URL typically indicating the location
+            of the resource with associated metadata such as username or
+            port number
+        path: The path of where the resource can be found
+        query: Additional parameters that adjust how the document is
+            return to the client
+        fragment: A location within the document
+        username: The username for login
+        password: The password for login
+        hostname: The hostname or IP address or of the server, otherwise
+            ``None``
+        port: The socket port number, otherwise, ``None``
+        raw: The raw string provided
+        url: The normalized URL string
+        encoding: The character encoding of the percent-encoded data (IRI).
+
+    This class will attempt to percent-encode any URLs deemed to be not yet
+    percent-encoded. Otherwise, it will attempt to percent-encode parts
+    of the URL that should be percent-encoded. It will also uppercase the
+    percent-encoding sequences.
+
+    This class will convert hostnames to the proper IDNA ASCII sequences.
+    '''
     DEFAULT_PORTS = {
         'http': 80,
         'https': 443,
@@ -43,6 +71,14 @@ class URLInfo(URLInfoType):
 
     @classmethod
     def parse(cls, string, default_scheme='http', encoding='utf8'):
+        '''Parse and return a new info from the given URL.
+
+        Returns:
+            :class:`URLInfo`
+
+        Raises:
+            :class:`ValueError` if the URL is seriously malformed
+        '''
         if not string:
             raise ValueError('Empty URL')
 
@@ -86,6 +122,7 @@ class URLInfo(URLInfoType):
 
     @classmethod
     def normalize(cls, url_split_result, encoding='utf8'):
+        '''Return a normalized URL string.'''
         if url_split_result.scheme not in ('http', 'https'):
             return url_split_result.geturl()
 
@@ -112,6 +149,7 @@ class URLInfo(URLInfoType):
 
     @classmethod
     def normalize_hostname(cls, hostname):
+        '''Normalize the hostname.'''
         if hostname:
             return hostname.encode('idna').decode('ascii')
         else:
@@ -119,6 +157,7 @@ class URLInfo(URLInfoType):
 
     @classmethod
     def normalize_path(cls, path, encoding='utf8'):
+        '''Normalize the path.'''
         if path is None:
             return
 
@@ -129,6 +168,7 @@ class URLInfo(URLInfoType):
 
     @classmethod
     def normalize_query(cls, query, encoding='utf8'):
+        '''Normalize the query.'''
         if not query:
             return
 
@@ -149,6 +189,7 @@ class URLInfo(URLInfoType):
             for name, value in query_list])
 
     def to_dict(self):
+        '''Return the info as a ``dict``.'''
         return {
             'scheme': self.scheme,
             'netloc': self.netloc,
@@ -166,17 +207,32 @@ class URLInfo(URLInfoType):
 
 
 class BaseURLFilter(object, metaclass=abc.ABCMeta):
+    '''Base class for URL filters.
+
+    The Processor uses filters to determine whether a URL should be downloaded.
+    '''
     @abc.abstractmethod
     def test(self, url_info, url_table_record):
+        '''Return whether the URL should be downloaded.
+
+        Args:
+            url_info: :class:`URLInfo`
+            url_table_record: :class:`.database.URLRecord`
+
+        Returns:
+            :class:`bool`
+        '''
         pass
 
 
 class HTTPFilter(BaseURLFilter):
+    '''Allow URL if the URL is HTTP or HTTPS.'''
     def test(self, url_info, url_table_record):
         return url_info.scheme in ('http', 'https')
 
 
 class BackwardDomainFilter(BaseURLFilter):
+    '''Return whether the hostname matches a list of hostname suffixes.'''
     def __init__(self, accepted=None, rejected=None):
         self._accepted = accepted
         self._rejected = rejected
@@ -202,6 +258,7 @@ class BackwardDomainFilter(BaseURLFilter):
 
 
 class HostnameFilter(BaseURLFilter):
+    '''Return whether the hostname matches exactly in a list.'''
     def __init__(self, accepted=None, rejected=None):
         self._accepted = accepted
         self._rejected = rejected
@@ -218,6 +275,7 @@ class HostnameFilter(BaseURLFilter):
 
 
 class RecursiveFilter(BaseURLFilter):
+    '''Return ``True`` if recursion is used.'''
     def __init__(self, enabled, page_requisites):
         self._enabled = enabled
         self._page_requisites = page_requisites
@@ -234,6 +292,7 @@ class RecursiveFilter(BaseURLFilter):
 
 
 class LevelFilter(BaseURLFilter):
+    '''Allow URLs up to a level of recursion.'''
     def __init__(self, max_depth):
         self._depth = max_depth
 
@@ -245,6 +304,7 @@ class LevelFilter(BaseURLFilter):
 
 
 class TriesFilter(BaseURLFilter):
+    '''Allow URLs that have been attempted up to a limit of tries.'''
     def __init__(self, max_tries):
         self._tries = max_tries
 
@@ -256,6 +316,7 @@ class TriesFilter(BaseURLFilter):
 
 
 class ParentFilter(BaseURLFilter):
+    '''Filter URLs that descend up parent paths.'''
     def test(self, url_info, url_table_record):
         if url_table_record.inline:
             return True
@@ -275,6 +336,7 @@ class ParentFilter(BaseURLFilter):
 
 
 class SpanHostsFilter(BaseURLFilter):
+    '''Filter URLs that go to other hostnames.'''
     def __init__(self, input_url_infos, enabled=False):
         self._enabled = enabled
         self._base_urls = list(
@@ -289,6 +351,7 @@ class SpanHostsFilter(BaseURLFilter):
 
 
 class RegexFilter(BaseURLFilter):
+    '''Filter URLs that match a regular expression.'''
     def __init__(self, accepted=None, rejected=None):
         self._accepted = accepted
         self._rejected = rejected
@@ -304,6 +367,7 @@ class RegexFilter(BaseURLFilter):
 
 
 class DirectoryFilter(BaseURLFilter):
+    '''Filter URLs that match a directory path part.'''
     def __init__(self, accepted=None, rejected=None):
         self._accepted = accepted
         self._rejected = rejected
@@ -329,6 +393,13 @@ class DirectoryFilter(BaseURLFilter):
 
 
 def schemes_similar(scheme1, scheme2):
+    '''Return whether URL schemes are similar.
+
+    This function considers the following schemes to be similar:
+
+    * HTTP and HTTPS
+
+    '''
     if scheme1 == scheme2:
         return True
 
@@ -339,6 +410,16 @@ def schemes_similar(scheme1, scheme2):
 
 
 def is_subdir(base_path, test_path, trailing_slash=False, wildcards=False):
+    '''Return whether the a path is a subpath of another.
+
+    Args:
+        base_path: The base path
+        test_path: The path which we are testing
+        trailing_slash: If True, the trailing slash is treated with importance.
+            For example, ``/images/`` is a directory while ``/images`` is a
+            file.
+        wildcards: If True, globbing wildcards are matched against paths
+    '''
     if trailing_slash:
         base_path = base_path.rsplit('/', 1)[0] + '/'
         test_path = test_path.rsplit('/', 1)[0] + '/'
@@ -356,6 +437,7 @@ def is_subdir(base_path, test_path, trailing_slash=False, wildcards=False):
 
 
 def quote(string, safe='/', encoding='utf-8', errors='strict'):
+    '''``urllib.parse.quote`` with Python 2 compatbility.'''
     if sys.version_info[0] == 2:
         # Backported behavior
         return urllib.parse.quote(
@@ -367,6 +449,7 @@ def quote(string, safe='/', encoding='utf-8', errors='strict'):
 
 
 def quote_plus(string, safe='', encoding='utf-8', errors='strict'):
+    '''``urllib.parse.quote_plus`` with Python 2 compatbility.'''
     if sys.version_info[0] == 2:
         # Backported behavior
         return urllib.parse.quote_plus(
@@ -378,6 +461,7 @@ def quote_plus(string, safe='', encoding='utf-8', errors='strict'):
 
 
 def unquote(string, encoding='utf-8', errors='strict'):
+    '''``urllib.parse.unquote`` with Python 2 compatbility.'''
     if sys.version_info[0] == 2:
         return urllib.parse.unquote(
             string.encode(encoding, errors)
@@ -387,6 +471,7 @@ def unquote(string, encoding='utf-8', errors='strict'):
 
 
 def unquote_plus(string, encoding='utf-8', errors='strict'):
+    '''``urllib.parse.unquote_plus`` with Python 2 compatbility.'''
     if sys.version_info[0] == 2:
         return urllib.parse.unquote_plus(
             string.encode(encoding, errors)
@@ -396,6 +481,7 @@ def unquote_plus(string, encoding='utf-8', errors='strict'):
 
 
 def quasi_quote(string, safe='/', encoding='latin-1', errors='strict'):
+    '''Normalize a quoted URL path.'''
     return quote(
         unquote(string, encoding, errors),
         safe, encoding, errors
@@ -403,6 +489,7 @@ def quasi_quote(string, safe='/', encoding='latin-1', errors='strict'):
 
 
 def quasi_quote_plus(string, safe='', encoding='latin-1', errors='strict'):
+    '''Normalize a quoted URL query string.'''
     return quote_plus(
         unquote_plus(string, encoding, errors),
         safe, encoding, errors
@@ -410,6 +497,7 @@ def quasi_quote_plus(string, safe='', encoding='latin-1', errors='strict'):
 
 
 def split_query(qs, keep_blank_values=False):
+    '''Split the query string.'''
     new_list = []
 
     for pair in qs.split('&'):
@@ -431,6 +519,7 @@ def split_query(qs, keep_blank_values=False):
 
 
 def uppercase_percent_encoding(string):
+    '''Uppercases percent-encoded sequences.'''
     return re.sub(
         r'%[a-f0-9][a-f0-9]',
         lambda match: match.group(0).upper(),
@@ -438,6 +527,7 @@ def uppercase_percent_encoding(string):
 
 
 def is_percent_encoded(url):
+    '''Return whether the URL is percent-encoded.'''
     input_chars = frozenset(url)
     printable_chars = frozenset(string.printable)
     hex_chars = frozenset(string.hexdigits)
@@ -456,6 +546,7 @@ def is_percent_encoded(url):
 
 
 def urljoin(base_url, url, allow_fragments=True):
+    '''Join URLs like ``urllib.parse.urljoin`` but allow double-slashes.'''
     if url.startswith('//'):
         scheme = urllib.parse.urlsplit(base_url).scheme
         return urllib.parse.urljoin(

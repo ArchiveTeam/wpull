@@ -1,4 +1,5 @@
 # encoding=utf-8
+'''HTTP communication recorders.'''
 import abc
 import base64
 import contextlib
@@ -22,36 +23,46 @@ _ = gettext.gettext
 
 
 class BaseRecorder(object, metaclass=abc.ABCMeta):
+    '''Base class for recorders.'''
     @abc.abstractmethod
     @contextlib.contextmanager
     def session(self):
+        '''Return a new session.'''
         pass
 
     def close(self):
+        '''Perform any clean up actions.'''
         pass
 
 
 class BaseRecorderSession(object, metaclass=abc.ABCMeta):
     def pre_request(self, request):
+        '''Callback for when a request is about to be made.'''
         pass
 
     def request(self, request):
+        '''Callback for when a request has been made.'''
         pass
 
     def request_data(self, data):
+        '''Callback for the bytes that was sent.'''
         pass
 
     def pre_response(self, response):
+        '''Callback for when the response header has been received.'''
         pass
 
     def response(self, response):
+        '''Callback for when the response has been completely received.'''
         pass
 
     def response_data(self, data):
+        '''Callback for the bytes that was received.'''
         pass
 
 
 class DemuxRecorder(BaseRecorder):
+    '''Put multiple recorders into one.'''
     def __init__(self, recorders):
         super().__init__()
         self._recorders = recorders
@@ -108,6 +119,7 @@ class DemuxRecorderSession(BaseRecorderSession):
 
 
 class WARCRecord(object):
+    '''A record in a WARC file.'''
     VERSION = 'WARC/1.0'
     WARC_TYPE = 'WARC-Type'
     CONTENT_TYPE = 'Content-Type'
@@ -125,12 +137,14 @@ class WARCRecord(object):
         self.block_file = None
 
     def set_common_fields(self, warc_type, content_type):
+        '''Set the required fields for the record.'''
         self.fields[self.WARC_TYPE] = warc_type
         self.fields[self.CONTENT_TYPE] = content_type
         self.fields[self.WARC_DATE] = wpull.util.datetime_str()
         self.fields[self.WARC_RECORD_ID] = '<{0}>'.format(uuid.uuid4().urn)
 
     def compute_checksum(self, payload_offset=None):
+        '''Compute and add the checksum data to the record fields.'''
         if not self.block_file:
             self.fields['Content-Length'] = '0'
             return
@@ -186,6 +200,20 @@ class WARCRecord(object):
 
 
 class WARCRecorder(BaseRecorder):
+    '''Record to WARC file.
+
+    For the WARC file specification, see
+    http://bibnum.bnf.fr/WARC/WARC_ISO_28500_version1_latestdraft.pdf.
+
+    Args:
+        filename: The filename (excluding the extension)
+        compress: If True, files will be compressed with gzip
+        extra_fields: A list of key-value pairs containing extra metadata
+            fields
+        temp_dir: Directory to use for temporary files
+        log: Include the program logging messages in the WARC file
+        appending: If True, the file is not overwritten upon opening
+    '''
     def __init__(self, filename, compress=True, extra_fields=None,
     temp_dir=None, log=True, appending=False):
         self._filename = filename
@@ -212,6 +240,7 @@ class WARCRecorder(BaseRecorder):
                 pass
 
     def _populate_warcinfo(self, extra_fields=None):
+        '''Add the metadata to the Warcinfo record.'''
         self._warcinfo_record.set_common_fields(
             WARCRecord.WARCINFO, WARCRecord.WARC_FIELDS)
 
@@ -231,6 +260,7 @@ class WARCRecorder(BaseRecorder):
         self._warcinfo_record.compute_checksum()
 
     def _setup_log(self):
+        '''Set up the logging file.'''
         logger = logging.getLogger()
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -252,6 +282,7 @@ class WARCRecorder(BaseRecorder):
         yield recorder_session
 
     def write_record(self, record):
+        '''Append the record to the WARC file.'''
         # FIXME: probably not a good idea to modifiy arguments passed to us
         # TODO: add extra gzip headers that wget uses
         record.fields['WARC-Warcinfo-ID'] = self._warcinfo_record.fields[
@@ -267,6 +298,7 @@ class WARCRecorder(BaseRecorder):
                 out_file.write(data)
 
     def close(self):
+        '''Close the WARC file and clean up any logging handlers.'''
         if self._log_record:
             self._log_handler.flush()
             self._log_handler.close()
@@ -371,6 +403,7 @@ class DebugPrintRecorderSession(BaseRecorderSession):
 
 
 class PrintServerResponseRecorder(BaseRecorder):
+    '''Print the server HTTP response.'''
     @contextlib.contextmanager
     def session(self):
         yield PrintServerResponseRecorderSession()
@@ -382,6 +415,7 @@ class PrintServerResponseRecorderSession(BaseRecorderSession):
 
 
 class ProgressRecorder(BaseRecorder):
+    '''Print file download progress.'''
     def __init__(self, bar_style=False, stream=sys.stderr):
         self._bar_style = bar_style
         self._stream = stream

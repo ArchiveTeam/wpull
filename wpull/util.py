@@ -1,4 +1,5 @@
 # encoding=utf-8
+'''Miscellaneous functions.'''
 import chardet
 import codecs
 import collections
@@ -20,7 +21,10 @@ except ImportError:
 
 
 class OrderedDefaultDict(OrderedDict):
-    '''http://stackoverflow.com/a/6190500/1524507'''
+    '''An ordered default dict.
+
+    http://stackoverflow.com/a/6190500/1524507
+    '''
     def __init__(self, default_factory=None, *args, **kwargs):
         if default_factory is not None and \
         not isinstance(default_factory, collections.Callable):
@@ -62,6 +66,10 @@ class OrderedDefaultDict(OrderedDict):
 
 
 class ASCIIStreamWriter(codecs.StreamWriter):
+    '''A Stream Writer that encodes everything to ASCII.
+
+    By default, the replacement character is a Python backslash sequence.
+    '''
     DEFAULT_ERROR = 'backslashreplace'
 
     def __init__(self, stream, errors=DEFAULT_ERROR):
@@ -89,6 +97,7 @@ class ASCIIStreamWriter(codecs.StreamWriter):
 
 @contextlib.contextmanager
 def reset_file_offset(file):
+    '''Reset the file offset back to original position.'''
     offset = file.tell()
     yield
     file.seek(offset)
@@ -100,6 +109,7 @@ def peek_file(file):
 
 
 def to_bytes(instance, encoding='utf-8'):
+    '''Convert an instance recursively to bytes.'''
     if isinstance(instance, bytes):
         return instance
     elif hasattr(instance, 'encode'):
@@ -116,6 +126,7 @@ def to_bytes(instance, encoding='utf-8'):
 
 
 def to_str(instance, encoding='utf-8'):
+    '''Convert an instance recursively to string.'''
     if isinstance(instance, str):
         return instance
     elif hasattr(instance, 'decode'):
@@ -133,6 +144,7 @@ def to_str(instance, encoding='utf-8'):
 
 @tornado.gen.coroutine
 def sleep(seconds):
+    '''Sleep asynchronously.'''
     assert seconds >= 0.0
     io_loop = tornado.ioloop.IOLoop.current()
     try:
@@ -142,15 +154,26 @@ def sleep(seconds):
 
 
 def datetime_str():
+    '''Return the current time in simple ISO8601 notation.'''
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
 class TimedOut(Exception):
+    '''Coroutine timed out before it could finish.'''
     pass
 
 
 @tornado.gen.coroutine
 def wait_future(future, seconds=None):
+    '''Wait for a future to complete with timeouts.
+
+    Args:
+        future: a Future
+        seconds: The time in seconds before the coroutine is timed out
+
+    Raises:
+        :class:`TimedOut` when the coroutine does not finish in time
+    '''
     if seconds is None:
         result = yield future
         raise tornado.gen.Return(result)
@@ -168,11 +191,17 @@ def wait_future(future, seconds=None):
 
 
 def python_version():
+    '''Return the Python version as a string.'''
     major, minor, patch = sys.version_info[0:3]
     return '{0}.{1}.{2}'.format(major, minor, patch)
 
 
 def filter_pem(data):
+    '''Processes the bytes for PEM certificates.
+
+    Returns:
+        ``set`` containing each certificate
+    '''
     assert isinstance(data, bytes)
     certs = set()
     new_list = []
@@ -201,11 +230,20 @@ def filter_pem(data):
 
 
 def normalize_codec_name(name):
+    '''Return the Python name of the encoder/decoder'''
     if name:
         return codecs.lookup(name).name
 
 
 def detect_encoding(data, encoding=None, fallback=('utf8', 'latin1')):
+    '''Detect the character encoding of the data.
+
+    Returns:
+        The name of the codec
+
+    Raises:
+        :class:`ValueError` if the codec could not be detected.
+    '''
     encoding = normalize_codec_name(encoding)
     info = chardet.detect(data)
     detected_encoding = normalize_codec_name(info['encoding'])
@@ -222,6 +260,7 @@ def detect_encoding(data, encoding=None, fallback=('utf8', 'latin1')):
 
 
 def try_decoding(data, encoding):
+    '''Return whether the Python codec could decode the data.'''
     try:
         data.decode(encoding, 'strict')
     except UnicodeError:

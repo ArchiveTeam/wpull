@@ -1,0 +1,1 @@
+'''Wget-compatible web downloader.'''
