@@ -42,10 +42,11 @@ class Mock(object):
             return Mock()
 
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
-MOCK_MODULES = ['lxml.html', 'chardet']
+MOCK_MODULES = ['lxml', 'lxml.html', 'chardet']
 
 
 if on_rtd:
+    print('debug: using mocks')
     for mod_name in MOCK_MODULES:
         sys.modules[mod_name] = Mock()
 
