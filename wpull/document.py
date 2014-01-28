@@ -31,7 +31,7 @@ class BaseDocumentScraper(object, metaclass=abc.ABCMeta):
 
 
 ScrapedLink = collections.namedtuple(
-    'ScrapedLink', ['tag', 'attrib', 'link', 'inline', 'linked', 'base_link'])
+    'ScrapedLinkType', ['tag', 'attrib', 'link', 'inline', 'linked', 'base_link'])
 '''Information about the scraped link.'''
 
 

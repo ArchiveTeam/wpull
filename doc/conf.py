@@ -64,7 +64,7 @@ if on_rtd:
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
     'sphinx.ext.autodoc',
-#    'sphinxcontrib.napoleon', # XXX: why you not work?
+    'sphinxcontrib.napoleon',
 #    'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
     'sphinx.ext.viewcode',

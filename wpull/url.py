@@ -17,8 +17,8 @@ if sys.version_info < (2, 7):
     from wpull.backport import urlparse
 
 
-URLInfoType = collections.namedtuple(
-    'URLInfoTuple',
+_URLInfoType = collections.namedtuple(
+    'URLInfoType',
     [
         'scheme',
         'netloc',
@@ -36,7 +36,7 @@ URLInfoType = collections.namedtuple(
 )
 
 
-class URLInfo(URLInfoType):
+class URLInfo(_URLInfoType):
     '''A named tuple containing the parts of the URL.
 
     Attributes:
