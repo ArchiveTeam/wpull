@@ -38,7 +38,8 @@ Once you install the requirements, install Wpull from PyPI using pip::
 
     pip3 install wpull
 
-For detailed installation instructions, please see `<doc/install.rst>`_.
+For detailed installation instructions, please see
+http://wpull.readthedocs.org/en/master/install.html.
 
 
 Run
@@ -70,14 +71,15 @@ To see all options::
 Documentation
 =============
 
-Documentation is located at `<doc/index.rst>`_.
+Documentation is located at http://wpull.readthedocs.org/.
 
 
 Help
 ====
 
-Need help? Please see our `Help <doc/help.rst>`_ page which contains frequently
-asked questions and support information.
+Need help? Please see our `Help
+<http://wpull.readthedocs.org/en/master/help.html>`_ page which contains 
+frequently asked questions and support information.
 
 The issue tracker is located at https://github.com/chfoo/wpull/issues.
 
