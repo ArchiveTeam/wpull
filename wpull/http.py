@@ -249,7 +249,7 @@ class Connection(object):
             self.request_data.clear()
             self.response_data.clear()
 
-    DEFAULT_BUFFER_SIZE = 1048576
+    DEFAULT_BUFFER_SIZE = 10485760
 
     def __init__(self, host, port, ssl=False, bind_address=None,
     resolver=None, connect_timeout=None, read_timeout=None,
