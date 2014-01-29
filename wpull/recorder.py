@@ -441,10 +441,12 @@ class BaseProgressRecorderSession(BaseRecorderSession):
         self._response = None
 
     def _print(self, *args):
-        print(*args, end='', file=self._stream)
+        string = ' '.join([str(arg) for arg in args])
+        print(string, end='', file=self._stream)
 
     def _println(self, *args):
-        print(*args, file=self._stream)
+        string = ' '.join([str(arg) for arg in args])
+        print(string, file=self._stream)
 
     def _flush(self):
         self._stream.flush()
