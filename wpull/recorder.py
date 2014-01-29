@@ -3,11 +3,15 @@
 import abc
 import base64
 import contextlib
+import datetime
 import gettext
 import hashlib
+import http.client
 import io
+import itertools
 import logging
 import os.path
+import re
 import sys
 from tempfile import NamedTemporaryFile
 import tempfile
@@ -16,6 +20,7 @@ import uuid
 
 import wpull.backport.gzip
 from wpull.namevalue import NameValueRecord
+from wpull.network import BandwidthMeter
 import wpull.util
 
 
@@ -422,30 +427,36 @@ class ProgressRecorder(BaseRecorder):
 
     @contextlib.contextmanager
     def session(self):
-        yield ProgressRecorderSession(self._bar_style, self._stream)
+        if self._bar_style:
+            yield BarProgressRecorderSession(stream=self._stream)
+        else:
+            yield DotProgressRecorderSession(stream=self._stream)
 
 
-class ProgressRecorderSession(BaseRecorderSession):
-    def __init__(self, bar_style, stream=sys.stderr):
-        self._content_length = None
-        self._bytes_received = 0
-        self._response = None
-        self._last_flush_time = 0
-        self._bar_style = bar_style
+class BaseProgressRecorderSession(BaseRecorderSession):
+    def __init__(self, stream=sys.stderr):
         self._stream = stream
+        self._bytes_received = 0
+        self._content_length = None
+        self._response = None
 
-    def pre_request(self, request):
-        print(
-            _('Requesting {url}... ').format(url=request.url_info.url),
-            end='',
-            file=self._stream,
-        )
+    def _print(self, *args):
+        print(*args, end='', file=self._stream)
+
+    def _println(self, *args):
+        print(*args, file=self._stream)
+
+    def _flush(self):
         self._stream.flush()
 
-    def pre_response(self, response):
-        print(
-            response.status_code, response.status_reason, file=self._stream
+    def pre_request(self, request):
+        self._print(
+            _('Requesting {url}... ').format(url=request.url_info.url),
         )
+        self._flush()
+
+    def pre_response(self, response):
+        self._println(response.status_code, response.status_reason)
 
         content_length = response.fields.get('Content-Length')
 
@@ -455,12 +466,11 @@ class ProgressRecorderSession(BaseRecorderSession):
             except ValueError:
                 self._content_length = None
 
-        print(
+        self._println(
             _('Length: {content_length} [{content_type}]').format(
                 content_length=self._content_length,
                 content_type=response.fields.get('Content-Type')
             ),
-            file=self._stream,
         )
 
         self._response = response
@@ -471,27 +481,150 @@ class ProgressRecorderSession(BaseRecorderSession):
 
         self._bytes_received += len(data)
 
-        if self._bar_style and self._content_length:
-            self._print_bar()
-        else:
-            self._print_dots()
+    def response(self, response):
+        self._println()
+        self._println(
+            _('Bytes received: {bytes_received}').format(
+                bytes_received=self._bytes_received)
+        )
 
-    def _print_bar(self):
-        # TODO: print a bar
-        pass
 
-    def _print_dots(self):
+class DotProgressRecorderSession(BaseProgressRecorderSession):
+    def __init__(self, dot_interval=2.0, **kwargs):
+        super().__init__(**kwargs)
+        self._last_flush_time = 0
+        self._dot_interval = dot_interval
+
+    def response_data(self, data):
+        super().response_data(data)
+
+        if not self._response:
+            return
+
         time_now = time.time()
 
-        if time_now - self._last_flush_time > 2.0:
-            print('.', end='', file=self._stream)
-            self._stream.flush()
-            self._last_flush_time = time.time()
+        if time_now - self._last_flush_time > self._dot_interval:
+            self._print_dots()
+            self._flush()
 
-    def response(self, response):
-        print(file=self._stream)
-        print(
-            _('Bytes received: {bytes_received}').format(
-                bytes_received=self._bytes_received),
-            file=self._stream
+            self._last_flush_time = time_now
+
+    def _print_dots(self):
+        self._print('.')
+
+
+class BarProgressRecorderSession(BaseProgressRecorderSession):
+    def __init__(self, update_interval=0.5, bar_width=25, **kwargs):
+        super().__init__(**kwargs)
+        self._last_flush_time = 0
+        self._update_interval = update_interval
+        self._bytes_continued = 0
+        self._total_size = None
+        self._bar_width = bar_width
+        self._throbber_index = 0
+        self._throbber_iter = itertools.cycle(
+            itertools.chain(
+                range(bar_width), reversed(range(1, bar_width - 1))
+        ))
+        self._bandwidth_meter = BandwidthMeter()
+        self._start_time = time.time()
+
+    def pre_response(self, response):
+        super().pre_response(response)
+
+        if response.status_code == http.client.PARTIAL_CONTENT:
+            match = re.search(
+                r'bytes +([0-9]+)-([0-9]+)/([0-9]+)',
+                 response.fields.get('Content-Range', '')
+             )
+
+            if match:
+                self._bytes_continued = int(match.group(1))
+                self._total_size = int(match.group(3))
+        else:
+            self._total_size = self._content_length
+
+    def response_data(self, data):
+        super().response_data(data)
+
+        if not self._response:
+            return
+
+        self._bandwidth_meter.feed(len(data))
+
+        time_now = time.time()
+
+        if time_now - self._last_flush_time > self._update_interval:
+            self._print_status()
+            self._stream.flush()
+
+            self._last_flush_time = time_now
+
+    def _print_status(self):
+        self._clear_line()
+
+        if self._total_size:
+            self._print_percent()
+            self._print(' ')
+            self._print_bar()
+        else:
+            self._print_throbber()
+
+        self._print(' ')
+        self._print_size_downloaded()
+        self._print(' ')
+        self._print_duration()
+        self._print(' ')
+        self._print_speed()
+        self._flush()
+
+    def _clear_line(self):
+        self._print('\x1b[1G')
+        self._print('\x1b[2K')
+
+    def _print_throbber(self):
+        self._print('[')
+
+        for position in range(self._bar_width):
+            self._print('O' if position == self._throbber_index else ' ')
+
+        self._print(']')
+
+        self._throbber_index = next(self._throbber_iter)
+
+    def _print_bar(self):
+        self._print('[')
+
+        for position in range(self._bar_width):
+            position_fraction = position / (self._bar_width - 1)
+            position_bytes = position_fraction * self._total_size
+
+            if position_bytes < self._bytes_continued:
+                self._print('+')
+            elif position_bytes <= \
+            self._bytes_continued + self._bytes_received:
+                self._print('=')
+            else:
+                self._print(' ')
+
+        self._print(']')
+
+    def _print_size_downloaded(self):
+        self._print(wpull.util.format_size(self._bytes_received))
+
+    def _print_duration(self):
+        duration = int(time.time() - self._start_time)
+        self._print(datetime.timedelta(seconds=duration))
+
+    def _print_speed(self):
+        speed = self._bandwidth_meter.speed()
+        speed_str = _('{preformatted_file_size}/s').format(
+            preformatted_file_size=wpull.util.format_size(speed)
         )
+        self._print(speed_str)
+
+    def _print_percent(self):
+        fraction_done = ((self._bytes_continued + self._bytes_received) /
+            self._total_size)
+
+        self._print('{fraction_done:.1%}'.format(fraction_done=fraction_done))

@@ -363,7 +363,13 @@ class Builder(object):
         if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARN, None):
             stream = self._new_encoded_stream(sys.stderr)
 
-            recorders.append(self._classes['ProgressRecorder'](stream=stream))
+            bar_style = args.progress == 'bar'
+
+            if not stream.isatty():
+                bar_style = False
+
+            recorders.append(self._classes['ProgressRecorder'](
+                bar_style=bar_style, stream=stream))
 
         return self._classes['DemuxRecorder'](recorders)
 

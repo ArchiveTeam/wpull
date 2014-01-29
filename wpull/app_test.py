@@ -90,6 +90,7 @@ class TestApp(GoodAppTestCase):
             '--concurrent', '2',
             '--no-check-certificate',
             '--ascii-print',
+            '--progress', 'dot',
         ])
         with cd_tempdir():
             engine = Builder(args).build()

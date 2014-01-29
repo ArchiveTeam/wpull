@@ -42,6 +42,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/no_colon_header': self.no_colon_header,
             '/malformed_content_length': self.malformed_content_length,
             '/negative_content_length': self.negative_content_length,
+            '/big': self.big,
+            '/infinite': self.infinite,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -120,7 +122,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
         for dummy in range(100):
-            self.wfile.write(b'0' * 100000)
+            self.wfile.write(b'0' * 1000000)
             time.sleep(0.001)
 
     def bad_chunk_size(self):
@@ -202,6 +204,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(b'\r\n')
         self.wfile.write(b'hi\n')
         self.close_connection = 1
+
+    def big(self):
+        self.send_response(200)
+        self.send_header('Content-length', '1000000000')
+        self.end_headers()
+
+        for dummy in range(100000):
+            self.wfile.write(b'0' * 10000)
+            time.sleep(0.01)
+
+    def infinite(self):
+        self.send_response(200)
+        self.send_header('transfer-encoding', 'chunked')
+        self.end_headers()
+
+        while True:
+            self.wfile.write(b'2710\r\n')
+            self.wfile.write(b'0' * 10000)
+            self.wfile.write(b'\r\n')
+            time.sleep(0.01)
 
 
 class ConcurrentHTTPServer(socketserver.ThreadingMixIn,
