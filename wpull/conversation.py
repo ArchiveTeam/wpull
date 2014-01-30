@@ -7,6 +7,14 @@ import tempfile
 import wpull.util
 
 
+class BaseRequest(object, metaclass=abc.ABCMeta):
+    pass
+
+
+class BaseResponse(object, metaclass=abc.ABCMeta):
+    pass
+
+
 class Body(object, metaclass=abc.ABCMeta):
     '''Represents the document of a request.
 
@@ -97,3 +105,9 @@ class Body(object, metaclass=abc.ABCMeta):
             'filename': self.content_file.name,
             'content_size': self.content_size,
         }
+
+
+class BaseClient(object, metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def fetch(self, request, *args, **kwargs):
+        pass

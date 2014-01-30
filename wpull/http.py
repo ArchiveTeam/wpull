@@ -16,12 +16,12 @@ import toro
 import traceback
 
 from wpull.actor import Event
+from wpull.conversation import BaseRequest, BaseResponse, BaseClient, Body
 from wpull.errors import (ProtocolError, NetworkError, ConnectionRefused,
     SSLVerficationError)
 from wpull.extended import SSLIOStream, IOStream
 from wpull.namevalue import NameValueRecord
 from wpull.network import Resolver
-from wpull.conversation import Body
 from wpull.url import URLInfo
 import wpull.util
 
@@ -30,7 +30,7 @@ _ = gettext.gettext
 _logger = logging.getLogger(__name__)
 
 
-class Request(object):
+class Request(BaseRequest):
     '''Represents an HTTP request.
 
     Attributes:
@@ -78,7 +78,7 @@ class Request(object):
         )
 
 
-class Response(object):
+class Response(BaseResponse):
     '''Represents the HTTP response.
 
     Attributes:
@@ -646,7 +646,7 @@ class ConnectionPool(collections.Mapping):
             subpool.close()
 
 
-class Client(object):
+class Client(BaseClient):
     '''HTTP client.'''
     def __init__(self, connection_pool=None, recorder=None):
         if connection_pool is not None:
