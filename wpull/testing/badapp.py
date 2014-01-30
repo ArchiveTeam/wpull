@@ -122,7 +122,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
         for dummy in range(100):
-            self.wfile.write(b'0' * 1000000)
+            self.wfile.write(b'0' * 10000)
             time.sleep(0.001)
 
     def bad_chunk_size(self):
