@@ -5,9 +5,13 @@ What's New
 0.XX (YYYY-MM-DD)
 =================
 
-* Refactors the internal code. Program usage itself remains unchanged. API changes:
+* No changes to program usage itself.
+* Major API changes due to refactoring:
 
   * ``http.Body`` moved to ``conversation.Body``
+  * ``conversation`` module now contains base classes for protocol elements.
+  * ``processor.WebProcessorSession`` now uses keyword arguments
+  * ``engine.Engine`` requires ``Statistics` argument.
 
 
 0.11 (2014-01-29)

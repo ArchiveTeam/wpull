@@ -386,7 +386,7 @@ class HookedEngine(Engine):
 
         _logger.debug('Hooked print stats.')
 
-        stats = self._processor.statistics
+        stats = self._statistics
 
         self._callbacks_hook.finishing_statistics(
             to_lua_type(stats.start_time),

@@ -20,6 +20,7 @@ from wpull.network import Resolver
 from wpull.processor import WebProcessor
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
     PrintServerResponseRecorder, ProgressRecorder)
+from wpull.stats import Statistics
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     RecursiveFilter, SpanHostsFilter, ParentFilter, RegexFilter, HTTPFilter,
     DirectoryFilter, HostnameFilter)
@@ -63,7 +64,9 @@ class Builder(object):
             'Waiter': LinearWaiter,
             'PathNamer': PathNamer,
             'Engine': Engine,
+            'Statistics': Statistics,
         }
+        self._instances = {}
         self._url_infos = tuple(self._build_input_urls())
         self._ca_certs_file = None
         self._file_log_handler = None
@@ -80,6 +83,8 @@ class Builder(object):
         self._setup_file_logger()
         self._install_script_hooks()
 
+        self._instances['Statistics'] = self._classes['Statistics']()
+
         url_table = self._build_url_table()
         processor = self._build_processor()
         http_client = self._build_http_client()
@@ -88,6 +93,7 @@ class Builder(object):
             url_table,
             http_client,
             processor,
+            self._instances['Statistics'],
             concurrent=self._args.concurrent,
         )
 
@@ -397,6 +403,7 @@ class Builder(object):
             retry_dns_error=args.retry_dns_error,
             max_redirects=args.max_redirect,
             robots=args.robots,
+            statistics=self._instances['Statistics']
         )
 
         return processor
