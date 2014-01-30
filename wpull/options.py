@@ -281,12 +281,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             dest='continue_download',
             help=_('resume downloading a partially-downloaded file'),
         )
-#         self.add_argument(
-#             '--progress',
-#             metavar='TYPE',
-#             choices=['dot', 'bar'],
-#             help=_('choose the type of progress bar'),
-#         )
+        group.add_argument(
+            '--progress',
+            metavar='TYPE',
+            choices=['dot', 'bar'],
+            default='bar',
+            help=_('choose the type of progress indicator'),
+        )
         clobber_group.add_argument(
             '-N',
             '--timestamping',

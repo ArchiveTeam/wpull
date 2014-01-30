@@ -249,11 +249,11 @@ class Connection(object):
             self.request_data.clear()
             self.response_data.clear()
 
-    DEFAULT_BUFFER_SIZE = 1048576
+    DEFAULT_BUFFER_SIZE = 10485760
 
     def __init__(self, host, port, ssl=False, bind_address=None,
     resolver=None, connect_timeout=None, read_timeout=None,
-    keep_alive=True, ssl_options=None):
+    keep_alive=True, ssl_options=None, buffer_size=DEFAULT_BUFFER_SIZE):
         self._host = host
         self._port = port
         self._ssl = ssl
@@ -269,6 +269,7 @@ class Connection(object):
         self._keep_alive = keep_alive
         self._active = False
         self._ssl_options = ssl_options
+        self._buffer_size = buffer_size
 
     @tornado.gen.coroutine
     def _make_socket(self):
@@ -286,7 +287,7 @@ class Connection(object):
         if self._ssl:
             self._io_stream = SSLIOStream(
                 self._socket,
-                max_buffer_size=self.DEFAULT_BUFFER_SIZE,
+                max_buffer_size=self._buffer_size,
                 connect_timeout=self._connect_timeout,
                 read_timeout=self._read_timeout,
                 ssl_options=self._ssl_options,
@@ -294,7 +295,7 @@ class Connection(object):
         else:
             self._io_stream = IOStream(
                 self._socket,
-                max_buffer_size=self.DEFAULT_BUFFER_SIZE,
+                max_buffer_size=self._buffer_size,
                 connect_timeout=self._connect_timeout,
                 read_timeout=self._read_timeout,
             )

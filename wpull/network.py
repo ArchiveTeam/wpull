@@ -1,13 +1,15 @@
 # encoding=utf-8
 '''Networking.'''
+import collections
 import logging
+import random
 import socket
+import time
 import tornado.gen
 
 from wpull.cache import Cache
 from wpull.errors import NetworkError, DNSNotFound
 import wpull.util
-import random
 
 
 _logger = logging.getLogger(__name__)
@@ -90,3 +92,57 @@ class Resolver(object):
     def _put_cache(self, host, port, family, results):
         key = (host, port, family)
         self._cache[key] = results
+
+
+class BandwidthMeter(object):
+    def __init__(self, sample_size=20, sample_min_time=0.15, stall_time=5.0):
+        self._bytes_transfered = 0
+        self._samples = collections.deque(maxlen=sample_size)
+        self._last_feed_time = time.time()
+        self._sample_min_time = sample_min_time
+        self._stall_time = stall_time
+        self._stalled = False
+        self._collected_bytes_transfered = 0
+
+    @property
+    def bytes_transfered(self):
+        return self._bytes_transfered
+
+    @property
+    def stalled(self):
+        return self._stalled
+
+    def feed(self, data_len):
+        self._bytes_transfered += data_len
+        self._collected_bytes_transfered += data_len
+
+        time_now = time.time()
+        time_diff = time_now - self._last_feed_time
+
+        if time_diff < self._sample_min_time:
+            return
+
+        self._last_feed_time = time.time()
+
+        if data_len == 0 and time_diff >= self._stall_time:
+            self._stalled = True
+            return
+
+        self._samples.append((time_diff, self._collected_bytes_transfered))
+        self._collected_bytes_transfered = 0
+
+    def speed(self):
+        if self._stalled:
+            return 0
+
+        time_sum = 0
+        data_len_sum = 0
+
+        for time_diff, data_len in self._samples:
+            time_sum += time_diff
+            data_len_sum += data_len
+
+        if time_sum:
+            return data_len_sum / time_sum
+        else:
+            return 0

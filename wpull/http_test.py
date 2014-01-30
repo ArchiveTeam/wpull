@@ -111,8 +111,11 @@ class TestConnection(BadAppTestCase):
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_buffer_overflow(self):
+        connection = Connection('localhost', self._port,
+            connect_timeout=2.0, read_timeout=5.0, buffer_size=1000)
+        request = Request.new(self.get_url('/buffer_overflow'))
         try:
-            yield self.fetch('/buffer_overflow')
+            yield connection.fetch(request)
         except ProtocolError:
             pass
         else:

@@ -267,3 +267,13 @@ def try_decoding(data, encoding):
         return False
     else:
         return True
+
+
+def format_size(num, format_str='{num:.1f} {unit}'):
+    for unit in ('B', 'KiB', 'MiB', 'GiB'):
+        if num < 1024 and num > -1024:
+            return format_str.format(num=num, unit=unit)
+
+        num /= 1024.0
+
+    return format_str.format(num, unit='TiB')

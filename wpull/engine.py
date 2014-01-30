@@ -1,5 +1,6 @@
 # encoding=utf-8
 '''Item management.'''
+import datetime
 import gettext
 import logging
 import tornado.gen
@@ -273,13 +274,25 @@ class Engine(object):
     def _print_stats(self):
         '''Log the final statistics to the user.'''
         stats = self._processor.statistics
-        time_length = stats.stop_time - stats.start_time
+        time_length = datetime.timedelta(
+            seconds=int(stats.stop_time - stats.start_time)
+        )
+        file_size = wpull.util.format_size(stats.size)
 
         _logger.info(_('FINISHED.'))
-        _logger.info(_('Time length: {time:.1f} seconds.')\
-            .format(time=time_length))
-        _logger.info(_('Downloaded: {num_files} files, {total_size} bytes.')\
-            .format(num_files=stats.files, total_size=stats.size))
+        _logger.info(
+            _('Time length: {preformatted_timedelta}.')\
+                .format(preformatted_timedelta=time_length))
+        _logger.info(
+            gettext.ngettext(
+                'Downloaded: {num_files} file, {preformatted_file_size}.',
+                'Downloaded: {num_files} files, {preformatted_file_size}.',
+                stats.files
+            ).format(
+                num_files=stats.files,
+                preformatted_file_size=file_size
+            )
+        )
         _logger.info(_('Exiting with status {0}.').format(self._exit_code))
 
     def _print_ssl_error(self):
