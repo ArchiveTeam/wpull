@@ -2,6 +2,14 @@
 What's New
 ==========
 
+0.XX (YYYY-MM-DD)
+=================
+
+* Refactors the internal code. Program usage itself remains unchanged. API changes:
+
+  * ``http.Body`` moved to ``conversation.Body``
+
+
 0.11 (2014-01-29)
 =================
 

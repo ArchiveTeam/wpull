@@ -28,6 +28,15 @@ wpull Package
     :show-inheritance:
     :private-members:
 
+:mod:`conversation` Module
+---------------------
+
+.. automodule:: wpull.conversation
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :private-members:
+
 :mod:`converter` Module
 -----------------------
 
