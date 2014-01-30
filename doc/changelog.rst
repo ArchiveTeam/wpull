@@ -6,6 +6,7 @@ What's New
 =================
 
 * No changes to program usage itself.
+* More documentation.
 * Major API changes due to refactoring:
 
   * ``http.Body`` moved to ``conversation.Body``

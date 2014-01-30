@@ -6,214 +6,237 @@ wpull Package
 
 .. automodule:: wpull.actor
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`app` Module
 -----------------
 
 .. automodule:: wpull.app
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`cache` Module
 -------------------
 
 .. automodule:: wpull.cache
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`conversation` Module
----------------------
+--------------------------
 
 .. automodule:: wpull.conversation
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`converter` Module
 -----------------------
 
 .. automodule:: wpull.converter
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`database` Module
 ----------------------
 
 .. automodule:: wpull.database
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`document` Module
 ----------------------
 
 .. automodule:: wpull.document
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`engine` Module
 --------------------
 
 .. automodule:: wpull.engine
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`errors` Module
 --------------------
 
 .. automodule:: wpull.errors
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`extended` Module
 ----------------------
 
 .. automodule:: wpull.extended
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`hook` Module
 ------------------
 
 .. automodule:: wpull.hook
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`http` Module
 ------------------
 
 .. automodule:: wpull.http
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`namevalue` Module
 -----------------------
 
 .. automodule:: wpull.namevalue
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`network` Module
 ---------------------
 
 .. automodule:: wpull.network
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`options` Module
 ---------------------
 
 .. automodule:: wpull.options
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`processor` Module
 -----------------------
 
 .. automodule:: wpull.processor
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`recorder` Module
 ----------------------
 
 .. automodule:: wpull.recorder
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`robotstxt` Module
 -----------------------
 
 .. automodule:: wpull.robotstxt
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`stats` Module
 -------------------
 
 .. automodule:: wpull.stats
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`url` Module
 -----------------
 
 .. automodule:: wpull.url
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`util` Module
 ------------------
 
 .. automodule:: wpull.util
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`version` Module
 ---------------------
 
 .. automodule:: wpull.version
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`waiter` Module
 --------------------
 
 .. automodule:: wpull.waiter
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
 
 :mod:`writer` Module
 --------------------
 
 .. automodule:: wpull.writer
     :members:
-    :undoc-members:
     :show-inheritance:
     :private-members:
+    :special-members:
 
