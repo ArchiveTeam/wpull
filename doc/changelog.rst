@@ -2,6 +2,13 @@
 What's New
 ==========
 
+0.11 (2014-01-29)
+=================
+
+* Implements ``--progress`` which includes a progress bar indicator.
+* Bumps up the HTTP connection buffer size to support fast connections.
+
+
 0.10.9 (2014-01-28)
 ===================
 
