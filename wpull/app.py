@@ -596,7 +596,7 @@ class Builder(object):
 
         Returns:
             iterable: An iterable of certificates. The certificate data
-                is :class:`byte`.
+            is :class:`byte`.
         '''
         _logger.debug('Reading PEM {0}.'.format(filename))
 

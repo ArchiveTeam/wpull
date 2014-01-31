@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.XX (2014-MM-DD)
+=================
+
+* Supports reading HTTP responses with gzip content type.
+
+
 0.12 (2014-01-31)
 =================
 
@@ -13,7 +19,7 @@ What's New
   * ``document.HTTPScraper``, ``document.CSSScraper`` moved to ``scraper`` module.
   * ``conversation`` module now contains base classes for protocol elements.
   * ``processor.WebProcessorSession`` now uses keyword arguments
-  * ``engine.Engine`` requires ``Statistics` argument.
+  * ``engine.Engine`` requires ``Statistics`` argument.
 
 
 0.11 (2014-01-29)

@@ -1,4 +1,5 @@
 # encoding=utf-8
+import os.path
 import tornado.testing
 import tornado.web
 
@@ -173,6 +174,22 @@ class TestConnection(BadAppTestCase):
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_negative_content_length(self):
         yield self.fetch('/negative_content_length')
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_gzip_encoding(self):
+        filename = os.path.join(
+            os.path.dirname(__file__), 'testing', 'samples', 'xkcd_1.html')
+
+        with open(filename, 'rb') as in_file:
+            test_data = in_file.read()
+
+        paths = ['/gzip_http_1_0', '/gzip_http_1_1', '/gzip_chunked']
+        for path in paths:
+            print('Fetching', path)
+            response = yield self.fetch(path)
+
+            self.assertEqual(len(test_data), len(response.body.content))
+            self.assertEqual(test_data, response.body.content)
 
 
 class TestClient(BadAppTestCase):

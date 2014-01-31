@@ -1,8 +1,11 @@
 # encoding=utf-8
 # 2to3 bug, python version 2.6, 2.7.3: http.server line must not be at top
 import abc
+import base64
 import http.server
+import io
 import logging
+import os.path
 import socket
 import socketserver
 import threading
@@ -10,6 +13,7 @@ import time
 import tornado.gen
 from tornado.testing import AsyncTestCase
 
+from wpull.backport.gzip import GzipFile
 from wpull.http import Connection, Request
 from wpull.recorder import DebugPrintRecorder
 
@@ -44,6 +48,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/negative_content_length': self.negative_content_length,
             '/big': self.big,
             '/infinite': self.infinite,
+            '/gzip_http_1_0': self.gzip_http_1_0,
+            '/gzip_http_1_1': self.gzip_http_1_1,
+            '/gzip_chunked': self.gzip_chunked,
+            '/gzip_corrupt': self.gzip_corrupt,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -224,6 +232,70 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(b'0' * 10000)
             self.wfile.write(b'\r\n')
             time.sleep(0.01)
+
+    def gzip_http_1_0(self):
+        self.send_response(200)
+        self.send_header('Content-encoding', 'gzip')
+        self.end_headers()
+
+        self.wfile.write(self.gzip_sample())
+
+        self.close_connection = True
+
+    def gzip_http_1_1(self):
+        data = self.gzip_sample()
+
+        self.send_response(200)
+        self.send_header('Content-encoding', 'gzip')
+        self.send_header('Content-length', str(len(data)))
+        self.end_headers()
+
+        self.wfile.write(data)
+
+    def gzip_chunked(self):
+        data_file = io.BytesIO(self.gzip_sample())
+
+        self.send_response(200)
+        self.send_header('Content-encoding', 'gzip')
+        self.send_header('Transfer-encoding', 'chunked')
+        self.end_headers()
+
+        while True:
+            data = data_file.read(100)
+
+            assert len(data) <= 100
+
+            if not data:
+                break
+
+            self.wfile.write('{0:x}'.format(len(data)).encode('ascii'))
+            self.wfile.write(b'\r\n')
+            self.wfile.write(data)
+            self.wfile.write(b'\r\n')
+
+        self.wfile.write(b'0\r\n\r\n')
+
+        self.close_connection = True
+
+    def gzip_corrupt(self):
+        data = self.gzip_sample()[:-30]
+
+        self.send_response(200)
+        self.send_header('Content-encoding', 'gzip')
+        self.send_header('Content-length', str(len(data)))
+        self.end_headers()
+
+        self.wfile.write(data)
+
+    def gzip_sample(self):
+        content_file = io.BytesIO()
+        with GzipFile(fileobj=content_file, mode='wb') as gzip_file:
+            path = os.path.join(
+                os.path.dirname(__file__), 'samples', 'xkcd_1.html')
+            with open(path, 'rb') as in_file:
+                gzip_file.write(in_file.read())
+
+        return content_file.getvalue()
 
 
 class ConcurrentHTTPServer(socketserver.ThreadingMixIn,
