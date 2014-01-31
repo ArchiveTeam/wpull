@@ -225,6 +225,7 @@ class Connection(object):
         self._active = False
         self._ssl_options = ssl_options
         self._buffer_size = buffer_size
+        self._gzip_decompressor = None
 
     @tornado.gen.coroutine
     def _make_socket(self):
@@ -401,8 +402,8 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _read_response_body(self, response):
-        gzipped = 'gzip' in response.fields.get('Content-Encoding', '')
-        # TODO: handle gzip responses
+        '''Read the response's content body.'''
+        self._setup_decompressor(response)
 
         if re.match(r'chunked($|;)',
         response.fields.get('Transfer-Encoding', '')):
@@ -413,6 +414,29 @@ class Connection(object):
             yield self._read_response_until_close(response)
 
         response.body.content_file.seek(0)
+
+    def _setup_decompressor(self, response):
+        '''Set up the content encoding decompressor.'''
+        gzipped = response.fields.get('Content-Encoding') == 'gzip'
+
+        if gzipped:
+            self._gzip_decompressor = tornado.util.GzipDecompressor()
+        else:
+            self._gzip_decompressor = None
+
+    def _decompress_data(self, data):
+        '''Decompress the given data and return the uncompressed data.'''
+        if self._gzip_decompressor:
+            return self._gzip_decompressor.decompress(data)
+        else:
+            return data
+
+    def _flush_decompressor(self):
+        '''Return any data left in the decompressor.'''
+        if self._gzip_decompressor:
+            return self._gzip_decompressor.flush()
+        else:
+            return b''
 
     @tornado.gen.coroutine
     def _read_response_by_length(self, response):
@@ -435,10 +459,12 @@ class Connection(object):
 
         def response_callback(data):
             self._events.response_data.fire(data)
-            response.body.content_file.write(data)
+            response.body.content_file.write(self._decompress_data(data))
 
         yield tornado.gen.Task(self._io_stream.read_bytes, body_size,
             streaming_callback=response_callback)
+
+        response.body.content_file.write(self._flush_decompressor())
 
     @tornado.gen.coroutine
     def _read_response_by_chunk(self, response):
@@ -498,14 +524,17 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _read_response_until_close(self, response):
+        '''Read the response until the connection closes.'''
         _logger.debug('Reading body until close.')
 
         def response_callback(data):
             self._events.response_data.fire(data)
-            response.body.content_file.write(data)
+            response.body.content_file.write(self._decompress_data(data))
 
         yield tornado.gen.Task(self._io_stream.read_until_close,
             streaming_callback=response_callback)
+
+        response.body.content_file.write(self._flush_decompressor())
 
     @property
     def active(self):
