@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (YYYY-MM-DD)
+0.12 (2014-01-31)
 =================
 
 * No changes to program usage itself.
