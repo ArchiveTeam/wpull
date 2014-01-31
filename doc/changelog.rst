@@ -13,7 +13,7 @@ What's New
   * ``document.HTTPScraper``, ``document.CSSScraper`` moved to ``scraper`` module.
   * ``conversation`` module now contains base classes for protocol elements.
   * ``processor.WebProcessorSession`` now uses keyword arguments
-  * ``engine.Engine`` requires ``Statistics` argument.
+  * ``engine.Engine`` requires ``Statistics`` argument.
 
 
 0.11 (2014-01-29)

@@ -34,13 +34,18 @@ class Request(BaseRequest):
     '''Represents an HTTP request.
 
     Attributes:
-        method: the HTTP method in the status line
-        resource_url: the "path" in the status line
-        url_info: :class:`.url.URLInfo` of the request
-        version: the HTTP version in the status line
-        fields: :class:`.namevalue.NameValueRecord`
-        body: :class:`Body`
-        address: an address tuple suitable for :func:`socket.connect`
+        method (str): The HTTP method in the status line. For example, ``GET``,
+            ``POST``.
+        resource_url (str): The "path" in the status line.
+        url_info (URLInfo): An instance of :class:`.url.URLInfo` for the
+            request.
+        version (str): The HTTP version in the status line. For example,
+            ``HTTP/1.0``.
+        fields (NameValueRecord): An instance of
+            :class:`.namevalue.NameValueRecord` representing  the fields in
+            the HTTP header.
+        body (Body): An instance of :class:`.conversation.Body`.
+        address (tuple): An address tuple suitable for :func:`socket.connect`.
     '''
     def __init__(self, method, resource_url, version='HTTP/1.1'):
         self.method = method
@@ -53,7 +58,17 @@ class Request(BaseRequest):
 
     @classmethod
     def new(cls, url, method='GET', url_encoding='utf-8'):
-        '''Create a new request from the URL string.'''
+        '''Create a new request from the URL string.
+
+        Args:
+            url (str): The URL.
+            method (str): The HTTP request method.
+            url_encoding (str): The codec name used to encode/decode the
+                percent-encoded escape sequences in the URL.
+
+        Returns:
+            Request: An instance of :class:`Request`.
+        '''
         url_info = URLInfo.parse(url, encoding=url_encoding)
         resource_path = url_info.path
 
@@ -82,11 +97,14 @@ class Response(BaseResponse):
     '''Represents the HTTP response.
 
     Attributes:
-        version: The HTTP version in the status line
-        status_code: :class:`int` the status code in the status line
-        status_reason: The status reason string in the status line
-        fields: :class:`.namevalue.NameValueRecord`
-        body: :class:`Body`
+        version (str): The HTTP version in the status line. For example,
+            ``HTTP/1.1``.
+        status_code (int): The status code in the status line.
+        status_reason (str): The status reason string in the status line.
+        fields (NameValueRecord): An instance of
+            :class:`.namevalue.NameValueRecord` containing the HTTP header
+            (and trailer, if present) fields.
+        body (Body): An instance of :class:`.conversation.Body`.
     '''
     def __init__(self, version, status_code, status_reason):
         self.version = version
@@ -100,7 +118,7 @@ class Response(BaseResponse):
         '''Parse the status line bytes.
 
         Returns:
-            :class:`tuple` representing the version, code, and reason.
+            tuple: An tuple representing the version, code, and reason.
         '''
         match = re.match(
             br'(HTTP/1\.[01])[ \t]+([0-9]{1,3})[ \t]*([^\r\n]*)',
@@ -272,10 +290,16 @@ class Connection(object):
         Args:
             request: :class:`Request`
             recorder: :class:`.recorder.BaseRecorder`
-            response_factory: a callable object that makes a :class:`Response`
+            response_factory: a callable object that makes a :class:`Response`.
+
+        If an exception occurs, this function will close the connection
+        automatically.
 
         Returns:
-            :class:`Response`
+            Response: An instance of :class:`Response`
+
+        Raises:
+            Exception: Exceptions specified in :mod:`.errors`.
         '''
         _logger.debug('Request {0}.'.format(request))
 
@@ -310,6 +334,11 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _process_request(self, request, response_factory):
+        '''Fulfill a single request.
+
+        Returns:
+            Response
+        '''
         yield self._connect()
 
         request.address = self._address
@@ -338,6 +367,7 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _send_request_header(self, request):
+        '''Send the request's HTTP status line and header fields.'''
         _logger.debug('Sending headers.')
         data = request.header()
         self._events.request_data.fire(data)
@@ -345,6 +375,7 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _send_request_body(self, request):
+        '''Send the request's content body.'''
         _logger.debug('Sending body.')
         for data in request.body or ():
             self._events.request_data.fire(data)
@@ -352,6 +383,7 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _read_response_header(self, response_factory):
+        '''Read the response's HTTP status line and header fields.'''
         _logger.debug('Reading header.')
         response_header_data = yield tornado.gen.Task(
             self._io_stream.read_until_regex, br'\r?\n\r?\n')
@@ -384,6 +416,7 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _read_response_by_length(self, response):
+        '''Read the connection specified by a length.'''
         _logger.debug('Reading body by length.')
 
         try:
@@ -409,6 +442,7 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _read_response_by_chunk(self, response):
+        '''Read the connection using chunked transfer encoding.'''
         while True:
             chunk_size = yield self._read_response_chunk(response)
 
@@ -419,6 +453,7 @@ class Connection(object):
 
     @tornado.gen.coroutine
     def _read_response_chunk(self, response):
+        '''Read a single chunk of the chunked transfer encoding.'''
         _logger.debug('Reading chunk.')
         chunk_size_hex = yield tornado.gen.Task(
             self._io_stream.read_until_regex, b'[^\n\r]+')
@@ -442,15 +477,18 @@ class Connection(object):
 
         def response_callback(data):
             self._events.response_data.fire(data)
-            response.body.content_file.write(data)
+            response.body.content_file.write(self._decompress_data(data))
 
         yield tornado.gen.Task(self._io_stream.read_bytes, chunk_size,
             streaming_callback=response_callback)
+
+        response.body.content_file.write(self._flush_decompressor())
 
         raise tornado.gen.Return(chunk_size)
 
     @tornado.gen.coroutine
     def _read_response_chunked_trailer(self, response):
+        '''Read the HTTP trailer fields.'''
         _logger.debug('Reading chunked trailer.')
         trailer_data = yield tornado.gen.Task(self._io_stream.read_until_regex,
             br'\r?\n\r?\n')
@@ -640,6 +678,7 @@ class ConnectionPool(collections.Mapping):
         return len(self._subqueues)
 
     def close(self):
+        '''Close all the Host Connection Pools.'''
         for key in self._subqueues:
             _logger.debug('Closing pool for {0}.'.format(key))
             subpool = self._subqueues[key].pool
@@ -647,7 +686,16 @@ class ConnectionPool(collections.Mapping):
 
 
 class Client(BaseClient):
-    '''HTTP client.'''
+    '''HTTP/1.1 client.
+
+    Args:
+        connection_pool (ConnectionPool): An instance of
+            :class:`ConnectionPool`.
+        recorder (Recorder): An instance of :class:`.recorder.BaseRecorder`.
+
+    This HTTP client manages connection pooling to reuse existing
+    connections if possible.
+    '''
     def __init__(self, connection_pool=None, recorder=None):
         if connection_pool is not None:
             self._connection_pool = connection_pool
@@ -658,7 +706,18 @@ class Client(BaseClient):
 
     @tornado.gen.coroutine
     def fetch(self, request, **kwargs):
-        '''Fetch a document.'''
+        '''Fetch a document.
+
+        Args:
+            request (Request): An instance of :class:`Request`.
+            kwargs: Any keyword arguments to pass to :func:`Connection.fetch`.
+
+        Returns:
+            Response: An instance of :class:`Response`.
+
+        Raises:
+            Exception: See :func:`Connection.fetch`.
+        '''
         _logger.debug('Client fetch request {0}.'.format(request))
 
         if 'recorder' not in kwargs:
@@ -682,7 +741,11 @@ class Client(BaseClient):
 
 
 def parse_charset(header_string):
-    '''Parse a "Content-Type" string for the document encoding.'''
+    '''Parse a "Content-Type" string for the document encoding.
+
+    Returns:
+        str, None
+    '''
     match = re.search(
         r'''charset[ ]?=[ ]?["']?([a-z0-9_-]+)''',
         header_string,
