@@ -7,12 +7,13 @@ import logging
 import os
 import urllib.parse
 
+from wpull.conversation import Body
 from wpull.database import Status
-from wpull.document import HTMLScraper
 from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
     DNSNotFound)
-from wpull.http import Request, Response, Body
+from wpull.http import Request, Response
 from wpull.robotstxt import RobotsTxtPool, RobotsTxtSessionMixin
+from wpull.scraper import HTMLScraper
 from wpull.stats import Statistics
 from wpull.url import URLInfo
 from wpull.waiter import LinearWaiter
@@ -32,14 +33,15 @@ class BaseProcessor(object, metaclass=abc.ABCMeta):
     def session(self, url_item):
         '''Return a new Processor Session.
 
-        Args:
-            url_item: :class:`.engine.URLItem`
-        '''
-        pass
+        The Processor Session handles the logic for processing a single
+        URL item.
 
-    @abc.abstractproperty
-    def statistics(self):
-        '''Return the Statistics instance.'''
+        Args:
+            url_item (URLItem): An instance of :class:`.engine.URLItem`.
+
+        Returns:
+            BaseProcessorSession: An instance of :class:`BaseProcessorSession`.
+        '''
         pass
 
     def close(self):
@@ -48,23 +50,35 @@ class BaseProcessor(object, metaclass=abc.ABCMeta):
 
 
 class BaseProcessorSession(object, metaclass=abc.ABCMeta):
+    '''A session for a Processor.'''
     @abc.abstractmethod
     def should_fetch(self):
         '''Return whether the item's URL should be fetched.
 
         If a processor decides it does not need to fetch the URL,
         it should call :func:`.engine.URLItem.skip`.
+
+        Returns:
+            bool
         '''
         pass
 
     @abc.abstractmethod
     def new_request(self):
-        '''Return a new :class:`.http.Request`.'''
+        '''Return a Request instance needed to process the item.
+
+        Returns:
+            BaseRequest: An instance of :class:`.conversation.BaseRequest`.
+        '''
         pass
 
     @abc.abstractmethod
     def response_factory(self):
-        '''Return a callable object that should make :class:`.http.Response`.
+        '''Return a callable object that should make a Response instance.
+
+        Returns:
+            callable: An instance that will return an instance of
+            :class:`.conversation.BaseResponse` when called.
         '''
         pass
 
@@ -73,10 +87,14 @@ class BaseProcessorSession(object, metaclass=abc.ABCMeta):
         '''Process the response.
 
         Args:
-            response: :class:`.http.Response`
+            response (BaseResponse): An instance of
+                :class:`.conversation.BaseResponse`
 
         Returns:
-            :class:`bool`: If True, the engine should not retry the item.
+            bool: If ``True``, the Processor session has successfully
+            processed the item and the Engine should not retry the item.
+            Otherwise, the Engine will attempt to make a request again for
+            this Processor Session.
         '''
         pass
 
@@ -85,15 +103,22 @@ class BaseProcessorSession(object, metaclass=abc.ABCMeta):
         '''Process the error.
 
         Args:
-            error: An exceptin instance
+            error: An exception instance.
 
         Returns:
-            :class:`bool`: If True, the engine should not retry the item.
+            bool: If ``True``, the Processor session has successfully
+            processed the item and the Engine should not retry the item.
+            Otherwise, the Engine will attempt to make a request again for
+            this Processor Session.
         '''
         pass
 
     def wait_time(self):
-        '''Return the delay between requests.'''
+        '''Return the delay between requests.
+
+        Returns:
+            float: A time in seconds.
+        '''
         return 0
 
 
@@ -101,24 +126,32 @@ class WebProcessor(BaseProcessor):
     '''HTTP processor.
 
     Args:
-        url_filters: URL filters
-        document_scrapers: Document scrapers
-        file_writer: File writer
-        waiter: Waiter
-        statistics: Statistics
+        url_filters: URL filters.
+        document_scrapers: Document scrapers.
+        file_writer: File writer.
+        waiter: Waiter.
+        statistics: Statistics.
         request_factory: A callable object that returns a new
-            :class:`.http.Request`
+            :class:`.http.Request`.
         retry_connrefused: If True, don't consider a connection refused error
-            to be a permanent error
+            to be a permanent error.
         retry_dns_error: If True, don't consider a DNS resolution error to be
-            permanent error
+            permanent error.
         max_redirects: The maximum number of sequential redirects to be done
-            before considering it as a redirect loop
+            before considering it as a redirect loop.
         robots: If True, robots.txt handling is enabled.
+
+    :seealso: :class:`WebProcessorSession`,
+        :class:`WebProcessorWithRobotsTxtSession`
     '''
     REDIRECT_STATUS_CODES = (301, 302, 303, 307, 308)
+    '''Default status codes considered as document redirects.'''
+
     DOCUMENT_STATUS_CODES = (200, 206)
+    '''Default status codes considered successfully fetching a document.'''
+
     NO_DOCUMENT_STATUS_CODES = (401, 403, 404, 405, 410,)
+    '''Default status codes considred a permanent error.'''
 
     def __init__(self, url_filters=None, document_scrapers=None,
     file_writer=None, waiter=None, statistics=None, request_factory=None,
@@ -146,45 +179,46 @@ class WebProcessor(BaseProcessor):
     @contextlib.contextmanager
     def session(self, url_item):
         session = self._session_class(
-            url_item,
-            self._url_filters,
-            self._document_scrapers,
-            self._file_writer.session(),
-            self._waiter,
-            self._statistics,
-            self._request_factory,
-            self._retry_connrefused,
-            self._retry_dns_error,
-            self._max_redirects,
+            url_item=url_item,
+            url_filters=self._url_filters,
+            document_scrapers=self._document_scrapers,
+            file_writer_session=self._file_writer.session(),
+            waiter=self._waiter,
+            statistics=self._statistics,
+            request_factory=self._request_factory,
+            retry_connrefused=self._retry_connrefused,
+            retry_dns_error=self._retry_dns_error,
+            max_redirects=self._max_redirects,
         )
         yield session
-
-    @property
-    def statistics(self):
-        return self._statistics
 
     def close(self):
         self._statistics.stop()
 
 
 class WebProcessorSession(BaseProcessorSession):
-    class State(object):
-        normal = 1
-        robotstxt = 2
+    '''Fetches an HTTP document.
 
-    def __init__(self, url_item, url_filters, document_scrapers,
-    file_writer_session, waiter, statistics, request_factory,
-    retry_connrefused, retry_dns_error, max_redirects):
-        self._url_item = url_item
-        self._url_filters = url_filters
-        self._document_scrapers = document_scrapers
-        self._file_writer_session = file_writer_session
-        self._waiter = waiter
-        self._statistics = statistics
-        self._request_factory = request_factory
+    This Processor Session will handle document redirects within the same
+    Session. HTTP errors such as 404 are considered permanent errors.
+    HTTP errors like 500 are considered transient errors and are handled in
+    subsequence sessions by marking the item as "error".
 
-        self._retry_connrefused = retry_connrefused
-        self._retry_dns_error = retry_dns_error
+    If a successful document has been downloaded, it will be scraped for
+    URLs to be added to the URL table. This Processor Session is very simple;
+    it cannot handle JavaScript or Flash plugins.
+    '''
+    def __init__(self, **kwargs):
+        self._url_item = kwargs.pop('url_item')
+        self._url_filters = kwargs.pop('url_filters')
+        self._document_scrapers = kwargs.pop('document_scrapers')
+        self._file_writer_session = kwargs.pop('file_writer_session')
+        self._waiter = kwargs.pop('waiter')
+        self._statistics = kwargs.pop('statistics')
+        self._request_factory = kwargs.pop('request_factory')
+
+        self._retry_connrefused = kwargs.pop('retry_connrefused')
+        self._retry_dns_error = kwargs.pop('retry_dns_error')
 
         self._redirect_codes = WebProcessor.REDIRECT_STATUS_CODES
         self._document_codes = WebProcessor.DOCUMENT_STATUS_CODES
@@ -192,7 +226,7 @@ class WebProcessorSession(BaseProcessorSession):
 
         self._request = None
         self._redirect_url_info = None
-        self._redirects_remaining = max_redirects
+        self._redirects_remaining = kwargs.pop('max_redirects')
 
     @property
     def _next_url_info(self):
@@ -452,4 +486,5 @@ class WebProcessorSession(BaseProcessorSession):
 
 class WebProcessorWithRobotsTxtSession(
 RobotsTxtSessionMixin, WebProcessorSession):
+    '''Checks the robots.txt before fetching a URL.'''
     pass

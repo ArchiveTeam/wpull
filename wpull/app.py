@@ -11,7 +11,6 @@ import tempfile
 import tornado.ioloop
 
 from wpull.database import URLTable
-from wpull.document import HTMLScraper, CSSScraper
 from wpull.engine import Engine
 from wpull.hook import HookEnvironment
 from wpull.http import (Client, Connection, HostConnectionPool, ConnectionPool,
@@ -20,6 +19,8 @@ from wpull.network import Resolver
 from wpull.processor import WebProcessor
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
     PrintServerResponseRecorder, ProgressRecorder)
+from wpull.scraper import HTMLScraper, CSSScraper
+from wpull.stats import Statistics
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     RecursiveFilter, SpanHostsFilter, ParentFilter, RegexFilter, HTTPFilter,
     DirectoryFilter, HostnameFilter)
@@ -63,7 +64,9 @@ class Builder(object):
             'Waiter': LinearWaiter,
             'PathNamer': PathNamer,
             'Engine': Engine,
+            'Statistics': Statistics,
         }
+        self._instances = {}
         self._url_infos = tuple(self._build_input_urls())
         self._ca_certs_file = None
         self._file_log_handler = None
@@ -73,12 +76,14 @@ class Builder(object):
         '''Put the application together.
 
         Returns:
-            :class:`.engine.Engine`
+            Engine: An instance of :class:`.engine.Engine`.
         '''
         self._setup_logging()
         self._setup_console_logger()
         self._setup_file_logger()
         self._install_script_hooks()
+
+        self._instances['Statistics'] = self._classes['Statistics']()
 
         url_table = self._build_url_table()
         processor = self._build_processor()
@@ -88,6 +93,7 @@ class Builder(object):
             url_table,
             http_client,
             processor,
+            self._instances['Statistics'],
             concurrent=self._args.concurrent,
         )
 
@@ -100,7 +106,7 @@ class Builder(object):
         '''Build and run the application.
 
         Returns:
-            :class:`int`: The exit status
+            int: The exit status.
         '''
         io_loop = tornado.ioloop.IOLoop.current()
         engine = self.build()
@@ -237,7 +243,7 @@ class Builder(object):
         '''Override the classes needed for script hooks.
 
         Args:
-            hook_environment: A :class:`hook.HookEnvironment` instance
+            hook_environment: A :class:`.hook.HookEnvironment` instance
         '''
         self._classes['Engine'] = hook_environment.engine_factory
         self._classes['WebProcessor'] = \
@@ -315,7 +321,7 @@ class Builder(object):
         '''Create the URL table.
 
         Returns:
-            :class:`.database.BaseURLTable`
+            URLTable: An instance of :class:`.database.BaseURLTable`.
         '''
         url_table = self._classes['URLTable'](path=self._args.database)
         url_table.add([url_info.url for url_info in self._url_infos])
@@ -325,7 +331,7 @@ class Builder(object):
         '''Create the Recorder.
 
         Returns:
-            :class:`.recorder.DemuxRecorder`
+            DemuxRecorder: An instance of :class:`.recorder.DemuxRecorder`.
         '''
         args = self._args
         recorders = []
@@ -377,7 +383,7 @@ class Builder(object):
         '''Create the Processor
 
         Returns:
-            :class:`.processor.BaseProcessor`
+            Processor: An instance of :class:`.processor.BaseProcessor`.
         '''
         args = self._args
         url_filters = self._build_url_filters()
@@ -397,6 +403,7 @@ class Builder(object):
             retry_dns_error=args.retry_dns_error,
             max_redirects=args.max_redirect,
             robots=args.robots,
+            statistics=self._instances['Statistics']
         )
 
         return processor
@@ -405,7 +412,7 @@ class Builder(object):
         '''Create the File Writer.
 
         Returns:
-            :class:`.writer.BaseFileWriter`
+            FileWriter: An instance of :class:`.writer.BaseFileWriter`.
         '''
         args = self._args
 
@@ -481,7 +488,7 @@ class Builder(object):
         '''Create the HTTP client.
 
         Returns:
-            :class:`.http.Client`
+            Client: An instance of :class:`.http.Client`.
         '''
         args = self._args
         dns_timeout = args.dns_timeout
@@ -533,7 +540,7 @@ class Builder(object):
         The options must be accepted by the `ssl` module.
 
         Returns:
-            :class:`dict`
+            dict
         '''
         ssl_options = {}
 
@@ -588,7 +595,8 @@ class Builder(object):
         '''Read the PEM file.
 
         Returns:
-            An iterable of certificates. The certificate data is :class:`byte`.
+            iterable: An iterable of certificates. The certificate data
+                is :class:`byte`.
         '''
         _logger.debug('Reading PEM {0}.'.format(filename))
 

@@ -17,6 +17,7 @@ Contents:
    install
    usage
    help
+   scripting
    api
    changelog
 

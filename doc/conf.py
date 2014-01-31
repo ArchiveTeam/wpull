@@ -17,7 +17,7 @@ import os
 import re
 
 
-sys.path.append(os.path.join(
+sys.path.insert(0, os.path.join(
     os.path.abspath(os.path.dirname(__file__)),
     '..'
 ))
@@ -299,3 +299,5 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'http://docs.python.org/': None}
+
+napoleon_include_special_with_doc = False

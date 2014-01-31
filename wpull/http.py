@@ -4,21 +4,19 @@ import abc
 import collections
 import errno
 import gettext
-import gzip
 import logging
-import os
 import queue
 import re
 import socket
 import ssl
 import sys
-import tempfile
 import tornado.gen
 from tornado.iostream import StreamClosedError
 import toro
 import traceback
 
 from wpull.actor import Event
+from wpull.conversation import BaseRequest, BaseResponse, BaseClient, Body
 from wpull.errors import (ProtocolError, NetworkError, ConnectionRefused,
     SSLVerficationError)
 from wpull.extended import SSLIOStream, IOStream
@@ -32,7 +30,7 @@ _ = gettext.gettext
 _logger = logging.getLogger(__name__)
 
 
-class Request(object):
+class Request(BaseRequest):
     '''Represents an HTTP request.
 
     Attributes:
@@ -80,7 +78,7 @@ class Request(object):
         )
 
 
-class Response(object):
+class Response(BaseResponse):
     '''Represents the HTTP response.
 
     Attributes:
@@ -140,67 +138,6 @@ class Response(object):
             'status_code': self.status_code,
             'status_reason': self.status_reason,
             'body': self.body.to_dict(),
-        }
-
-
-class Body(object, metaclass=abc.ABCMeta):
-    '''Represents the HTTP content.
-
-    Attributes:
-        content_file: a file
-    '''
-    def __init__(self):
-        self.content_file = self.new_temp_file()
-        self._content_data = None
-
-    def __iter__(self):
-        with wpull.util.reset_file_offset(self.content_file):
-            while True:
-                data = self.content_file.read(4096)
-                if not data:
-                    break
-                yield data
-
-    @property
-    def content(self):
-        '''Return the file bytes.'''
-        if not self._content_data:
-            with wpull.util.reset_file_offset(self.content_file):
-                self._content_data = self.content_file.read()
-
-        return self._content_data
-
-    def content_segment(self, max_length=4096):
-        '''Return only a partial part of the file.'''
-        with wpull.util.reset_file_offset(self.content_file):
-            return self.content_file.read(max_length)
-
-    @classmethod
-    def new_temp_file(cls, directory=None):
-        '''Return a new temporary file.'''
-        return tempfile.SpooledTemporaryFile(
-            max_size=4194304, prefix='wpull-', suffix='.tmp', dir=directory)
-
-    @property
-    def content_size(self):
-        '''Return the size of the file.'''
-        with wpull.util.reset_file_offset(self.content_file):
-            self.content_file.seek(0, os.SEEK_END)
-            return self.content_file.tell()
-
-    def to_dict(self):
-        '''Convert the body to a :class:`dict`.
-
-        Returns:
-            :class:`dict` containing: ``filename``, ``content_size``
-        '''
-        if not hasattr(self.content_file, 'name'):
-            # Make SpooledTemporaryFile rollover to real file
-            self.content_file.fileno()
-
-        return {
-            'filename': self.content_file.name,
-            'content_size': self.content_size,
         }
 
 
@@ -709,7 +646,7 @@ class ConnectionPool(collections.Mapping):
             subpool.close()
 
 
-class Client(object):
+class Client(BaseClient):
     '''HTTP client.'''
     def __init__(self, connection_pool=None, recorder=None):
         if connection_pool is not None:

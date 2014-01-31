@@ -1,5 +1,5 @@
 # encoding=utf-8
-'''Item management.'''
+'''Item processing and management.'''
 import datetime
 import gettext
 import logging
@@ -25,25 +25,31 @@ _ = gettext.gettext
 
 
 class Engine(object):
-    '''Asks processors what to do with items.
+    '''Manages and processes items.
+
+    Args:
+        url_table (BaseURLTable): An instance of
+            :class:`.database.BaseURLTable` which contains the URLs to process.
+        request_client (BaseClient): An instance of
+            :class:`.conversation.BaseClient` which will be fetching
+            our requests.
+        processor (BaseProcessor): An instance of
+            :class:`.processor.BaseProcessor` that will decide what to do with
+            the items.
+        statistics (Statistics): An instance of :class:`.stats.Statistics`
+            which contains information needed to compute the exit status.
+        concurrent (int): The number of items to process at once.
 
     The engine is described like the following:
 
-
-    1. Get a URL from the table.
+    1. Get an item from the table. In the context of Wpull, URLs are the
+       central part of items.
     2. Start a session on the URL.
     3. Ask the processor what the engine should do.
     4. Make a HTTP request.
     5. Return the HTTP response to the processor.
     6. Get the URLs from the processor.
     7. Either return to step 3 or step 1.
-
-
-    Args:
-        url_table: :class:`.database.BaseURLTable`
-        request_client: :class:`.http.Client`
-        processor: :class:`.processor.BaseProcessor`
-        concurrent: The number of items to process at once
     '''
     ERROR_CODE_MAP = OrderedDict([
         (ServerError, ExitStatus.server_error),
@@ -56,11 +62,14 @@ class Engine(object):
         (IOError, ExitStatus.file_io_error),
         (ValueError, ExitStatus.parser_error),
     ])
+    '''Mapping of error types to exit status.'''
 
-    def __init__(self, url_table, request_client, processor, concurrent=1):
+    def __init__(self, url_table, request_client, processor, statistics,
+    concurrent=1):
         self._url_table = url_table
         self._request_client = request_client
         self._processor = processor
+        self._statistics = statistics
         self._worker_semaphore = toro.BoundedSemaphore(concurrent)
         self._done_event = toro.Event()
         self._concurrent = concurrent
@@ -71,6 +80,16 @@ class Engine(object):
 
     @tornado.gen.coroutine
     def __call__(self):
+        '''Run the engine.
+
+        This function will clear any items marked as in-progress, start up
+        the works, and loop until a stop is requested.
+
+        Returns:
+            int: An integer describing the exit status.
+
+            :seealso: :class:`.errors.ExitStatus`
+        '''
         self._release_in_progress()
         self._run_workers()
 
@@ -101,10 +120,14 @@ class Engine(object):
             self._process_input()
 
     def _get_next_url_record(self):
-        '''Return the next available URL.
+        '''Return the next available URL from the URL table.
+
+        This function will return items marked as "todo" and then items
+        marked as "error". As a consequence, items experiencing errors will
+        be done last.
 
         Returns:
-            :class:`.database.URLRecord`
+            URLRecord: An instance of :class:`.database.URLRecord`.
         '''
         _logger.debug('Get next URL todo.')
 
@@ -128,7 +151,10 @@ class Engine(object):
 
     @tornado.gen.coroutine
     def _process_input(self):
-        '''Loop and process until there are no more items to process.'''
+        '''Loop and process until there are no more items to process.
+
+        If processing an item encounters an error :func:`stop` is called.
+        '''
         try:
             while True:
                 if not self._stopping:
@@ -164,7 +190,16 @@ class Engine(object):
 
     @tornado.gen.coroutine
     def _process_url_item(self, url_item):
-        '''Process a :class:`URLItem`.'''
+        '''Process a :class:`URLItem`.
+
+        This function requests a Session from the Processor and processes
+        the Session until the Session says its OK.
+
+        A Session may need to be reprocessed to in order to handle
+        redirects.
+
+        :seealso: :func:`_process_session`
+        '''
         _logger.debug('Begin session for {0} {1}.'.format(
             url_item.url_record, url_item.url_info))
 
@@ -187,7 +222,11 @@ class Engine(object):
 
     @tornado.gen.coroutine
     def _process_session(self, session, url_item):
-        '''Make a HTTP request for the processor.'''
+        '''Fetch a single request for the Processor.
+
+        Returns:
+            bool: ``True`` if the Session requires fetching another request.
+        '''
         _logger.debug('Session iteration for {0} {1}'.format(
             url_item.url_record, url_item.url_info))
 
@@ -228,7 +267,11 @@ class Engine(object):
             self._close_instance_body(response)
 
     def _close_instance_body(self, instance):
-        '''Close any files on instance.'''
+        '''Close any files on instance.
+
+        This function will attempt to call ``body.content_file.close`` on
+        the instance.
+        '''
         if hasattr(instance, 'body') \
         and hasattr(instance.body, 'content_file') \
         and instance.body.content_file:
@@ -238,7 +281,9 @@ class Engine(object):
         '''Stop the engine.
 
         Args:
-            force: If True, don't wait for sessions to finish
+            force (bool): If ``True``, don't wait for Sessions to finish and
+            stop the Engine immediately. If ``False``, the Engine will wait
+            for all workers to finish.
         '''
         _logger.debug('Stopping. force={0}'.format(force))
 
@@ -266,14 +311,14 @@ class Engine(object):
 
     def _compute_exit_code_from_stats(self):
         '''Set the exit code based on the statistics.'''
-        for error_type in self._processor.statistics.errors:
+        for error_type in self._statistics.errors:
             exit_code = self.ERROR_CODE_MAP.get(error_type)
             if exit_code:
                 self._update_exit_code(exit_code)
 
     def _print_stats(self):
         '''Log the final statistics to the user.'''
-        stats = self._processor.statistics
+        stats = self._statistics
         time_length = datetime.timedelta(
             seconds=int(stats.stop_time - stats.start_time)
         )
@@ -314,12 +359,12 @@ class URLItem(object):
 
     @property
     def url_info(self):
-        '''Return the :class:`url.URLInfo`.'''
+        '''Return the :class:`.url.URLInfo`.'''
         return self._url_info
 
     @property
     def url_record(self):
-        '''Return the :class:`database.URLRecord`.'''
+        '''Return the :class:`.database.URLRecord`.'''
         return self._url_record
 
     @property
@@ -338,8 +383,9 @@ class URLItem(object):
         '''Mark the item with the given status.
 
         Args:
-            status: a value from :class:`.database.Status`
-            increment_try_count: if True, increment the ``try_count`` value
+            status (Status): a value from :class:`.database.Status`
+            increment_try_count (bool): if True, increment the ``try_count``
+                value
         '''
         assert not self._try_count_incremented
 
@@ -363,8 +409,8 @@ class URLItem(object):
         '''Add inline links scraped from the document.
 
         Args:
-            url_infos: a list of :class:`.url.URLInfo`
-            encoding: the encoding of the document
+            url_infos (iterable): a list of :class:`.url.URLInfo`
+            encoding (str): the encoding of the document
         '''
         inline_urls = tuple([info.url for info in url_infos])
         _logger.debug('Adding inline URLs {0}'.format(inline_urls))
@@ -381,8 +427,8 @@ class URLItem(object):
         '''Add linked links scraped from the document.
 
         Args:
-            url_infos: a list of :class:`.url.URLInfo`
-            encoding: the encoding of the document
+            url_infos (iterable): a list of :class:`.url.URLInfo`
+            encoding (str): the encoding of the document
         '''
         linked_urls = tuple([info.url for info in url_infos])
         _logger.debug('Adding linked URLs {0}'.format(linked_urls))

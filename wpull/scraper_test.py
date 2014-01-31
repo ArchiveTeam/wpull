@@ -3,7 +3,7 @@ import os.path
 import shutil
 
 from wpull.backport.testing import unittest
-from wpull.document import HTMLScraper, CSSScraper
+from wpull.scraper import HTMLScraper, CSSScraper
 from wpull.http import Request, Response
 import wpull.util
 

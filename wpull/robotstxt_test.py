@@ -12,9 +12,18 @@ from wpull.waiter import LinearWaiter
 
 class MockWebProcessorSession(WebProcessorSession):
     def __init__(self, url_item, should_fetch=True):
-        super().__init__(url_item, None, None,
-            None, LinearWaiter(), None, Request.new,
-            False, False, 5)
+        super().__init__(
+            url_item=url_item,
+            url_filters=None,
+            document_scrapers=None,
+            file_writer_session=None,
+            waiter=LinearWaiter(),
+            statistics=None,
+            request_factory=Request.new,
+            retry_connrefused=False,
+            retry_dns_error=False,
+            max_redirects=5
+        )
         self._should_fetch = should_fetch
 
     def should_fetch(self):

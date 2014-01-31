@@ -42,9 +42,13 @@ class HookStop(Exception):
 class Actions(object):
     '''Actions for ``handle_error`` and ``handle_response``.'''
     NORMAL = 'normal'
+    '''Use Wpull's original behavior.'''
     RETRY = 'retry'
+    '''Retry this item (as if an error has occured).'''
     FINISH = 'finish'
+    '''Consider this item as done; don't do any further processing on it.'''
     STOP = 'stop'
+    '''Raises :class:`HookStop` to stop the Engine from running.'''
 
 
 class Callbacks(object):
@@ -386,7 +390,7 @@ class HookedEngine(Engine):
 
         _logger.debug('Hooked print stats.')
 
-        stats = self._processor.statistics
+        stats = self._statistics
 
         self._callbacks_hook.finishing_statistics(
             to_lua_type(stats.start_time),
@@ -397,6 +401,7 @@ class HookedEngine(Engine):
 
 
 class HookEnvironment(object):
+    '''The global instance used by scripts.'''
     def __init__(self, is_lua=False):
         self.actions = Actions()
         self.callbacks = Callbacks(is_lua)
