@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2014-MM-DD)
+0.13 (2014-01-31)
 =================
 
 * Supports reading HTTP responses with gzip content type.
