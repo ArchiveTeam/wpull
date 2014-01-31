@@ -359,12 +359,12 @@ class URLItem(object):
 
     @property
     def url_info(self):
-        '''Return the :class:`url.URLInfo`.'''
+        '''Return the :class:`.url.URLInfo`.'''
         return self._url_info
 
     @property
     def url_record(self):
-        '''Return the :class:`database.URLRecord`.'''
+        '''Return the :class:`.database.URLRecord`.'''
         return self._url_record
 
     @property

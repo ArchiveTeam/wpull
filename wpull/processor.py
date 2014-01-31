@@ -50,6 +50,7 @@ class BaseProcessor(object, metaclass=abc.ABCMeta):
 
 
 class BaseProcessorSession(object, metaclass=abc.ABCMeta):
+    '''A session for a Processor.'''
     @abc.abstractmethod
     def should_fetch(self):
         '''Return whether the item's URL should be fetched.
@@ -91,9 +92,9 @@ class BaseProcessorSession(object, metaclass=abc.ABCMeta):
 
         Returns:
             bool: If ``True``, the Processor session has successfully
-                processed the item and the Engine should not retry the item.
-                Otherwise, the Engine will attempt to make a request again for
-                this Processor Session.
+            processed the item and the Engine should not retry the item.
+            Otherwise, the Engine will attempt to make a request again for
+            this Processor Session.
         '''
         pass
 
@@ -106,9 +107,9 @@ class BaseProcessorSession(object, metaclass=abc.ABCMeta):
 
         Returns:
             bool: If ``True``, the Processor session has successfully
-                processed the item and the Engine should not retry the item.
-                Otherwise, the Engine will attempt to make a request again for
-                this Processor Session.
+            processed the item and the Engine should not retry the item.
+            Otherwise, the Engine will attempt to make a request again for
+            this Processor Session.
         '''
         pass
 
