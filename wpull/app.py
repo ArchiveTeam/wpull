@@ -11,7 +11,6 @@ import tempfile
 import tornado.ioloop
 
 from wpull.database import URLTable
-from wpull.document import HTMLScraper, CSSScraper
 from wpull.engine import Engine
 from wpull.hook import HookEnvironment
 from wpull.http import (Client, Connection, HostConnectionPool, ConnectionPool,
@@ -20,6 +19,7 @@ from wpull.network import Resolver
 from wpull.processor import WebProcessor
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
     PrintServerResponseRecorder, ProgressRecorder)
+from wpull.scraper import HTMLScraper, CSSScraper
 from wpull.stats import Statistics
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     RecursiveFilter, SpanHostsFilter, ParentFilter, RegexFilter, HTTPFilter,

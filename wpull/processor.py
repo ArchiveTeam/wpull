@@ -9,11 +9,11 @@ import urllib.parse
 
 from wpull.conversation import Body
 from wpull.database import Status
-from wpull.document import HTMLScraper
 from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
     DNSNotFound)
 from wpull.http import Request, Response
 from wpull.robotstxt import RobotsTxtPool, RobotsTxtSessionMixin
+from wpull.scraper import HTMLScraper
 from wpull.stats import Statistics
 from wpull.url import URLInfo
 from wpull.waiter import LinearWaiter

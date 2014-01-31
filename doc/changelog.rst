@@ -10,6 +10,7 @@ What's New
 * Major API changes due to refactoring:
 
   * ``http.Body`` moved to ``conversation.Body``
+  * ``document.HTTPScraper``, ``document.CSSScraper`` moved to ``scraper`` module.
   * ``conversation`` module now contains base classes for protocol elements.
   * ``processor.WebProcessorSession`` now uses keyword arguments
   * ``engine.Engine`` requires ``Statistics` argument.

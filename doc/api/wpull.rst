@@ -181,6 +181,16 @@ wpull Package
     :special-members:
     :exclude-members: __dict__,__weakref__
 
+:mod:`scraper` Module
+---------------------
+
+.. automodule:: wpull.scraper
+    :members:
+    :show-inheritance:
+    :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__
+
 :mod:`stats` Module
 -------------------
 
