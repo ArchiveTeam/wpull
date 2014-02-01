@@ -12,7 +12,7 @@ wpull_hook.callbacks.accept_url = function(url_info, record_info, verdict, reaso
   local accepted_paths = {
     ['/robots.txt'] = true,
     ['/'] = true,
-    ['/test_script'] = true,
+    ['/post/'] = true,
     ['/%95%B6%8E%9A%89%BB%82%AF/'] = true,
   }
   assert(accepted_paths[url_info['path']])
@@ -25,7 +25,7 @@ wpull_hook.callbacks.accept_url = function(url_info, record_info, verdict, reaso
 
   if url_info['path'] == '/' then
     assert(verdict)
-  elseif url_info['path'] == '/test_script' then
+  elseif url_info['path'] == '/post/' then
     assert(not verdict)
     verdict = true
   elseif url_info['path'] == '/robots.txt' then
@@ -41,7 +41,8 @@ wpull_hook.callbacks.handle_response = function(url_info, http_info)
   if url_info['path'] == '/' then
     assert(http_info['status_code'] == 200)
     assert(http_info.body['content_size'])
-  elseif url_info['path'] == '/test_script' then
+  elseif url_info['path'] == '/post/' then
+    assert(http_info['status_code'] == 200)
     injected_url_found = true
     return wpull_hook.actions.FINISH
   end
@@ -66,8 +67,9 @@ wpull_hook.callbacks.get_urls = function(filename, url_info, document_info)
     local url_table = {}
     table.insert(url_table,
       {
-        ['url'] = 'http://localhost:'..url_info['port']..'/test_script',
-        ['inline'] = true
+        ['url'] = 'http://localhost:'..url_info['port']..'/post/',
+        ['inline'] = true,
+        ['post_data'] = 'text=hello'
       })
     return url_table
   end

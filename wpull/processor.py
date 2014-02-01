@@ -16,6 +16,7 @@ from wpull.robotstxt import RobotsTxtPool, RobotsTxtSessionMixin
 from wpull.scraper import HTMLScraper
 from wpull.stats import Statistics
 from wpull.url import URLInfo
+import wpull.util
 from wpull.waiter import LinearWaiter
 
 
@@ -260,6 +261,11 @@ class WebProcessorSession(BaseProcessorSession):
             referer=url_record.referrer,
         )
 
+        if url_record.post_data:
+            if not self._redirect_tracker.is_redirect() \
+            or self._redirect_tracker.is_repeat():
+                self._add_post_data(self._request)
+
         if self._file_writer_session \
         and not self._redirect_url_info and self._request:
             self._request = self._file_writer_session.process_request(
@@ -278,6 +284,17 @@ class WebProcessorSession(BaseProcessorSession):
             request.fields['Referer'] = referer
 
         return request
+
+    def _add_post_data(self, request):
+        data = wpull.util.to_bytes(self._url_item.url_record.post_data)
+        request.method = 'POST'
+        request.fields['Content-Type'] = 'application/x-www-form-urlencoded'
+        request.fields['Content-Length'] = str(len(data))
+
+        _logger.debug('Posting with data {0}.'.format(data))
+
+        with wpull.util.reset_file_offset(request.body.content_file):
+            request.body.content_file.write(data)
 
     def response_factory(self):
         def factory(*args, **kwargs):

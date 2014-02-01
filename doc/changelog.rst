@@ -9,6 +9,8 @@ What's New
 
   * Scripts: ``url_info['inline']`` now returns a boolean, not an integer.
 
+* Scripts can now return ``post_data`` and ``link_type`` as part of ``get_urls()``.
+
 
 0.13 (2014-01-31)
 =================

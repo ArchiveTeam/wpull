@@ -138,7 +138,7 @@ class Callbacks(object):
                 * ``link_type`` (str, optional): ``html`` or ``None``.
                 * ``boolean`` (bool, optional): If True, the link is an
                   embedded HTML object.
-                * ``post_data`` (bytes, str, optional): If provided, the
+                * ``post_data`` (str, optional): If provided, the
                   request will be a POST request with a
                   ``application/x-www-form-urlencoded`` content type.
         '''

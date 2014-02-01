@@ -11,7 +11,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm.session import sessionmaker, make_transient
 import sqlalchemy.sql.expression
 from sqlalchemy.sql.schema import Column
-from sqlalchemy.sql.sqltypes import String, Integer, Boolean, Enum, Binary
+from sqlalchemy.sql.sqltypes import String, Integer, Boolean, Enum
 
 from wpull.url import URLInfo
 
@@ -65,7 +65,7 @@ class URLRecord(DBBase):
             is ``html`` for HTML documents.
         url_encoding (str): The name of the codec used to encode/decode
             the URL. See :class:`.url.URLInfo`.
-        post_data (bytes): If given, the URL should be fetched as a
+        post_data (str): If given, the URL should be fetched as a
             POST request containing `post_data`.
     '''
     __tablename__ = 'urls'
@@ -85,7 +85,7 @@ class URLRecord(DBBase):
     inline = Column(Boolean)
     link_type = Column(String)
     url_encoding = Column(String)
-    post_data = Column(Binary)
+    post_data = Column(String)
 
     @property
     def url_info(self):

@@ -31,12 +31,19 @@ class BlogHandler(tornado.web.RequestHandler):
             raise HTTPError(404)
 
 
+class PostHandler(tornado.web.RequestHandler):
+    def post(self):
+        self.get_argument('text')
+        self.write(b'OK')
+
+
 class GoodApp(tornado.web.Application):
     def __init__(self):
         tornado.web.Application.__init__(self, [
                 (r'/', IndexHandler),
                 (r'/blog/?', BlogHandler),
                 (r'/static/(.*)', tornado.web.StaticFileHandler),
+                (r'/post/', PostHandler),
             ],
             template_path=os.path.join(os.path.dirname(__file__),
                 'templates'),

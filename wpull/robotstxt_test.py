@@ -37,6 +37,7 @@ class MockURLRecord(object):
     def __init__(self):
         self.url = 'http://example.com/'
         self.referrer = None
+        self.post_data = None
 
 
 class MockURLTable(object):
