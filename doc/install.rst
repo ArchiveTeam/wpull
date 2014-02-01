@@ -14,6 +14,7 @@ Wpull requires the following:
 * `Toro <https://pypi.python.org/pypi/toro>`_
 * `lxml <https://pypi.python.org/pypi/lxml>`_
 * `chardet <https://pypi.python.org/pypi/chardet>`_
+* `SQLAlchemy <https://pypi.python.org/pypi/SQLAlchemy>`_
 * `Lunatic Python (bastibe version)
   <https://github.com/bastibe/lunatic-python>`_ (optional for Lua support)
 

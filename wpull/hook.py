@@ -225,16 +225,10 @@ class HookedWebProcessorSessionMixin(object):
         self._url_item.set_status(Status.in_progress,
             increment_try_count=False)
 
-        referrer = self._url_item.url_record.referrer
         url_info_dict = self.callbacks_hook.to_native_type(
             self._next_url_info.to_dict())
 
         record_info_dict = self._url_item.url_record.to_dict()
-
-        if referrer:
-            record_info_dict['referrer_info'] = URLInfo.parse(referrer)\
-                .to_dict()
-
         record_info_dict = self.callbacks_hook.to_native_type(
             record_info_dict)
 

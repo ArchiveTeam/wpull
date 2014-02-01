@@ -2,3 +2,4 @@ tornado>=3.1.1
 toro>=0.5
 lxml>=3.1.0
 chardet>=2.0.1
+sqlalchemy>=0.9

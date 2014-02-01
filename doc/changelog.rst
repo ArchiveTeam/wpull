@@ -2,6 +2,14 @@
 What's New
 ==========
 
+0.XX (2014-MM-DD)
+=================
+
+* Database change: SQLAlchemy is now used for the URL Table.
+
+  * Scripts: ``url_info['inline']`` now returns a boolean, not an integer.
+
+
 0.13 (2014-01-31)
 =================
 
