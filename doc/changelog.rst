@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2014-MM-DD)
+0.14 (2014-02-01)
 =================
 
 * Database change: SQLAlchemy is now used for the URL Table.
