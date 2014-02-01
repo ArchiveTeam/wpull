@@ -135,10 +135,12 @@ class Callbacks(object):
             A :class:`list` of :class:`dict`. Each ``dict`` contains:
 
                 * ``url``: a string of the URL
-                * ``link_type`` (optional): ``html`` or ``None``.
-
-            .. Note:: The added URL is considered a "linked" URL (not a
-               "inline" URL).
+                * ``link_type`` (str, optional): ``html`` or ``None``.
+                * ``boolean`` (bool, optional): If True, the link is an
+                  embedded HTML object.
+                * ``post_data`` (bytes, str, optional): If provided, the
+                  request will be a POST request with a
+                  ``application/x-www-form-urlencoded`` content type.
         '''
         return None
 
