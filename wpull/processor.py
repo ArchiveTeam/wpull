@@ -11,11 +11,12 @@ from wpull.conversation import Body
 from wpull.database import Status
 from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
     DNSNotFound)
-from wpull.http import Request, Response
+from wpull.http import Request, Response, RedirectTracker
 from wpull.robotstxt import RobotsTxtPool, RobotsTxtSessionMixin
 from wpull.scraper import HTMLScraper
 from wpull.stats import Statistics
 from wpull.url import URLInfo
+import wpull.util
 from wpull.waiter import LinearWaiter
 
 
@@ -144,19 +145,16 @@ class WebProcessor(BaseProcessor):
     :seealso: :class:`WebProcessorSession`,
         :class:`WebProcessorWithRobotsTxtSession`
     '''
-    REDIRECT_STATUS_CODES = (301, 302, 303, 307, 308)
-    '''Default status codes considered as document redirects.'''
-
     DOCUMENT_STATUS_CODES = (200, 206)
     '''Default status codes considered successfully fetching a document.'''
 
     NO_DOCUMENT_STATUS_CODES = (401, 403, 404, 405, 410,)
-    '''Default status codes considred a permanent error.'''
+    '''Default status codes considered a permanent error.'''
 
     def __init__(self, url_filters=None, document_scrapers=None,
     file_writer=None, waiter=None, statistics=None, request_factory=None,
     retry_connrefused=False, retry_dns_error=False, max_redirects=20,
-    robots=False):
+    robots=False, post_data=None):
         self._url_filters = url_filters or ()
         self._document_scrapers = document_scrapers or ()
         self._file_writer = file_writer
@@ -166,6 +164,7 @@ class WebProcessor(BaseProcessor):
         self._retry_connrefused = retry_connrefused
         self._retry_dns_error = retry_dns_error
         self._max_redirects = max_redirects
+        self._post_data = post_data
 
         if robots:
             self._robots_txt_pool = RobotsTxtPool()
@@ -189,6 +188,7 @@ class WebProcessor(BaseProcessor):
             retry_connrefused=self._retry_connrefused,
             retry_dns_error=self._retry_dns_error,
             max_redirects=self._max_redirects,
+            post_data=self._post_data,
         )
         yield session
 
@@ -220,13 +220,16 @@ class WebProcessorSession(BaseProcessorSession):
         self._retry_connrefused = kwargs.pop('retry_connrefused')
         self._retry_dns_error = kwargs.pop('retry_dns_error')
 
-        self._redirect_codes = WebProcessor.REDIRECT_STATUS_CODES
         self._document_codes = WebProcessor.DOCUMENT_STATUS_CODES
         self._no_document_codes = WebProcessor.NO_DOCUMENT_STATUS_CODES
 
         self._request = None
         self._redirect_url_info = None
-        self._redirects_remaining = kwargs.pop('max_redirects')
+        self._post_data = kwargs.pop('post_data')
+        # TODO: RedirectTracker should be depedency injected
+        self._redirect_tracker = RedirectTracker(
+            max_redirects=kwargs.pop('max_redirects')
+        )
 
     @property
     def _next_url_info(self):
@@ -261,6 +264,11 @@ class WebProcessorSession(BaseProcessorSession):
             referer=url_record.referrer,
         )
 
+        if url_record.post_data or self._post_data:
+            if not self._redirect_tracker.is_redirect() \
+            or self._redirect_tracker.is_repeat():
+                self._add_post_data(self._request)
+
         if self._file_writer_session \
         and not self._redirect_url_info and self._request:
             self._request = self._file_writer_session.process_request(
@@ -280,6 +288,21 @@ class WebProcessorSession(BaseProcessorSession):
 
         return request
 
+    def _add_post_data(self, request):
+        if self._url_item.url_record.post_data:
+            data = wpull.util.to_bytes(self._url_item.url_record.post_data)
+        else:
+            data = wpull.util.to_bytes(self._post_data)
+
+        request.method = 'POST'
+        request.fields['Content-Type'] = 'application/x-www-form-urlencoded'
+        request.fields['Content-Length'] = str(len(data))
+
+        _logger.debug('Posting with data {0}.'.format(data))
+
+        with wpull.util.reset_file_offset(request.body.content_file):
+            request.body.content_file.write(data)
+
     def response_factory(self):
         def factory(*args, **kwargs):
             # TODO: Response should be dependency injected
@@ -298,8 +321,9 @@ class WebProcessorSession(BaseProcessorSession):
         self._redirect_url_info = None
 
         self._url_item.set_value(status_code=response.status_code)
+        self._redirect_tracker.load(response)
 
-        if response.status_code in self._redirect_codes:
+        if self._redirect_tracker.is_redirect():
             return self._handle_redirect(response)
         elif response.status_code in self._document_codes:
             return self._handle_document(response)
@@ -382,14 +406,14 @@ class WebProcessorSession(BaseProcessorSession):
         '''
         self._waiter.reset()
 
-        if 'location' in response.fields and self._redirects_remaining > 0:
-            url = response.fields['location']
+        if self._redirect_tracker.next_location() \
+        and not self._redirect_tracker.exceeded():
+            url = self._redirect_tracker.next_location()
             url = urllib.parse.urljoin(self._request.url_info.url, url)
 
             _logger.debug('Got redirect to {url}.'.format(url=url))
 
             self._redirect_url_info = URLInfo.parse(url)
-            self._redirects_remaining -= 1
         else:
             _logger.warning(_('Redirection failure.'))
 

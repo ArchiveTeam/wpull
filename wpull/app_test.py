@@ -132,6 +132,18 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_args_post_data(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/post/'),
+            '--post-data', 'text=hi',
+        ])
+        with cd_tempdir():
+            engine = Builder(args).build()
+            exit_code = yield engine()
+        self.assertEqual(0, exit_code)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_sanity(self):
         arg_items = [
             ('--verbose', '--quiet'),

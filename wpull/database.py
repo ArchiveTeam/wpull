@@ -3,7 +3,21 @@
 
 import abc
 import collections
-import sqlite3
+import contextlib
+import logging
+from sqlalchemy.engine import create_engine
+import sqlalchemy.event
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm.session import sessionmaker, make_transient
+import sqlalchemy.sql.expression
+from sqlalchemy.sql.schema import Column
+from sqlalchemy.sql.sqltypes import String, Integer, Boolean, Enum
+
+from wpull.url import URLInfo
+
+
+_logger = logging.getLogger(__name__)
+DBBase = declarative_base()
 
 
 class DatabaseError(Exception):
@@ -19,25 +33,93 @@ class NotFound(DatabaseError):
 class Status(object):
     '''URL status.'''
     todo = 'todo'
+    '''The item has not yet been processed.'''
     in_progress = 'in_progress'
+    '''The item is in progress of being processed.'''
     done = 'done'
+    '''The item has been processed successfully.'''
     error = 'error'
+    '''The item encountered an error during processing.'''
     skipped = 'skipped'
+    '''The item was excluded from processing due to some rejection filters.'''
 
 
-class URLRecord(sqlite3.Row, object):
-    '''An entry in the table.'''
-    def __getattribute__(self, key):
-        try:
-            return self[key]
-        except (IndexError, KeyError):
-            return super().__getattribute__(key)
+class URLRecord(DBBase):
+    '''An entry in the URL table describing a URL to be downloaded.
 
-    def __repr__(self):
-        return 'Record{0}'.format(tuple(self))
+    Attributes:
+        url (str): The URL.
+        status (str): The status as specified from :class:`Status`.
+        try_count (int): The number of attempts on this URL.
+        level (int): The recursive depth of this URL. A level of ``0``
+            indicates the URL was initially supplied to the program (the
+            top URL).
+            Level ``1`` means the URL was linked from the top URL.
+        top_url (str): The earliest ancestor URL of this URL. The `top_url`
+            is typically the URL supplied at the start of the program.
+        status_code (int): The HTTP status code.
+        referrer (str): The parent URL that linked to this URL.
+        inline (bool): Whether this URL was an embedded object (such as an
+            image or a stylesheet) of the parent URL.
+        link_type (str): Describes the document type. The only value used
+            is ``html`` for HTML documents.
+        url_encoding (str): The name of the codec used to encode/decode
+            the URL. See :class:`.url.URLInfo`.
+        post_data (str): If given, the URL should be fetched as a
+            POST request containing `post_data`.
+    '''
+    __tablename__ = 'urls'
+    url = Column(String, primary_key=True)
+    status = Column(
+        Enum(
+            Status.done, Status.error, Status.in_progress,
+            Status.skipped, Status.todo,
+        ),
+        index=True,
+    )
+    try_count = Column(Integer, nullable=False, default=0)
+    level = Column(Integer, nullable=False, default=0)
+    top_url = Column(String)
+    status_code = Column(Integer)
+    referrer = Column(String)
+    inline = Column(Boolean)
+    link_type = Column(String)
+    url_encoding = Column(String)
+    post_data = Column(String)
+
+    @property
+    def url_info(self):
+        '''Return an :class:`.url.URLInfo` for the ``url``.'''
+        return URLInfo.parse(self.url, encoding=self.url_encoding or 'utf8')
+
+    @property
+    def referrer_info(self):
+        '''Return an :class:`.url.URLInfo` for the ``referrer``.'''
+        return URLInfo.parse(
+            self.referrer, encoding=self.url_encoding or 'utf8')
 
     def to_dict(self):
-        return dict([(key, self[key]) for key in self.keys()])
+        '''Return the values as a ``dict``.
+
+        In addition to the attributes, it also includes the ``url_info`` and
+        ``referrer_info`` properties converted to ``dict`` as well.
+        '''
+        return {
+            'url': self.url,
+            'status': self.status,
+            'url_info': self.url_info.to_dict(),
+            'try_count': self.try_count,
+            'level': self.level,
+            'top_url': self.top_url,
+            'status_code': self.status_code,
+            'referrer': self.referrer,
+            'referrer_info':
+                self.referrer_info.to_dict() if self.referrer else None,
+            'inline': self.inline,
+            'link_type': self.link_type,
+            'url_encoding': self.url_encoding,
+            'post_data': self.post_data,
+        }
 
 
 class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
@@ -84,129 +166,108 @@ class SQLiteURLTable(BaseURLTable):
     '''
     def __init__(self, path=':memory:'):
         super().__init__()
-        self._connection = sqlite3.connect(path)
-        self._apply_pragmas()
-        self._create_tables()
-        self._create_indexes()
-        self._connection.row_factory = URLRecord
+        self._engine = create_engine('sqlite:///{0}'.format(path))
+        sqlalchemy.event.listen(
+            self._engine, 'connect', self._apply_pragmas_callback)
+        DBBase.metadata.create_all(self._engine)
+        self._session_maker = sessionmaker(bind=self._engine)
 
-    def _apply_pragmas(self):
+    @classmethod
+    def _apply_pragmas_callback(cls, connection, record):
         '''Set SQLite pragmas.
 
         Write-ahead logging is used.
         '''
-        self._connection.execute('PRAGMA journal_mode=WAL')
+        _logger.debug('Setting pragmas.')
+        connection.execute('PRAGMA journal_mode=WAL')
 
-    def _create_tables(self):
-        '''Create the table.'''
-        self._connection.execute(
-            '''CREATE TABLE IF NOT EXISTS urls
-            (
-                url TEXT PRIMARY KEY,
-                status TEXT NOT NULL,
-                try_count INTEGER NOT NULL DEFAULT 0,
-                level INTEGER NOT NULL DEFAULT 0,
-                top_url TEXT,
-                status_code INTEGER,
-                referrer TEXT,
-                inline INTEGER,
-                link_type TEXT,
-                url_encoding TEXT,
-                request BLOB
-            )
-            '''
-        )
-
-    def _create_indexes(self):
-        '''Create indexes.
-
-        An index is built on the url status column.
-        '''
-        self._connection.execute(
-            '''CREATE INDEX IF NOT EXISTS url_status_index ON urls (status)'''
-        )
+    @contextlib.contextmanager
+    def _session(self):
+        """Provide a transactional scope around a series of operations."""
+        # Taken from the session docs.
+        session = self._session_maker()
+        try:
+            yield session
+            session.commit()
+        except:
+            session.rollback()
+            raise
+        finally:
+            session.close()
 
     def __getitem__(self, url):
-        query = '''SELECT * FROM urls WHERE url = ?'''
-        cursor = self._connection.execute(query, (url,))
-        result = cursor.fetchone()
+        with self._session() as session:
+            result = session.query(URLRecord).get(url)
 
-        if not result:
-            raise IndexError()
-        else:
-            return result
+            if not result:
+                raise IndexError()
+            else:
+                make_transient(result)
+                return result
 
     def __iter__(self):
-        query = '''SELECT * FROM urls'''
-        return self._connection.execute(query)
+        with self._session() as session:
+            return session.query(URLRecord.url)
 
     def __len__(self):
-        query = '''SELECT count(rowid) FROM urls'''
-        cursor = self._connection.execute(query)
-        return cursor.fetchone()[0]
+        return self.count()
 
     def add(self, urls, **kwargs):
         assert not isinstance(urls, (str, bytes))
 
-        query = '''INSERT OR IGNORE INTO urls (url, status)
-            VALUES (?, ?)'''
+        with self._session() as session:
+            inserter = sqlalchemy.sql.expression.insert(URLRecord)\
+                .prefix_with('OR IGNORE')
 
-        with self._connection:
             for url in urls:
-                assert isinstance(url, str)
-                self._connection.execute(query, (url, Status.todo))
-            # XXX: If inserts and updates are mixed together, then rows are
-            # mysteriously lost.
-            for url in urls:
-                for key, value in kwargs.items():
-                    query = '''UPDATE urls
-                        SET {0} = ? WHERE url = ?'''.format(key)
-                    self._connection.execute(query, (value, url))
+                session.execute(
+                    inserter,
+                    dict(url=url, status=Status.todo, **kwargs)
+                )
 
     def get_and_update(self, status, new_status=None, level=None):
-        with self._connection:
+        with self._session() as session:
             if level is None:
-                query = '''SELECT * FROM urls WHERE status = ? LIMIT 1'''
-                row = self._connection.execute(query, (status,)).fetchone()
+                url_record = session.query(URLRecord).filter_by(
+                    status=status).first()
             else:
-                query = '''SELECT * FROM urls WHERE status = ? AND level < ?
-                    LIMIT 1'''
-                row = self._connection.execute(query, (status, level)
-                    ).fetchone()
+                url_record = session.query(URLRecord)\
+                    .filter(
+                        URLRecord.status == status,
+                        URLRecord.level < level,
+                    ).first()
 
-            if not row:
+            if not url_record:
                 raise NotFound()
 
             if new_status:
-                update_query = '''UPDATE urls SET status = ? WHERE url = ?'''
-                self._connection.execute(update_query, (new_status, row.url))
+                url_record.status = new_status
 
-                row = self[row.url]
-
-            return row
+            make_transient(url_record)
+            return url_record
 
     def update(self, url, increment_try_count=False, **kwargs):
         assert isinstance(url, str)
 
-        with self._connection:
+        with self._session() as session:
+            url_record = session.query(URLRecord).get(url)
+
             if increment_try_count:
-                query = '''UPDATE urls SET try_count = try_count + 1
-                    WHERE url = ?'''
-                self._connection.execute(query, (url,))
+                url_record.try_count += 1
 
             for key, value in kwargs.items():
-                query = '''UPDATE urls SET {0} = ? WHERE url = ?'''.format(key)
-                self._connection.execute(query, (value, url))
+                setattr(url_record, key, value)
 
     def count(self):
-        query = '''SELECT count(rowid) FROM urls'''
-        return self._connection.execute(query).fetchone()[0]
+        with self._session() as session:
+            return session.query(URLRecord).count()
 
     def release(self):
-        query = '''UPDATE urls SET status = ? WHERE status = ? '''
-        self._connection.execute(query, (Status.todo, Status.in_progress))
+        with self._session() as session:
+            session.query(URLRecord)\
+                .filter_by(status=Status.in_progress)\
+                .update({'status': Status.todo})
 
 
-class URLTable(SQLiteURLTable):
-    '''The default URL table implementation.'''
-    pass
+URLTable = SQLiteURLTable
+'''The default URL table implementation.'''

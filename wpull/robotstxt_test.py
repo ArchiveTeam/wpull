@@ -22,7 +22,8 @@ class MockWebProcessorSession(WebProcessorSession):
             request_factory=Request.new,
             retry_connrefused=False,
             retry_dns_error=False,
-            max_redirects=5
+            max_redirects=5,
+            post_data=None,
         )
         self._should_fetch = should_fetch
 
@@ -37,6 +38,7 @@ class MockURLRecord(object):
     def __init__(self):
         self.url = 'http://example.com/'
         self.referrer = None
+        self.post_data = None
 
 
 class MockURLTable(object):

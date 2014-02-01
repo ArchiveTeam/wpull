@@ -388,8 +388,8 @@ class Builder(object):
         args = self._args
         url_filters = self._build_url_filters()
         document_scrapers = self._build_document_scrapers()
-
         file_writer = self._build_file_writer()
+        post_data = self._get_post_data()
 
         waiter = self._classes['Waiter'](
             wait=args.wait,
@@ -403,7 +403,8 @@ class Builder(object):
             retry_dns_error=args.retry_dns_error,
             max_redirects=args.max_redirect,
             robots=args.robots,
-            statistics=self._instances['Statistics']
+            statistics=self._instances['Statistics'],
+            post_data=post_data,
         )
 
         return processor
@@ -452,6 +453,13 @@ class Builder(object):
             headers_included=args.save_headers,
             local_timestamping=args.use_server_timestamps
         )
+
+    def _get_post_data(self):
+        '''Return the post data.'''
+        if self._args.post_data:
+            return self._args.post_data
+        elif self._args.post_file:
+            return self._args.post_file.read()
 
     def _build_request_factory(self):
         '''Create the request factory.

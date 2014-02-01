@@ -5,6 +5,7 @@ import logging
 from wpull.thirdparty import robotexclusionrulesparser
 
 from wpull.url import URLInfo
+from wpull.http import RedirectTracker
 
 
 _logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ class RobotsTxtSessionMixin(object):
         self._robots_txt_pool = kwargs.pop('robots_txt_pool', RobotsTxtPool())
 
         self._robots_attempts_remaining = 20
-        self._robots_redirects_remaining = 5
+        self._robots_redirect_tracker = RedirectTracker(max_redirects=5)
         self._robots_redirect_url = None
         self._robots_state = self.RobotsState.not_checked
         self._robots_request = None
@@ -120,12 +121,13 @@ class RobotsTxtSessionMixin(object):
 
     def _handle_robots_response(self, response):
         _logger.debug('Handling robots.txt response.')
+        self._robots_redirect_tracker.load(response)
 
         if self._robots_attempts_remaining == 0:
             _logger.warning(_('Too many failed attempts to get robots.txt.'))
             self._waiter.reset()
             self._robots_state = self.RobotsState.error
-        elif self._robots_redirects_remaining == 0:
+        elif self._robots_redirect_tracker.exceeded():
             _logger.warning(_('Ignoring robots.txt redirect loop.'))
             self._waiter.reset()
             self._robots_state = self.RobotsState.error
@@ -133,11 +135,11 @@ class RobotsTxtSessionMixin(object):
             _logger.debug('Temporary error getting robots.txt.')
             self._robots_attempts_remaining -= 1
             self._waiter.increment()
-        elif response.status_code in self._redirect_codes:
+        elif self._robots_redirect_tracker.is_redirect():
             _logger.debug('Got a redirect for robots.txt.')
             self._accept_empty(self._robots_request.url_info)
-            self._robots_redirects_remaining -= 1
-            self._robots_redirect_url = response.fields.get('location')
+            self._robots_redirect_url = \
+                self._robots_redirect_tracker.next_location()
         else:
             self._robots_state = self.RobotsState.fetched
 

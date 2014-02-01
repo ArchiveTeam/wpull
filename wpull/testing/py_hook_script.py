@@ -15,7 +15,7 @@ def resolve_dns(host):
 def accept_url(url_info, record_info, verdict, reasons):
     print('accept_url', url_info)
     assert url_info['url']
-    assert url_info['path'] in ('/robots.txt', '/', '/test_script',
+    assert url_info['path'] in ('/robots.txt', '/', '/post/',
         '/%95%B6%8E%9A%89%BB%82%AF/')
     assert record_info['url']
     assert reasons['filters']['HTTPFilter']
@@ -25,7 +25,7 @@ def accept_url(url_info, record_info, verdict, reasons):
 
     if url_info['path'] == '/':
         assert verdict
-    elif url_info['path'] == '/test_script':
+    elif url_info['path'] == '/post/':
         assert not verdict
         verdict = True
     elif url_info['path'] == '/robots.txt':
@@ -40,7 +40,8 @@ def handle_response(url_info, http_info):
     if url_info['path'] == '/':
         assert http_info['body']['content_size']
         assert http_info['status_code'] == 200
-    elif url_info['path'] == '/test_script':
+    elif url_info['path'] == '/post/':
+        assert http_info['status_code'] == 200
         global injected_url_found
         injected_url_found = True
         return wpull_hook.actions.FINISH
@@ -61,8 +62,13 @@ def get_urls(filename, url_info, document_info):
     assert url_info['url']
 
     if url_info['path'] == '/':
-        return [{'url':
-            'http://localhost:' + str(url_info['port']) + '/test_script'}]
+        return [
+        {
+            'url':
+                'http://localhost:' + str(url_info['port']) + '/post/',
+            'inline': True,
+            'post_data': 'text=hello',
+        }]
 
     return None
 

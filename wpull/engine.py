@@ -405,30 +405,33 @@ class URLItem(object):
         '''Set values for the URL in table.'''
         self._url_table.update(self._url, **kwargs)
 
-    def add_inline_url_infos(self, url_infos, encoding=None):
+    def add_inline_url_infos(self, url_infos, encoding=None, link_type=None,
+    post_data=None):
         '''Add inline links scraped from the document.
 
         Args:
-            url_infos (iterable): a list of :class:`.url.URLInfo`
-            encoding (str): the encoding of the document
+            url_infos (iterable): A list of :class:`.url.URLInfo`
+            encoding (str): The encoding of the document.
         '''
         inline_urls = tuple([info.url for info in url_infos])
         _logger.debug('Adding inline URLs {0}'.format(inline_urls))
         self._url_table.add(
             inline_urls,
-            inline=1,
+            inline=True,
             level=self._url_record.level + 1,
             referrer=self._url_record.url,
             top_url=self._url_record.top_url or self._url_record.url,
             url_encoding=encoding,
+            post_data=post_data,
         )
 
-    def add_linked_url_infos(self, url_infos, link_type=None, encoding=None):
+    def add_linked_url_infos(self, url_infos, encoding=None, link_type=None,
+    post_data=None):
         '''Add linked links scraped from the document.
 
         Args:
-            url_infos (iterable): a list of :class:`.url.URLInfo`
-            encoding (str): the encoding of the document
+            url_infos (iterable): A list of :class:`.url.URLInfo`
+            encoding (str): The encoding of the document.
         '''
         linked_urls = tuple([info.url for info in url_infos])
         _logger.debug('Adding linked URLs {0}'.format(linked_urls))
@@ -439,6 +442,7 @@ class URLItem(object):
             top_url=self._url_record.top_url or self._url_record.url,
             link_type=link_type,
             url_encoding=encoding,
+            post_data=post_data,
         )
 
     def add_url_item(self, url_info, request):
