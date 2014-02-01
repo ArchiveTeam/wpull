@@ -61,8 +61,12 @@ def get_urls(filename, url_info, document_info):
     assert url_info['url']
 
     if url_info['path'] == '/':
-        return [{'url':
-            'http://localhost:' + str(url_info['port']) + '/test_script'}]
+        return [
+        {
+            'url':
+                'http://localhost:' + str(url_info['port']) + '/test_script',
+            'inline': True
+        }]
 
     return None
 

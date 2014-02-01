@@ -53,9 +53,6 @@ class Actions(object):
 
 class Callbacks(object):
     '''Callback hooking instance.'''
-    def __init__(self, is_lua=False):
-        self.is_lua = is_lua
-
     @staticmethod
     def resolve_dns(host):
         '''Resolve the hostname to an IP address.
@@ -171,15 +168,11 @@ class Callbacks(object):
         '''
         return exit_code
 
-    def to_native_type(self, instance):
-        if self.is_lua:
-            return to_lua_type(instance)
-        return instance
-
 
 class HookedResolver(Resolver):
     def __init__(self, *args, **kwargs):
-        self._callbacks_hook = kwargs.pop('callbacks_hook')
+        self._hook_env = kwargs.pop('hook_env')
+        self._callbacks_hook = self._hook_env.callbacks
         super().__init__(*args, **kwargs)
 
     @tornado.gen.coroutine
@@ -197,7 +190,8 @@ class HookedResolver(Resolver):
 
 class HookedWebProcessor(WebProcessor):
     def __init__(self, *args, **kwargs):
-        self._callbacks_hook = kwargs.pop('callbacks_hook')
+        self._hook_env = kwargs.pop('hook_env')
+        self._callbacks_hook = self._hook_env.callbacks
 
         super().__init__(*args, **kwargs)
 
@@ -209,14 +203,20 @@ class HookedWebProcessor(WebProcessor):
     @contextlib.contextmanager
     def session(self, url_item):
         with super().session(url_item) as session:
+            session.hook_env = self._hook_env
             session.callbacks_hook = self._callbacks_hook
             yield session
 
 
 class HookedWebProcessorSessionMixin(object):
+    '''Hooked Web Processor Session Mixin.'''
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.hook_env = NotImplemented
         self.callbacks_hook = NotImplemented
+
+    def _to_script_native_type(self, instance):
+        return self.hook_env.to_script_native_type(instance)
 
     def should_fetch(self):
         verdict = super().should_fetch()
@@ -225,17 +225,16 @@ class HookedWebProcessorSessionMixin(object):
         self._url_item.set_status(Status.in_progress,
             increment_try_count=False)
 
-        url_info_dict = self.callbacks_hook.to_native_type(
+        url_info_dict = self._to_script_native_type(
             self._next_url_info.to_dict())
 
         record_info_dict = self._url_item.url_record.to_dict()
-        record_info_dict = self.callbacks_hook.to_native_type(
-            record_info_dict)
+        record_info_dict = self._to_script_native_type(record_info_dict)
 
         reasons = {
             'filters': self._get_filter_info(),
         }
-        reasons = self.callbacks_hook.to_native_type(reasons)
+        reasons = self._to_script_native_type(reasons)
 
         verdict = self.callbacks_hook.accept_url(
             url_info_dict, record_info_dict, verdict, reasons)
@@ -264,10 +263,9 @@ class HookedWebProcessorSessionMixin(object):
         return filter_info_dict
 
     def handle_response(self, response):
-        url_info_dict = self.callbacks_hook.to_native_type(
+        url_info_dict = self._to_script_native_type(
             self._next_url_info.to_dict())
-        response_info_dict = self.callbacks_hook.to_native_type(
-            response.to_dict())
+        response_info_dict = self._to_script_native_type(response.to_dict())
         action = self.callbacks_hook.handle_response(
             url_info_dict, response_info_dict)
 
@@ -286,9 +284,9 @@ class HookedWebProcessorSessionMixin(object):
             raise NotImplementedError()
 
     def handle_error(self, error):
-        url_info_dict = self.callbacks_hook.to_native_type(
+        url_info_dict = self._to_script_native_type(
             self._next_url_info.to_dict())
-        error_info_dict = self.callbacks_hook.to_native_type({
+        error_info_dict = self._to_script_native_type({
             'error': error.__class__.__name__,
         })
         action = self.callbacks_hook.handle_error(
@@ -311,69 +309,101 @@ class HookedWebProcessorSessionMixin(object):
     def _scrape_document(self, request, response):
         super()._scrape_document(request, response)
 
-        to_native_type = self.callbacks_hook.to_native_type
-        filename = to_native_type(response.body.content_file.name)
-        url_info_dict = to_native_type(self._next_url_info.to_dict())
-        document_info_dict = to_native_type(response.body.to_dict())
+        to_native = self._to_script_native_type
+        filename = to_native(response.body.content_file.name)
+        url_info_dict = to_native(self._next_url_info.to_dict())
+        document_info_dict = to_native(response.body.to_dict())
 
-        new_urls = self.callbacks_hook.get_urls(
+        new_url_dicts = self.callbacks_hook.get_urls(
             filename, url_info_dict, document_info_dict)
 
-        _logger.debug('Hooked scrape returned {0}'.format(new_urls))
+        _logger.debug('Hooked scrape returned {0}'.format(new_url_dicts))
 
-        if not new_urls:
+        if not new_url_dicts:
             return
 
-        if to_native_type(1) in new_urls:
+        if to_native(1) in new_url_dicts:
             # Lua doesn't have sequences
             for i in itertools.count(1):
-                new_url_info = new_urls[to_native_type(i)]
+                new_url_dict = new_url_dicts[to_native(i)]
 
-                _logger.debug('Got lua new url info {0}'.format(new_url_info))
+                _logger.debug('Got lua new url info {0}'.format(new_url_dict))
 
-                if new_url_info is None:
+                if new_url_dict is None:
                     break
 
-                new_url = new_url_info[to_native_type('url')]
-                assert new_url
-
-                link_type = new_url_info[to_native_type('link_type')]
-
-                self._add_hooked_linked_url(new_url, link_type=link_type)
+                self._add_hooked_url(new_url_dict)
         else:
-            for new_url_dict in new_urls:
-                url = new_url_dict['url']
-                link_type = new_url_dict.get('link_type')
+            for new_url_dict in new_url_dicts:
+                self._add_hooked_url(new_url_dict)
 
-                self._add_hooked_linked_url(url, link_type=link_type)
+    def _add_hooked_url(self, new_url_dict):
+        to_native = self._to_script_native_type
+        url = new_url_dict[to_native('url')]
+        link_type = self._get_from_native_dict(new_url_dict, 'link_type')
+        inline = self._get_from_native_dict(new_url_dict, 'inline')
+        post_data = self._get_from_native_dict(new_url_dict, 'post_data')
 
-    def _add_hooked_linked_url(self, url, link_type=None):
+        assert url
+
         url_info = self._parse_url(url, 'utf-8')
 
-        if url_info:
+        if not url_info:
+            return
+
+        if inline:
+            self._url_item.add_inline_url_infos(
+                [url_info], link_type=link_type, post_data=post_data
+            )
+        else:
             self._url_item.add_linked_url_infos(
-                [url_info], link_type=link_type)
+                [url_info], link_type=link_type, post_data=post_data
+            )
+
+    def _get_from_native_dict(self, instance, key, default=None):
+        try:
+            instance.attribute_should_not_exist
+        except AttributeError:
+            return instance.get(key, default)
+        else:
+            # Check if key exists in Lua table
+            value_1 = instance[self._to_script_native_type(key)]
+
+            if value_1 is not None:
+                return value_1
+
+            value_2 = getattr(instance, self._to_script_native_type(key))
+
+            if value_1 is None and value_2 is None:
+                return default
+            else:
+                return value_1
 
 
 class HookedWebProcessorSession(HookedWebProcessorSessionMixin,
 WebProcessorSession):
+    '''Hooked Web Processor Session.'''
     pass
 
 
 class HookedWebProcessorWithRobotsTxtSession(
 HookedWebProcessorSessionMixin, WebProcessorSession):
+    '''Hoooked Web Processor with Robots Txt Session.'''
     pass
 
 
 class HookedEngine(Engine):
+    '''Hooked Engine.'''
     def __init__(self, *args, **kwargs):
-        self._callbacks_hook = kwargs.pop('callbacks_hook')
+        self._hook_env = kwargs.pop('hook_env')
+        self._callbacks_hook = self._hook_env.callbacks
         super().__init__(*args, **kwargs)
 
     def _compute_exit_code_from_stats(self):
         super()._compute_exit_code_from_stats()
         exit_code = self._callbacks_hook.exit_status(
-            self._callbacks_hook.to_native_type(self._exit_code))
+            self._hook_env.to_script_native_type(self._exit_code)
+        )
 
         _logger.debug('Hooked exit returned {0}.'.format(exit_code))
 
@@ -397,27 +427,44 @@ class HookedEngine(Engine):
 class HookEnvironment(object):
     '''The global instance used by scripts.'''
     def __init__(self, is_lua=False):
+        self.is_lua = is_lua
         self.actions = Actions()
-        self.callbacks = Callbacks(is_lua)
+        self.callbacks = Callbacks()
+
+    def to_script_native_type(self, instance):
+        '''Convert the instance recursively to native script types.
+
+        If the script is Lua, call :func:`to_lua_type`. Otherwise,
+        returns instance unchanged.
+
+        Returns:
+            instance
+        '''
+        if self.is_lua:
+            return to_lua_type(instance)
+        return instance
 
     def resolver_factory(self, *args, **kwargs):
+        '''Return a :class:`HookedResolver`.'''
         return HookedResolver(
             *args,
-             callbacks_hook=self.callbacks,
+             hook_env=self,
             **kwargs
         )
 
     def web_processor_factory(self, *args, **kwargs):
+        '''Return a :class:`HookedWebProcessor`.'''
         return HookedWebProcessor(
             *args,
-            callbacks_hook=self.callbacks,
+            hook_env=self,
             **kwargs
         )
 
     def engine_factory(self, *args, **kwargs):
+        '''Return a :class:`HookedEngine`.'''
         return HookedEngine(
             *args,
-            callbacks_hook=self.callbacks,
+            hook_env=self,
             **kwargs
         )
 

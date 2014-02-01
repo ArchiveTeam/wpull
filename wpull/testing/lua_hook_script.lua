@@ -64,7 +64,11 @@ wpull_hook.callbacks.get_urls = function(filename, url_info, document_info)
 
   if url_info['path'] == '/' then
     local url_table = {}
-    table.insert(url_table, {['url'] = 'http://localhost:'..url_info['port']..'/test_script'})
+    table.insert(url_table,
+      {
+        ['url'] = 'http://localhost:'..url_info['port']..'/test_script',
+        ['inline'] = true
+      })
     return url_table
   end
 
