@@ -53,7 +53,7 @@ class Request(BaseRequest):
         self.url_info = None
         self.version = version
         self.fields = NameValueRecord()
-        self.body = None
+        self.body = Body()
         self.address = None
 
     @classmethod
@@ -105,6 +105,8 @@ class Response(BaseResponse):
             :class:`.namevalue.NameValueRecord` containing the HTTP header
             (and trailer, if present) fields.
         body (Body): An instance of :class:`.conversation.Body`.
+        url_info (URLInfo): An instance of :class:`.url.URLInfo` for the
+            of the corresponding request.
     '''
     def __init__(self, version, status_code, status_reason):
         self.version = version
@@ -112,6 +114,7 @@ class Response(BaseResponse):
         self.status_reason = status_reason
         self.fields = NameValueRecord()
         self.body = Body()
+        self.url_info = None
 
     @classmethod
     def parse_status_line(cls, string):
@@ -156,6 +159,7 @@ class Response(BaseResponse):
             'status_code': self.status_code,
             'status_reason': self.status_reason,
             'body': self.body.to_dict(),
+            'url_info': self.url_info.to_dict() if self.url_info else None
         }
 
 
@@ -317,6 +321,7 @@ class Connection(object):
             else:
                 response = yield self._process_request(request,
                     response_factory)
+                response.url_info = request.url_info
         except:
             _logger.debug('Fetch exception.')
             self.close()
