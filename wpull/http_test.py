@@ -6,7 +6,7 @@ import tornado.web
 from wpull.backport.testing import unittest
 from wpull.errors import ConnectionRefused, SSLVerficationError
 from wpull.http import (Request, Connection, NetworkError, ProtocolError, Client,
-    ConnectionPool, parse_charset, Response)
+    ConnectionPool, parse_charset, Response, RedirectTracker)
 from wpull.testing.badapp import BadAppTestCase
 
 
@@ -342,6 +342,51 @@ class TestHTTP(unittest.TestCase):
         self.assertEqual('HTTP/1.0', version)
         self.assertEqual(404, code)
         self.assertEqual(b'N\x99t \x0eounz'.decode('latin-1'), msg)
+
+    def test_redirect_tracker(self):
+        tracker = RedirectTracker(5)
+
+        self.assertFalse(tracker.is_redirect())
+        self.assertFalse(tracker.is_repeat())
+        self.assertFalse(tracker.exceeded())
+        self.assertFalse(tracker.next_location())
+        self.assertEqual(0, tracker.count())
+
+        response = Response('HTTP/1.1', 200, '')
+
+        tracker.load(response)
+
+        self.assertFalse(tracker.is_redirect())
+        self.assertFalse(tracker.is_repeat())
+        self.assertFalse(tracker.exceeded())
+        self.assertFalse(tracker.next_location())
+        self.assertEqual(0, tracker.count())
+
+        response = Response('HTTP/1.1', 303, '')
+        response.fields['location'] = '/test'
+
+        tracker.load(response)
+
+        self.assertTrue(tracker.is_redirect())
+        self.assertFalse(tracker.is_repeat())
+        self.assertFalse(tracker.exceeded())
+        self.assertEqual('/test', tracker.next_location())
+        self.assertEqual(1, tracker.count())
+
+        response = Response('HTTP/1.1', 307, '')
+        response.fields['location'] = '/test'
+
+        tracker.load(response)
+        tracker.load(response)
+        tracker.load(response)
+        tracker.load(response)
+        tracker.load(response)
+
+        self.assertTrue(tracker.is_redirect())
+        self.assertTrue(tracker.is_repeat())
+        self.assertTrue(tracker.exceeded())
+        self.assertEqual('/test', tracker.next_location())
+        self.assertEqual(6, tracker.count())
 
 
 class TestSSL(tornado.testing.AsyncHTTPSTestCase):
