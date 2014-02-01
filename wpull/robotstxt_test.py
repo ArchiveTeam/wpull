@@ -22,7 +22,8 @@ class MockWebProcessorSession(WebProcessorSession):
             request_factory=Request.new,
             retry_connrefused=False,
             retry_dns_error=False,
-            max_redirects=5
+            max_redirects=5,
+            post_data=None,
         )
         self._should_fetch = should_fetch
 

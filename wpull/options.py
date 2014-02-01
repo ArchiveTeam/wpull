@@ -589,14 +589,18 @@ class AppArgumentParser(argparse.ArgumentParser):
 #         self.add_argument(
 #             '--keep-session-cookies'
 #         )
-#         self.add_argument(
-#             '--post-data',
-#             metavar='STRING'
-#         )
-#         self.add_argument(
-#             '--post-file',
-#             metavar='FILE'
-#         )
+        post_group = group.add_mutually_exclusive_group()
+        post_group.add_argument(
+            '--post-data',
+            metavar='STRING',
+            help=_('use POST for all requests with query STRING'),
+        )
+        post_group.add_argument(
+            '--post-file',
+            metavar='FILE',
+            type=argparse.FileType('r'),
+            help=_('use POST for all requests with query in FILE')
+        )
 #         self.add_argument(
 #             '--method',
 #             metavar='HTTPMethod',

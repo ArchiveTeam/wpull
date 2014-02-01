@@ -154,7 +154,7 @@ class WebProcessor(BaseProcessor):
     def __init__(self, url_filters=None, document_scrapers=None,
     file_writer=None, waiter=None, statistics=None, request_factory=None,
     retry_connrefused=False, retry_dns_error=False, max_redirects=20,
-    robots=False):
+    robots=False, post_data=None):
         self._url_filters = url_filters or ()
         self._document_scrapers = document_scrapers or ()
         self._file_writer = file_writer
@@ -164,6 +164,7 @@ class WebProcessor(BaseProcessor):
         self._retry_connrefused = retry_connrefused
         self._retry_dns_error = retry_dns_error
         self._max_redirects = max_redirects
+        self._post_data = post_data
 
         if robots:
             self._robots_txt_pool = RobotsTxtPool()
@@ -187,6 +188,7 @@ class WebProcessor(BaseProcessor):
             retry_connrefused=self._retry_connrefused,
             retry_dns_error=self._retry_dns_error,
             max_redirects=self._max_redirects,
+            post_data=self._post_data,
         )
         yield session
 
@@ -223,6 +225,7 @@ class WebProcessorSession(BaseProcessorSession):
 
         self._request = None
         self._redirect_url_info = None
+        self._post_data = kwargs.pop('post_data')
         # TODO: RedirectTracker should be depedency injected
         self._redirect_tracker = RedirectTracker(
             max_redirects=kwargs.pop('max_redirects')
@@ -261,7 +264,7 @@ class WebProcessorSession(BaseProcessorSession):
             referer=url_record.referrer,
         )
 
-        if url_record.post_data:
+        if url_record.post_data or self._post_data:
             if not self._redirect_tracker.is_redirect() \
             or self._redirect_tracker.is_repeat():
                 self._add_post_data(self._request)
@@ -286,7 +289,11 @@ class WebProcessorSession(BaseProcessorSession):
         return request
 
     def _add_post_data(self, request):
-        data = wpull.util.to_bytes(self._url_item.url_record.post_data)
+        if self._url_item.url_record.post_data:
+            data = wpull.util.to_bytes(self._url_item.url_record.post_data)
+        else:
+            data = wpull.util.to_bytes(self._post_data)
+
         request.method = 'POST'
         request.fields['Content-Type'] = 'application/x-www-form-urlencoded'
         request.fields['Content-Length'] = str(len(data))
