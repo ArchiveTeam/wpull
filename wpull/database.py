@@ -157,6 +157,11 @@ class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
         '''Mark any ``in_progress`` URLs to ``todo`` status.'''
         pass
 
+    @abc.abstractmethod
+    def remove(self, urls):
+        '''Remove the URLs from the database.'''
+        pass
+
 
 class SQLiteURLTable(BaseURLTable):
     '''URL table with SQLite storage.
@@ -267,6 +272,13 @@ class SQLiteURLTable(BaseURLTable):
             session.query(URLRecord)\
                 .filter_by(status=Status.in_progress)\
                 .update({'status': Status.todo})
+
+    def remove(self, urls):
+        assert not isinstance(urls, (str, bytes))
+
+        with self._session() as session:
+            for url in urls:
+                session.query(URLRecord).filter_by(url=url).delete()
 
 
 URLTable = SQLiteURLTable
