@@ -23,10 +23,13 @@ class TestDatabase(unittest.TestCase):
         self.assertIn(urls[2], url_table)
         self.assertEqual(3, len(url_table))
 
-        url_record = url_table[urls[0]]
+        for i in range(3):
+            url_record = url_table[urls[i]]
 
-        self.assertEqual(Status.todo, url_record.status)
-        self.assertEqual(0, url_record.try_count)
+            self.assertEqual(urls[i], url_record.url)
+            self.assertEqual(Status.todo, url_record.status)
+            self.assertEqual(0, url_record.try_count)
+            self.assertEqual('http://example.com', url_record.referrer)
 
         url_record = url_table.get_and_update(
             Status.todo,
