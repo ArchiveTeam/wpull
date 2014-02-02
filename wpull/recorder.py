@@ -277,6 +277,9 @@ class WARCRecorder(BaseRecorder):
         self._log_handler = handler = logging.FileHandler(
             self._log_record.block_file.name, encoding='utf-8')
 
+        logger.setLevel(logging.DEBUG)
+        logger.debug('Wpull needs the root logger level set to DEBUG.')
+
         handler.setFormatter(formatter)
         logger.addHandler(handler)
         handler.setLevel(logging.INFO)
