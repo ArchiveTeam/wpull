@@ -4,7 +4,7 @@ import collections
 import gettext
 import io
 
-from wpull.util import to_str, OrderedDefaultDict
+from wpull.util import OrderedDefaultDict
 
 
 _ = gettext.gettext
@@ -17,10 +17,11 @@ class NameValueRecord(collections.MutableMapping):
 
     :seealso: http://tools.ietf.org/search/draft-kunze-anvl-02
     '''
-    def __init__(self):
+    def __init__(self, normalize_overrides=None):
         self._map = OrderedDefaultDict(list)
         self.raw = None
         self.encoding = 'utf-8'
+        self._normalize_overrides = normalize_overrides
 
     def parse(self, string, encoding_fallback='latin1', strict=True):
         '''Parse the string or bytes.
@@ -65,19 +66,20 @@ class NameValueRecord(collections.MutableMapping):
                 self.add(name, value)
 
     def __getitem__(self, name):
-        normalized_name = normalize_name(name)
+        normalized_name = normalize_name(name, self._normalize_overrides)
 
         if normalized_name in self._map:
-            if self._map[normalize_name(name)]:
-                return self._map[normalize_name(name)][0]
+            if self._map[normalized_name]:
+                return self._map[normalized_name][0]
 
         raise KeyError(name)
 
     def __setitem__(self, name, value):
-        self._map[normalize_name(name)][:] = (value,)
+        normalized_name = normalize_name(name, self._normalize_overrides)
+        self._map[normalized_name][:] = (value,)
 
     def __delitem__(self, name):
-        del self._map[normalize_name(name)]
+        del self._map[normalize_name(name, self._normalize_overrides)]
 
     def __iter__(self):
         return iter(self._map)
@@ -87,11 +89,13 @@ class NameValueRecord(collections.MutableMapping):
 
     def add(self, name, value):
         '''Append the name-value pair to the record.'''
-        self._map[normalize_name(name)].append(value)
+        normalized_name = normalize_name(name, self._normalize_overrides)
+        self._map[normalized_name].append(value)
 
     def get_list(self, name):
         '''Return all the values for given name.'''
-        return self._map[normalize_name(name)]
+        normalized_name = normalize_name(name, self._normalize_overrides)
+        return self._map[normalized_name]
 
     def get_all(self):
         '''Return an iterator of name-value pairs.'''
@@ -114,9 +118,30 @@ class NameValueRecord(collections.MutableMapping):
         return str(self).encode(self.encoding)
 
 
-def normalize_name(name):
-    '''Normalize the key name to title case.'''
-    return name.title()
+def normalize_name(name, overrides=None):
+    '''Normalize the key name to title case.
+
+    For example, ``normalize_name('content-id')`` will become ``Content-Id``
+
+    Args:
+        name (str): The name to normalize.
+        overrides (set, sequence): A set or sequence containing keys that
+            should be cased to themselves. For example, passing
+            ``set('WARC-Type')`` will normalize any key named "warc-type" to
+            ``WARC-Type`` instead of the default ``Warc-Type``.
+
+    Returns:
+        str
+    '''
+
+    normalized_name = name.title()
+
+    if overrides:
+        override_map = dict([(name.title(), name) for name in overrides])
+
+        return override_map.get(normalized_name, normalized_name)
+    else:
+        return normalized_name
 
 
 def guess_line_ending(string):

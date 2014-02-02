@@ -1,6 +1,7 @@
 # encoding=utf-8
 from wpull.backport.testing import unittest
-from wpull.namevalue import guess_line_ending, unfold_lines, NameValueRecord
+from wpull.namevalue import guess_line_ending, unfold_lines, NameValueRecord, \
+    normalize_name
 
 
 class TestNameValue(unittest.TestCase):
@@ -83,3 +84,38 @@ class TestNameValue(unittest.TestCase):
 
         self.assertEqual('hello', record['text'])
         self.assertNotIn('hi', record)
+
+    def test_normalize_name(self):
+        self.assertEqual('Hi', normalize_name('hi'))
+        self.assertEqual('Hi', normalize_name('Hi'))
+        self.assertEqual('Hi', normalize_name('HI'))
+        self.assertEqual('Content-Type', normalize_name('ContEnt-TYPE'))
+        self.assertEqual('Content-Type', normalize_name('content-type'))
+        self.assertEqual('Content-Type',
+            normalize_name('content-type', ['Content-Type']))
+        self.assertEqual('content-type',
+            normalize_name('content-type', ['content-type']))
+        self.assertEqual('CoNTeNT-TYPe',
+            normalize_name('Content-Type', ['CoNTeNT-TYPe']))
+
+    def test_with_normalize_overrides(self):
+        record = NameValueRecord(normalize_overrides=['WARC-Type'])
+
+        record.add('WARC-Type', 'warcinfo')
+
+        self.assertIn('WARC-Type', record)
+        self.assertEqual('warcinfo', record['WARC-Type'])
+        self.assertEqual([('WARC-Type', 'warcinfo')], list(record.get_all()))
+        self.assertEqual(['warcinfo'], record.get_list('Warc-Type'))
+        self.assertEqual(['WARC-Type'], list(record.keys()))
+
+        record['Warc-Type'] = 'resource'
+
+        self.assertIn('WARC-Type', record)
+        self.assertEqual('resource', record['WARC-Type'])
+        self.assertEqual([('WARC-Type', 'resource')], list(record.get_all()))
+        self.assertEqual(['resource'], record.get_list('Warc-Type'))
+        self.assertEqual(['WARC-Type'], list(record.keys()))
+
+        record['WARC-Blah'] = 'blah'
+        self.assertEqual(['WARC-Type', 'Warc-Blah'], list(record.keys()))
