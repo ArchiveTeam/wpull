@@ -10,7 +10,6 @@ from wpull.database import Status
 from wpull.engine import Engine
 from wpull.network import Resolver
 from wpull.processor import WebProcessor, WebProcessorSession
-from wpull.url import URLInfo
 import wpull.util
 
 
@@ -122,7 +121,7 @@ class Callbacks(object):
 
     @staticmethod
     def get_urls(filename, url_info, document_info):
-        '''Return additional URLs to be processed.
+        '''Return additional URLs to be added to the URL Table.
 
         Args:
             filename: A string containing the path to the document
@@ -130,6 +129,12 @@ class Callbacks(object):
                 :class:`.url.URLInfo`
             document_info: :class:`dict` containing the same information in
                 :class:`.http.Body`
+
+        .. Note:: The URLs provided do not replace entries in the URL Table.
+           If a URL already exists in the URL Table, it will be ignored
+           as defined in :class:`.database.URLTable`. As well, the URLs
+           added do not reset the item Status to ``todo``. To override
+           this behavior, see ``replace`` as described below.
 
         Returns:
             A :class:`list` of :class:`dict`. Each ``dict`` contains:
@@ -141,6 +146,9 @@ class Callbacks(object):
                 * ``post_data`` (str, optional): If provided, the
                   request will be a POST request with a
                   ``application/x-www-form-urlencoded`` content type.
+                * ``replace`` (bool, optional): If True and if the URL already
+                  exists in the URL Table, the entry is deleted and replaced
+                  with a new one.
         '''
         return None
 
@@ -345,6 +353,7 @@ class HookedWebProcessorSessionMixin(object):
         link_type = self._get_from_native_dict(new_url_dict, 'link_type')
         inline = self._get_from_native_dict(new_url_dict, 'inline')
         post_data = self._get_from_native_dict(new_url_dict, 'post_data')
+        replace = self._get_from_native_dict(new_url_dict, 'replace')
 
         assert url
 
@@ -353,14 +362,15 @@ class HookedWebProcessorSessionMixin(object):
         if not url_info:
             return
 
+        kwargs = dict(link_type=link_type, post_data=post_data)
+
+        if replace:
+            self._url_item.url_table.remove([url])
+
         if inline:
-            self._url_item.add_inline_url_infos(
-                [url_info], link_type=link_type, post_data=post_data
-            )
+            self._url_item.add_inline_url_infos([url_info], **kwargs)
         else:
-            self._url_item.add_linked_url_infos(
-                [url_info], link_type=link_type, post_data=post_data
-            )
+            self._url_item.add_linked_url_infos([url_info], **kwargs)
 
     def _get_from_native_dict(self, instance, key, default=None):
         try:

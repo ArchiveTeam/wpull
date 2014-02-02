@@ -69,7 +69,8 @@ wpull_hook.callbacks.get_urls = function(filename, url_info, document_info)
       {
         ['url'] = 'http://localhost:'..url_info['port']..'/post/',
         ['inline'] = true,
-        ['post_data'] = 'text=hello'
+        ['post_data'] = 'text=hello',
+        ['replace'] = true,
       })
     return url_table
   end

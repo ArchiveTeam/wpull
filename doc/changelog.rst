@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.XX (2014-02-DD)
+=================
+
+* Scripts: Supports ``replace`` as part of ``get_urls()``.
+
+
 0.14.1 (2014-02-02)
 ===================
 

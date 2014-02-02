@@ -68,6 +68,7 @@ def get_urls(filename, url_info, document_info):
                 'http://localhost:' + str(url_info['port']) + '/post/',
             'inline': True,
             'post_data': 'text=hello',
+            'replace': True,
         }]
 
     return None
