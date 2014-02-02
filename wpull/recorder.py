@@ -136,9 +136,26 @@ class WARCRecord(object):
     RESPONSE = 'response'
     TYPE_REQUEST = 'application/http;msgtype=request'
     TYPE_RESPONSE = 'application/http;msgtype=response'
+    NAME_OVERRIDES = frozenset([
+        'WARC-Date',
+        'WARC-Type',
+        'WARC-Record-ID',
+        'WARC-Concurrent-To',
+        'WARC-Refers-To',
+        'Content-Length',
+        'Content-Type',
+        'WARC-Target-URI',
+        'WARC-Block-Digest',
+        'WARC-IP-Address',
+        'WARC-Filename',
+        'WARC-Warcinfo-ID',
+        'WARC-Payload-Digest',
+    ])
+    '''Field name case normalization overrides because hanzo's warc-tools do
+    not adequately conform to specifications.'''
 
     def __init__(self):
-        self.fields = NameValueRecord()
+        self.fields = NameValueRecord(normalize_overrides=self.NAME_OVERRIDES)
         self.block_file = None
 
     def set_common_fields(self, warc_type, content_type):
