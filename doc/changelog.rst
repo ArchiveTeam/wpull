@@ -2,6 +2,11 @@
 What's New
 ==========
 
+0.XX (2014-02-XX)
+=================
+
+* NameValueRecord now supports a ``normalize_override`` argument to how specific keys are cased instead of the default title-case.
+
 0.14 (2014-02-01)
 =================
 
