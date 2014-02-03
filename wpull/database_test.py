@@ -16,7 +16,10 @@ class TestDatabase(unittest.TestCase):
             'http://example.com/kitteh',
             'http://example.com/doge',
         ]
-        url_table.add(urls, referrer='http://example.com', level=0)
+        url_table.add(
+            urls, referrer='http://example.com', level=0,
+            top_url='http://example.net',
+        )
 
         self.assertIn(urls[0], url_table)
         self.assertIn(urls[1], url_table)
@@ -30,6 +33,7 @@ class TestDatabase(unittest.TestCase):
             self.assertEqual(Status.todo, url_record.status)
             self.assertEqual(0, url_record.try_count)
             self.assertEqual('http://example.com', url_record.referrer)
+            self.assertEqual('http://example.net', url_record.top_url)
 
         url_record = url_table.get_and_update(
             Status.todo,

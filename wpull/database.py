@@ -145,7 +145,7 @@ class URLDBRecord(DBBase):
         Integer, ForeignKey('url_strings.id'))
     top_url_record = relationship(
         'URLStrDBRecord', uselist=False, foreign_keys=[top_url_str_id])
-    top_url = association_proxy('url_str_record', 'url')
+    top_url = association_proxy('top_url_record', 'url')
     status_code = Column(Integer)
     referrer_id = Column(Integer, ForeignKey('url_strings.id'))
     referrer_record = relationship(
