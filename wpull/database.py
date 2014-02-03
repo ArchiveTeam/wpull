@@ -15,6 +15,7 @@ from sqlalchemy.pool import SingletonThreadPool
 from sqlalchemy.sql.schema import Column, ForeignKey
 from sqlalchemy.sql.sqltypes import String, Integer, Boolean, Enum
 
+from wpull.cache import Cache
 from wpull.url import URLInfo
 
 
@@ -157,21 +158,6 @@ class URLDBRecord(DBBase):
     url_encoding = Column(String)
     post_data = Column(String)
 
-    def set_url_string(self, session, field_name, url):
-        if not url:
-            return
-
-        url_str_record = URLStrDBRecord.get_by_url(session, url)
-
-        if not url_str_record:
-            url_str_record = URLStrDBRecord(url=url)
-            session.add(url_str_record)
-
-        if not hasattr(self, field_name):
-            raise AttributeError('Unknown field {0}'.format(field_name))
-
-        setattr(self, field_name, url_str_record)
-
     def to_plain(self):
         return URLRecord(
             self.url,
@@ -194,8 +180,22 @@ class URLStrDBRecord(DBBase):
     url = Column(String, nullable=False, unique=True, index=True)
 
     @classmethod
-    def get_by_url(cls, session, url):
-        return session.query(cls).filter_by(url=url).first()
+    def get_url_id(cls, session, url, create=False, cache=None):
+        if cache is not None:
+            if url in cache:
+                return cache[url]
+
+        record = session.query(URLStrDBRecord.id).filter_by(url=url).first()
+
+        if create and not record:
+            record = URLStrDBRecord(url=url)
+            session.add(record)
+            session.flush()
+
+        if record:
+            if cache is not None:
+                cache[url] = record.id
+            return record.id
 
 
 class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
@@ -240,6 +240,10 @@ class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
 
 
 class BaseSQLURLTable(BaseURLTable):
+    def __init__(self):
+        self._url_str_id_cache = Cache(max_items=100, time_to_live=600)
+        self._url_item_added_cache = Cache(max_items=100, time_to_live=600)
+
     @abc.abstractproperty
     def _session_maker(self):
         pass
@@ -254,6 +258,8 @@ class BaseSQLURLTable(BaseURLTable):
             session.commit()
         except:
             session.rollback()
+            self._url_str_id_cache.clear()
+            self._url_item_added_cache.clear()
             raise
         finally:
             session.close()
@@ -281,21 +287,35 @@ class BaseSQLURLTable(BaseURLTable):
 
         with self._session() as session:
             for url in urls:
+                if url in self._url_item_added_cache:
+                    continue
+
                 url_db_record = session.query(URLDBRecord.id)\
                     .filter_by(url=url).first()
 
                 if url_db_record:
                     continue
 
-                url_db_record = URLDBRecord(status=Status.todo, **kwargs)
+                values = dict(status=Status.todo)
+                values.update(**kwargs)
+                values['url_str_id'] = URLStrDBRecord.get_url_id(
+                    session, url, create=True, cache=self._url_str_id_cache)
 
-                url_db_record.set_url_string(session, 'url_str_record', url)
-                url_db_record.set_url_string(
-                    session, 'referrer_record', referrer)
-                url_db_record.set_url_string(
-                    session, 'top_url_record', top_url)
+                if referrer:
+                    values['referrer_id'] = URLStrDBRecord.get_url_id(
+                        session, referrer, create=True,
+                        cache=self._url_str_id_cache)
+                if top_url:
+                    values['top_url_str_id'] = URLStrDBRecord.get_url_id(
+                        session, top_url, create=True,
+                        cache=self._url_str_id_cache)
 
-                session.add(url_db_record)
+                session.execute(
+                    URLDBRecord.__table__.insert(),
+                    values
+                )
+
+                self._url_item_added_cache[url] = True
 
     def get_and_update(self, status, new_status=None, level=None):
         with self._session() as session:
@@ -344,9 +364,13 @@ class BaseSQLURLTable(BaseURLTable):
 
         with self._session() as session:
             for url in urls:
-                url_str_record = URLStrDBRecord.get_by_url(session, url)
+                url_str_id = URLStrDBRecord.get_url_id(
+                    session, url, cache=self._url_str_id_cache)
                 session.query(URLDBRecord).filter_by(
-                    url_str_record=url_str_record).delete()
+                    url_str_id=url_str_id).delete()
+
+                if url in self._url_item_added_cache:
+                    del self._url_item_added_cache[url]
 
 
 class SQLiteURLTable(BaseSQLURLTable):
