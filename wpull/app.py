@@ -42,6 +42,8 @@ class Builder(object):
     Args:
         args: Options from :class:`argparse.ArgumentParser`
     '''
+    UNSAFE_OPTIONS = frozenset(['save_headers'])
+
     # TODO: expose the instances built so we can access stuff like Stats
     def __init__(self, args):
         self._args = args
@@ -82,6 +84,7 @@ class Builder(object):
         self._setup_console_logger()
         self._setup_file_logger()
         self._install_script_hooks()
+        self._warn_unsafe_options()
 
         self._instances['Statistics'] = self._classes['Statistics']()
 
@@ -610,3 +613,26 @@ class Builder(object):
 
         with open(filename, 'rb') as in_file:
             return wpull.util.filter_pem(in_file.read())
+
+    def _warn_unsafe_options(self):
+        '''Print warnings about any enabled hazardous options.
+
+        This function will print messages complaining about:
+
+        * ``--save-headers``
+        '''
+        # TODO: Add output-document once implemented
+        enabled_options = []
+
+        for option_name in self.UNSAFE_OPTIONS:
+            if getattr(self._args, option_name):
+                enabled_options.append(option_name)
+
+        if enabled_options:
+            _logger.warning(
+                _('The following unsafe options are enabled: {list}.')\
+                .format(list=enabled_options)
+            )
+            _logger.warning(
+                _('The use of unsafe options may lead to unexpected behavior '
+                    'or file corruption.'))
