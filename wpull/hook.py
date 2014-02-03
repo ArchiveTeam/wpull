@@ -65,7 +65,7 @@ class Callbacks(object):
         cases, the original servers may still be online.
 
         Returns:
-            None to use the original behavior or a string containing
+            str, Nine: None to use the original behavior or a string containing
             an IP address.
         '''
         return None
@@ -75,15 +75,16 @@ class Callbacks(object):
         '''Return whether to download this URL.
 
         Args:
-            url_info: :class:`dict` containing the same information in
-                :class:`.url.URLInfo`
-            record_info: :class:`dict` containing the same information in
-                :class:`.database.URLRecord`
-            verdict: :class:`bool` indicating whether Wpull wants to download
-                the URL
+            url_info (dict): A mapping containing the same information in
+                :class:`.url.URLInfo`.
+            record_info (dict): A mapping containing the same information in
+                :class:`.database.URLRecord`.
+            verdict (bool): A bool indicating whether Wpull wants to download
+                the URL.
 
         Returns:
-            :class:`bool` indicating whether the URL should be downloaded
+            bool: If True, the URL should be downloaded. Otherwise, the URL
+            is skipped.
         '''
         return verdict
 
@@ -92,13 +93,14 @@ class Callbacks(object):
         '''Return an action to handle the response.
 
         Args:
-            url_info: :class:`dict` containing the same information in
-                :class:`.url.URLInfo`
-            http_info: :class:`dict` containing the same information
-                in :class:`.http.Response`
+            url_info (dict): A mapping containing the same information in
+                :class:`.url.URLInfo`.
+            http_info (dict): A mapping containing the same information
+                in :class:`.http.Response`.
 
         Returns:
-            A value from :class:`Actions`. The default is `NORMAL`.
+            str: A value from :class:`Actions`. The default is
+            `Actions.NORMAL`.
         '''
         return Actions.NORMAL
 
@@ -107,15 +109,16 @@ class Callbacks(object):
         '''Return an action to handle the error.
 
         Args:
-            url_info: :class:`dict` containing the same information in
-                :class:`.url.URLInfo`
-            http_info: :class:`dict` containing the values:
+            url_info (dict): A mapping containing the same information in
+                :class:`.url.URLInfo`.
+            http_info (dict): A mapping containing the keys:
 
-                * 'error': The name of the exception (for example,
+                * ``error``: The name of the exception (for example,
                   ``ProtocolError``)
 
         Returns:
-            A value from :class:`Actions`. The default is `NORMAL`.
+            str: A value from :class:`Actions`. The default is
+            `Actions.NORMAL`.
         '''
         return Actions.NORMAL
 
@@ -124,11 +127,11 @@ class Callbacks(object):
         '''Return additional URLs to be added to the URL Table.
 
         Args:
-            filename: A string containing the path to the document
-            url_info: :class:`dict` containing the same information in
-                :class:`.url.URLInfo`
-            document_info: :class:`dict` containing the same information in
-                :class:`.http.Body`
+            filename (str): A string containing the path to the document.
+            url_info (dict): A mapping containing the same information in
+                :class:`.url.URLInfo`.
+            document_info (dict): A mapping containing the same information in
+                :class:`.http.Body`.
 
         .. Note:: The URLs provided do not replace entries in the URL Table.
            If a URL already exists in the URL Table, it will be ignored
@@ -137,7 +140,7 @@ class Callbacks(object):
            this behavior, see ``replace`` as described below.
 
         Returns:
-            A :class:`list` of :class:`dict`. Each ``dict`` contains:
+            list: A :class:`list` of :class:`dict`. Each ``dict`` contains:
 
                 * ``url``: a string of the URL
                 * ``link_type`` (str, optional): ``html`` or ``None``.
@@ -157,10 +160,10 @@ class Callbacks(object):
         '''Callback containing finial statistics.
 
         Args:
-            start_time: timestamp when the engine started
-            end_time: timestamp when the engine stopped
-            num_urls: number of URLs downloaded
-            bytes_downloaded: size of files downloaded in bytes
+            start_time (float): timestamp when the engine started
+            end_time (float): timestamp when the engine stopped
+            num_urls (int): number of URLs downloaded
+            bytes_downloaded (int): size of files downloaded in bytes
         '''
         pass
 
@@ -171,15 +174,16 @@ class Callbacks(object):
         Exit codes are values from :class:`errors.ExitStatus`.
 
         Args:
-            exit_code: the exit code Wpull wants to return
+            exit_code (int): The exit code Wpull wants to return.
 
         Returns:
-            :class:`int`: the exit code
+            int: The exit code that Wpull will return.
         '''
         return exit_code
 
 
 class HookedResolver(Resolver):
+    '''A Resolver containing overridden functions.'''
     def __init__(self, *args, **kwargs):
         self._hook_env = kwargs.pop('hook_env')
         self._callbacks_hook = self._hook_env.callbacks
@@ -199,6 +203,7 @@ class HookedResolver(Resolver):
 
 
 class HookedWebProcessor(WebProcessor):
+    '''A Web Processor containing overridden functions.'''
     def __init__(self, *args, **kwargs):
         self._hook_env = kwargs.pop('hook_env')
         self._callbacks_hook = self._hook_env.callbacks
@@ -226,6 +231,7 @@ class HookedWebProcessorSessionMixin(object):
         self.callbacks_hook = NotImplemented
 
     def _to_script_native_type(self, instance):
+        '''Convert the instance to script's native types.'''
         return self.hook_env.to_script_native_type(instance)
 
     def should_fetch(self):
@@ -348,6 +354,7 @@ class HookedWebProcessorSessionMixin(object):
                 self._add_hooked_url(new_url_dict)
 
     def _add_hooked_url(self, new_url_dict):
+        '''Process the ``dict`` from the script and add the URLs.'''
         to_native = self._to_script_native_type
         url = new_url_dict[to_native('url')]
         link_type = self._get_from_native_dict(new_url_dict, 'link_type')
@@ -373,6 +380,11 @@ class HookedWebProcessorSessionMixin(object):
             self._url_item.add_linked_url_infos([url_info], **kwargs)
 
     def _get_from_native_dict(self, instance, key, default=None):
+        '''Try to get from the mapping a value.
+
+        This method will try to determine whether a Lua table or
+        ``dict`` is given.
+        '''
         try:
             instance.attribute_should_not_exist
         except AttributeError:

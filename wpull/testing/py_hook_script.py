@@ -16,7 +16,7 @@ def accept_url(url_info, record_info, verdict, reasons):
     print('accept_url', url_info)
     assert url_info['url']
     assert url_info['path'] in ('/robots.txt', '/', '/post/',
-        '/%95%B6%8E%9A%89%BB%82%AF/')
+        '/%95%B6%8E%9A%89%BB%82%AF/', '/static/style.css')
     assert record_info['url']
     assert reasons['filters']['HTTPFilter']
 
@@ -24,10 +24,13 @@ def accept_url(url_info, record_info, verdict, reasons):
         assert name
 
     if url_info['path'] == '/':
+        assert not record_info['inline']
         assert verdict
     elif url_info['path'] == '/post/':
         assert not verdict
         verdict = True
+    elif url_info['path'] == '/static/style.css':
+        assert record_info['inline']
     elif url_info['path'] == '/robots.txt':
         verdict = False
 

@@ -14,6 +14,7 @@ wpull_hook.callbacks.accept_url = function(url_info, record_info, verdict, reaso
     ['/'] = true,
     ['/post/'] = true,
     ['/%95%B6%8E%9A%89%BB%82%AF/'] = true,
+    ['/static/style.css'] = true,
   }
   assert(accepted_paths[url_info['path']])
   assert(record_info['url'])
@@ -24,10 +25,13 @@ wpull_hook.callbacks.accept_url = function(url_info, record_info, verdict, reaso
   end
 
   if url_info['path'] == '/' then
+    assert(not record_info['inline'])
     assert(verdict)
   elseif url_info['path'] == '/post/' then
     assert(not verdict)
     verdict = true
+  elseif url_info['path'] == '/style.css' then
+    assert(record_info['inline'])
   elseif url_info['path'] == '/robots.txt' then
     verdict = false
   end
