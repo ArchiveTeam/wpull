@@ -2,10 +2,16 @@
 What's New
 ==========
 
+0.15.2 (2014-02-03)
+===================
+
+* Improves database performance on reducing CPU usage.
+
+
 0.15.1 (2014-02-03)
 ===================
 
-* Improves database performance.
+* Improves database performance on reducing disk reading.
 
 
 0.15 (2014-02-02)
