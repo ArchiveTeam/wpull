@@ -1,0 +1,15 @@
+{% import random %}
+<html>
+<head>
+<title>Infinite {{ page_num }}</title>
+<meta http-equiv=Content-Type content=text/html; charset="UTF-8">
+</head>
+<body>
+	Infinite!
+	<a href="/infinite/?page={{ page_num + 1}}">Go</a>
+	
+	{% for i in range(50) %}
+		<a href="/infinite/?page={{ page_num + random.randint(1, 500)}}">Go</a>
+	{% end %}
+</body>
+</html>

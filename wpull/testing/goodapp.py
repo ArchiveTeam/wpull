@@ -31,6 +31,12 @@ class BlogHandler(tornado.web.RequestHandler):
             raise HTTPError(404)
 
 
+class InfiniteHandler(tornado.web.RequestHandler):
+    def get(self):
+        page_num = int(self.get_argument('page', 1))
+        self.render('infinite.html', page_num=page_num)
+
+
 class PostHandler(tornado.web.RequestHandler):
     def post(self):
         self.get_argument('text')
@@ -42,6 +48,7 @@ class GoodApp(tornado.web.Application):
         tornado.web.Application.__init__(self, [
                 (r'/', IndexHandler),
                 (r'/blog/?', BlogHandler),
+                (r'/infinite/', InfiniteHandler),
                 (r'/static/(.*)', tornado.web.StaticFileHandler),
                 (r'/post/', PostHandler),
             ],
