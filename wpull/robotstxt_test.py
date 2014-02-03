@@ -3,7 +3,7 @@ import unittest
 from wpull.database import URLRecord, Status
 from wpull.engine import URLItem
 from wpull.http import Request, Response
-from wpull.robotstxt import RobotsTxtSessionMixin
+from wpull.robotstxt import RobotsTxtSessionMixin, RobotsTxtPool
 from wpull.url import URLInfo
 import io
 from wpull.processor import WebProcessorSession
@@ -56,6 +56,7 @@ RobotsTxtSessionMixin, MockWebProcessorSession):
 
 class TestRobotsTxt(unittest.TestCase):
     def test_fetch_false(self):
+        pool = RobotsTxtPool()
         url_item = URLItem(
             None,
             URLInfo.parse('http://example.com/'),
@@ -64,12 +65,14 @@ class TestRobotsTxt(unittest.TestCase):
 
         session = MockWebProcessorWithRobotsTxtSession(
             url_item,
-            should_fetch=False
+            should_fetch=False,
+            robots_txt_pool=pool,
         )
 
         self.assertFalse(session.should_fetch())
 
     def test_fetch_allow(self):
+        pool = RobotsTxtPool()
         url_item = URLItem(
             None,
             URLInfo.parse('http://example.com/'),
@@ -78,7 +81,8 @@ class TestRobotsTxt(unittest.TestCase):
 
         session = MockWebProcessorWithRobotsTxtSession(
             url_item,
-            should_fetch=True
+            should_fetch=True,
+            robots_txt_pool=pool,
         )
 
         self.assertTrue(session.should_fetch())
@@ -93,11 +97,18 @@ class TestRobotsTxt(unittest.TestCase):
         self.assertFalse(session.handle_response(response))
         self.assertTrue(session.should_fetch())
 
+        session = MockWebProcessorWithRobotsTxtSession(
+            url_item,
+            should_fetch=True,
+            robots_txt_pool=pool,
+        )
+
         request = session.new_request()
 
         self.assertTrue(request.url_info.url.endswith('/'))
 
     def test_fetch_disallow(self):
+        pool = RobotsTxtPool()
         mock_url_table = MockURLTable()
         url_item = URLItem(
             mock_url_table,
@@ -107,7 +118,8 @@ class TestRobotsTxt(unittest.TestCase):
 
         session = MockWebProcessorWithRobotsTxtSession(
             url_item,
-            should_fetch=True
+            should_fetch=True,
+            robots_txt_pool=pool,
         )
 
         self.assertTrue(session.should_fetch())
@@ -124,6 +136,7 @@ class TestRobotsTxt(unittest.TestCase):
         self.assertEqual(Status.skipped, mock_url_table.status)
 
     def test_fetch_allow_redirects(self):
+        pool = RobotsTxtPool()
         url_item = URLItem(
             MockURLTable(),
             URLInfo.parse('http://example.com/'),
@@ -132,7 +145,8 @@ class TestRobotsTxt(unittest.TestCase):
 
         session = MockWebProcessorWithRobotsTxtSession(
             url_item,
-            should_fetch=True
+            should_fetch=True,
+            robots_txt_pool=pool,
         )
 
         # Try fetch example.com/ (need robots.txt)

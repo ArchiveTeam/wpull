@@ -5,6 +5,7 @@ What's New
 0.XX (2014-02-DD)
 =================
 
+* Fixes robots.txt being fetched for every request.
 * Scripts: Supports ``replace`` as part of ``get_urls()``.
 
 
