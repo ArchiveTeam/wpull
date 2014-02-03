@@ -195,7 +195,7 @@ class URLStrDBRecord(DBBase):
 
     @classmethod
     def get_by_url(cls, session, url):
-        return session.query(cls).filter_by(url=url).scalar()
+        return session.query(cls).filter_by(url=url).first()
 
 
 class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
@@ -260,7 +260,7 @@ class BaseSQLURLTable(BaseURLTable):
 
     def __getitem__(self, url):
         with self._session() as session:
-            result = session.query(URLDBRecord).filter_by(url=url).scalar()
+            result = session.query(URLDBRecord).filter_by(url=url).first()
 
             if not result:
                 raise IndexError()
@@ -282,7 +282,7 @@ class BaseSQLURLTable(BaseURLTable):
         with self._session() as session:
             for url in urls:
                 url_db_record = session.query(URLDBRecord.id)\
-                    .filter_by(url=url).scalar()
+                    .filter_by(url=url).first()
 
                 if url_db_record:
                     continue
@@ -321,7 +321,7 @@ class BaseSQLURLTable(BaseURLTable):
         assert isinstance(url, str)
 
         with self._session() as session:
-            url_record = session.query(URLDBRecord).filter_by(url=url).scalar()
+            url_record = session.query(URLDBRecord).filter_by(url=url).first()
 
             if increment_try_count:
                 url_record.try_count += 1
