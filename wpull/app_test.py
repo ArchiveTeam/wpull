@@ -183,6 +183,8 @@ class TestApp(GoodAppTestCase):
         args = arg_parser.parse_args([
             self.get_url('/'),
             '--python-script', filename,
+            '--page-requisites',
+            '--reject-regex', '/post/',
         ])
         with cd_tempdir():
             engine = Builder(args).build()
@@ -213,6 +215,8 @@ class TestApp(GoodAppTestCase):
         args = arg_parser.parse_args([
             self.get_url('/'),
             '--lua-script', filename,
+            '--page-requisites',
+            '--reject-regex', '/post/',
         ])
         with cd_tempdir():
             engine = Builder(args).build()
