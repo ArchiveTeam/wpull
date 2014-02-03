@@ -239,33 +239,10 @@ class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
         pass
 
 
-class SQLiteURLTable(BaseURLTable):
-    '''URL table with SQLite storage.
-
-    Args:
-        path: A SQLite filename
-    '''
-    def __init__(self, path=':memory:'):
-        super().__init__()
-        # We use a SingletonThreadPool always because we are using WAL
-        # and want SQLite to handle the checkpoints. Otherwise NullPool
-        # will open and close the connection rapidly, defeating the purpose
-        # of WAL.
-        self._engine = create_engine(
-            'sqlite:///{0}'.format(path), poolclass=SingletonThreadPool)
-        sqlalchemy.event.listen(
-            self._engine, 'connect', self._apply_pragmas_callback)
-        DBBase.metadata.create_all(self._engine)
-        self._session_maker = sessionmaker(bind=self._engine)
-
-    @classmethod
-    def _apply_pragmas_callback(cls, connection, record):
-        '''Set SQLite pragmas.
-
-        Write-ahead logging is used.
-        '''
-        _logger.debug('Setting pragmas.')
-        connection.execute('PRAGMA journal_mode=WAL')
+class BaseSQLURLTable(BaseURLTable):
+    @abc.abstractproperty
+    def _session_maker(self):
+        pass
 
     @contextlib.contextmanager
     def _session(self):
@@ -370,6 +347,56 @@ class SQLiteURLTable(BaseURLTable):
                 url_str_record = URLStrDBRecord.get_by_url(session, url)
                 session.query(URLDBRecord).filter_by(
                     url_str_record=url_str_record).delete()
+
+
+class SQLiteURLTable(BaseSQLURLTable):
+    '''URL table with SQLite storage.
+
+    Args:
+        path: A SQLite filename
+    '''
+    def __init__(self, path=':memory:'):
+        super().__init__()
+        # We use a SingletonThreadPool always because we are using WAL
+        # and want SQLite to handle the checkpoints. Otherwise NullPool
+        # will open and close the connection rapidly, defeating the purpose
+        # of WAL.
+        self._engine = create_engine(
+            'sqlite:///{0}'.format(path), poolclass=SingletonThreadPool)
+        sqlalchemy.event.listen(
+            self._engine, 'connect', self._apply_pragmas_callback)
+        DBBase.metadata.create_all(self._engine)
+        self._session_maker_instance = sessionmaker(bind=self._engine)
+
+    @classmethod
+    def _apply_pragmas_callback(cls, connection, record):
+        '''Set SQLite pragmas.
+
+        Write-ahead logging is used.
+        '''
+        _logger.debug('Setting pragmas.')
+        connection.execute('PRAGMA journal_mode=WAL')
+
+    @property
+    def _session_maker(self):
+        return self._session_maker_instance
+
+
+class GenericSQLURLTable(BaseSQLURLTable):
+    '''URL table using SQLAlchemy without any customizations.
+
+    Args:
+        url: A SQLAlchemy database URL.
+    '''
+    def __init__(self, url):
+        super().__init__()
+        self._engine = create_engine(url)
+        DBBase.metadata.create_all(self._engine)
+        self._session_maker_instance = sessionmaker(bind=self._engine)
+
+    @property
+    def _session_maker(self):
+        return self._session_maker_instance
 
 
 URLTable = SQLiteURLTable
