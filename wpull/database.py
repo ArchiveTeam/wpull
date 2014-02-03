@@ -10,8 +10,7 @@ import sqlalchemy.event
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy.orm.session import sessionmaker, make_transient, object_session
-import sqlalchemy.sql.expression
+from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.sql.schema import Column, ForeignKey
 from sqlalchemy.sql.sqltypes import String, Integer, Boolean, Enum
 
@@ -129,7 +128,7 @@ class URLDBRecord(DBBase):
     url_str_id = Column(
         Integer, ForeignKey('url_strings.id'), nullable=False, index=True)
     url_str_record = relationship(
-        'URLStringDBRecord', uselist=False, foreign_keys=[url_str_id])
+        'URLStrDBRecord', uselist=False, foreign_keys=[url_str_id])
     url = association_proxy('url_str_record', 'url')
     status = Column(
         Enum(
@@ -145,17 +144,32 @@ class URLDBRecord(DBBase):
     top_url_str_id = Column(
         Integer, ForeignKey('url_strings.id'))
     top_url_record = relationship(
-        'URLStringDBRecord', uselist=False, foreign_keys=[top_url_str_id])
+        'URLStrDBRecord', uselist=False, foreign_keys=[top_url_str_id])
     top_url = association_proxy('url_str_record', 'url')
     status_code = Column(Integer)
     referrer_id = Column(Integer, ForeignKey('url_strings.id'))
     referrer_record = relationship(
-        'URLStringDBRecord', uselist=False, foreign_keys=[referrer_id])
+        'URLStrDBRecord', uselist=False, foreign_keys=[referrer_id])
     referrer = association_proxy('referrer_record', 'url')
     inline = Column(Boolean)
     link_type = Column(String)
     url_encoding = Column(String)
     post_data = Column(String)
+
+    def set_url_string(self, session, field_name, url):
+        if not url:
+            return
+
+        url_str_record = URLStrDBRecord.get_by_url(session, url)
+
+        if not url_str_record:
+            url_str_record = URLStrDBRecord(url=url)
+            session.add(url_str_record)
+
+        if not hasattr(self, field_name):
+            raise AttributeError('Unknown field {0}'.format(field_name))
+
+        setattr(self, field_name, url_str_record)
 
     def to_plain(self):
         return URLRecord(
@@ -173,7 +187,7 @@ class URLDBRecord(DBBase):
         )
 
 
-class URLStringDBRecord(DBBase):
+class URLStrDBRecord(DBBase):
     __tablename__ = 'url_strings'
     id = Column(Integer, primary_key=True, autoincrement=True)
     url = Column(String, nullable=False, unique=True, index=True)
@@ -284,45 +298,21 @@ class SQLiteURLTable(BaseURLTable):
 
         with self._session() as session:
             for url in urls:
-                url_record = session.query(URLDBRecord.id)\
+                url_db_record = session.query(URLDBRecord.id)\
                     .filter_by(url=url).scalar()
 
-                if url_record:
+                if url_db_record:
                     continue
 
-                url_record = URLDBRecord(status=Status.todo, **kwargs)
+                url_db_record = URLDBRecord(status=Status.todo, **kwargs)
 
-                url_string_record = URLStringDBRecord.get_by_url(session, url)
+                url_db_record.set_url_string(session, 'url_str_record', url)
+                url_db_record.set_url_string(
+                    session, 'referrer_record', referrer)
+                url_db_record.set_url_string(
+                    session, 'top_url_record', top_url)
 
-                if url_string_record:
-                    url_record.url_str_record = url_string_record
-                else:
-                    url_record.url_str_record = URLStringDBRecord(url=url)
-                    session.add(url_record.url_str_record)
-
-                if referrer:
-                    referrer_string_record = URLStringDBRecord.get_by_url(
-                        session, referrer)
-
-                    if referrer_string_record:
-                        url_record.referrer_record = referrer_string_record
-                    else:
-                        url_record.referrer_record = URLStringDBRecord(
-                            url=referrer)
-                        session.add(url_record.referrer_record)
-
-                if top_url:
-                    top_url_string_record = URLStringDBRecord.get_by_url(
-                        session, top_url)
-
-                    if top_url_string_record:
-                        url_record.top_url_record = top_url_string_record
-                    else:
-                        url_record.top_url_record = URLStringDBRecord(
-                            url=top_url)
-                        session.add(url_record.top_url_record)
-
-                session.add(url_record)
+                session.add(url_db_record)
 
     def get_and_update(self, status, new_status=None, level=None):
         with self._session() as session:
@@ -332,8 +322,8 @@ class SQLiteURLTable(BaseURLTable):
             else:
                 url_record = session.query(URLDBRecord)\
                     .filter(
-                        URLRecord.status == status,
-                        URLRecord.level < level,
+                        URLDBRecord.status == status,
+                        URLDBRecord.level < level,
                     ).first()
 
             if not url_record:
@@ -371,7 +361,7 @@ class SQLiteURLTable(BaseURLTable):
 
         with self._session() as session:
             for url in urls:
-                url_str_record = URLStringDBRecord.get_by_url(session, url)
+                url_str_record = URLStrDBRecord.get_by_url(session, url)
                 session.query(URLDBRecord).filter_by(
                     url_str_record=url_str_record).delete()
 
