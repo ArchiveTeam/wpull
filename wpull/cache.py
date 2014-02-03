@@ -50,7 +50,7 @@ class Cache(collections.MutableMapping):
         return item
 
     def __iter__(self):
-        return self._data.keys()
+        return iter(self._data.keys())
 
     def __getitem__(self, key):
         self.expire()
