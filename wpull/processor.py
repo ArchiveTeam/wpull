@@ -2,6 +2,7 @@
 '''Processor.'''
 import abc
 import contextlib
+import functools
 import gettext
 import logging
 import os
@@ -168,7 +169,10 @@ class WebProcessor(BaseProcessor):
 
         if robots:
             self._robots_txt_pool = RobotsTxtPool()
-            self._session_class = WebProcessorWithRobotsTxtSession
+            self._session_class = functools.partial(
+                WebProcessorWithRobotsTxtSession,
+                robots_txt_pool=self._robots_txt_pool
+            )
         else:
             self._robots_txt_pool = None
             self._session_class = WebProcessorSession

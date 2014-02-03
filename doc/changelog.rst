@@ -2,6 +2,14 @@
 What's New
 ==========
 
+0.15 (2014-02-02)
+=================
+
+* Fixes robots.txt being fetched for every request.
+* Scripts: Supports ``replace`` as part of ``get_urls()``.
+* Schema change: The database URL strings are normalized into a separate table. Using ``--database`` should now consume less disk space.
+
+
 0.14.1 (2014-02-02)
 ===================
 

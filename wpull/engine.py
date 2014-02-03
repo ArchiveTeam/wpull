@@ -368,6 +368,11 @@ class URLItem(object):
         return self._url_record
 
     @property
+    def url_table(self):
+        '''Return the :class:`.database.URLTable`.'''
+        return self._url_table
+
+    @property
     def is_processed(self):
         '''Return whether the item has been processed.'''
         return self._processed

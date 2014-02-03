@@ -7,10 +7,12 @@ import contextlib
 import logging
 from sqlalchemy.engine import create_engine
 import sqlalchemy.event
+from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm.session import sessionmaker, make_transient
-import sqlalchemy.sql.expression
-from sqlalchemy.sql.schema import Column
+from sqlalchemy.orm import relationship
+from sqlalchemy.orm.session import sessionmaker
+from sqlalchemy.pool import SingletonThreadPool
+from sqlalchemy.sql.schema import Column, ForeignKey
 from sqlalchemy.sql.sqltypes import String, Integer, Boolean, Enum
 
 from wpull.url import URLInfo
@@ -44,7 +46,25 @@ class Status(object):
     '''The item was excluded from processing due to some rejection filters.'''
 
 
-class URLRecord(DBBase):
+_URLRecordType = collections.namedtuple(
+    'URLRecordType',
+    [
+        'url',
+        'status',
+        'try_count',
+        'level',
+        'top_url',
+        'status_code',
+        'referrer',
+        'inline',
+        'link_type',
+        'url_encoding',
+        'post_data',
+    ]
+)
+
+
+class URLRecord(_URLRecordType):
     '''An entry in the URL table describing a URL to be downloaded.
 
     Attributes:
@@ -68,25 +88,6 @@ class URLRecord(DBBase):
         post_data (str): If given, the URL should be fetched as a
             POST request containing `post_data`.
     '''
-    __tablename__ = 'urls'
-    url = Column(String, primary_key=True)
-    status = Column(
-        Enum(
-            Status.done, Status.error, Status.in_progress,
-            Status.skipped, Status.todo,
-        ),
-        index=True,
-    )
-    try_count = Column(Integer, nullable=False, default=0)
-    level = Column(Integer, nullable=False, default=0)
-    top_url = Column(String)
-    status_code = Column(Integer)
-    referrer = Column(String)
-    inline = Column(Boolean)
-    link_type = Column(String)
-    url_encoding = Column(String)
-    post_data = Column(String)
-
     @property
     def url_info(self):
         '''Return an :class:`.url.URLInfo` for the ``url``.'''
@@ -120,6 +121,81 @@ class URLRecord(DBBase):
             'url_encoding': self.url_encoding,
             'post_data': self.post_data,
         }
+
+
+class URLDBRecord(DBBase):
+    __tablename__ = 'urls'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    url_str_id = Column(
+        Integer, ForeignKey('url_strings.id'), nullable=False, index=True)
+    url_str_record = relationship(
+        'URLStrDBRecord', uselist=False, foreign_keys=[url_str_id])
+    url = association_proxy('url_str_record', 'url')
+    status = Column(
+        Enum(
+            Status.done, Status.error, Status.in_progress,
+            Status.skipped, Status.todo,
+        ),
+        index=True,
+        default=Status.todo,
+        nullable=False,
+    )
+    try_count = Column(Integer, nullable=False, default=0)
+    level = Column(Integer, nullable=False, default=0)
+    top_url_str_id = Column(
+        Integer, ForeignKey('url_strings.id'))
+    top_url_record = relationship(
+        'URLStrDBRecord', uselist=False, foreign_keys=[top_url_str_id])
+    top_url = association_proxy('top_url_record', 'url')
+    status_code = Column(Integer)
+    referrer_id = Column(Integer, ForeignKey('url_strings.id'))
+    referrer_record = relationship(
+        'URLStrDBRecord', uselist=False, foreign_keys=[referrer_id])
+    referrer = association_proxy('referrer_record', 'url')
+    inline = Column(Boolean)
+    link_type = Column(String)
+    url_encoding = Column(String)
+    post_data = Column(String)
+
+    def set_url_string(self, session, field_name, url):
+        if not url:
+            return
+
+        url_str_record = URLStrDBRecord.get_by_url(session, url)
+
+        if not url_str_record:
+            url_str_record = URLStrDBRecord(url=url)
+            session.add(url_str_record)
+
+        if not hasattr(self, field_name):
+            raise AttributeError('Unknown field {0}'.format(field_name))
+
+        setattr(self, field_name, url_str_record)
+
+    def to_plain(self):
+        return URLRecord(
+            self.url,
+            self.status,
+            self.try_count,
+            self.level,
+            self.top_url,
+            self.status_code,
+            self.referrer,
+            self.inline,
+            self.link_type,
+            self.url_encoding,
+            self.post_data,
+        )
+
+
+class URLStrDBRecord(DBBase):
+    __tablename__ = 'url_strings'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    url = Column(String, nullable=False, unique=True, index=True)
+
+    @classmethod
+    def get_by_url(cls, session, url):
+        return session.query(cls).filter_by(url=url).scalar()
 
 
 class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
@@ -157,29 +233,16 @@ class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
         '''Mark any ``in_progress`` URLs to ``todo`` status.'''
         pass
 
+    @abc.abstractmethod
+    def remove(self, urls):
+        '''Remove the URLs from the database.'''
+        pass
 
-class SQLiteURLTable(BaseURLTable):
-    '''URL table with SQLite storage.
 
-    Args:
-        path: A SQLite filename
-    '''
-    def __init__(self, path=':memory:'):
-        super().__init__()
-        self._engine = create_engine('sqlite:///{0}'.format(path))
-        sqlalchemy.event.listen(
-            self._engine, 'connect', self._apply_pragmas_callback)
-        DBBase.metadata.create_all(self._engine)
-        self._session_maker = sessionmaker(bind=self._engine)
-
-    @classmethod
-    def _apply_pragmas_callback(cls, connection, record):
-        '''Set SQLite pragmas.
-
-        Write-ahead logging is used.
-        '''
-        _logger.debug('Setting pragmas.')
-        connection.execute('PRAGMA journal_mode=WAL')
+class BaseSQLURLTable(BaseURLTable):
+    @abc.abstractproperty
+    def _session_maker(self):
+        pass
 
     @contextlib.contextmanager
     def _session(self):
@@ -197,44 +260,53 @@ class SQLiteURLTable(BaseURLTable):
 
     def __getitem__(self, url):
         with self._session() as session:
-            result = session.query(URLRecord).get(url)
+            result = session.query(URLDBRecord).filter_by(url=url).scalar()
 
             if not result:
                 raise IndexError()
             else:
-                make_transient(result)
-                return result
+                return result.to_plain()
 
     def __iter__(self):
         with self._session() as session:
-            return session.query(URLRecord.url)
+            return session.query(URLDBRecord.url)
 
     def __len__(self):
         return self.count()
 
     def add(self, urls, **kwargs):
         assert not isinstance(urls, (str, bytes))
+        referrer = kwargs.pop('referrer', None)
+        top_url = kwargs.pop('top_url', None)
 
         with self._session() as session:
-            inserter = sqlalchemy.sql.expression.insert(URLRecord)\
-                .prefix_with('OR IGNORE')
-
             for url in urls:
-                session.execute(
-                    inserter,
-                    dict(url=url, status=Status.todo, **kwargs)
-                )
+                url_db_record = session.query(URLDBRecord.id)\
+                    .filter_by(url=url).scalar()
+
+                if url_db_record:
+                    continue
+
+                url_db_record = URLDBRecord(status=Status.todo, **kwargs)
+
+                url_db_record.set_url_string(session, 'url_str_record', url)
+                url_db_record.set_url_string(
+                    session, 'referrer_record', referrer)
+                url_db_record.set_url_string(
+                    session, 'top_url_record', top_url)
+
+                session.add(url_db_record)
 
     def get_and_update(self, status, new_status=None, level=None):
         with self._session() as session:
             if level is None:
-                url_record = session.query(URLRecord).filter_by(
+                url_record = session.query(URLDBRecord).filter_by(
                     status=status).first()
             else:
-                url_record = session.query(URLRecord)\
+                url_record = session.query(URLDBRecord)\
                     .filter(
-                        URLRecord.status == status,
-                        URLRecord.level < level,
+                        URLDBRecord.status == status,
+                        URLDBRecord.level < level,
                     ).first()
 
             if not url_record:
@@ -243,14 +315,13 @@ class SQLiteURLTable(BaseURLTable):
             if new_status:
                 url_record.status = new_status
 
-            make_transient(url_record)
-            return url_record
+            return url_record.to_plain()
 
     def update(self, url, increment_try_count=False, **kwargs):
         assert isinstance(url, str)
 
         with self._session() as session:
-            url_record = session.query(URLRecord).get(url)
+            url_record = session.query(URLDBRecord).filter_by(url=url).scalar()
 
             if increment_try_count:
                 url_record.try_count += 1
@@ -260,13 +331,72 @@ class SQLiteURLTable(BaseURLTable):
 
     def count(self):
         with self._session() as session:
-            return session.query(URLRecord).count()
+            return session.query(URLDBRecord).count()
 
     def release(self):
         with self._session() as session:
-            session.query(URLRecord)\
+            session.query(URLDBRecord)\
                 .filter_by(status=Status.in_progress)\
                 .update({'status': Status.todo})
+
+    def remove(self, urls):
+        assert not isinstance(urls, (str, bytes))
+
+        with self._session() as session:
+            for url in urls:
+                url_str_record = URLStrDBRecord.get_by_url(session, url)
+                session.query(URLDBRecord).filter_by(
+                    url_str_record=url_str_record).delete()
+
+
+class SQLiteURLTable(BaseSQLURLTable):
+    '''URL table with SQLite storage.
+
+    Args:
+        path: A SQLite filename
+    '''
+    def __init__(self, path=':memory:'):
+        super().__init__()
+        # We use a SingletonThreadPool always because we are using WAL
+        # and want SQLite to handle the checkpoints. Otherwise NullPool
+        # will open and close the connection rapidly, defeating the purpose
+        # of WAL.
+        self._engine = create_engine(
+            'sqlite:///{0}'.format(path), poolclass=SingletonThreadPool)
+        sqlalchemy.event.listen(
+            self._engine, 'connect', self._apply_pragmas_callback)
+        DBBase.metadata.create_all(self._engine)
+        self._session_maker_instance = sessionmaker(bind=self._engine)
+
+    @classmethod
+    def _apply_pragmas_callback(cls, connection, record):
+        '''Set SQLite pragmas.
+
+        Write-ahead logging is used.
+        '''
+        _logger.debug('Setting pragmas.')
+        connection.execute('PRAGMA journal_mode=WAL')
+
+    @property
+    def _session_maker(self):
+        return self._session_maker_instance
+
+
+class GenericSQLURLTable(BaseSQLURLTable):
+    '''URL table using SQLAlchemy without any customizations.
+
+    Args:
+        url: A SQLAlchemy database URL.
+    '''
+    def __init__(self, url):
+        super().__init__()
+        self._engine = create_engine(url)
+        DBBase.metadata.create_all(self._engine)
+        self._session_maker_instance = sessionmaker(bind=self._engine)
+
+    @property
+    def _session_maker(self):
+        return self._session_maker_instance
 
 
 URLTable = SQLiteURLTable

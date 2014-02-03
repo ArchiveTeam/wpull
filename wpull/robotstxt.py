@@ -51,7 +51,7 @@ class RobotsTxtSessionMixin(object):
         error = 4
 
     def __init__(self, *args, **kwargs):
-        self._robots_txt_pool = kwargs.pop('robots_txt_pool', RobotsTxtPool())
+        self._robots_txt_pool = kwargs.pop('robots_txt_pool')
 
         self._robots_attempts_remaining = 20
         self._robots_redirect_tracker = RedirectTracker(max_redirects=5)
