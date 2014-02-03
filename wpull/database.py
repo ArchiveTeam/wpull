@@ -11,6 +11,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import sessionmaker
+from sqlalchemy.pool import SingletonThreadPool
 from sqlalchemy.sql.schema import Column, ForeignKey
 from sqlalchemy.sql.sqltypes import String, Integer, Boolean, Enum
 
@@ -246,7 +247,12 @@ class SQLiteURLTable(BaseURLTable):
     '''
     def __init__(self, path=':memory:'):
         super().__init__()
-        self._engine = create_engine('sqlite:///{0}'.format(path))
+        # We use a SingletonThreadPool always because we are using WAL
+        # and want SQLite to handle the checkpoints. Otherwise NullPool
+        # will open and close the connection rapidly, defeating the purpose
+        # of WAL.
+        self._engine = create_engine(
+            'sqlite:///{0}'.format(path), poolclass=SingletonThreadPool)
         sqlalchemy.event.listen(
             self._engine, 'connect', self._apply_pragmas_callback)
         DBBase.metadata.create_all(self._engine)
