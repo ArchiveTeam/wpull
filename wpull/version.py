@@ -6,4 +6,4 @@
    A string conforming to `Semantic Versioning
    Guidelines <http://semver.org/>`_
 '''
-__version__ = '0.15.2'
+__version__ = '0.16'
