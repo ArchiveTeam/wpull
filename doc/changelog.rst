@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2014-02-DD)
+0.16 (2014-02-04)
 =================
 
 * Implements all the SSL options: ``--certificate``, ``--random-file``, ``--egd-file``, ``--secure-protocol``.
