@@ -561,6 +561,20 @@ class Builder(object):
         else:
             ssl_options['cert_reqs'] = ssl.CERT_NONE
 
+        ssl_options['ssl_version'] = self._args.secure_protocol
+
+        if self._args.certificate:
+            ssl_options['certfile'] = self._args.certificate
+            ssl_options['keyfile'] = self._args.private_key
+
+        if self._args.edg_file:
+            ssl.RAND_egd(self._args.edg_file)
+
+        if self._args.random_file:
+            with open(self._args.random_file, 'rb') as in_file:
+                # Use 16KB because Wget
+                ssl.RAND_add(in_file.read(15360), 0.0)
+
         return ssl_options
 
     def _load_ca_certs(self):

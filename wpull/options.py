@@ -3,6 +3,7 @@
 import gettext
 import logging
 import os
+import ssl
 import sys
 
 import wpull.version
@@ -27,6 +28,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             **kwargs
         )
         self._real_exit = real_exit
+        self._ssl_version_map = None
         self._add_app_args()
 
     @classmethod
@@ -624,11 +626,23 @@ class AppArgumentParser(argparse.ArgumentParser):
 #         )
 
     def _add_ssl_args(self):
+        self._ssl_version_map = {
+            'auto': ssl.PROTOCOL_SSLv23,
+            'SSLv3': ssl.PROTOCOL_SSLv3,
+            'TLSv1': ssl.PROTOCOL_TLSv1,
+        }
+
+        if hasattr(ssl, 'PROTOCOL_SSLv2'):
+            self._ssl_version_map['SSLv2'] = ssl.PROTOCOL_SSLv2,
+
         group = self.add_argument_group('SSL')
-#         self.add_argument(
-#             '--secure-protocol',
-#             metavar='PR'
-#         )
+        group.add_argument(
+            '--secure-protocol',
+            metavar='PR',
+            default='auto',
+            choices=sorted(self._ssl_version_map),
+            help=_('specifiy the version of the SSL protocol to use'),
+        )
         group.add_argument(
             '--no-check-certificate',
             dest='check_certificate',
@@ -636,22 +650,26 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=True,
             help=_('don’t validate SSL server certificates'),
         )
-#         self.add_argument(
-#             '--certificate',
-#             metavar='FILE'
-#         )
-#         self.add_argument(
-#             '--certificate-type',
-#             metavar='TYPE'
-#         )
-#         self.add_argument(
-#             '--private-key',
-#             metavar='FILE'
-#         )
-#         self.add_argument(
-#             '--private-key-type',
-#             metavar='TYPE'
-#         )
+        group.add_argument(
+            '--certificate',
+            metavar='FILE',
+            help=_('use FILE containing the local client certificate')
+        )
+        group.add_argument(
+            '--certificate-type',
+            metavar='TYPE',
+            choices=['PEM'],
+        )
+        group.add_argument(
+            '--private-key',
+            metavar='FILE',
+            help=_('use FILE containing the local client private key')
+        )
+        group.add_argument(
+            '--private-key-type',
+            metavar='TYPE',
+            choices=['PEM'],
+        )
         group.add_argument(
             '--ca-certificate',
             metavar='FILE',
@@ -670,14 +688,16 @@ class AppArgumentParser(argparse.ArgumentParser):
             dest='use_internal_ca_certs',
             help=_('don’t use CA certificates included with Wpull')
         )
-#         self.add_argument(
-#             '--random-file',
-#             metavar='FILE'
-#         )
-#         self.add_argument(
-#             '--edg-file',
-#             metavar='FILE'
-#         )
+        group.add_argument(
+            '--random-file',
+            metavar='FILE',
+            help=_('use data from FILE to seed the SSL PRNG')
+        )
+        group.add_argument(
+            '--edg-file',
+            metavar='FILE',
+            help=_('connect to entropy gathering daemon using socket FILE')
+        )
 
     def _add_ftp_args(self):
         pass
@@ -813,7 +833,7 @@ class AppArgumentParser(argparse.ArgumentParser):
 #         )
 
     def _add_accept_args(self):
-        group = self.add_argument_group(_('Filters'))
+        group = self.add_argument_group(_('filters'))
 #         self.add_argument(
 #             '-A',
 #             '--accept',
@@ -927,7 +947,8 @@ class AppArgumentParser(argparse.ArgumentParser):
         if args.warc_file:
             self._post_warc_args(args)
         if not args.input_file and not args.urls:
-            self.error('no URL provided')
+            self.error(_('no URL provided'))
+        self._post_ssl_args(args)
 
     def _post_warc_args(self, args):
         option_names = ('clobber_method', 'timestamping', 'continue_download')
@@ -938,3 +959,13 @@ class AppArgumentParser(argparse.ArgumentParser):
                     _('WARC output cannot be combined with {option_name}.') \
                         .format(option_name=option_name)
                 )
+
+    def _post_ssl_args(self, args):
+        if args.secure_protocol:
+            args.secure_protocol = self._ssl_version_map[args.secure_protocol]
+
+        if args.certificate and not os.path.exists(args.certificate):
+            self.error(_('certificate file not found'))
+
+        if args.private_key and not os.path.exists(args.private_key):
+            self.error(_('private key file not found'))

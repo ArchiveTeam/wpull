@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.XX (2014-02-DD)
+=================
+
+* Implements all the SSL options: ``--certificate``, ``--random-file``, ``--egd-file``, ``--secure-protocol``.
+
+
 0.15.2 (2014-02-03)
 ===================
 
