@@ -91,6 +91,7 @@ class TestApp(GoodAppTestCase):
             '--no-check-certificate',
             '--ascii-print',
             '--progress', 'dot',
+            '--secure-protocol', 'TLSv1',
         ])
         with cd_tempdir():
             engine = Builder(args).build()

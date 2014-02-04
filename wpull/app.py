@@ -42,6 +42,8 @@ class Builder(object):
     Args:
         args: Options from :class:`argparse.ArgumentParser`
     '''
+    UNSAFE_OPTIONS = frozenset(['save_headers'])
+
     # TODO: expose the instances built so we can access stuff like Stats
     def __init__(self, args):
         self._args = args
@@ -82,6 +84,7 @@ class Builder(object):
         self._setup_console_logger()
         self._setup_file_logger()
         self._install_script_hooks()
+        self._warn_unsafe_options()
 
         self._instances['Statistics'] = self._classes['Statistics']()
 
@@ -558,6 +561,20 @@ class Builder(object):
         else:
             ssl_options['cert_reqs'] = ssl.CERT_NONE
 
+        ssl_options['ssl_version'] = self._args.secure_protocol
+
+        if self._args.certificate:
+            ssl_options['certfile'] = self._args.certificate
+            ssl_options['keyfile'] = self._args.private_key
+
+        if self._args.edg_file:
+            ssl.RAND_egd(self._args.edg_file)
+
+        if self._args.random_file:
+            with open(self._args.random_file, 'rb') as in_file:
+                # Use 16KB because Wget
+                ssl.RAND_add(in_file.read(15360), 0.0)
+
         return ssl_options
 
     def _load_ca_certs(self):
@@ -610,3 +627,26 @@ class Builder(object):
 
         with open(filename, 'rb') as in_file:
             return wpull.util.filter_pem(in_file.read())
+
+    def _warn_unsafe_options(self):
+        '''Print warnings about any enabled hazardous options.
+
+        This function will print messages complaining about:
+
+        * ``--save-headers``
+        '''
+        # TODO: Add output-document once implemented
+        enabled_options = []
+
+        for option_name in self.UNSAFE_OPTIONS:
+            if getattr(self._args, option_name):
+                enabled_options.append(option_name)
+
+        if enabled_options:
+            _logger.warning(
+                _('The following unsafe options are enabled: {list}.')\
+                .format(list=enabled_options)
+            )
+            _logger.warning(
+                _('The use of unsafe options may lead to unexpected behavior '
+                    'or file corruption.'))
