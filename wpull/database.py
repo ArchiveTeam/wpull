@@ -290,16 +290,17 @@ class BaseSQLURLTable(BaseURLTable):
                 if url in self._url_item_added_cache:
                     continue
 
+                url_str_id = URLStrDBRecord.get_url_id(
+                    session, url, create=True, cache=self._url_str_id_cache)
                 url_db_record = session.query(URLDBRecord.id)\
-                    .filter_by(url=url).first()
+                    .filter_by(url_str_id=url_str_id).first()
 
                 if url_db_record:
                     continue
 
                 values = dict(status=Status.todo)
                 values.update(**kwargs)
-                values['url_str_id'] = URLStrDBRecord.get_url_id(
-                    session, url, create=True, cache=self._url_str_id_cache)
+                values['url_str_id'] = url_str_id
 
                 if referrer:
                     values['referrer_id'] = URLStrDBRecord.get_url_id(

@@ -6,6 +6,7 @@ What's New
 =================
 
 * Implements all the SSL options: ``--certificate``, ``--random-file``, ``--egd-file``, ``--secure-protocol``.
+* Further improvement on database performance.
 
 
 0.15.2 (2014-02-03)
