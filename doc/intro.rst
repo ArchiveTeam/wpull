@@ -13,16 +13,24 @@ downloader.
 
 Features:
 
-* Written in Python
-* Modular
-* Asynchronous
+* Written in Python: lightweight & robust
+* Familiar Wget options and behavior
+* Graceful stopping and resuming
 * Python & Lua scripting support
+* Modular, extensible, & asynchronous API 
+
 
 .. ⬆ Please keep this intro above in sync with the README file. ⬆
    Additional intro stuff not in the README should go below.
 
+
+Wpull is designed to be (almost) a drop-in replacement for Wget with
+minimal changes to options. It is designed to run on much larger crawls
+without requiring additional demand on resources.
+
+
 Wpull's behavior is not an exact duplicate of Wget's behavior. As such,
 you should not expect exact output and operation out of Wpull. However,
-Wpull aims to be a very useful alternative as its source code can be
-easily modified to fix or change some behaviors.
+it aims to be a very useful alternative as its source code can be
+easily modified to fix, change, or extend its behaviors.
 
