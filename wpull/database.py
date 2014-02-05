@@ -426,3 +426,11 @@ class GenericSQLURLTable(BaseSQLURLTable):
 
 URLTable = SQLiteURLTable
 '''The default URL table implementation.'''
+
+
+__all__ = [
+    'DatabaseError', 'NotFound', 'Status',
+    'URLRecord', 'URLDBRecord', 'URLStrDBRecord',
+    'BaseURLTable', 'SQLiteURLTable', 'GenericSQLURLTable',
+    'URLTable',
+]
