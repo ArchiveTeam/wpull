@@ -23,7 +23,7 @@ from wpull.scraper import HTMLScraper, CSSScraper
 from wpull.stats import Statistics
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     RecursiveFilter, SpanHostsFilter, ParentFilter, RegexFilter, HTTPFilter,
-    DirectoryFilter, HostnameFilter)
+    DirectoryFilter, HostnameFilter, DemuxURLFilter)
 from wpull.util import ASCIIStreamWriter
 import wpull.version
 from wpull.waiter import LinearWaiter
@@ -48,25 +48,26 @@ class Builder(object):
     def __init__(self, args):
         self._args = args
         self._classes = {
-            'URLInfo': URLInfo,
-            'URLTable': URLTable,
-            'HTMLScraper': HTMLScraper,
-            'CSSScraper': Engine,
             'Client': Client,
             'Connection': Connection,
-            'HostConnectionPool': HostConnectionPool,
             'ConnectionPool': ConnectionPool,
-            'Request': Request,
-            'Resolver': Resolver,
-            'WebProcessor': WebProcessor,
-            'WARCRecorder': WARCRecorder,
+            'CSSScraper': Engine,
             'DemuxRecorder': DemuxRecorder,
+            'DemuxURLFilter': DemuxURLFilter,
+            'Engine': Engine,
+            'HostConnectionPool': HostConnectionPool,
+            'HTMLScraper': HTMLScraper,
+            'PathNamer': PathNamer,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
             'ProgressRecorder': ProgressRecorder,
-            'Waiter': LinearWaiter,
-            'PathNamer': PathNamer,
-            'Engine': Engine,
+            'Request': Request,
+            'Resolver': Resolver,
             'Statistics': Statistics,
+            'URLInfo': URLInfo,
+            'URLTable': URLTable,
+            'Waiter': LinearWaiter,
+            'WARCRecorder': WARCRecorder,
+            'WebProcessor': WebProcessor,
         }
         self._instances = {}
         self._url_infos = tuple(self._build_input_urls())
@@ -389,7 +390,7 @@ class Builder(object):
             Processor: An instance of :class:`.processor.BaseProcessor`.
         '''
         args = self._args
-        url_filters = self._build_url_filters()
+        url_filter = self._classes['DemuxURLFilter'](self._build_url_filters())
         document_scrapers = self._build_document_scrapers()
         file_writer = self._build_file_writer()
         post_data = self._get_post_data()
@@ -400,7 +401,10 @@ class Builder(object):
             max_wait=args.waitretry
         )
         processor = self._classes['WebProcessor'](
-            url_filters, document_scrapers, file_writer, waiter,
+            url_filter=url_filter,
+            document_scrapers=document_scrapers,
+            file_writer=file_writer,
+            waiter=waiter,
             request_factory=self._build_request_factory(),
             retry_connrefused=args.retry_connrefused,
             retry_dns_error=args.retry_dns_error,

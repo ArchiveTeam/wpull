@@ -16,7 +16,7 @@ from wpull.http import Request, Response, RedirectTracker
 from wpull.robotstxt import RobotsTxtPool, RobotsTxtSessionMixin
 from wpull.scraper import HTMLScraper
 from wpull.stats import Statistics
-from wpull.url import URLInfo
+from wpull.url import URLInfo, DemuxURLFilter
 import wpull.util
 from wpull.waiter import LinearWaiter
 
@@ -128,7 +128,8 @@ class WebProcessor(BaseProcessor):
     '''HTTP processor.
 
     Args:
-        url_filters: URL filters.
+        url_filter (DemuxURLFilter): An instance of
+            :class:`.url.DemuxURLFilter`.
         document_scrapers: Document scrapers.
         file_writer: File writer.
         waiter: Waiter.
@@ -152,11 +153,11 @@ class WebProcessor(BaseProcessor):
     NO_DOCUMENT_STATUS_CODES = (401, 403, 404, 405, 410,)
     '''Default status codes considered a permanent error.'''
 
-    def __init__(self, url_filters=None, document_scrapers=None,
+    def __init__(self, url_filter=None, document_scrapers=None,
     file_writer=None, waiter=None, statistics=None, request_factory=None,
     retry_connrefused=False, retry_dns_error=False, max_redirects=20,
     robots=False, post_data=None):
-        self._url_filters = url_filters or ()
+        self._url_filter = url_filter or DemuxURLFilter([])
         self._document_scrapers = document_scrapers or ()
         self._file_writer = file_writer
         self._waiter = waiter or LinearWaiter()
@@ -179,11 +180,15 @@ class WebProcessor(BaseProcessor):
 
         self._statistics.start()
 
+    @property
+    def url_filter(self):
+        return self._url_filter
+
     @contextlib.contextmanager
     def session(self, url_item):
         session = self._session_class(
+            self,
             url_item=url_item,
-            url_filters=self._url_filters,
             document_scrapers=self._document_scrapers,
             file_writer_session=self._file_writer.session(),
             waiter=self._waiter,
@@ -212,9 +217,9 @@ class WebProcessorSession(BaseProcessorSession):
     URLs to be added to the URL table. This Processor Session is very simple;
     it cannot handle JavaScript or Flash plugins.
     '''
-    def __init__(self, **kwargs):
+    def __init__(self, processor, **kwargs):
+        self._processor = processor
         self._url_item = kwargs.pop('url_item')
-        self._url_filters = kwargs.pop('url_filters')
         self._document_scrapers = kwargs.pop('document_scrapers')
         self._file_writer_session = kwargs.pop('file_writer_session')
         self._waiter = kwargs.pop('waiter')
@@ -247,13 +252,19 @@ class WebProcessorSession(BaseProcessorSession):
     def should_fetch(self):
         url_info = self._next_url_info
         url_record = self._url_item.url_record
+        test_info = self._processor.url_filter.test_info(url_info, url_record)
 
-        if self._is_url_filtered(url_info, url_record):
+        if test_info['verdict']:
             return True
 
         else:
-            _logger.debug('Rejecting {url} due to filters.'.format(
-                url=url_info.url))
+            _logger.debug(
+                'Rejecting {url} due to filters: '
+                'Passed={passed}. Failed={failed}.'.format(
+                    url=url_info.url,
+                    passed=test_info['passed'],
+                    failed=test_info['failed']
+            ))
             self._url_item.skip()
 
             return False
@@ -429,33 +440,33 @@ class WebProcessorSession(BaseProcessorSession):
     def wait_time(self):
         return self._waiter.get()
 
-    def _filter_url(self, url_info, url_record):
-        '''Filter the URL and return the filters that were used.
-
-        Returns:
-            a tuple containing a set of filters that passed and a set of
-            filters that failed.
-        '''
-        passed = set()
-        failed = set()
-
-        for url_filter in self._url_filters:
-            result = url_filter.test(url_info, url_record)
-
-            _logger.debug(
-                'URL Filter test {0} returned {1}'.format(url_filter, result))
-
-            if result:
-                passed.add(url_filter)
-            else:
-                failed.add(url_filter)
-
-        return passed, failed
-
-    def _is_url_filtered(self, url_info, url_record):
-        '''Return if any URL filter has failed.'''
-        failed = self._filter_url(url_info, url_record)[1]
-        return len(failed) == 0
+#     def _filter_url(self, url_info, url_record):
+#         '''Filter the URL and return the filters that were used.
+#
+#         Returns:
+#             a tuple containing a set of filters that passed and a set of
+#             filters that failed.
+#         '''
+#         passed = set()
+#         failed = set()
+#
+#         for url_filter in self._url_filters:
+#             result = url_filter.test(url_info, url_record)
+#
+#             _logger.debug(
+#                 'URL Filter test {0} returned {1}'.format(url_filter, result))
+#
+#             if result:
+#                 passed.add(url_filter)
+#             else:
+#                 failed.add(url_filter)
+#
+#         return passed, failed
+#
+#     def _is_url_filtered(self, url_info, url_record):
+#         '''Return if any URL filter has failed.'''
+#         failed = self._filter_url(url_info, url_record)[1]
+#         return len(failed) == 0
 
     def _scrape_document(self, request, response):
         '''Scrape the document for URLs.'''

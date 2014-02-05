@@ -265,14 +265,14 @@ class HookedWebProcessorSessionMixin(object):
     def _get_filter_info(self):
         filter_info_dict = {}
 
-        passed, failed = self._filter_url(
+        test_info = self._processor.url_filter.test_info(
             self._next_url_info, self._url_item.url_record)
 
-        for filter_instance in passed:
+        for filter_instance in test_info['passed']:
             name = filter_instance.__class__.__name__
             filter_info_dict[name] = True
 
-        for filter_instance in failed:
+        for filter_instance in test_info['failed']:
             name = filter_instance.__class__.__name__
             filter_info_dict[name] = False
 

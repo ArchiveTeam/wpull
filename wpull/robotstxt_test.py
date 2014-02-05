@@ -6,15 +6,15 @@ from wpull.http import Request, Response
 from wpull.robotstxt import RobotsTxtSessionMixin, RobotsTxtPool
 from wpull.url import URLInfo
 import io
-from wpull.processor import WebProcessorSession
+from wpull.processor import WebProcessorSession, WebProcessor
 from wpull.waiter import LinearWaiter
 
 
 class MockWebProcessorSession(WebProcessorSession):
     def __init__(self, url_item, should_fetch=True):
         super().__init__(
+            WebProcessor(),
             url_item=url_item,
-            url_filters=None,
             document_scrapers=None,
             file_writer_session=None,
             waiter=LinearWaiter(),
