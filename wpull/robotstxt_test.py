@@ -1,29 +1,19 @@
+import io
 import unittest
 
-from wpull.database import URLRecord, Status
+from wpull.database import Status
 from wpull.engine import URLItem
-from wpull.http import Request, Response
+from wpull.http import Response
+from wpull.processor import WebProcessorSession, WebProcessor
 from wpull.robotstxt import RobotsTxtSessionMixin, RobotsTxtPool
 from wpull.url import URLInfo
-import io
-from wpull.processor import WebProcessorSession
-from wpull.waiter import LinearWaiter
 
 
 class MockWebProcessorSession(WebProcessorSession):
     def __init__(self, url_item, should_fetch=True):
         super().__init__(
-            url_item=url_item,
-            url_filters=None,
-            document_scrapers=None,
-            file_writer_session=None,
-            waiter=LinearWaiter(),
-            statistics=None,
-            request_factory=Request.new,
-            retry_connrefused=False,
-            retry_dns_error=False,
-            max_redirects=5,
-            post_data=None,
+            WebProcessor(),
+            url_item,
         )
         self._should_fetch = should_fetch
 

@@ -14,11 +14,12 @@ from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
     DNSNotFound)
 from wpull.http import Request, Response, RedirectTracker
 from wpull.robotstxt import RobotsTxtPool, RobotsTxtSessionMixin
-from wpull.scraper import HTMLScraper
+from wpull.scraper import HTMLScraper, DemuxDocumentScraper
 from wpull.stats import Statistics
-from wpull.url import URLInfo
+from wpull.url import URLInfo, DemuxURLFilter
 import wpull.util
 from wpull.waiter import LinearWaiter
+from wpull.writer import NullWriter
 
 
 _logger = logging.getLogger(__name__)
@@ -128,8 +129,10 @@ class WebProcessor(BaseProcessor):
     '''HTTP processor.
 
     Args:
-        url_filters: URL filters.
-        document_scrapers: Document scrapers.
+        url_filter (DemuxURLFilter): An instance of
+            :class:`.url.DemuxURLFilter`.
+        document_scraper (DemuxDocumentScraper): An instance of
+            :class:`.scaper.DemuxDocumentScraper`.
         file_writer: File writer.
         waiter: Waiter.
         statistics: Statistics.
@@ -152,13 +155,13 @@ class WebProcessor(BaseProcessor):
     NO_DOCUMENT_STATUS_CODES = (401, 403, 404, 405, 410,)
     '''Default status codes considered a permanent error.'''
 
-    def __init__(self, url_filters=None, document_scrapers=None,
+    def __init__(self, url_filter=None, document_scraper=None,
     file_writer=None, waiter=None, statistics=None, request_factory=None,
     retry_connrefused=False, retry_dns_error=False, max_redirects=20,
     robots=False, post_data=None):
-        self._url_filters = url_filters or ()
-        self._document_scrapers = document_scrapers or ()
-        self._file_writer = file_writer
+        self._url_filter = url_filter or DemuxURLFilter([])
+        self._document_scraper = document_scraper or DemuxDocumentScraper([])
+        self._file_writer = file_writer or NullWriter()
         self._waiter = waiter or LinearWaiter()
         self._statistics = statistics or Statistics()
         self._request_factory = request_factory or Request.new
@@ -168,6 +171,7 @@ class WebProcessor(BaseProcessor):
         self._post_data = post_data
 
         if robots:
+            # TODO: RobotsTxtPool should be dependency injected
             self._robots_txt_pool = RobotsTxtPool()
             self._session_class = functools.partial(
                 WebProcessorWithRobotsTxtSession,
@@ -179,20 +183,47 @@ class WebProcessor(BaseProcessor):
 
         self._statistics.start()
 
+    @property
+    def url_filter(self):
+        return self._url_filter
+
+    @property
+    def document_scraper(self):
+        return self._document_scraper
+
+    @property
+    def file_writer(self):
+        return self._file_writer
+
+    @property
+    def waiter(self):
+        return self._waiter
+
+    @property
+    def statistics(self):
+        return self._statistics
+
+    @property
+    def request_factory(self):
+        return self._request_factory
+
+    @property
+    def retry_connrefused(self):
+        return self._retry_connrefused
+
+    @property
+    def max_redirects(self):
+        return self._max_redirects
+
+    @property
+    def post_data(self):
+        return self._post_data
+
     @contextlib.contextmanager
     def session(self, url_item):
         session = self._session_class(
-            url_item=url_item,
-            url_filters=self._url_filters,
-            document_scrapers=self._document_scrapers,
-            file_writer_session=self._file_writer.session(),
-            waiter=self._waiter,
-            statistics=self._statistics,
-            request_factory=self._request_factory,
-            retry_connrefused=self._retry_connrefused,
-            retry_dns_error=self._retry_dns_error,
-            max_redirects=self._max_redirects,
-            post_data=self._post_data,
+            self,
+            url_item,
         )
         yield session
 
@@ -212,27 +243,19 @@ class WebProcessorSession(BaseProcessorSession):
     URLs to be added to the URL table. This Processor Session is very simple;
     it cannot handle JavaScript or Flash plugins.
     '''
-    def __init__(self, **kwargs):
-        self._url_item = kwargs.pop('url_item')
-        self._url_filters = kwargs.pop('url_filters')
-        self._document_scrapers = kwargs.pop('document_scrapers')
-        self._file_writer_session = kwargs.pop('file_writer_session')
-        self._waiter = kwargs.pop('waiter')
-        self._statistics = kwargs.pop('statistics')
-        self._request_factory = kwargs.pop('request_factory')
-
-        self._retry_connrefused = kwargs.pop('retry_connrefused')
-        self._retry_dns_error = kwargs.pop('retry_dns_error')
+    def __init__(self, processor, url_item):
+        self._processor = processor
+        self._url_item = url_item
+        self._file_writer_session = processor.file_writer.session()
 
         self._document_codes = WebProcessor.DOCUMENT_STATUS_CODES
         self._no_document_codes = WebProcessor.NO_DOCUMENT_STATUS_CODES
 
         self._request = None
         self._redirect_url_info = None
-        self._post_data = kwargs.pop('post_data')
         # TODO: RedirectTracker should be depedency injected
         self._redirect_tracker = RedirectTracker(
-            max_redirects=kwargs.pop('max_redirects')
+            max_redirects=processor.max_redirects
         )
 
     @property
@@ -247,13 +270,19 @@ class WebProcessorSession(BaseProcessorSession):
     def should_fetch(self):
         url_info = self._next_url_info
         url_record = self._url_item.url_record
+        test_info = self._processor.url_filter.test_info(url_info, url_record)
 
-        if self._is_url_filtered(url_info, url_record):
+        if test_info['verdict']:
             return True
 
         else:
-            _logger.debug('Rejecting {url} due to filters.'.format(
-                url=url_info.url))
+            _logger.debug(
+                'Rejecting {url} due to filters: '
+                'Passed={passed}. Failed={failed}.'.format(
+                    url=url_info.url,
+                    passed=test_info['passed'],
+                    failed=test_info['failed']
+            ))
             self._url_item.skip()
 
             return False
@@ -268,7 +297,7 @@ class WebProcessorSession(BaseProcessorSession):
             referer=url_record.referrer,
         )
 
-        if url_record.post_data or self._post_data:
+        if url_record.post_data or self._processor.post_data:
             if not self._redirect_tracker.is_redirect() \
             or self._redirect_tracker.is_repeat():
                 self._add_post_data(self._request)
@@ -285,7 +314,7 @@ class WebProcessorSession(BaseProcessorSession):
 
         This function adds the referrer URL.
         '''
-        request = self._request_factory(url, url_encoding=encoding)
+        request = self._processor.request_factory(url, url_encoding=encoding)
 
         if 'Referer' not in request.fields and referer:
             request.fields['Referer'] = referer
@@ -296,7 +325,7 @@ class WebProcessorSession(BaseProcessorSession):
         if self._url_item.url_record.post_data:
             data = wpull.util.to_bytes(self._url_item.url_record.post_data)
         else:
-            data = wpull.util.to_bytes(self._post_data)
+            data = wpull.util.to_bytes(self._processor.post_data)
 
         request.method = 'POST'
         request.fields['Content-Type'] = 'application/x-www-form-urlencoded'
@@ -339,12 +368,10 @@ class WebProcessorSession(BaseProcessorSession):
     def _handle_document(self, response):
         _logger.debug('Got a document.')
 
-        if self._file_writer_session:
-            self._file_writer_session.save_document(response)
-
+        self._file_writer_session.save_document(response)
         self._scrape_document(self._request, response)
-        self._waiter.reset()
-        self._statistics.increment(response.body.content_size)
+        self._processor.waiter.reset()
+        self._processor.statistics.increment(response.body.content_size)
         self._url_item.set_status(Status.done)
 
         return True
@@ -366,35 +393,30 @@ class WebProcessorSession(BaseProcessorSession):
 
     def _handle_no_document(self, response):
         '''Callback for when no useful document is received.'''
-        self._waiter.reset()
-
-        if self._file_writer_session:
-            self._file_writer_session.discard_document(response)
-
+        self._processor.waiter.reset()
+        self._file_writer_session.discard_document(response)
         self._url_item.set_status(Status.skipped)
 
         return True
 
     def _handle_document_error(self, response):
         '''Callback for when the document only describes an server error.'''
-        self._waiter.increment()
-
-        if self._file_writer_session:
-            self._file_writer_session.discard_document(response)
-
-        self._statistics.errors[ServerError] += 1
+        self._processor.waiter.increment()
+        self._file_writer_session.discard_document(response)
+        self._processor.statistics.errors[ServerError] += 1
         self._url_item.set_status(Status.error)
 
         return True
 
     def handle_error(self, error):
-        self._statistics.errors[type(error)] += 1
-        self._waiter.increment()
+        self._processor.statistics.errors[type(error)] += 1
+        self._processor.waiter.increment()
 
         if isinstance(error, ConnectionRefused) \
-        and not self._retry_connrefused:
+        and not self._processor.retry_connrefused:
             self._url_item.set_status(Status.skipped)
-        elif isinstance(error, DNSNotFound) and not self._retry_dns_error:
+        elif isinstance(error, DNSNotFound) \
+        and not self._processor.retry_dns_error:
             self._url_item.set_status(Status.skipped)
         else:
             self._url_item.set_status(Status.error)
@@ -408,7 +430,7 @@ class WebProcessorSession(BaseProcessorSession):
             True if the redirect was finished. False if there is a redirect
             remaining.
         '''
-        self._waiter.reset()
+        self._processor.waiter.reset()
 
         if self._redirect_tracker.next_location() \
         and not self._redirect_tracker.exceeded():
@@ -421,50 +443,24 @@ class WebProcessorSession(BaseProcessorSession):
         else:
             _logger.warning(_('Redirection failure.'))
 
-            self._statistics.errors[ProtocolError] += 1
+            self._processor.statistics.errors[ProtocolError] += 1
             self._url_item.set_status(Status.error)
 
             return True
 
     def wait_time(self):
-        return self._waiter.get()
-
-    def _filter_url(self, url_info, url_record):
-        '''Filter the URL and return the filters that were used.
-
-        Returns:
-            a tuple containing a set of filters that passed and a set of
-            filters that failed.
-        '''
-        passed = set()
-        failed = set()
-
-        for url_filter in self._url_filters:
-            result = url_filter.test(url_info, url_record)
-
-            _logger.debug(
-                'URL Filter test {0} returned {1}'.format(url_filter, result))
-
-            if result:
-                passed.add(url_filter)
-            else:
-                failed.add(url_filter)
-
-        return passed, failed
-
-    def _is_url_filtered(self, url_info, url_record):
-        '''Return if any URL filter has failed.'''
-        failed = self._filter_url(url_info, url_record)[1]
-        return len(failed) == 0
+        return self._processor.waiter.get()
 
     def _scrape_document(self, request, response):
         '''Scrape the document for URLs.'''
+        demux_info = self._processor.document_scraper.scrape_info(
+            request, response)
         num_inline_urls = 0
         num_linked_urls = 0
 
-        for scraper in self._document_scrapers:
-            new_inline, new_linked = self._process_scraper(
-                scraper, request, response
+        for scraper, scrape_info in demux_info.items():
+            new_inline, new_linked = self._process_scrape_info(
+                scraper, scrape_info
             )
             num_inline_urls += new_inline
             num_linked_urls += new_linked
@@ -473,10 +469,8 @@ class WebProcessorSession(BaseProcessorSession):
             num_inline_urls, num_linked_urls
         ))
 
-    def _process_scraper(self, scraper, request, response):
-        '''Run the scraper on the response.'''
-        scrape_info = scraper.scrape(request, response)
-
+    def _process_scrape_info(self, scraper, scrape_info):
+        '''Collect the URLs from the scrape info dict.'''
         if not scrape_info:
             return 0, 0
 

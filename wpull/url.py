@@ -220,9 +220,47 @@ class BaseURLFilter(object, metaclass=abc.ABCMeta):
             url_table_record: :class:`.database.URLRecord`
 
         Returns:
-            :class:`bool`
+            bool: If True, the fitler passed and the URL should be downloaded.
         '''
         pass
+
+
+class DemuxURLFilter(BaseURLFilter):
+    '''Puts multiple url filters into one.'''
+    def __init__(self, url_filters):
+        self._url_filters = url_filters
+
+    def test(self, url_info, url_table_record):
+        return self.test_info(url_info, url_table_record)['verdict']
+
+    def test_info(self, url_info, url_table_record):
+        '''Returns info about which filters passed or failed.
+
+        Returns:
+            dict: A dict containing the keys:
+
+            * ``verdict`` (bool): Whether all the tests passed.
+            * ``passed`` (set): A set of URLFilters that passed.
+            * ``failed`` (set): A set of URLFilters that failed.
+        '''
+        passed = set()
+        failed = set()
+
+        for url_filter in self._url_filters:
+            result = url_filter.test(url_info, url_table_record)
+
+            if result:
+                passed.add(url_filter)
+            else:
+                failed.add(url_filter)
+
+        info = {
+            'verdict': len(failed) == 0,
+            'passed': passed,
+            'failed': failed,
+        }
+
+        return info
 
 
 class HTTPFilter(BaseURLFilter):

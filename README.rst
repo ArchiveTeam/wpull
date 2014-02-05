@@ -12,10 +12,11 @@ downloader.
 
 Features:
 
-* Written in Python
-* Modular
-* Asynchronous
+* Written in Python: lightweight & robust
+* Familiar Wget options and behavior
+* Graceful stopping and resuming
 * Python & Lua scripting support
+* Modular, extensible, & asynchronous API 
 
 **Currently in beta quality! Some features are not implemented yet and the API
 is not considered stable.**
