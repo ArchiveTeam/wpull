@@ -30,6 +30,38 @@ class BaseDocumentScraper(BaseDocumentReader):
         pass
 
 
+class DemuxDocumentScraper(object):
+    '''Puts multiple Document Scrapers into one.'''
+    def __init__(self, document_scrapers):
+        self._document_scrapers = document_scrapers
+
+    def scrape(self, request, response):
+        '''Iterate the scrapers, returning the first of the results.'''
+        for scraper in self._document_scrapers:
+            scrape_info = scraper.scrape(request, response)
+
+            if scrape_info is None:
+                continue
+
+            if scrape_info['inline_urls'] or scrape_info['linked_urls']:
+                return scrape_info
+
+    def scrape_info(self, request, response):
+        '''Iterate the scrapers and return a dict of results.
+
+        Returns:
+            dict: A dict where the keys are the scrapers instances and the
+            values are the results. That is, a mapping from
+            :class:`BaseDocumentScraper` to :class:`dict`.
+        '''
+        info = {}
+        for scraper in self._document_scrapers:
+            scrape_info = scraper.scrape(request, response)
+            info[scraper] = scrape_info
+
+        return info
+
+
 ScrapedLink = collections.namedtuple(
     'ScrapedLinkType',
     ['tag', 'attrib', 'link', 'inline', 'linked', 'base_link']
