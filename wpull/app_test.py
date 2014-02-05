@@ -303,7 +303,6 @@ class TestAppBad(BadAppTestCase):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
             self.get_url('/bad_cookie'),
-            '--no-robots',  # FIXME: Wpull shouldn't be fetching robots in the first place
         ])
         builder = Builder(args)
         with cd_tempdir():

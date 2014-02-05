@@ -957,6 +957,8 @@ class AppArgumentParser(argparse.ArgumentParser):
         if not args.input_file and not args.urls:
             self.error(_('no URL provided'))
         self._post_ssl_args(args)
+        if not args.recursive:
+            args.robots = False
 
     def _post_warc_args(self, args):
         option_names = ('clobber_method', 'timestamping', 'continue_download')
