@@ -48,9 +48,15 @@ class CookieJarWrapper(object):
 
     Args:
         cookie_jar: An instance of :class:`http.cookiejar.CookieJar`.
+        save_filename (str, optional): A filename to save the cookies.
+        keep_session_cookies (bool): If True, session cookies are kept when
+            saving to file.
     '''
-    def __init__(self, cookie_jar):
+    def __init__(self, cookie_jar, save_filename=None,
+    keep_session_cookies=False):
         self._cookie_jar = cookie_jar
+        self._save_filename = save_filename
+        self._keep_session_cookies = keep_session_cookies
 
     def add_cookie_header(self, request, referrer_host=None):
         '''Wrapped ``add_cookie_header``.
@@ -86,3 +92,11 @@ class CookieJarWrapper(object):
     def cookie_jar(self):
         '''Return the wrapped Cookie Jar.'''
         return self._cookie_jar
+
+    def close(self):
+        '''Save the cookie jar if needed.'''
+        if self._save_filename:
+            self._cookie_jar.save(
+                self._save_filename,
+                ignore_discard=self._keep_session_cookies
+            )

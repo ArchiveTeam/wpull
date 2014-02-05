@@ -577,20 +577,28 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=True,
             help=_('disable persistent HTTP connections')
         )
-#         self.add_argument(
-#             '--no-cookies'
-#         )
-#         self.add_argument(
-#             '--load-cookies',
-#             metavar='FILE'
-#         )
-#         self.add_argument(
-#             '--save-cookies',
-#             metavar='FILE'
-#         )
-#         self.add_argument(
-#             '--keep-session-cookies'
-#         )
+        group.add_argument(
+            '--no-cookies',
+            dest='cookies',
+            default=True,
+            action='store_false',
+            help=_('disables HTTP cookie support')
+        )
+        group.add_argument(
+            '--load-cookies',
+            metavar='FILE',
+            help=_('load Mozilla cookies.txt from FILE'),
+        )
+        group.add_argument(
+            '--save-cookies',
+            metavar='FILE',
+            help=_('save Mozilla cookies.txt to FILE'),
+        )
+        group.add_argument(
+            '--keep-session-cookies',
+            action='store_true',
+            help=_('include session cookies when saving cookies to file')
+        )
         post_group = group.add_mutually_exclusive_group()
         post_group.add_argument(
             '--post-data',

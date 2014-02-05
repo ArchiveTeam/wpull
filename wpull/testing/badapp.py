@@ -52,6 +52,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/gzip_http_1_1': self.gzip_http_1_1,
             '/gzip_chunked': self.gzip_chunked,
             '/gzip_corrupt': self.gzip_corrupt,
+            '/bad_cookie': self.bad_cookie,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -296,6 +297,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 gzip_file.write(in_file.read())
 
         return content_file.getvalue()
+
+    def bad_cookie(self):
+        self.send_response(200)
+        self.send_header(
+            'Set-cookie',
+            'ð?#?+:%ff=hope you have cookies enabled!; expires=Dog'
+        )
+        self.send_header('Set-cookie', 'test=valid')
+        self.send_header('Content-length', '0')
+        self.end_headers()
 
 
 class ConcurrentHTTPServer(socketserver.ThreadingMixIn,

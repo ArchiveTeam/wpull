@@ -1,5 +1,6 @@
 # encoding=utf-8
 import contextlib
+import logging
 import os
 import sys
 import tempfile
@@ -9,7 +10,9 @@ from wpull.app import Builder
 from wpull.backport.testing import unittest
 from wpull.errors import ExitStatus
 from wpull.options import AppArgumentParser
+from wpull.testing.badapp import BadAppTestCase
 from wpull.testing.goodapp import GoodAppTestCase
+from http import cookiejar
 
 
 try:
@@ -19,6 +22,9 @@ except ImportError:
 
 
 DEFAULT_TIMEOUT = 30
+
+
+_logger = logging.getLogger(__name__)
 
 
 @contextlib.contextmanager
@@ -34,8 +40,14 @@ def cd_tempdir():
 
 class TestApp(GoodAppTestCase):
     def setUp(self):
+        self._original_cookiejar_debug = cookiejar.debug
+        cookiejar.debug = True
         super().setUp()
         tornado.ioloop.IOLoop.current().set_blocking_log_threshold(0.5)
+
+    def tearDown(self):
+        GoodAppTestCase.tearDown(self)
+        cookiejar.debug = self._original_cookiejar_debug
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_no_args(self):
@@ -46,10 +58,18 @@ class TestApp(GoodAppTestCase):
     def test_one_page(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([self.get_url('/')])
+        builder = Builder(args)
         with cd_tempdir():
-            engine = Builder(args).build()
+            engine = builder.build()
             exit_code = yield engine()
         self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
+        cookies = list(builder.factory['CookieJar'])
+        _logger.debug('{0}'.format(cookies))
+        self.assertEqual(1, len(cookies))
+        self.assertEqual('hi', cookies[0].name)
+        self.assertEqual('hello', cookies[0].value)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_many_page_with_some_fail(self):
@@ -61,10 +81,12 @@ class TestApp(GoodAppTestCase):
             '--page-requisites',
             '-4',
         ])
+        builder = Builder(args)
         with cd_tempdir():
-            engine = Builder(args).build()
+            engine = builder.build()
             exit_code = yield engine()
         self.assertEqual(ExitStatus.server_error, exit_code)
+        self.assertGreater(builder.factory['Statistics'].files, 1)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_args(self):
@@ -232,3 +254,64 @@ class TestApp(GoodAppTestCase):
             engine = Builder(args).build()
             exit_code = yield engine()
         self.assertEqual(0, exit_code)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_cookie(self):
+        arg_parser = AppArgumentParser()
+
+        with tempfile.NamedTemporaryFile() as in_file:
+            in_file.write(b'# Netscape HTTP Cookie File\n')
+            in_file.write(b'localhost.local')
+            in_file.write(b'\tFALSE\t/\tFALSE\t\ttest\tno\n')
+            in_file.flush()
+
+            args = arg_parser.parse_args([
+                self.get_url('/cookie'),
+                '--load-cookies', in_file.name,
+                '--tries', '1',
+                '--save-cookies', 'wpull_test_cookies.txt',
+                '--keep-session-cookies',
+            ])
+            builder = Builder(args)
+
+            with cd_tempdir():
+                engine = builder.build()
+                exit_code = yield engine()
+
+                self.assertEqual(0, exit_code)
+                self.assertEqual(1, builder.factory['Statistics'].files)
+
+                cookies = list(builder.factory['CookieJar'])
+                _logger.debug('{0}'.format(cookies))
+                self.assertEqual(1, len(cookies))
+                self.assertEqual('test', cookies[0].name)
+                self.assertEqual('yes', cookies[0].value)
+
+                with open('wpull_test_cookies.txt', 'rb') as saved_file:
+                    cookie_data = saved_file.read()
+
+                self.assertIn(b'test\tyes', cookie_data)
+
+
+class TestAppBad(BadAppTestCase):
+    def setUp(self):
+        super().setUp()
+        tornado.ioloop.IOLoop.current().set_blocking_log_threshold(0.5)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_bad_cookie(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/bad_cookie'),
+            '--no-robots',  # FIXME: Wpull shouldn't be fetching robots in the first place
+        ])
+        builder = Builder(args)
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
+        cookies = list(builder.factory['CookieJar'])
+        _logger.debug('{0}'.format(cookies))
+        self.assertEqual(2, len(cookies))

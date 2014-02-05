@@ -2,6 +2,7 @@
 '''Application support.'''
 import atexit
 import gettext
+from http.cookiejar import CookieJar, MozillaCookieJar
 import itertools
 import logging
 import os.path
@@ -28,6 +29,7 @@ from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
 from wpull.util import ASCIIStreamWriter
 import wpull.version
 from wpull.waiter import LinearWaiter
+from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
     IgnoreFileWriter, TimestampingFileWriter, AntiClobberFileWriter)
 
@@ -49,6 +51,8 @@ class Builder(object):
         self._args = args
         self._factory = Factory({
             'Client': Client,
+            'CookieJar': CookieJar,
+            'CookieJarWrapper': CookieJarWrapper,
             'Connection': Connection,
             'ConnectionPool': ConnectionPool,
             'CSSScraper': Engine,
@@ -405,6 +409,7 @@ class Builder(object):
             self._build_document_scrapers())
         file_writer = self._build_file_writer()
         post_data = self._get_post_data()
+        cookie_jar = self._build_cookie_jar()
 
         waiter = self._factory.new('Waiter',
             wait=args.wait,
@@ -423,6 +428,7 @@ class Builder(object):
             robots=args.robots,
             statistics=self._factory['Statistics'],
             post_data=post_data,
+            cookie_jar=cookie_jar,
         )
 
         return processor
@@ -559,6 +565,33 @@ class Builder(object):
 
         return self._factory.new('Client',
             connection_pool=connection_pool, recorder=recorder)
+
+    def _build_cookie_jar(self):
+        '''Build the cookie jar'''
+
+        if not self._args.cookies:
+            return
+
+        if self._args.load_cookies or self._args.save_cookies:
+            self._factory.set('CookieJar', MozillaCookieJar)
+
+            cookie_jar = self._factory.new('CookieJar')
+
+            if self._args.load_cookies:
+                cookie_jar.load(self._args.load_cookies, ignore_discard=True)
+        else:
+            cookie_jar = self._factory.new('CookieJar')
+
+        _logger.debug('Loaded cookies: {0}'.format(list(cookie_jar)))
+
+        cookie_jar_wrapper = self._factory.new(
+            'CookieJarWrapper',
+            cookie_jar,
+            save_filename=self._args.save_cookies,
+            keep_session_cookies=True,
+        )
+
+        return cookie_jar_wrapper
 
     def _build_ssl_options(self):
         '''Create the SSL options.
