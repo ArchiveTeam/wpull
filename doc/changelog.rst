@@ -7,6 +7,7 @@ What's New
 
 * Implements cookie support.
 * Fixes non-recursive downloads where robots.txt was checked unnecessarily.
+* Possibly fix issue #27 where HTTP workers get stuck.
 
 
 0.16.1 (2014-02-05)

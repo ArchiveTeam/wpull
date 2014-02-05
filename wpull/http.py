@@ -592,7 +592,6 @@ class HostConnectionPool(collections.Set):
         self._ssl = ssl
         self._connection_factory = connection_factory
         self._connections = set()
-        self._connection_ready_queue = toro.Queue()
         self._max_count = max_count
         self._max_count_semaphore = toro.BoundedSemaphore(max_count)
         self._run()
@@ -620,7 +619,7 @@ class HostConnectionPool(collections.Set):
 
         _logger.debug('Host pool got request {0}'.format(request))
 
-        connection = yield self._get_ready_connection()
+        connection = self._get_ready_connection()
 
         try:
             response = yield connection.fetch(request, **kwargs)
@@ -633,24 +632,27 @@ class HostConnectionPool(collections.Set):
             async_result.set(response)
         finally:
             _logger.debug('Host pool done {0}'.format(request))
-            yield self._connection_ready_queue.put(connection)
             self._max_count_semaphore.release()
 
-    @tornado.gen.coroutine
     def _get_ready_connection(self):
-        try:
-            _logger.debug('Getting a connection.')
-            raise tornado.gen.Return(self._connection_ready_queue.get_nowait())
-        except queue.Empty:
-            if len(self._connections) < self._max_count:
-                _logger.debug('Making another connection.')
-                connection = self._connection_factory(
-                    self._host, self._port, ssl=self._ssl)
-                self._connections.add(connection)
-                raise tornado.gen.Return(connection)
+        _logger.debug('Getting a connection.')
 
-        _logger.debug('Waiting for free connection.')
-        raise tornado.gen.Return(self._connection_ready_queue.get())
+        for connection in self._connections:
+            if not connection.active:
+                _logger.debug('Found a unused connection.')
+                return connection
+
+        if len(self._connections) < self._max_count:
+            _logger.debug('Making another connection.')
+            connection = self._connection_factory(
+                self._host, self._port, ssl=self._ssl)
+            self._connections.add(connection)
+            return connection
+
+        _logger.debug('Connections len={0} max={1}'.format(
+            len(self._connections), self._max_count))
+
+        raise Exception('Impossibly ran out of unused connections.')
 
     def __contains__(self, key):
         return key in self._connections
