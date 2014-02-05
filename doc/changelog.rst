@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2014-02-DD)
+0.17 (2014-02-05)
 =================
 
 * Implements cookie support.
