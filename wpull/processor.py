@@ -14,7 +14,7 @@ from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
     DNSNotFound)
 from wpull.http import Request, Response, RedirectTracker
 from wpull.robotstxt import RobotsTxtPool, RobotsTxtSessionMixin
-from wpull.scraper import HTMLScraper
+from wpull.scraper import HTMLScraper, DemuxDocumentScraper
 from wpull.stats import Statistics
 from wpull.url import URLInfo, DemuxURLFilter
 import wpull.util
@@ -130,7 +130,8 @@ class WebProcessor(BaseProcessor):
     Args:
         url_filter (DemuxURLFilter): An instance of
             :class:`.url.DemuxURLFilter`.
-        document_scrapers: Document scrapers.
+        document_scraper (DemuxDocumentScraper): An instance of
+            :class:`.scaper.DemuxDocumentScraper`.
         file_writer: File writer.
         waiter: Waiter.
         statistics: Statistics.
@@ -153,12 +154,12 @@ class WebProcessor(BaseProcessor):
     NO_DOCUMENT_STATUS_CODES = (401, 403, 404, 405, 410,)
     '''Default status codes considered a permanent error.'''
 
-    def __init__(self, url_filter=None, document_scrapers=None,
+    def __init__(self, url_filter=None, document_scraper=None,
     file_writer=None, waiter=None, statistics=None, request_factory=None,
     retry_connrefused=False, retry_dns_error=False, max_redirects=20,
     robots=False, post_data=None):
         self._url_filter = url_filter or DemuxURLFilter([])
-        self._document_scrapers = document_scrapers or ()
+        self._document_scraper = document_scraper or DemuxDocumentScraper([])
         self._file_writer = file_writer
         self._waiter = waiter or LinearWaiter()
         self._statistics = statistics or Statistics()
@@ -184,12 +185,15 @@ class WebProcessor(BaseProcessor):
     def url_filter(self):
         return self._url_filter
 
+    @property
+    def document_scraper(self):
+        return self._document_scraper
+
     @contextlib.contextmanager
     def session(self, url_item):
         session = self._session_class(
             self,
             url_item=url_item,
-            document_scrapers=self._document_scrapers,
             file_writer_session=self._file_writer.session(),
             waiter=self._waiter,
             statistics=self._statistics,
@@ -220,7 +224,6 @@ class WebProcessorSession(BaseProcessorSession):
     def __init__(self, processor, **kwargs):
         self._processor = processor
         self._url_item = kwargs.pop('url_item')
-        self._document_scrapers = kwargs.pop('document_scrapers')
         self._file_writer_session = kwargs.pop('file_writer_session')
         self._waiter = kwargs.pop('waiter')
         self._statistics = kwargs.pop('statistics')
@@ -470,12 +473,14 @@ class WebProcessorSession(BaseProcessorSession):
 
     def _scrape_document(self, request, response):
         '''Scrape the document for URLs.'''
+        demux_info = self._processor.document_scraper.scrape_info(
+            request, response)
         num_inline_urls = 0
         num_linked_urls = 0
 
-        for scraper in self._document_scrapers:
-            new_inline, new_linked = self._process_scraper(
-                scraper, request, response
+        for scraper, scrape_info in demux_info.items():
+            new_inline, new_linked = self._process_scrape_info(
+                scraper, scrape_info
             )
             num_inline_urls += new_inline
             num_linked_urls += new_linked
@@ -484,10 +489,8 @@ class WebProcessorSession(BaseProcessorSession):
             num_inline_urls, num_linked_urls
         ))
 
-    def _process_scraper(self, scraper, request, response):
-        '''Run the scraper on the response.'''
-        scrape_info = scraper.scrape(request, response)
-
+    def _process_scrape_info(self, scraper, scrape_info):
+        '''Collect the URLs from the scrape info dict.'''
         if not scrape_info:
             return 0, 0
 

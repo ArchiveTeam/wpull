@@ -19,7 +19,7 @@ from wpull.network import Resolver
 from wpull.processor import WebProcessor
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
     PrintServerResponseRecorder, ProgressRecorder)
-from wpull.scraper import HTMLScraper, CSSScraper
+from wpull.scraper import HTMLScraper, CSSScraper, DemuxDocumentScraper
 from wpull.stats import Statistics
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     RecursiveFilter, SpanHostsFilter, ParentFilter, RegexFilter, HTTPFilter,
@@ -52,6 +52,7 @@ class Builder(object):
             'Connection': Connection,
             'ConnectionPool': ConnectionPool,
             'CSSScraper': Engine,
+            'DemuxDocumentScraper': DemuxDocumentScraper,
             'DemuxRecorder': DemuxRecorder,
             'DemuxURLFilter': DemuxURLFilter,
             'Engine': Engine,
@@ -391,7 +392,8 @@ class Builder(object):
         '''
         args = self._args
         url_filter = self._classes['DemuxURLFilter'](self._build_url_filters())
-        document_scrapers = self._build_document_scrapers()
+        document_scraper = self._classes['DemuxDocumentScraper'](
+            self._build_document_scrapers())
         file_writer = self._build_file_writer()
         post_data = self._get_post_data()
 
@@ -402,7 +404,7 @@ class Builder(object):
         )
         processor = self._classes['WebProcessor'](
             url_filter=url_filter,
-            document_scrapers=document_scrapers,
+            document_scraper=document_scraper,
             file_writer=file_writer,
             waiter=waiter,
             request_factory=self._build_request_factory(),
