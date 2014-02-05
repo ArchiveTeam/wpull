@@ -12,6 +12,7 @@ import tornado.ioloop
 
 from wpull.database import URLTable
 from wpull.engine import Engine
+from wpull.factory import Factory
 from wpull.hook import HookEnvironment
 from wpull.http import (Client, Connection, HostConnectionPool, ConnectionPool,
     Request)
@@ -44,10 +45,9 @@ class Builder(object):
     '''
     UNSAFE_OPTIONS = frozenset(['save_headers'])
 
-    # TODO: expose the instances built so we can access stuff like Stats
     def __init__(self, args):
         self._args = args
-        self._classes = {
+        self._factory = Factory({
             'Client': Client,
             'Connection': Connection,
             'ConnectionPool': ConnectionPool,
@@ -69,12 +69,20 @@ class Builder(object):
             'Waiter': LinearWaiter,
             'WARCRecorder': WARCRecorder,
             'WebProcessor': WebProcessor,
-        }
-        self._instances = {}
+        })
         self._url_infos = tuple(self._build_input_urls())
         self._ca_certs_file = None
         self._file_log_handler = None
         self._console_log_handler = None
+
+    @property
+    def factory(self):
+        '''Return the Factory.
+
+        Returns:
+            Factory: An :class:`.factory.Factory` instance.
+        '''
+        return self._factory
 
     def build(self):
         '''Put the application together.
@@ -88,17 +96,17 @@ class Builder(object):
         self._install_script_hooks()
         self._warn_unsafe_options()
 
-        self._instances['Statistics'] = self._classes['Statistics']()
+        statisics = self._factory.new('Statistics')
 
         url_table = self._build_url_table()
         processor = self._build_processor()
         http_client = self._build_http_client()
 
-        engine = self._classes['Engine'](
+        engine = self._factory.new('Engine',
             url_table,
             http_client,
             processor,
-            self._instances['Statistics'],
+            statisics,
             concurrent=self._args.concurrent,
         )
 
@@ -250,10 +258,10 @@ class Builder(object):
         Args:
             hook_environment: A :class:`.hook.HookEnvironment` instance
         '''
-        self._classes['Engine'] = hook_environment.engine_factory
-        self._classes['WebProcessor'] = \
-            hook_environment.web_processor_factory
-        self._classes['Resolver'] = hook_environment.resolver_factory
+        self._factory.set('Engine', hook_environment.engine_factory)
+        self._factory.set('WebProcessor',
+            hook_environment.web_processor_factory)
+        self._factory.set('Resolver', hook_environment.resolver_factory)
 
     def _build_input_urls(self, default_scheme='http'):
         '''Read the URLs provided by the user.'''
@@ -273,7 +281,7 @@ class Builder(object):
             url_string_iter = self._args.urls
 
         for url_string in url_string_iter:
-            url_info = self._classes['URLInfo'].parse(
+            url_info = self._factory.class_map['URLInfo'].parse(
                 url_string, default_scheme=default_scheme)
             _logger.debug('Parsed URL {0}'.format(url_info))
             yield url_info
@@ -328,7 +336,7 @@ class Builder(object):
         Returns:
             URLTable: An instance of :class:`.database.BaseURLTable`.
         '''
-        url_table = self._classes['URLTable'](path=self._args.database)
+        url_table = self._factory.new('URLTable', path=self._args.database)
         url_table.add([url_info.url for url_info in self._url_infos])
         return url_table
 
@@ -358,7 +366,7 @@ class Builder(object):
                 extra_fields.append((name, value))
 
             recorders.append(
-                self._classes['WARCRecorder'](
+                self._factory.new('WARCRecorder',
                     warc_path,
                     compress=not args.no_warc_compression,
                     extra_fields=extra_fields,
@@ -369,7 +377,7 @@ class Builder(object):
             )
 
         if args.server_response:
-            recorders.append(self._classes['PrintServerResponseRecorder']())
+            recorders.append(self._factory.new('PrintServerResponseRecorder'))
 
         if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARN, None):
             stream = self._new_encoded_stream(sys.stderr)
@@ -379,10 +387,10 @@ class Builder(object):
             if not stream.isatty():
                 bar_style = False
 
-            recorders.append(self._classes['ProgressRecorder'](
+            recorders.append(self._factory.new('ProgressRecorder',
                 bar_style=bar_style, stream=stream))
 
-        return self._classes['DemuxRecorder'](recorders)
+        return self._factory.new('DemuxRecorder', recorders)
 
     def _build_processor(self):
         '''Create the Processor
@@ -391,18 +399,19 @@ class Builder(object):
             Processor: An instance of :class:`.processor.BaseProcessor`.
         '''
         args = self._args
-        url_filter = self._classes['DemuxURLFilter'](self._build_url_filters())
-        document_scraper = self._classes['DemuxDocumentScraper'](
+        url_filter = self._factory.new('DemuxURLFilter',
+            self._build_url_filters())
+        document_scraper = self._factory.new('DemuxDocumentScraper',
             self._build_document_scrapers())
         file_writer = self._build_file_writer()
         post_data = self._get_post_data()
 
-        waiter = self._classes['Waiter'](
+        waiter = self._factory.new('Waiter',
             wait=args.wait,
             random_wait=args.random_wait,
             max_wait=args.waitretry
         )
-        processor = self._classes['WebProcessor'](
+        processor = self._factory.new('WebProcessor',
             url_filter=url_filter,
             document_scraper=document_scraper,
             file_writer=file_writer,
@@ -412,7 +421,7 @@ class Builder(object):
             retry_dns_error=args.retry_dns_error,
             max_redirects=args.max_redirect,
             robots=args.robots,
-            statistics=self._instances['Statistics'],
+            statistics=self._factory['Statistics'],
             post_data=post_data,
         )
 
@@ -437,7 +446,7 @@ class Builder(object):
         elif args.use_directories == 'no':
             use_dir = False
 
-        path_namer = self._classes['PathNamer'](
+        path_namer = self._factory.new('PathNamer',
             args.directory_prefix,
             index=args.default_page,
             use_dir=use_dir,
@@ -481,7 +490,7 @@ class Builder(object):
             A callable object
         '''
         def request_factory(*args, **kwargs):
-            request = self._classes['Request'].new(*args, **kwargs)
+            request = self._factory.class_map['Request'].new(*args, **kwargs)
 
             if self._args.user_agent:
                 user_agent = self._args.user_agent
@@ -524,14 +533,14 @@ class Builder(object):
         else:
             families = [Resolver.IPv4, Resolver.IPv6]
 
-        resolver = self._classes['Resolver'](
+        resolver = self._factory.new('Resolver',
             families=families,
             timeout=dns_timeout,
             rotate=args.rotate_dns
         )
 
         def connection_factory(*args, **kwargs):
-            return self._classes['Connection'](
+            return self._factory.new('Connection',
                 *args,
                 resolver=resolver,
                 connect_timeout=connect_timeout,
@@ -541,14 +550,14 @@ class Builder(object):
                 **kwargs)
 
         def host_connection_pool_factory(*args, **kwargs):
-            return self._classes['HostConnectionPool'](
+            return self._factory.new('HostConnectionPool',
                 *args, connection_factory=connection_factory, **kwargs)
 
-        connection_pool = self._classes['ConnectionPool'](
+        connection_pool = self._factory.new('ConnectionPool',
             host_connection_pool_factory=host_connection_pool_factory)
         recorder = self._build_recorder()
 
-        return self._classes['Client'](
+        return self._factory.new('Client',
             connection_pool=connection_pool, recorder=recorder)
 
     def _build_ssl_options(self):
