@@ -302,7 +302,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header(
             'Set-cookie',
-            'ð?#?+:%ff=hope you have cookies enabled!; expires=Dog'
+            '\x00?#?+:%ff=hope you have cookies enabled!; expires=Dog'
         )
         self.send_header('Set-cookie', 'test=valid')
         self.send_header('Content-length', '0')
