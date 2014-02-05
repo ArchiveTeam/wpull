@@ -1,4 +1,5 @@
 # encoding=utf-8
+import logging
 import os.path
 import time
 from tornado.testing import AsyncHTTPTestCase
@@ -6,8 +7,12 @@ from tornado.web import HTTPError
 import tornado.web
 
 
+_logger = logging.getLogger(__name__)
+
+
 class IndexHandler(tornado.web.RequestHandler):
     def get(self):
+        self.set_cookie('hi', 'hello', expires_days=2)
         page = self.render_string('index.html')
         self.write(page[:10])
         self.flush()
@@ -43,6 +48,18 @@ class PostHandler(tornado.web.RequestHandler):
         self.write(b'OK')
 
 
+class CookieHandler(tornado.web.RequestHandler):
+    def get(self):
+        cookie_value = self.get_cookie('test')
+        _logger.debug('Got cookie value {0}'.format(cookie_value))
+
+        if cookie_value == 'no':
+            self.set_cookie('test', 'yes', expires_days=2)
+            self.write(b'OK')
+        else:
+            raise HTTPError(400)
+
+
 class GoodApp(tornado.web.Application):
     def __init__(self):
         tornado.web.Application.__init__(self, [
@@ -51,6 +68,7 @@ class GoodApp(tornado.web.Application):
                 (r'/infinite/', InfiniteHandler),
                 (r'/static/(.*)', tornado.web.StaticFileHandler),
                 (r'/post/', PostHandler),
+                (r'/cookie', CookieHandler),
             ],
             template_path=os.path.join(os.path.dirname(__file__),
                 'templates'),

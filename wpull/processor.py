@@ -145,6 +145,11 @@ class WebProcessor(BaseProcessor):
         max_redirects: The maximum number of sequential redirects to be done
             before considering it as a redirect loop.
         robots: If True, robots.txt handling is enabled.
+        post_data (str): If provided, all requests will be POSTed with the
+            given `post_data`. `post_data` must be in percent-encoded
+            query format ("application/x-www-form-urlencoded").
+        cookie_jar (CookieJar): An instance of
+            :class:`.wrapper.CookieJarWrapper`.
 
     :seealso: :class:`WebProcessorSession`,
         :class:`WebProcessorWithRobotsTxtSession`
@@ -158,7 +163,7 @@ class WebProcessor(BaseProcessor):
     def __init__(self, url_filter=None, document_scraper=None,
     file_writer=None, waiter=None, statistics=None, request_factory=None,
     retry_connrefused=False, retry_dns_error=False, max_redirects=20,
-    robots=False, post_data=None):
+    robots=False, post_data=None, cookie_jar=None):
         self._url_filter = url_filter or DemuxURLFilter([])
         self._document_scraper = document_scraper or DemuxDocumentScraper([])
         self._file_writer = file_writer or NullWriter()
@@ -169,6 +174,7 @@ class WebProcessor(BaseProcessor):
         self._retry_dns_error = retry_dns_error
         self._max_redirects = max_redirects
         self._post_data = post_data
+        self._cookie_jar = cookie_jar
 
         if robots:
             # TODO: RobotsTxtPool should be dependency injected
@@ -219,6 +225,10 @@ class WebProcessor(BaseProcessor):
     def post_data(self):
         return self._post_data
 
+    @property
+    def cookie_jar(self):
+        return self._cookie_jar
+
     @contextlib.contextmanager
     def session(self, url_item):
         session = self._session_class(
@@ -229,6 +239,8 @@ class WebProcessor(BaseProcessor):
 
     def close(self):
         self._statistics.stop()
+        if self._cookie_jar:
+            self._cookie_jar.close()
 
 
 class WebProcessorSession(BaseProcessorSession):
@@ -312,12 +324,20 @@ class WebProcessorSession(BaseProcessorSession):
     def _new_request_instance(self, url, encoding, referer=None):
         '''Return a new Request.
 
-        This function adds the referrer URL.
+        This function adds the referrer URL and cookies.
         '''
         request = self._processor.request_factory(url, url_encoding=encoding)
 
         if 'Referer' not in request.fields and referer:
             request.fields['Referer'] = referer
+
+        if self._processor.cookie_jar:
+            if referer:
+                referrer_host = URLInfo.parse(referer).hostname
+            else:
+                referrer_host = None
+            self._processor.cookie_jar.add_cookie_header(
+                request, referrer_host)
 
         return request
 
@@ -355,6 +375,7 @@ class WebProcessorSession(BaseProcessorSession):
 
         self._url_item.set_value(status_code=response.status_code)
         self._redirect_tracker.load(response)
+        self._extract_cookies(response)
 
         if self._redirect_tracker.is_redirect():
             return self._handle_redirect(response)
@@ -447,6 +468,19 @@ class WebProcessorSession(BaseProcessorSession):
             self._url_item.set_status(Status.error)
 
             return True
+
+    def _extract_cookies(self, response):
+        if not self._processor.cookie_jar:
+            return
+
+        referrer = self._url_item.url_record.referrer
+
+        if referrer:
+            referrer_host = URLInfo.parse(referrer).hostname
+        else:
+            referrer_host = None
+        self._processor.cookie_jar.extract_cookies(
+            response, self._request, referrer_host)
 
     def wait_time(self):
         return self._processor.waiter.get()

@@ -16,6 +16,8 @@ Brief Option Overview
                      [--default-page NAME] [--header STRING]
                      [--max-redirect NUMBER] [--referer URL] [--save-headers]
                      [-U AGENT] [--no-robots] [--no-http-keep-alive]
+                     [--no-cookies] [--load-cookies FILE] [--save-cookies FILE]
+                     [--keep-session-cookies]
                      [--post-data STRING | --post-file FILE]
                      [--secure-protocol PR] [--no-check-certificate]
                      [--certificate FILE] [--certificate-type TYPE]
@@ -115,6 +117,11 @@ Brief Option Overview
                           use AGENT instead of Wpull’s user agent
     --no-robots           ignore robots.txt directives
     --no-http-keep-alive  disable persistent HTTP connections
+    --no-cookies          disables HTTP cookie support
+    --load-cookies FILE   load Mozilla cookies.txt from FILE
+    --save-cookies FILE   save Mozilla cookies.txt to FILE
+    --keep-session-cookies
+                          include session cookies when saving cookies to file
     --post-data STRING    use POST for all requests with query STRING
     --post-file FILE      use POST for all requests with query in FILE
 
