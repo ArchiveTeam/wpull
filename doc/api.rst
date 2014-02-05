@@ -22,6 +22,7 @@ wpull Package
    api/engine
    api/errors
    api/extended
+   api/factory
    api/hook
    api/http
    api/namevalue

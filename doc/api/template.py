@@ -13,6 +13,7 @@ MODULES = [
     'engine',
     'errors',
     'extended',
+    'factory',
     'hook',
     'http',
     'namevalue',
