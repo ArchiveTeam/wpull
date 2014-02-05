@@ -2,6 +2,14 @@
 What's New
 ==========
 
+0.16.1 (2014-02-05)
+===================
+
+* Adds some documentation about stopping Wpull and a list of all options.
+* API: ``Builder`` now exposes ``Factory``.
+* API: ``WebProcessorSession`` was refactored to not pass arguments through the initializer. It also now uses ``DemuxDocumentScraper`` and ``DemuxURLFilter``.
+
+
 0.16 (2014-02-04)
 =================
 
