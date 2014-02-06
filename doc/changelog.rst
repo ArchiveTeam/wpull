@@ -2,6 +2,13 @@
 What's New
 ==========
 
+0.XX (2014-02-DD)
+=================
+
+* Another attempt to possibly fix #27.
+* API: Refactored ``ConnectionPool``. It now calls ``put`` on ``HostConnectionPool`` to avoid sharing a queue.
+
+
 0.17 (2014-02-05)
 =================
 

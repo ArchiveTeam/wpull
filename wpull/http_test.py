@@ -1,4 +1,5 @@
 # encoding=utf-8
+import functools
 import os.path
 import tornado.testing
 import tornado.web
@@ -6,7 +7,7 @@ import tornado.web
 from wpull.backport.testing import unittest
 from wpull.errors import ConnectionRefused, SSLVerficationError
 from wpull.http import (Request, Connection, NetworkError, ProtocolError, Client,
-    ConnectionPool, parse_charset, Response, RedirectTracker)
+    ConnectionPool, parse_charset, Response, RedirectTracker, HostConnectionPool)
 from wpull.testing.badapp import BadAppTestCase
 
 
@@ -160,6 +161,15 @@ class TestConnection(BadAppTestCase):
             self.fail()
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_header_early_close(self):
+        try:
+            yield self.fetch('/header_early_close')
+        except NetworkError:
+            pass
+        else:
+            self.fail()
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_unclean_8bit_header(self):
         yield self.fetch('/unclean_8bit_header')
 
@@ -210,8 +220,8 @@ class TestClient(BadAppTestCase):
 
         self.assertEqual(1, len(connection_pool))
         connection_pool_entry = list(connection_pool.values())[0]
-        self.assertIsInstance(connection_pool_entry, ConnectionPool.Entry)
-        self.assertEqual(1, len(connection_pool_entry.pool))
+        self.assertIsInstance(connection_pool_entry, HostConnectionPool)
+        self.assertEqual(1, len(connection_pool_entry))
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_pool_max(self):
@@ -227,8 +237,8 @@ class TestClient(BadAppTestCase):
 
         self.assertEqual(1, len(connection_pool))
         connection_pool_entry = list(connection_pool.values())[0]
-        self.assertIsInstance(connection_pool_entry, ConnectionPool.Entry)
-        self.assertEqual(6, len(connection_pool_entry.pool))
+        self.assertIsInstance(connection_pool_entry, HostConnectionPool)
+        self.assertEqual(6, len(connection_pool_entry))
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_pool_over_max(self):
@@ -244,8 +254,8 @@ class TestClient(BadAppTestCase):
 
         self.assertEqual(1, len(connection_pool))
         connection_pool_entry = list(connection_pool.values())[0]
-        self.assertIsInstance(connection_pool_entry, ConnectionPool.Entry)
-        self.assertEqual(6, len(connection_pool_entry.pool))
+        self.assertIsInstance(connection_pool_entry, HostConnectionPool)
+        self.assertEqual(6, len(connection_pool_entry))
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_client_exception_throw(self):
@@ -257,6 +267,26 @@ class TestClient(BadAppTestCase):
             pass
         else:
             self.fail()
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_client_exception_recovery(self):
+        connection_factory = functools.partial(Connection, read_timeout=0.1)
+        host_connection_pool_factory = functools.partial(
+            HostConnectionPool, connection_factory=connection_factory)
+        connection_pool = ConnectionPool(host_connection_pool_factory)
+        client = Client(connection_pool)
+
+        for dummy in range(10):
+            try:
+                yield client.fetch(Request.new(self.get_url('/header_early_close')))
+            except NetworkError:
+                pass
+            else:
+                self.fail()
+
+        for dummy in range(10):
+            response = yield client.fetch(Request.new(self.get_url('/')))
+            self.assertEqual(200, response.status_code)
 
 
 class TestHTTP(unittest.TestCase):
