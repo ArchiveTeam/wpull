@@ -271,7 +271,8 @@ class Connection(object):
 
         _logger.debug('Connecting to {0}.'.format(self._address))
         try:
-            yield self._io_stream.connect(self._address, self._host)
+            yield tornado.gen.Task(
+                self._io_stream.connect, self._address, self._host)
         except (ssl.SSLError, tornado.netutil.SSLCertificateError,
         SSLVerficationError) as error:
             raise SSLVerficationError('SSLError: {error}'.format(
