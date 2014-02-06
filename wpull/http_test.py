@@ -278,7 +278,8 @@ class TestClient(BadAppTestCase):
 
         for dummy in range(10):
             try:
-                yield client.fetch(Request.new(self.get_url('/header_early_close')))
+                yield client.fetch(
+                    Request.new(self.get_url('/header_early_close')))
             except NetworkError:
                 pass
             else:

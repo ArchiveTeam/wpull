@@ -2,7 +2,6 @@
 '''HTTP protocol.'''
 import abc
 import collections
-import datetime
 import errno
 import gettext
 import logging
@@ -462,12 +461,16 @@ class Connection(object):
             yield self._read_response_until_close(response)
             return
 
-        def response_callback(data):
+        data_queue = self._io_stream.read_bytes_queue(body_size)
+
+        while True:
+            data = yield data_queue.get()
+
+            if data is None:
+                break
+
             self._events.response_data.fire(data)
             response.body.content_file.write(self._decompress_data(data))
-
-        yield tornado.gen.Task(self._io_stream.read_bytes, body_size,
-            streaming_callback=response_callback)
 
         response.body.content_file.write(self._flush_decompressor())
 
@@ -486,8 +489,7 @@ class Connection(object):
     def _read_response_chunk(self, response):
         '''Read a single chunk of the chunked transfer encoding.'''
         _logger.debug('Reading chunk.')
-        chunk_size_hex = yield tornado.gen.Task(
-            self._io_stream.read_until_regex, b'[^\n\r]+')
+        chunk_size_hex = yield self._io_stream.read_until_regex(b'[^\n\r]+')
 
         self._events.response_data.fire(chunk_size_hex)
 
@@ -501,17 +503,20 @@ class Connection(object):
         if not chunk_size:
             raise tornado.gen.Return(chunk_size)
 
-        newline_data = yield tornado.gen.Task(
-            self._io_stream.read_until, b'\n')
+        newline_data = yield self._io_stream.read_until(b'\n')
 
         self._events.response_data.fire(newline_data)
 
-        def response_callback(data):
+        data_queue = self._io_stream.read_bytes_queue(chunk_size)
+
+        while True:
+            data = yield data_queue.get()
+
+            if data is None:
+                break
+
             self._events.response_data.fire(data)
             response.body.content_file.write(self._decompress_data(data))
-
-        yield tornado.gen.Task(self._io_stream.read_bytes, chunk_size,
-            streaming_callback=response_callback)
 
         response.body.content_file.write(self._flush_decompressor())
 
@@ -521,8 +526,7 @@ class Connection(object):
     def _read_response_chunked_trailer(self, response):
         '''Read the HTTP trailer fields.'''
         _logger.debug('Reading chunked trailer.')
-        trailer_data = yield tornado.gen.Task(self._io_stream.read_until_regex,
-            br'\r?\n\r?\n')
+        trailer_data = yield self._io_stream.read_until_regex(br'\r?\n\r?\n')
 
         self._events.response_data.fire(trailer_data)
         response.fields.parse(trailer_data)
@@ -532,12 +536,16 @@ class Connection(object):
         '''Read the response until the connection closes.'''
         _logger.debug('Reading body until close.')
 
-        def response_callback(data):
+        data_queue = self._io_stream.read_until_close_queue()
+
+        while True:
+            data = yield data_queue.get()
+
+            if data is None:
+                break
+
             self._events.response_data.fire(data)
             response.body.content_file.write(self._decompress_data(data))
-
-        yield tornado.gen.Task(self._io_stream.read_until_close,
-            streaming_callback=response_callback)
 
         response.body.content_file.write(self._flush_decompressor())
 
@@ -625,11 +633,7 @@ class HostConnectionPool(collections.Set):
 
     @tornado.gen.coroutine
     def _process_request(self):
-        try:
-            request, kwargs, async_result = yield self._request_queue.get(
-                deadline=datetime.timedelta(minutes=1))
-        except toro.Timeout:
-            return
+        request, kwargs, async_result = yield self._request_queue.get()
 
         _logger.debug('Host pool got request {0}'.format(request))
 
@@ -644,8 +648,8 @@ class HostConnectionPool(collections.Set):
             async_result.set(error)
         else:
             async_result.set(response)
-        finally:
-            _logger.debug('Host pool done {0}'.format(request))
+
+        _logger.debug('Host pool done {0}'.format(request))
 
     def _get_ready_connection(self):
         _logger.debug('Getting a connection.')
