@@ -258,6 +258,21 @@ class TestClient(BadAppTestCase):
         self.assertEqual(6, len(connection_pool_entry))
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_connection_pool_clean(self):
+        connection_pool = ConnectionPool()
+        client = Client(connection_pool)
+        requests = [client.fetch(
+            Request.new(self.get_url('/'))) for dummy in range(12)]
+        responses = yield requests
+
+        for response in responses:
+            self.assertEqual(200, response.status_code)
+
+        connection_pool.clean()
+
+        self.assertEqual(0, len(connection_pool))
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_client_exception_throw(self):
         client = Client()
 

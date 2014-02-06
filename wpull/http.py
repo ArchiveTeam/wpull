@@ -589,7 +589,6 @@ class Connection(object):
 
 class HostConnectionPool(collections.Set):
     '''A Connection pool to a particular server.'''
-    # TODO: remove old connection instances
     def __init__(self, host, port, request_queue=None, ssl=False, max_count=6,
     connection_factory=Connection):
         assert isinstance(host, str)
@@ -603,7 +602,19 @@ class HostConnectionPool(collections.Set):
         self._max_count = max_count
         self._max_count_semaphore = toro.BoundedSemaphore(max_count)
         self._running = True
+        self._cleaner_timer = tornado.ioloop.PeriodicCallback(
+            self.clean, 300000)
         self._run()
+        self._cleaner_timer.start()
+
+    @property
+    def active(self):
+        '''Return whether connections are active or items are queued.'''
+        for connection in self._connections:
+            if connection.active:
+                return True
+
+        return self._request_queue.qsize() > 0
 
     @tornado.gen.coroutine
     def put(self, request, kwargs, async_result):
@@ -683,6 +694,7 @@ class HostConnectionPool(collections.Set):
     def stop(self):
         '''Stop the workers.'''
         self._running = False
+        self._cleaner_timer.stop()
 
     def close(self):
         '''Stop workers, close all the connections and remove them.'''
@@ -694,12 +706,14 @@ class HostConnectionPool(collections.Set):
 
         self._connections.clear()
 
-    def clean(self):
-        '''Close and remove connections not in use.'''
+    def clean(self, force_close=False):
+        '''Remove connections not in use.'''
         for connection in tuple(self._connections):
-            if not connection.active:
+            if not connection.active \
+            and (force_close or not connection.connected):
                 connection.close()
                 self._connections.remove(connection)
+                _logger.debug('Cleaned connection {0}'.format(connection))
 
 
 class ConnectionPool(collections.Mapping):
@@ -744,6 +758,18 @@ class ConnectionPool(collections.Mapping):
             self._pools[key].close()
 
         self._pools.clear()
+
+    def clean(self):
+        '''Remove Host Connection Pools not in use.'''
+        for key in tuple(self._pools.keys()):
+            pool = self._pools[key]
+
+            pool.clean()
+
+            if not pool.active:
+                pool.stop()
+                del self._pools[key]
+                _logger.debug('Cleaned host pool {0}.'.format(pool))
 
 
 class Client(BaseClient):
