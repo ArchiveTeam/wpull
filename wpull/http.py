@@ -265,6 +265,7 @@ class Connection(object):
     def _connect(self):
         '''Connect the socket if not already connected.'''
         if self._connected:
+            self._io_stream.set_close_callback(self._stream_closed_callback)
             return
 
         yield self._make_socket()
