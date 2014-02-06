@@ -2,10 +2,10 @@
 '''HTTP protocol.'''
 import abc
 import collections
+import datetime
 import errno
 import gettext
 import logging
-import queue
 import re
 import socket
 import ssl
@@ -582,23 +582,31 @@ class Connection(object):
 class HostConnectionPool(collections.Set):
     '''A Connection pool to a particular server.'''
     # TODO: remove old connection instances
-    def __init__(self, host, port, request_queue, ssl=False, max_count=6,
+    def __init__(self, host, port, request_queue=None, ssl=False, max_count=6,
     connection_factory=Connection):
         assert isinstance(host, str)
         assert isinstance(port, int) and port
         self._host = host
         self._port = port
-        self._request_queue = request_queue
+        self._request_queue = toro.Queue()
         self._ssl = ssl
         self._connection_factory = connection_factory
         self._connections = set()
         self._max_count = max_count
         self._max_count_semaphore = toro.BoundedSemaphore(max_count)
+        self._running = True
         self._run()
 
     @tornado.gen.coroutine
+    def put(self, request, kwargs, async_result):
+        '''Put a request into the queue.'''
+        _logger.debug('Host pool queue request {0}'.format(request))
+        assert self._running
+        yield self._request_queue.put((request, kwargs, async_result))
+
+    @tornado.gen.coroutine
     def _run(self):
-        while True:
+        while self._running or self._request_queue.qsize():
             _logger.debug('Host pool running ({0}:{1} SSL={2}).'.format(
                 self._host, self._port, self._ssl))
             yield self._max_count_semaphore.acquire()
@@ -609,13 +617,19 @@ class HostConnectionPool(collections.Set):
     def _process_request_wrapper(self):
         try:
             yield self._process_request()
+            self._max_count_semaphore.release()
+            _logger.debug('Host pool semaphore released.')
         except:
             _logger.exception('Fatal error processing request.')
             sys.exit('Fatal error.')
 
     @tornado.gen.coroutine
     def _process_request(self):
-        request, kwargs, async_result = yield self._request_queue.get()
+        try:
+            request, kwargs, async_result = yield self._request_queue.get(
+                deadline=datetime.timedelta(minutes=1))
+        except toro.Timeout:
+            return
 
         _logger.debug('Host pool got request {0}'.format(request))
 
@@ -632,7 +646,6 @@ class HostConnectionPool(collections.Set):
             async_result.set(response)
         finally:
             _logger.debug('Host pool done {0}'.format(request))
-            self._max_count_semaphore.release()
 
     def _get_ready_connection(self):
         _logger.debug('Getting a connection.')
@@ -663,22 +676,37 @@ class HostConnectionPool(collections.Set):
     def __len__(self):
         return len(self._connections)
 
+    def stop(self):
+        '''Stop the workers.'''
+        self._running = False
+
     def close(self):
+        '''Stop workers, close all the connections and remove them.'''
+        self.stop()
+
         for connection in self._connections:
             _logger.debug('Closing {0}.'.format(connection))
             connection.close()
 
+        self._connections.clear()
+
+    def clean(self):
+        '''Close and remove connections not in use.'''
+        for connection in tuple(self._connections):
+            if not connection.active:
+                connection.close()
+                self._connections.remove(connection)
+
 
 class ConnectionPool(collections.Mapping):
     '''A pool of HostConnectionPool.'''
-    Entry = collections.namedtuple('RequestQueueEntry', ['queue', 'pool'])
-
     def __init__(self, host_connection_pool_factory=HostConnectionPool):
-        self._subqueues = {}
+        self._pools = {}
         self._host_connection_pool_factory = host_connection_pool_factory
 
     @tornado.gen.coroutine
     def put(self, request, kwargs, async_result):
+        '''Put a request into the queue.'''
         _logger.debug('Connection pool queue request {0}'.format(request))
 
         if request.address:
@@ -689,36 +717,29 @@ class ConnectionPool(collections.Mapping):
             address = (host, port)
             ssl = (request.url_info.scheme == 'https')
 
-        if address not in self._subqueues:
+        if address not in self._pools:
             _logger.debug('New host pool.')
-            self._subqueues[address] = self._subqueue_constructor(
-                host, port, ssl)
+            self._pools[address] = self._host_connection_pool_factory(
+                host, port, ssl=ssl)
 
-        yield self._subqueues[address].queue.put(
-            (request, kwargs, async_result))
-
-    def _subqueue_constructor(self, host, port, ssl):
-        subqueue = toro.Queue()
-        return self.Entry(
-            subqueue,
-            self._host_connection_pool_factory(host, port, subqueue, ssl=ssl)
-        )
+        yield self._pools[address].put(request, kwargs, async_result)
 
     def __getitem__(self, key):
-        return self._subqueues[key]
+        return self._pools[key]
 
     def __iter__(self):
-        return iter(self._subqueues)
+        return iter(self._pools)
 
     def __len__(self):
-        return len(self._subqueues)
+        return len(self._pools)
 
     def close(self):
-        '''Close all the Host Connection Pools.'''
-        for key in self._subqueues:
+        '''Close all the Host Connection Pools and remove them.'''
+        for key in self._pools:
             _logger.debug('Closing pool for {0}.'.format(key))
-            subpool = self._subqueues[key].pool
-            subpool.close()
+            self._pools[key].close()
+
+        self._pools.clear()
 
 
 class Client(BaseClient):

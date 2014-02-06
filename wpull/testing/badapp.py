@@ -53,6 +53,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/gzip_chunked': self.gzip_chunked,
             '/gzip_corrupt': self.gzip_corrupt,
             '/bad_cookie': self.bad_cookie,
+            '/header_early_close': self.header_early_close,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -307,6 +308,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header('Set-cookie', 'test=valid')
         self.send_header('Content-length', '0')
         self.end_headers()
+
+    def header_early_close(self):
+        self.close_connection = True
 
 
 class ConcurrentHTTPServer(socketserver.ThreadingMixIn,
