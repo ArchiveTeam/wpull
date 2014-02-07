@@ -81,6 +81,10 @@ class Callbacks(object):
                 :class:`.database.URLRecord`.
             verdict (bool): A bool indicating whether Wpull wants to download
                 the URL.
+            reasons (dict): A dict containing information for the verdict:
+
+                * ``filters`` (dict): A mapping (str to bool) from filter name 
+                  to whether the filter passed or not.
 
         Returns:
             bool: If True, the URL should be downloaded. Otherwise, the URL
