@@ -6,6 +6,7 @@ What's New
 ===================
 
 * Fixes ca-bundle file missing during install.
+* Fixes AttributeError on ``retry_dns_error``.
 
 
 0.17.2 (2014-02-06)

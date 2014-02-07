@@ -214,6 +214,10 @@ class WebProcessor(BaseProcessor):
         return self._request_factory
 
     @property
+    def retry_dns_error(self):
+        return self._retry_dns_error
+
+    @property
     def retry_connrefused(self):
         return self._retry_connrefused
 
