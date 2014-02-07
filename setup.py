@@ -55,7 +55,12 @@ if __name__ == '__main__':
         author='Christopher Foo',
         author_email='chris.foo@gmail.com',
         url='https://github.com/chfoo/wpull',
-        package_data={'': ['testing/*/*.html', 'testing/*/*.css']},
+        package_data={'': [
+            'cert/ca-bundle.pem',
+            'testing/*/*.css',
+            'testing/*/*.html',
+            'testing/*/*.txt',
+        ]},
         install_requires=install_requires,
         classifiers=[
             'Development Status :: 4 - Beta',
