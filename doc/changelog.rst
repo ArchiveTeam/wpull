@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.17.X (2014-02-DD)
+===================
+
+* Fixes ca-bundle file missing during install.
+
+
 0.17.2 (2014-02-06)
 ===================
 
