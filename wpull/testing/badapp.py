@@ -8,6 +8,7 @@ import logging
 import os.path
 import socket
 import socketserver
+import struct
 import threading
 import time
 import tornado.gen
@@ -310,7 +311,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
     def header_early_close(self):
-        self.close_connection = True
+        # http://stackoverflow.com/a/6440364/1524507
+        l_onoff = 1
+        l_linger = 0
+        self.connection.setsockopt(
+            socket.SOL_SOCKET, socket.SO_LINGER,
+            struct.pack('ii', l_onoff, l_linger)
+        )
+        _logger.debug('Bad socket reset set.')
+
+        self.wfile.write(b'HTTP/1.0 200 OK')
+        self.connection.close()
 
 
 class ConcurrentHTTPServer(socketserver.ThreadingMixIn,
@@ -325,7 +336,6 @@ class Server(threading.Thread):
         threading.Thread.__init__(self)
         self.daemon = True
         self._port = port
-        self._server = None
         self._server = ConcurrentHTTPServer(
             ('localhost', self._port), Handler)
         self._port = self._server.server_address[1]

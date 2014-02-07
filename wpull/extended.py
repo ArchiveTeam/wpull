@@ -1,7 +1,9 @@
 # encoding=utf-8
 '''Extended subclasses.'''
+import datetime
 import logging
 import tornado.iostream
+import toro
 
 from wpull.errors import NetworkError, SSLVerficationError
 import wpull.util
@@ -71,42 +73,81 @@ class IOStreamMixin(object):
             result = yield wpull.util.wait_future(read(), self._read_timeout)
         except wpull.util.TimedOut as error:
             self.close()
-            raise NetworkError('Read timed out') from error
+            raise NetworkError('Read timed out.') from error
         else:
             raise tornado.gen.Return(result)
 
+    def read_with_queue(self, func_name, *args, **kwargs):
+        '''Read with timeout and queue.'''
+        if self._read_timeout:
+            deadline = datetime.timedelta(seconds=self._read_timeout)
+        else:
+            deadline = None
+
+        stream_queue = StreamQueue(deadline=deadline)
+
+        def callback(data):
+            stream_queue.put_nowait(None)
+
+        def stream_callback(data):
+            stream_queue.put_nowait(data)
+
+        getattr(self.super, func_name)(
+            self,
+            *args,
+            callback=callback,
+            streaming_callback=stream_callback,
+            **kwargs
+        )
+
+        return stream_queue
+
     @tornado.gen.coroutine
     def connect(self, address, server_hostname):
+        '''Connect.'''
         yield self.connect_gen(address, server_hostname)
 
     @tornado.gen.coroutine
     def read_bytes(self, num_bytes, streaming_callback=None):
+        '''Read bytes.'''
         raise tornado.gen.Return((
             yield self.read_gen(
                 'read_bytes', num_bytes, streaming_callback=streaming_callback)
         ))
 
+    def read_bytes_queue(self, num_bytes):
+        '''Read bytes with queue.'''
+        return self.read_with_queue('read_bytes', num_bytes)
+
     @tornado.gen.coroutine
     def read_until(self, delimiter):
+        '''Read until.'''
         raise tornado.gen.Return((
             yield self.read_gen('read_until', delimiter)
         ))
 
     @tornado.gen.coroutine
     def read_until_close(self, streaming_callback=None):
+        '''Read until close.'''
         raise tornado.gen.Return((
             yield self.read_gen(
                 'read_until_close', streaming_callback=streaming_callback)
         ))
 
+    def read_until_close_queue(self):
+        '''Read until close with queue.'''
+        return self.read_with_queue('read_until_close')
+
     @tornado.gen.coroutine
     def read_until_regex(self, regex):
+        '''Read until regex.'''
         raise tornado.gen.Return((
             yield self.read_gen('read_until_regex', regex)
         ))
 
 
 class IOStream(BaseIOStream, tornado.iostream.IOStream, IOStreamMixin):
+    '''IOStream.'''
     @property
     def super(self):
         return tornado.iostream.IOStream
@@ -119,6 +160,7 @@ class IOStream(BaseIOStream, tornado.iostream.IOStream, IOStreamMixin):
 
 
 class SSLIOStream(BaseIOStream, tornado.iostream.SSLIOStream, IOStreamMixin):
+    '''SSLIOStream.'''
     @property
     def super(self):
         return tornado.iostream.SSLIOStream
@@ -145,3 +187,18 @@ class SSLIOStream(BaseIOStream, tornado.iostream.SSLIOStream, IOStreamMixin):
     def _handle_connect(self):
         _logger.debug('Handle connect. Wrap socket.')
         return super()._handle_connect()
+
+
+class StreamQueue(toro.Queue):
+    def __init__(self, maxsize=0, io_loop=None, deadline=None):
+        toro.Queue.__init__(self, maxsize, io_loop)
+        self._deadline = deadline
+
+    @tornado.gen.coroutine
+    def get(self, deadline=None):
+        try:
+            result = yield toro.Queue.get(self, deadline or self._deadline)
+        except toro.Timeout as error:
+            raise NetworkError('Read timed out.') from error
+
+        raise tornado.gen.Return(result)

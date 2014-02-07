@@ -8,6 +8,7 @@ from wpull.backport.testing import unittest
 from wpull.errors import ConnectionRefused, SSLVerficationError
 from wpull.http import (Request, Connection, NetworkError, ProtocolError, Client,
     ConnectionPool, parse_charset, Response, RedirectTracker, HostConnectionPool)
+from wpull.recorder import DebugPrintRecorder
 from wpull.testing.badapp import BadAppTestCase
 
 
@@ -258,6 +259,21 @@ class TestClient(BadAppTestCase):
         self.assertEqual(6, len(connection_pool_entry))
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_connection_pool_clean(self):
+        connection_pool = ConnectionPool()
+        client = Client(connection_pool)
+        requests = [client.fetch(
+            Request.new(self.get_url('/'))) for dummy in range(12)]
+        responses = yield requests
+
+        for response in responses:
+            self.assertEqual(200, response.status_code)
+
+        connection_pool.clean()
+
+        self.assertEqual(0, len(connection_pool))
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_client_exception_throw(self):
         client = Client()
 
@@ -270,21 +286,24 @@ class TestClient(BadAppTestCase):
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_client_exception_recovery(self):
-        connection_factory = functools.partial(Connection, read_timeout=0.1)
+        connection_factory = functools.partial(Connection, read_timeout=0.2)
         host_connection_pool_factory = functools.partial(
             HostConnectionPool, connection_factory=connection_factory)
         connection_pool = ConnectionPool(host_connection_pool_factory)
         client = Client(connection_pool)
 
-        for dummy in range(10):
+        for dummy in range(7):
             try:
-                yield client.fetch(Request.new(self.get_url('/header_early_close')))
+                yield client.fetch(
+                    Request.new(self.get_url('/header_early_close')),
+                    recorder=DebugPrintRecorder()
+                )
             except NetworkError:
                 pass
             else:
                 self.fail()
 
-        for dummy in range(10):
+        for dummy in range(7):
             response = yield client.fetch(Request.new(self.get_url('/')))
             self.assertEqual(200, response.status_code)
 
