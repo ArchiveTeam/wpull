@@ -2,6 +2,13 @@
 What's New
 ==========
 
+0.17.2 (2014-02-06)
+===================
+
+* Another attempt to possibly fix #27.
+* Implements cleaning inactive connections from the connection pool.
+
+
 0.17.1 (2014-02-05)
 ===================
 
