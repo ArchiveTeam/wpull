@@ -21,6 +21,7 @@ from wpull.errors import (ProtocolError, NetworkError, ConnectionRefused,
 from wpull.extended import SSLIOStream, IOStream
 from wpull.namevalue import NameValueRecord
 from wpull.network import Resolver
+from wpull.robotstxt import RobotsTxtRichClientSessionMixin
 from wpull.url import URLInfo
 import wpull.util
 
@@ -935,6 +936,19 @@ class RichClient(BaseClient):
         '''Return the Cookie Jar.'''
         return self._cookie_jar
 
+    @property
+    def http_client(self):
+        '''Return the HTTP Client.'''
+        return self._http_client
+
+    @property
+    def _session_class(self):
+        '''Return the Rich Client Session factory.'''
+        if self._robots_txt_pool:
+            return RobotsTxtRichClientSession
+        else:
+            return RichClientSession
+
     def fetch(self, request, **kwargs):
         '''Return a fetch session.
 
@@ -955,6 +969,7 @@ class RichClient(BaseClient):
         Returns:
             RichClientSession: An instance of :class:`RichClientSession`.
         '''
+        return self._session_class(self._http_client, request, kwargs)
 
     def close(self):
         '''Close the client and connections.'''
@@ -965,12 +980,12 @@ class RichClient(BaseClient):
 
 class RichClientSession(object):
     '''A Rich Client Session.'''
-    def __init__(self, http_client, request, fetch_kwargs):
-        self._http_client = http_client
+    def __init__(self, rich_client, request, fetch_kwargs):
+        self._rich_client = rich_client
         self._original_request = request
         self._next_request = request
         self._fetch_kwargs = fetch_kwargs
-        self._redirect_tracker = http_client.redirect_tracker_factory()
+        self._redirect_tracker = rich_client.redirect_tracker_factory()
 
     @property
     def redirect_tracker(self):
@@ -988,7 +1003,7 @@ class RichClientSession(object):
 
         Returns:
             bool: If True, the document has been fully fetched.'''
-        return self._next_request is None
+        return self.next_request is None
 
     @tornado.gen.coroutine
     def fetch(self):
@@ -997,9 +1012,10 @@ class RichClientSession(object):
         Returns:
             Response: An instance of :class:`Response`.
         '''
-        request = self._next_request
+        request = self.next_request
         assert request
-        response = yield self._http_client.fetch(request, **self._fetch_kwargs)
+        response = yield self._rich_client.http_client.fetch(
+            request, **self._fetch_kwargs)
 
         self._handle_response(response)
 
@@ -1009,7 +1025,7 @@ class RichClientSession(object):
         '''Handle the response and update the internal state.'''
         self._redirect_tracker.load(response)
 
-        if self._http_client.cookie_jar:
+        if self._rich_client.cookie_jar:
             self._extract_cookies(response)
 
         if self._redirect_tracker.is_redirect():
@@ -1017,16 +1033,19 @@ class RichClientSession(object):
         else:
             self._next_request = None
 
-        if self._http_client.cookie_jar and self._next_request:
+        if self._rich_client.cookie_jar and self._next_request:
             self._add_cookies(self._next_request)
 
     def _update_redirect_request(self):
         '''Update the Redirect Tracker.'''
         url = self._redirect_tracker.next_location()
-        request = self._http_client.request_factory(url)
+        request = self._rich_client.request_factory(url)
 
         if self._redirect_tracker.is_repeat():
+            _logger.debug('Got redirect is repeat.')
+
             request.method = self._original_request.method
+            request.body = self._original_request.body
 
             for name, value in self._original_request.fields.items():
                 if name not in request.fields:
@@ -1045,15 +1064,21 @@ class RichClientSession(object):
 
     def _add_cookies(self, request):
         '''Add the cookie headers to the Request.'''
-        self._http_client.cookie_jar.add_cookie_header(
+        self._rich_client.cookie_jar.add_cookie_header(
             request, self._get_cookie_referrer_host()
         )
 
     def _extract_cookies(self, response):
         '''Load the cookie headers from the Response.'''
-        self._http_client.cookie_jar.extract_cookies(
+        self._rich_client.cookie_jar.extract_cookies(
             response, self._next_request, self._get_cookie_referrer_host()
         )
+
+
+class RobotsTxtRichClientSession(
+RobotsTxtRichClientSessionMixin, RichClientSession):
+    '''Rich Client Session with robots.txt handling.'''
+    pass
 
 
 def parse_charset(header_string):
