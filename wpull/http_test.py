@@ -7,9 +7,11 @@ import tornado.web
 from wpull.backport.testing import unittest
 from wpull.errors import ConnectionRefused, SSLVerficationError
 from wpull.http import (Request, Connection, NetworkError, ProtocolError, Client,
-    ConnectionPool, parse_charset, Response, RedirectTracker, HostConnectionPool)
+    ConnectionPool, parse_charset, Response, RedirectTracker, HostConnectionPool,
+    RichClient)
 from wpull.recorder import DebugPrintRecorder
 from wpull.testing.badapp import BadAppTestCase
+from wpull.testing.goodapp import GoodAppTestCase
 
 
 DEFAULT_TIMEOUT = 30
@@ -436,6 +438,33 @@ class TestHTTP(unittest.TestCase):
         self.assertTrue(tracker.exceeded())
         self.assertEqual('/test', tracker.next_location())
         self.assertEqual(6, tracker.count())
+
+
+class TestRichClient(GoodAppTestCase):
+    def test_basic(self):
+        http_client = Client()
+        client = RichClient(http_client)
+        session = client.fetch(Request.new(self.get_url('/')))
+
+        self.assertFalse(session.done)
+        response = yield session.fetch()
+
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(session.done)
+
+    def test_redirect(self):
+        http_client = Client()
+        client = RichClient(http_client)
+        session = client.fetch(Request.new(self.get_url('/redirect')))
+
+        status_codes = []
+
+        while not session.done:
+            response = yield session.fetch()
+            status_codes.append(response.status_code)
+
+        self.assertEqual([301, 200], status_codes)
+        self.assertTrue(session.done)
 
 
 class TestSSL(tornado.testing.AsyncHTTPSTestCase):

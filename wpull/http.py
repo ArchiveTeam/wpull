@@ -892,6 +892,170 @@ class RedirectTracker(object):
         return self._num_redirects > self._max_redirects
 
 
+class RichClient(BaseClient):
+    '''HTTP client with redirect, cookies, and robots.txt handling.
+
+    Args:
+        http_client (Client): An instance of `Client`.
+        robots_txt_pool (RobotsTxtPool): If provided an instance of
+            :class:`.robots.RobotsTxtPool`, robots.txt handling is enabled.
+        request_factory: A callable object that creates a :class:`Request`.
+            This factory is used for redirects and robots.txt handling.
+        redirect_tracker_factory: A callable object that creates a
+            :class:`RedirectTracker`.
+        cookie_jar (CookieJar): An instance of
+            :class:`.wrapper.CookieJarWrapper`.
+    '''
+    def __init__(self, http_client, robots_txt_pool=None,
+    request_factory=Request.new, redirect_tracker_factory=RedirectTracker,
+    cookie_jar=None):
+        self._http_client = http_client
+        self._robots_txt_pool = robots_txt_pool
+        self._request_factory = request_factory
+        self._redirect_tracker_factory = redirect_tracker_factory
+        self._cookie_jar = cookie_jar
+
+    @property
+    def robots_txt_pool(self):
+        '''Return RobotsTxtPool.'''
+        return self._robots_txt_pool
+
+    @property
+    def redirect_tracker_factory(self):
+        '''Return the Redirect Tracker factory.'''
+        return self._redirect_tracker_factory
+
+    @property
+    def request_factory(self):
+        '''Return the Request factory.'''
+        return self._request_factory
+
+    @property
+    def cookie_jar(self):
+        '''Return the Cookie Jar.'''
+        return self._cookie_jar
+
+    def fetch(self, request, **kwargs):
+        '''Return a fetch session.
+
+        Args:
+            request (Request): An instance of :class:`Request`.
+            kwargs: Extra arguments passed to :func:`Client.fetch`.
+
+        Example usage::
+
+            client = RichClient(Client())
+            session = client.fetch(Request.new('http://www.example.com'))
+
+            while not session.done:
+                response = yield session.fetch()
+
+            print(response)
+
+        Returns:
+            RichClientSession: An instance of :class:`RichClientSession`.
+        '''
+
+    def close(self):
+        '''Close the client and connections.'''
+        self._http_client.close()
+
+        # TODO: close cookie jar?
+
+
+class RichClientSession(object):
+    '''A Rich Client Session.'''
+    def __init__(self, http_client, request, fetch_kwargs):
+        self._http_client = http_client
+        self._original_request = request
+        self._next_request = request
+        self._fetch_kwargs = fetch_kwargs
+        self._redirect_tracker = http_client.redirect_tracker_factory()
+
+    @property
+    def redirect_tracker(self):
+        '''Return the Redirect Tracker.'''
+        return self._redirect_tracker
+
+    @property
+    def next_request(self):
+        '''Return the next Request to be fetched.'''
+        return self._next_request
+
+    @property
+    def done(self):
+        '''Return whether the session has finished.
+
+        Returns:
+            bool: If True, the document has been fully fetched.'''
+        return self._next_request is None
+
+    @tornado.gen.coroutine
+    def fetch(self):
+        '''Fetch the request.
+
+        Returns:
+            Response: An instance of :class:`Response`.
+        '''
+        request = self._next_request
+        assert request
+        response = yield self._http_client.fetch(request, **self._fetch_kwargs)
+
+        self._handle_response(response)
+
+        raise tornado.gen.Return(response)
+
+    def _handle_response(self, response):
+        '''Handle the response and update the internal state.'''
+        self._redirect_tracker.load(response)
+
+        if self._http_client.cookie_jar:
+            self._extract_cookies(response)
+
+        if self._redirect_tracker.is_redirect():
+            self._update_redirect_request()
+        else:
+            self._next_request = None
+
+        if self._http_client.cookie_jar and self._next_request:
+            self._add_cookies(self._next_request)
+
+    def _update_redirect_request(self):
+        '''Update the Redirect Tracker.'''
+        url = self._redirect_tracker.next_location()
+        request = self._http_client.request_factory(url)
+
+        if self._redirect_tracker.is_repeat():
+            request.method = self._original_request.method
+
+            for name, value in self._original_request.fields.items():
+                if name not in request.fields:
+                    request.fields.add(name, value)
+
+        self._next_request = request
+
+    def _get_cookie_referrer_host(self):
+        '''Return the referrer hostname.'''
+        referer = self._original_request.fields.get('Referer')
+
+        if referer:
+            return URLInfo.parse(referer).hostname
+        else:
+            return None
+
+    def _add_cookies(self, request):
+        '''Add the cookie headers to the Request.'''
+        self._http_client.cookie_jar.add_cookie_header(
+            request, self._get_cookie_referrer_host()
+        )
+
+    def _extract_cookies(self, response):
+        '''Load the cookie headers from the Response.'''
+        self._http_client.cookie_jar.extract_cookies(
+            response, self._next_request, self._get_cookie_referrer_host()
+        )
+
+
 def parse_charset(header_string):
     '''Parse a "Content-Type" string for the document encoding.
 
