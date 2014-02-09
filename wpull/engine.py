@@ -83,7 +83,7 @@ class Engine(object):
         '''Run the engine.
 
         This function will clear any items marked as in-progress, start up
-        the works, and loop until a stop is requested.
+        the workers, and loop until a stop is requested.
 
         Returns:
             int: An integer describing the exit status.
