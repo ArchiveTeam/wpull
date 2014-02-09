@@ -37,6 +37,7 @@ wpull Package
    api/util
    api/version
    api/waiter
+   api/web
    api/wrapper
    api/writer
 
