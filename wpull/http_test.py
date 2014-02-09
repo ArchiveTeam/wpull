@@ -7,11 +7,9 @@ import tornado.web
 from wpull.backport.testing import unittest
 from wpull.errors import ConnectionRefused, SSLVerficationError
 from wpull.http import (Request, Connection, NetworkError, ProtocolError, Client,
-    ConnectionPool, parse_charset, Response, RedirectTracker, HostConnectionPool,
-    RichClient)
+    ConnectionPool, parse_charset, Response, HostConnectionPool)
 from wpull.recorder import DebugPrintRecorder
 from wpull.testing.badapp import BadAppTestCase
-from wpull.testing.goodapp import GoodAppTestCase
 
 
 DEFAULT_TIMEOUT = 30
@@ -393,78 +391,6 @@ class TestHTTP(unittest.TestCase):
         self.assertEqual('HTTP/1.0', version)
         self.assertEqual(404, code)
         self.assertEqual(b'N\x99t \x0eounz'.decode('latin-1'), msg)
-
-    def test_redirect_tracker(self):
-        tracker = RedirectTracker(5)
-
-        self.assertFalse(tracker.is_redirect())
-        self.assertFalse(tracker.is_repeat())
-        self.assertFalse(tracker.exceeded())
-        self.assertFalse(tracker.next_location())
-        self.assertEqual(0, tracker.count())
-
-        response = Response('HTTP/1.1', 200, '')
-
-        tracker.load(response)
-
-        self.assertFalse(tracker.is_redirect())
-        self.assertFalse(tracker.is_repeat())
-        self.assertFalse(tracker.exceeded())
-        self.assertFalse(tracker.next_location())
-        self.assertEqual(0, tracker.count())
-
-        response = Response('HTTP/1.1', 303, '')
-        response.fields['location'] = '/test'
-
-        tracker.load(response)
-
-        self.assertTrue(tracker.is_redirect())
-        self.assertFalse(tracker.is_repeat())
-        self.assertFalse(tracker.exceeded())
-        self.assertEqual('/test', tracker.next_location())
-        self.assertEqual(1, tracker.count())
-
-        response = Response('HTTP/1.1', 307, '')
-        response.fields['location'] = '/test'
-
-        tracker.load(response)
-        tracker.load(response)
-        tracker.load(response)
-        tracker.load(response)
-        tracker.load(response)
-
-        self.assertTrue(tracker.is_redirect())
-        self.assertTrue(tracker.is_repeat())
-        self.assertTrue(tracker.exceeded())
-        self.assertEqual('/test', tracker.next_location())
-        self.assertEqual(6, tracker.count())
-
-
-class TestRichClient(GoodAppTestCase):
-    def test_basic(self):
-        http_client = Client()
-        client = RichClient(http_client)
-        session = client.fetch(Request.new(self.get_url('/')))
-
-        self.assertFalse(session.done)
-        response = yield session.fetch()
-
-        self.assertEqual(200, response.status_code)
-        self.assertTrue(session.done)
-
-    def test_redirect(self):
-        http_client = Client()
-        client = RichClient(http_client)
-        session = client.fetch(Request.new(self.get_url('/redirect')))
-
-        status_codes = []
-
-        while not session.done:
-            response = yield session.fetch()
-            status_codes.append(response.status_code)
-
-        self.assertEqual([301, 200], status_codes)
-        self.assertTrue(session.done)
 
 
 class TestSSL(tornado.testing.AsyncHTTPSTestCase):
