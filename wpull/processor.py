@@ -1,25 +1,23 @@
 # encoding=utf-8
 '''Processor.'''
 import abc
-import contextlib
-import functools
 import gettext
 import logging
 import os
-import urllib.parse
+import tornado.gen
 
 from wpull.conversation import Body
 from wpull.database import Status
 from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
-    DNSNotFound)
-from wpull.http import Request, Response, RedirectTracker
-from wpull.robotstxt import RobotsTxtPool, RobotsTxtSessionMixin
+    DNSNotFound, NetworkError)
+from wpull.http import Response, Request
 from wpull.scraper import HTMLScraper, DemuxDocumentScraper
 from wpull.stats import Statistics
 from wpull.url import URLInfo, DemuxURLFilter
 import wpull.util
 from wpull.waiter import LinearWaiter
 from wpull.writer import NullWriter
+from wpull.web import RichClientResponseType
 
 
 _logger = logging.getLogger(__name__)
@@ -31,19 +29,18 @@ class BaseProcessor(object, metaclass=abc.ABCMeta):
 
     Processors contain the logic for processing requests.
     '''
-    @contextlib.contextmanager
-    @abc.abstractmethod
-    def session(self, url_item):
-        '''Return a new Processor Session.
-
-        The Processor Session handles the logic for processing a single
-        URL item.
+    @tornado.gen.coroutine
+    def process(self, url_item):
+        '''Process an URL Item.
 
         Args:
             url_item (URLItem): An instance of :class:`.engine.URLItem`.
 
-        Returns:
-            BaseProcessorSession: An instance of :class:`BaseProcessorSession`.
+        This function handles the logic for processing a single
+        URL item.
+
+        It must call one of :func:`.engine.URLItem.set_status` or
+        :func:`.engine.URLItem.skip`.
         '''
         pass
 
@@ -52,83 +49,11 @@ class BaseProcessor(object, metaclass=abc.ABCMeta):
         pass
 
 
-class BaseProcessorSession(object, metaclass=abc.ABCMeta):
-    '''A session for a Processor.'''
-    @abc.abstractmethod
-    def should_fetch(self):
-        '''Return whether the item's URL should be fetched.
-
-        If a processor decides it does not need to fetch the URL,
-        it should call :func:`.engine.URLItem.skip`.
-
-        Returns:
-            bool
-        '''
-        pass
-
-    @abc.abstractmethod
-    def new_request(self):
-        '''Return a Request instance needed to process the item.
-
-        Returns:
-            BaseRequest: An instance of :class:`.conversation.BaseRequest`.
-        '''
-        pass
-
-    @abc.abstractmethod
-    def response_factory(self):
-        '''Return a callable object that should make a Response instance.
-
-        Returns:
-            callable: An instance that will return an instance of
-            :class:`.conversation.BaseResponse` when called.
-        '''
-        pass
-
-    @abc.abstractmethod
-    def handle_response(self, response):
-        '''Process the response.
-
-        Args:
-            response (BaseResponse): An instance of
-                :class:`.conversation.BaseResponse`
-
-        Returns:
-            bool: If ``True``, the Processor session has successfully
-            processed the item and the Engine should not retry the item.
-            Otherwise, the Engine will attempt to make a request again for
-            this Processor Session.
-        '''
-        pass
-
-    @abc.abstractmethod
-    def handle_error(self, error):
-        '''Process the error.
-
-        Args:
-            error: An exception instance.
-
-        Returns:
-            bool: If ``True``, the Processor session has successfully
-            processed the item and the Engine should not retry the item.
-            Otherwise, the Engine will attempt to make a request again for
-            this Processor Session.
-        '''
-        pass
-
-    def wait_time(self):
-        '''Return the delay between requests.
-
-        Returns:
-            float: A time in seconds.
-        '''
-        return 0
-
-
 class WebProcessor(BaseProcessor):
     '''HTTP processor.
 
     Args:
+        rich_client (RichClient): An instance of :class:`.http.RichClient`.
         url_filter (DemuxURLFilter): An instance of
             :class:`.url.DemuxURLFilter`.
         document_scraper (DemuxDocumentScraper): An instance of
@@ -137,19 +62,14 @@ class WebProcessor(BaseProcessor):
         waiter: Waiter.
         statistics: Statistics.
         request_factory: A callable object that returns a new
-            :class:`.http.Request`.
+            :class:`.http.Request` via :func:`.http.Request.new`.
         retry_connrefused: If True, don't consider a connection refused error
             to be a permanent error.
         retry_dns_error: If True, don't consider a DNS resolution error to be
             permanent error.
-        max_redirects: The maximum number of sequential redirects to be done
-            before considering it as a redirect loop.
-        robots: If True, robots.txt handling is enabled.
         post_data (str): If provided, all requests will be POSTed with the
             given `post_data`. `post_data` must be in percent-encoded
             query format ("application/x-www-form-urlencoded").
-        cookie_jar (CookieJar): An instance of
-            :class:`.wrapper.CookieJarWrapper`.
 
     :seealso: :class:`WebProcessorSession`,
         :class:`WebProcessorWithRobotsTxtSession`
@@ -160,34 +80,25 @@ class WebProcessor(BaseProcessor):
     NO_DOCUMENT_STATUS_CODES = (401, 403, 404, 405, 410,)
     '''Default status codes considered a permanent error.'''
 
-    def __init__(self, url_filter=None, document_scraper=None,
-    file_writer=None, waiter=None, statistics=None, request_factory=None,
-    retry_connrefused=False, retry_dns_error=False, max_redirects=20,
-    robots=False, post_data=None, cookie_jar=None):
+    def __init__(self, rich_client,
+    url_filter=None, document_scraper=None, file_writer=None,
+    waiter=None, statistics=None, request_factory=Request.new,
+    retry_connrefused=False, retry_dns_error=False, post_data=None):
+        self._rich_client = rich_client
         self._url_filter = url_filter or DemuxURLFilter([])
         self._document_scraper = document_scraper or DemuxDocumentScraper([])
         self._file_writer = file_writer or NullWriter()
         self._waiter = waiter or LinearWaiter()
         self._statistics = statistics or Statistics()
-        self._request_factory = request_factory or Request.new
+        self._request_factory = request_factory
         self._retry_connrefused = retry_connrefused
         self._retry_dns_error = retry_dns_error
-        self._max_redirects = max_redirects
         self._post_data = post_data
-        self._cookie_jar = cookie_jar
+        self._session_class = WebProcessorSession
 
-        if robots:
-            # TODO: RobotsTxtPool should be dependency injected
-            self._robots_txt_pool = RobotsTxtPool()
-            self._session_class = functools.partial(
-                WebProcessorWithRobotsTxtSession,
-                robots_txt_pool=self._robots_txt_pool
-            )
-        else:
-            self._robots_txt_pool = None
-            self._session_class = WebProcessorSession
-
-        self._statistics.start()
+    @property
+    def rich_client(self):
+        return self._rich_client
 
     @property
     def url_filter(self):
@@ -222,32 +133,19 @@ class WebProcessor(BaseProcessor):
         return self._retry_connrefused
 
     @property
-    def max_redirects(self):
-        return self._max_redirects
-
-    @property
     def post_data(self):
         return self._post_data
 
-    @property
-    def cookie_jar(self):
-        return self._cookie_jar
-
-    @contextlib.contextmanager
-    def session(self, url_item):
-        session = self._session_class(
-            self,
-            url_item,
-        )
-        yield session
+    @tornado.gen.coroutine
+    def process(self, url_item):
+        session = self._session_class(self, url_item)
+        raise tornado.gen.Return((yield session.process()))
 
     def close(self):
-        self._statistics.stop()
-        if self._cookie_jar:
-            self._cookie_jar.close()
+        self._rich_client.close()
 
 
-class WebProcessorSession(BaseProcessorSession):
+class WebProcessorSession(object):
     '''Fetches an HTTP document.
 
     This Processor Session will handle document redirects within the same
@@ -260,19 +158,109 @@ class WebProcessorSession(BaseProcessorSession):
     it cannot handle JavaScript or Flash plugins.
     '''
     def __init__(self, processor, url_item):
+        super().__init__()
         self._processor = processor
         self._url_item = url_item
         self._file_writer_session = processor.file_writer.session()
+        self._rich_client_session = processor.rich_client.session(
+            self._new_initial_request()
+        )
 
         self._document_codes = WebProcessor.DOCUMENT_STATUS_CODES
         self._no_document_codes = WebProcessor.NO_DOCUMENT_STATUS_CODES
 
         self._request = None
-        self._redirect_url_info = None
-        # TODO: RedirectTracker should be depedency injected
-        self._redirect_tracker = RedirectTracker(
-            max_redirects=processor.max_redirects
-        )
+
+    def _new_initial_request(self):
+        '''Return a new Request to be passed to the Rich Client.'''
+        url_info = self._url_item.url_info
+        url_record = self._url_item.url_record
+
+        request = self._processor.request_factory(
+            url_info.url, url_encoding=url_info.encoding)
+
+        self._populate_common_request(request)
+
+        if url_record.post_data or self._processor.post_data:
+            self._add_post_data(request)
+
+        if self._file_writer_session:
+            request = self._file_writer_session.process_request(request)
+
+        return request
+
+    def _populate_common_request(self, request):
+        '''Populate the Request with common fields.
+
+        This function adds the referrer URL.
+        '''
+        url_record = self._url_item.url_record
+
+        if url_record.referrer:
+            request.fields['Referer'] = url_record.referrer
+
+    @tornado.gen.coroutine
+    def process(self):
+        while not self._rich_client_session.done:
+            if not self._should_fetch():
+                self._url_item.skip()
+                break
+
+            is_done = yield self._process_one()
+
+            wait_time = self._processor.waiter.get()
+
+            if wait_time:
+                _logger.debug('Sleeping {0}.'.format(wait_time))
+                yield wpull.util.sleep(wait_time)
+
+            if is_done:
+                break
+
+        if self._request:
+            self._close_instance_body(self._request)
+
+    @tornado.gen.coroutine
+    def _process_one(self):
+        self._request = request = self._rich_client_session.next_request
+
+        _logger.info(_('Fetching ‘{url}’.').format(url=request.url_info.url))
+
+        try:
+            response = yield self._rich_client_session.fetch(
+                response_factory=self._new_response_factory()
+            )
+        except (NetworkError, ProtocolError) as error:
+            _logger.error(
+                _('Fetching ‘{url}’ encountered an error: {error}')\
+                    .format(url=request.url_info.url, error=error)
+            )
+
+            response = None
+            is_done = self._handle_error(error)
+        else:
+            _logger.info(
+                _('Fetched ‘{url}’: {status_code} {reason}. '
+                    'Length: {content_length} [{content_type}].').format(
+                    url=request.url_info.url,
+                    status_code=response.status_code,
+                    reason=response.status_reason,
+                    content_length=response.fields.get('Content-Length'),
+                    content_type=response.fields.get('Content-Type'),
+                )
+            )
+
+            if self._rich_client_session.response_type \
+            != RichClientResponseType.robots:
+                is_done = self._handle_response(response)
+            else:
+                _logger.debug('Not handling response {0}.'.format(
+                    self._rich_client_session.response_type))
+                is_done = False
+
+            self._close_instance_body(response)
+
+        raise tornado.gen.Return(is_done)
 
     @property
     def _next_url_info(self):
@@ -281,9 +269,10 @@ class WebProcessorSession(BaseProcessorSession):
         This returns either the original URLInfo or the next URLinfo
         containing the redirect link.
         '''
-        return self._redirect_url_info or self._url_item.url_info
+        return self._rich_client_session.next_request.url_info
 
-    def should_fetch(self):
+    def _should_fetch(self):
+        '''Return whether the URL should be fetched.'''
         url_info = self._next_url_info
         url_record = self._url_item.url_record
         test_info = self._processor.url_filter.test_info(url_info, url_record)
@@ -299,51 +288,8 @@ class WebProcessorSession(BaseProcessorSession):
                     passed=test_info['passed'],
                     failed=test_info['failed']
             ))
-            self._url_item.skip()
 
             return False
-
-    def new_request(self):
-        url_info = self._next_url_info
-        url_record = self._url_item.url_record
-
-        self._request = self._new_request_instance(
-            url_info.url,
-            url_info.encoding,
-            referer=url_record.referrer,
-        )
-
-        if url_record.post_data or self._processor.post_data:
-            if not self._redirect_tracker.is_redirect() \
-            or self._redirect_tracker.is_repeat():
-                self._add_post_data(self._request)
-
-        if self._file_writer_session \
-        and not self._redirect_url_info and self._request:
-            self._request = self._file_writer_session.process_request(
-                self._request)
-
-        return self._request
-
-    def _new_request_instance(self, url, encoding, referer=None):
-        '''Return a new Request.
-
-        This function adds the referrer URL and cookies.
-        '''
-        request = self._processor.request_factory(url, url_encoding=encoding)
-
-        if 'Referer' not in request.fields and referer:
-            request.fields['Referer'] = referer
-
-        if self._processor.cookie_jar:
-            if referer:
-                referrer_host = URLInfo.parse(referer).hostname
-            else:
-                referrer_host = None
-            self._processor.cookie_jar.add_cookie_header(
-                request, referrer_host)
-
-        return request
 
     def _add_post_data(self, request):
         if self._url_item.url_record.post_data:
@@ -360,7 +306,8 @@ class WebProcessorSession(BaseProcessorSession):
         with wpull.util.reset_file_offset(request.body.content_file):
             request.body.content_file.write(data)
 
-    def response_factory(self):
+    def _new_response_factory(self):
+        '''Return a new Response factory.'''
         def factory(*args, **kwargs):
             # TODO: Response should be dependency injected
             response = Response(*args, **kwargs)
@@ -374,14 +321,11 @@ class WebProcessorSession(BaseProcessorSession):
 
         return factory
 
-    def handle_response(self, response):
-        self._redirect_url_info = None
-
+    def _handle_response(self, response):
+        '''Process the response.'''
         self._url_item.set_value(status_code=response.status_code)
-        self._redirect_tracker.load(response)
-        self._extract_cookies(response)
 
-        if self._redirect_tracker.is_redirect():
+        if self._rich_client_session.redirect_tracker.is_redirect():
             return self._handle_redirect(response)
         elif response.status_code in self._document_codes:
             return self._handle_document(response)
@@ -391,6 +335,7 @@ class WebProcessorSession(BaseProcessorSession):
             return self._handle_document_error(response)
 
     def _handle_document(self, response):
+        '''Process a document response.'''
         _logger.debug('Got a document.')
 
         self._file_writer_session.save_document(response)
@@ -433,7 +378,8 @@ class WebProcessorSession(BaseProcessorSession):
 
         return True
 
-    def handle_error(self, error):
+    def _handle_error(self, error):
+        '''Process an error.'''
         self._processor.statistics.errors[type(error)] += 1
         self._processor.waiter.increment()
 
@@ -449,45 +395,9 @@ class WebProcessorSession(BaseProcessorSession):
         return True
 
     def _handle_redirect(self, response):
-        '''Process a redirect.
-
-        Returns:
-            True if the redirect was finished. False if there is a redirect
-            remaining.
-        '''
+        '''Process a redirect.'''
         self._processor.waiter.reset()
-
-        if self._redirect_tracker.next_location() \
-        and not self._redirect_tracker.exceeded():
-            url = self._redirect_tracker.next_location()
-            url = urllib.parse.urljoin(self._request.url_info.url, url)
-
-            _logger.debug('Got redirect to {url}.'.format(url=url))
-
-            self._redirect_url_info = URLInfo.parse(url)
-        else:
-            _logger.warning(_('Redirection failure.'))
-
-            self._processor.statistics.errors[ProtocolError] += 1
-            self._url_item.set_status(Status.error)
-
-            return True
-
-    def _extract_cookies(self, response):
-        if not self._processor.cookie_jar:
-            return
-
-        referrer = self._url_item.url_record.referrer
-
-        if referrer:
-            referrer_host = URLInfo.parse(referrer).hostname
-        else:
-            referrer_host = None
-        self._processor.cookie_jar.extract_cookies(
-            response, self._request, referrer_host)
-
-    def wait_time(self):
-        return self._processor.waiter.get()
+        return False
 
     def _scrape_document(self, request, response):
         '''Scrape the document for URLs.'''
@@ -543,8 +453,13 @@ class WebProcessorSession(BaseProcessorSession):
 
         return len(inline_url_infos), len(linked_url_infos)
 
+    def _close_instance_body(self, instance):
+        '''Close any files on instance.
 
-class WebProcessorWithRobotsTxtSession(
-RobotsTxtSessionMixin, WebProcessorSession):
-    '''Checks the robots.txt before fetching a URL.'''
-    pass
+        This function will attempt to call ``body.content_file.close`` on
+        the instance.
+        '''
+        if hasattr(instance, 'body') \
+        and hasattr(instance.body, 'content_file') \
+        and instance.body.content_file:
+            instance.body.content_file.close()

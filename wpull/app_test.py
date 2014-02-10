@@ -87,6 +87,7 @@ class TestApp(GoodAppTestCase):
             exit_code = yield engine()
         self.assertEqual(ExitStatus.server_error, exit_code)
         self.assertGreater(builder.factory['Statistics'].files, 1)
+        self.assertGreater(builder.factory['Statistics'].duration, 3)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_args(self):
@@ -149,10 +150,12 @@ class TestApp(GoodAppTestCase):
             '-4',
             '--no-robots',
         ])
+        builder = Builder(args)
         with cd_tempdir():
-            engine = Builder(args).build()
+            engine = builder.build()
             exit_code = yield engine()
         self.assertEqual(0, exit_code)
+        self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_args_post_data(self):
@@ -291,6 +294,18 @@ class TestApp(GoodAppTestCase):
                     cookie_data = saved_file.read()
 
                 self.assertIn(b'test\tyes', cookie_data)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_redirect_diff_host(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args(
+            [self.get_url('/redirect?where=diff-host')])
+        builder = Builder(args)
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+        self.assertEqual(0, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
 
 
 class TestAppBad(BadAppTestCase):

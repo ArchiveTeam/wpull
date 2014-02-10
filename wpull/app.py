@@ -1,6 +1,7 @@
 # encoding=utf-8
 '''Application support.'''
 import atexit
+import functools
 import gettext
 from http.cookiejar import CookieJar, MozillaCookieJar
 import itertools
@@ -21,6 +22,7 @@ from wpull.network import Resolver
 from wpull.processor import WebProcessor
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
     PrintServerResponseRecorder, ProgressRecorder)
+from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper import HTMLScraper, CSSScraper, DemuxDocumentScraper
 from wpull.stats import Statistics
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
@@ -29,6 +31,7 @@ from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
 from wpull.util import ASCIIStreamWriter
 import wpull.version
 from wpull.waiter import LinearWaiter
+from wpull.web import RedirectTracker, RichClient
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
     IgnoreFileWriter, TimestampingFileWriter, AntiClobberFileWriter)
@@ -55,7 +58,7 @@ class Builder(object):
             'CookieJarWrapper': CookieJarWrapper,
             'Connection': Connection,
             'ConnectionPool': ConnectionPool,
-            'CSSScraper': Engine,
+            'CSSScraper': CSSScraper,
             'DemuxDocumentScraper': DemuxDocumentScraper,
             'DemuxRecorder': DemuxRecorder,
             'DemuxURLFilter': DemuxURLFilter,
@@ -65,8 +68,11 @@ class Builder(object):
             'PathNamer': PathNamer,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
             'ProgressRecorder': ProgressRecorder,
+            'RedirectTracker': RedirectTracker,
             'Request': Request,
             'Resolver': Resolver,
+            'RichClient': RichClient,
+            'RobotsTxtPool': RobotsTxtPool,
             'Statistics': Statistics,
             'URLInfo': URLInfo,
             'URLTable': URLTable,
@@ -104,11 +110,9 @@ class Builder(object):
 
         url_table = self._build_url_table()
         processor = self._build_processor()
-        http_client = self._build_http_client()
 
         engine = self._factory.new('Engine',
             url_table,
-            http_client,
             processor,
             statisics,
             concurrent=self._args.concurrent,
@@ -323,13 +327,14 @@ class Builder(object):
             A list of document scrapers
         '''
         scrapers = [
-            HTMLScraper(
+            self._factory.new(
+                'HTMLScraper',
                 followed_tags=self._args.follow_tags,
                 ignored_tags=self._args.ignore_tags,
                 only_relative=self._args.relative,
                 robots=self._args.robots,
             ),
-            CSSScraper(),
+            self._factory.new('CSSScraper'),
         ]
 
         return scrapers
@@ -409,7 +414,8 @@ class Builder(object):
             self._build_document_scrapers())
         file_writer = self._build_file_writer()
         post_data = self._get_post_data()
-        cookie_jar = self._build_cookie_jar()
+
+        rich_http_client = self._build_rich_http_client()
 
         waiter = self._factory.new('Waiter',
             wait=args.wait,
@@ -417,18 +423,15 @@ class Builder(object):
             max_wait=args.waitretry
         )
         processor = self._factory.new('WebProcessor',
+            rich_http_client,
             url_filter=url_filter,
             document_scraper=document_scraper,
             file_writer=file_writer,
             waiter=waiter,
-            request_factory=self._build_request_factory(),
             retry_connrefused=args.retry_connrefused,
             retry_dns_error=args.retry_dns_error,
-            max_redirects=args.max_redirect,
-            robots=args.robots,
             statistics=self._factory['Statistics'],
             post_data=post_data,
-            cookie_jar=cookie_jar,
         )
 
         return processor
@@ -565,6 +568,30 @@ class Builder(object):
 
         return self._factory.new('Client',
             connection_pool=connection_pool, recorder=recorder)
+
+    def _build_rich_http_client(self):
+        '''Build Rich Client.'''
+        cookie_jar = self._build_cookie_jar()
+        http_client = self._build_http_client()
+
+        if self._args.robots:
+            robots_txt_pool = self._factory.new('RobotsTxtPool')
+        else:
+            robots_txt_pool = None
+
+        redirect_factory = functools.partial(
+            self._factory.class_map['RedirectTracker'],
+            max_redirects=self._args.max_redirect
+        )
+
+        return self._factory.new(
+            'RichClient',
+            http_client,
+            robots_txt_pool=robots_txt_pool,
+            redirect_tracker_factory=redirect_factory,
+            cookie_jar=cookie_jar,
+            request_factory=self._build_request_factory(),
+        )
 
     def _build_cookie_jar(self):
         '''Build the cookie jar'''

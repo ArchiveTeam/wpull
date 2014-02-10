@@ -60,6 +60,16 @@ class CookieHandler(tornado.web.RequestHandler):
             raise HTTPError(400)
 
 
+class RedirectHandler(tornado.web.RequestHandler):
+    def get(self):
+        where = self.get_argument('where', None)
+
+        if where == 'diff-host':
+            self.redirect('http://somewhereelse.invalid')
+        else:
+            self.redirect('/', status=301)
+
+
 class GoodApp(tornado.web.Application):
     def __init__(self):
         tornado.web.Application.__init__(self, [
@@ -69,6 +79,7 @@ class GoodApp(tornado.web.Application):
                 (r'/static/(.*)', tornado.web.StaticFileHandler),
                 (r'/post/', PostHandler),
                 (r'/cookie', CookieHandler),
+                (r'/redirect', RedirectHandler),
             ],
             template_path=os.path.join(os.path.dirname(__file__),
                 'templates'),

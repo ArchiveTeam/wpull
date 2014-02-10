@@ -8,10 +8,18 @@ import wpull.util
 
 
 class BaseRequest(object, metaclass=abc.ABCMeta):
+    '''Base class for Requests.
+
+    This class has no purpose yet.
+    '''
     pass
 
 
 class BaseResponse(object, metaclass=abc.ABCMeta):
+    '''Base class for Response.
+
+    This class has no purpose yet.
+    '''
     pass
 
 
@@ -108,6 +116,8 @@ class Body(object, metaclass=abc.ABCMeta):
 
 
 class BaseClient(object, metaclass=abc.ABCMeta):
-    @abc.abstractmethod
-    def fetch(self, request, *args, **kwargs):
-        pass
+    '''Base class for clients.
+
+    This class has no purpose yet.
+    '''
+    pass

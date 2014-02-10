@@ -2,6 +2,19 @@
 What's New
 ==========
 
+0.XXX (2014-02-DD)
+==================
+
+* No changes to program usage.
+* API: Engine and Processor interaction refactored to be asynchronous.
+
+  * The Engine and Processor classes were modified significantly.
+  * The Engine no longer is concerned with fetching requests.
+  * Requests are handled within Processors. This will benefit future Processors to allow them to make arbitrary requests during processing.
+  * The ``RedirectTracker`` was moved to a new ``web`` module.
+  * A ``RichClient`` is implemented. It handles robots.txt, cookies, and redirect concerns.
+
+
 0.17.3 (2014-02-07)
 ===================
 
