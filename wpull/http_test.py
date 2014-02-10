@@ -79,6 +79,7 @@ class TestConnection(BadAppTestCase):
         response = yield self.fetch('/')
         self.assertEqual(200, response.status_code)
         self.assertEqual(b'hello world!', response.body.content)
+        self.assertTrue(response.url_info)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_basic_content_length(self):

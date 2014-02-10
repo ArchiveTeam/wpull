@@ -322,7 +322,8 @@ class Connection(object):
             else:
                 response = yield self._process_request(request,
                     response_factory)
-                response.url_info = request.url_info
+
+            response.url_info = request.url_info
         except:
             _logger.debug('Fetch exception.')
             self.close()
