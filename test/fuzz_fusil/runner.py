@@ -33,8 +33,8 @@ class FuzzedHttpServer(HttpServer):
     def __init__(self, *args, **kwargs):
         random.seed(1)
         HttpServer.__init__(self, *args, **kwargs)
-        self._config_light = MangleConfig(min_op=0, max_op=20)
-        self._config_heavy = MangleConfig(min_op=0, max_op=100)
+        self._config_light = MangleConfig(min_op=0, max_op=50)
+        self._config_heavy = MangleConfig(min_op=0, max_op=500)
 
         self._data_samples = []
 
@@ -70,6 +70,16 @@ class FuzzedHttpServer(HttpServer):
     content_type="text/html"):
         data_choice = random.random()
         header_choice = random.random()
+
+        if random.random() < 0.2:
+            new_content_type = random.choice(
+                ['text/html', 'image/png', 'text/css'])
+            self.logger.info(
+                'Mangle content_type {0} -> {1}'.format(
+                    content_type, new_content_type),
+                self
+            )
+            content_type = new_content_type
 
         if data and data_choice < 0.5:
             self.logger.info('Mangle content: YES', self)
@@ -145,6 +155,9 @@ class Fuzzer(Application):
         )
         stdout_watcher.ignoreRegex(
             r'Error parsing status line',
+        )
+        stdout_watcher.ignoreRegex(
+            r'WARNING Invalid content length: invalid literal for int'
         )
 
 if __name__ == "__main__":
