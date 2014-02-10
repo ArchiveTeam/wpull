@@ -44,6 +44,7 @@ class RecorderTest(unittest.TestCase):
         self.assertIn(b'WARC-Date: ', warc_file_content)
         self.assertIn(b'WARC-Record-ID: <urn:uuid:', warc_file_content)
         self.assertIn(b'WARC-Block-Digest: sha1:', warc_file_content)
+        self.assertIn(b'WARC-Payload-Digest: sha1:', warc_file_content)
         self.assertIn(b'WARC-Type: request', warc_file_content)
         self.assertIn(b'WARC-Target-URI: http://', warc_file_content)
         self.assertIn(b'Content-Type: application/http;msgtype=request',
@@ -64,3 +65,5 @@ class RecorderTest(unittest.TestCase):
         self.assertIn(b'GET / HTTP', warc_file_content)
         self.assertIn(b'FINISHED', warc_file_content)
         self.assertIn(b'WARC-Target-URI: urn:X-wpull:log', warc_file_content)
+        self.assertIn(b'Content-Length:', warc_file_content)
+        self.assertNotIn(b'Content-Length: 0', warc_file_content)

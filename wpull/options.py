@@ -772,10 +772,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('do not compress the WARC file'),
         )
-#         self.add_argument(
-#             '--no-warc-digests',
-#             action='store_true',
-#         )
+        self.add_argument(
+            '--no-warc-digests',
+            action='store_false',
+            dest='warc_digests',
+            default=True,
+            help=_('do not compute and save SHA1 hash digests')
+        )
         group.add_argument(
             '--no-warc-keep-log',
             action='store_false',

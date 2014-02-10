@@ -165,8 +165,24 @@ class WARCRecord(object):
         self.fields[self.WARC_DATE] = wpull.util.datetime_str()
         self.fields[self.WARC_RECORD_ID] = '<{0}>'.format(uuid.uuid4().urn)
 
+    def set_content_length(self):
+        '''Find and set the content length.
+
+        :seealso: :func:`compute_checksum`.
+        '''
+        if not self.block_file:
+            self.fields['Content-Length'] = '0'
+            return
+
+        with wpull.util.reset_file_offset(self.block_file):
+            self.block_file.seek(0, 2)
+            self.fields['Content-Length'] = str(self.block_file.tell())
+
     def compute_checksum(self, payload_offset=None):
-        '''Compute and add the checksum data to the record fields.'''
+        '''Compute and add the checksum data to the record fields.
+
+        This function also sets the content length.
+        '''
         if not self.block_file:
             self.fields['Content-Length'] = '0'
             return
@@ -228,22 +244,24 @@ class WARCRecorder(BaseRecorder):
     http://bibnum.bnf.fr/WARC/WARC_ISO_28500_version1_latestdraft.pdf.
 
     Args:
-        filename: The filename (excluding the extension)
-        compress: If True, files will be compressed with gzip
-        extra_fields: A list of key-value pairs containing extra metadata
-            fields
-        temp_dir: Directory to use for temporary files
-        log: Include the program logging messages in the WARC file
-        appending: If True, the file is not overwritten upon opening
+        filename (str): The filename (excluding the extension)
+        compress (bool): If True, files will be compressed with gzip
+        extra_fields (list): A list of key-value pairs containing extra
+            metadata fields
+        temp_dir (str): Directory to use for temporary files
+        log (bool): Include the program logging messages in the WARC file
+        appending (bool): If True, the file is not overwritten upon opening
+        digests (bool): If True, the SHA1 hash digests will be written.
     '''
     def __init__(self, filename, compress=True, extra_fields=None,
-    temp_dir=None, log=True, appending=False):
+    temp_dir=None, log=True, appending=False, digests=True):
         self._filename = filename
         self._gzip_enabled = compress
         self._temp_dir = temp_dir
         self._warcinfo_record = WARCRecord()
         self._log_record = None
         self._log_handler = None
+        self._digests_enabled = digests
 
         if not appending:
             self._truncate_existing_file()
@@ -257,6 +275,7 @@ class WARCRecorder(BaseRecorder):
         self.write_record(self._warcinfo_record)
 
     def _truncate_existing_file(self):
+        '''Truncate existing WARC file if it exists.'''
         if os.path.exists(self._filename):
             with open(self._filename, 'wb'):
                 pass
@@ -306,6 +325,13 @@ class WARCRecorder(BaseRecorder):
         recorder_session = WARCRecorderSession(self, self._temp_dir)
         yield recorder_session
 
+    def set_length_and_maybe_checksums(self, record, payload_offset=None):
+        '''Set the content length and possibly the checksums.'''
+        if self._digests_enabled:
+            record.compute_checksum(payload_offset)
+        else:
+            record.set_content_length()
+
     def write_record(self, record):
         '''Append the record to the WARC file.'''
         # FIXME: probably not a good idea to modifiy arguments passed to us
@@ -338,7 +364,7 @@ class WARCRecorder(BaseRecorder):
             self._log_record.fields['WARC-Target-URI'] = \
                 'urn:X-wpull:log'
 
-            self._log_record.compute_checksum()
+            self.set_length_and_maybe_checksums(self._log_record)
             self.write_record(self._log_record)
 
             self._log_record.block_file.close()
@@ -374,7 +400,9 @@ class WARCRecorderSession(BaseRecorderSession):
         payload_offset = len(request.header())
 
         self._request_record.block_file.seek(0)
-        self._request_record.compute_checksum(payload_offset=payload_offset)
+        self._recorder.set_length_and_maybe_checksums(
+            self._request_record, payload_offset=payload_offset
+        )
         self._recorder.write_record(self._request_record)
 
     def pre_response(self, response):
@@ -393,7 +421,10 @@ class WARCRecorderSession(BaseRecorderSession):
         payload_offset = len(response.header())
 
         self._response_record.block_file.seek(0)
-        self._response_record.compute_checksum(payload_offset=payload_offset)
+        self._recorder.set_length_and_maybe_checksums(
+            self._response_record,
+            payload_offset=payload_offset
+        )
         self._recorder.write_record(self._response_record)
 
 

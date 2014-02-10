@@ -149,6 +149,7 @@ class TestApp(GoodAppTestCase):
             '--warc-file', 'test',
             '-4',
             '--no-robots',
+            '--no-warc-digests',
         ])
         builder = Builder(args)
         with cd_tempdir():

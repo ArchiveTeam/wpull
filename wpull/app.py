@@ -382,6 +382,7 @@ class Builder(object):
                     temp_dir=args.warc_tempdir,
                     log=args.warc_log,
                     appending=args.warc_append,
+                    digests=args.warc_digests,
                 )
             )
 
