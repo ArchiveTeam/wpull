@@ -1,4 +1,6 @@
 # encoding=utf-8
+import tornado.testing
+
 from wpull.backport.testing import unittest
 from wpull.http import Response, Client, Request
 from wpull.testing.goodapp import GoodAppTestCase
@@ -12,7 +14,7 @@ class TestWeb(unittest.TestCase):
         self.assertFalse(tracker.is_redirect())
         self.assertFalse(tracker.is_repeat())
         self.assertFalse(tracker.exceeded())
-        self.assertFalse(tracker.next_location())
+        self.assertFalse(tracker.next_location(raw=True))
         self.assertEqual(0, tracker.count())
 
         response = Response('HTTP/1.1', 200, '')
@@ -33,7 +35,7 @@ class TestWeb(unittest.TestCase):
         self.assertTrue(tracker.is_redirect())
         self.assertFalse(tracker.is_repeat())
         self.assertFalse(tracker.exceeded())
-        self.assertEqual('/test', tracker.next_location())
+        self.assertEqual('/test', tracker.next_location(raw=True))
         self.assertEqual(1, tracker.count())
 
         response = Response('HTTP/1.1', 307, '')
@@ -48,11 +50,12 @@ class TestWeb(unittest.TestCase):
         self.assertTrue(tracker.is_redirect())
         self.assertTrue(tracker.is_repeat())
         self.assertTrue(tracker.exceeded())
-        self.assertEqual('/test', tracker.next_location())
+        self.assertEqual('/test', tracker.next_location(raw=True))
         self.assertEqual(6, tracker.count())
 
 
 class TestRichClient(GoodAppTestCase):
+    @tornado.testing.gen_test
     def test_basic(self):
         http_client = Client()
         client = RichClient(http_client)
@@ -64,6 +67,7 @@ class TestRichClient(GoodAppTestCase):
         self.assertEqual(200, response.status_code)
         self.assertTrue(session.done)
 
+    @tornado.testing.gen_test
     def test_redirect(self):
         http_client = Client()
         client = RichClient(http_client)

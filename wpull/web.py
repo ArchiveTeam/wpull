@@ -1,5 +1,6 @@
 # encoding=utf-8
 '''Advanced HTTP handling.'''
+import gettext
 import logging
 import tornado.gen
 
@@ -8,7 +9,7 @@ from wpull.errors import ProtocolError
 from wpull.http import Request
 from wpull.robotstxt import RobotsState, RobotsDenied
 from wpull.url import URLInfo
-import gettext
+import wpull.url
 
 
 _logger = logging.getLogger(__name__)
@@ -44,18 +45,27 @@ class RedirectTracker(object):
         '''
         self._response = response
 
-        if self.next_location():
+        if self.next_location(raw=True):
             self._num_redirects += 1
 
-    def next_location(self):
+    def next_location(self, raw=False):
         '''Returns the next location.
 
+        Args:
+            raw (bool): If True, the original string contained in the Location
+                field will be returned. Otherwise, the URL will be
+                normalized to a complete URL.
+
         Returns:
-            str, None: If str, the raw string contained in the Location field.
-            Otherwise, no next location.
+            str, None: If str, the location. Otherwise, no next location.
         '''
         if self._response:
-            return self._response.fields.get('location')
+            location = self._response.fields.get('location')
+
+            if not location or raw:
+                return location
+
+            return wpull.url.urljoin(self._response.url_info.url, location)
 
     def is_redirect(self):
         '''Return whether the response contains a redirect code.'''
@@ -235,6 +245,7 @@ class RichClientSession(object):
 
     def _handle_response(self, response):
         '''Handle the response and update the internal state.'''
+        _logger.debug('Handling response')
         self._redirect_tracker.load(response)
 
         if self._rich_client.cookie_jar:
@@ -252,7 +263,9 @@ class RichClientSession(object):
 
     def _update_redirect_request(self):
         '''Update the Redirect Tracker.'''
-        if self._redirect_tracker.is_exceeded():
+        _logger.debug('Handling redirect.')
+
+        if self._redirect_tracker.exceeded():
             raise ProtocolError('Too many redirects.')
 
         url = self._redirect_tracker.next_location()
@@ -273,6 +286,8 @@ class RichClientSession(object):
                     request.fields.add(name, value)
 
         self._next_request = request
+
+        _logger.debug('Updated next redirect request to {0}.'.format(request))
 
     def _get_cookie_referrer_host(self):
         '''Return the referrer hostname.'''
