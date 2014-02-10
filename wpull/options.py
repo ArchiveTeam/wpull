@@ -811,7 +811,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         group.add_argument(
             '--delete-after',
             action='store_true',
-            help=_('delete the file after downloading it'),
+            help=_('download files temporarily and delete them after'),
         )
 #         self.add_argument(
 #             '-k',
