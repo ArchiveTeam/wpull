@@ -13,8 +13,16 @@ from fusil.network.server_client import ServerClientDisconnect
 from fusil.process.create import ProjectProcess
 from fusil.process.stdout import WatchStdout
 from fusil.process.watch import WatchProcess
+import gzip
 import os.path
 import random
+import sys
+
+
+if sys.version_info[0] == 2:
+    from cStringIO import StringIO as BytesIO
+else:
+    from io import BytesIO
 
 
 class FuzzedHttpServer(HttpServer):
@@ -70,6 +78,7 @@ class FuzzedHttpServer(HttpServer):
     content_type="text/html"):
         data_choice = random.random()
         header_choice = random.random()
+        http_headers = []
 
         if random.random() < 0.2:
             new_content_type = random.choice(
@@ -85,16 +94,30 @@ class FuzzedHttpServer(HttpServer):
             self.logger.info('Mangle content: YES', self)
             data = self.mangle_data(data, self._config_heavy)
 
+        if random.random() < 0.2:
+            self.logger.info('Mangle gzip: YES', self)
+
+            datafile = BytesIO()
+
+            with gzip.GzipFile(fileobj=datafile, mode='wb') as gzip_file:
+                gzip_file.write(bytes(data))
+
+            data = self.mangle_data(datafile.getvalue(), self._config_light)
+
+            http_headers.append(('Content-Encoding', 'gzip'))
+
         if data:
             data_len = len(data)
         else:
             data_len = 0
-        http_headers = [
+
+        http_headers.extend([
             ("Server", "Fusil"),
             ("Pragma", "no-cache"),
             ("Content-Type", content_type),
             ("Content-Length", str(data_len)),
-        ]
+        ])
+
         try:
             header = "HTTP/%s %s %s\r\n" % (self.http_version, code, code_text)
             for key, value in http_headers:
