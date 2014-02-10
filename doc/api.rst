@@ -40,6 +40,7 @@ wpull Package
    api/util
    api/version
    api/waiter
+   api/warc
    api/web
    api/wrapper
    api/writer
