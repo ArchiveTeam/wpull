@@ -119,7 +119,7 @@ class TestConnection(BadAppTestCase):
         request = Request.new(self.get_url('/buffer_overflow'))
         try:
             yield connection.fetch(request)
-        except ProtocolError:
+        except (ProtocolError, NetworkError):
             pass
         else:
             self.fail()
