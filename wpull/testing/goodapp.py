@@ -62,7 +62,12 @@ class CookieHandler(tornado.web.RequestHandler):
 
 class RedirectHandler(tornado.web.RequestHandler):
     def get(self):
-        self.redirect('/', status=301)
+        where = self.get_argument('where', None)
+
+        if where == 'diff-host':
+            self.redirect('http://somewhereelse.invalid')
+        else:
+            self.redirect('/', status=301)
 
 
 class GoodApp(tornado.web.Application):

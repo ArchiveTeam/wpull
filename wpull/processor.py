@@ -203,6 +203,7 @@ class WebProcessorSession(object):
     def process(self):
         while not self._rich_client_session.done:
             if not self._should_fetch():
+                self._url_item.skip()
                 break
 
             is_done = yield self._process_one()
@@ -253,6 +254,8 @@ class WebProcessorSession(object):
             != RichClientResponseType.robots:
                 is_done = self._handle_response(response)
             else:
+                _logger.debug('Not handling response {0}.'.format(
+                    self._rich_client_session.response_type))
                 is_done = False
 
             self._close_instance_body(response)
@@ -285,7 +288,6 @@ class WebProcessorSession(object):
                     passed=test_info['passed'],
                     failed=test_info['failed']
             ))
-            self._url_item.skip()
 
             return False
 
@@ -321,8 +323,6 @@ class WebProcessorSession(object):
 
     def _handle_response(self, response):
         '''Process the response.'''
-        self._redirect_url_info = None
-
         self._url_item.set_value(status_code=response.status_code)
 
         if self._rich_client_session.redirect_tracker.is_redirect():
@@ -397,7 +397,7 @@ class WebProcessorSession(object):
     def _handle_redirect(self, response):
         '''Process a redirect.'''
         self._processor.waiter.reset()
-        return True
+        return False
 
     def _scrape_document(self, request, response):
         '''Scrape the document for URLs.'''
