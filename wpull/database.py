@@ -12,6 +12,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.pool import SingletonThreadPool
+from sqlalchemy.sql.expression import select
 from sqlalchemy.sql.schema import Column, ForeignKey
 from sqlalchemy.sql.sqltypes import String, Integer, Boolean, Enum
 
@@ -185,17 +186,25 @@ class URLStrDBRecord(DBBase):
             if url in cache:
                 return cache[url]
 
-        record = session.query(URLStrDBRecord.id).filter_by(url=url).first()
+        query = select([URLStrDBRecord.id])\
+            .where(URLStrDBRecord.url == url).limit(1)
+        row = session.execute(query).first()
 
-        if create and not record:
+        if row:
+            record_id = row[0]
+        else:
+            record_id = None
+
+        if create and not record_id:
             record = URLStrDBRecord(url=url)
             session.add(record)
             session.flush()
+            record_id = record.id
 
-        if record:
+        if record_id:
             if cache is not None:
-                cache[url] = record.id
-            return record.id
+                cache[url] = record_id
+            return record_id
 
 
 class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
@@ -292,10 +301,12 @@ class BaseSQLURLTable(BaseURLTable):
 
                 url_str_id = URLStrDBRecord.get_url_id(
                     session, url, create=True, cache=self._url_str_id_cache)
-                url_db_record = session.query(URLDBRecord.id)\
-                    .filter_by(url_str_id=url_str_id).first()
 
-                if url_db_record:
+                query = select([URLDBRecord.id])\
+                    .where(URLDBRecord.url_str_id == url_str_id).limit(1)
+                row = session.execute(query).first()
+
+                if row:
                     continue
 
                 values = dict(status=Status.todo)
