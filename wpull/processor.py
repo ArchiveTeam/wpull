@@ -11,13 +11,13 @@ from wpull.database import Status
 from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
     DNSNotFound, NetworkError)
 from wpull.http import Response, Request
-from wpull.scraper import HTMLScraper, DemuxDocumentScraper
+from wpull.scraper import HTMLScraper, DemuxDocumentScraper, CSSScraper
 from wpull.stats import Statistics
 from wpull.url import URLInfo, DemuxURLFilter
 import wpull.util
 from wpull.waiter import LinearWaiter
-from wpull.writer import NullWriter
 from wpull.web import RichClientResponseType
+from wpull.writer import NullWriter
 
 
 _logger = logging.getLogger(__name__)
@@ -422,7 +422,9 @@ class WebProcessorSession(object):
         if not scrape_info:
             return 0, 0
 
-        if isinstance(scraper, HTMLScraper):
+        if isinstance(scraper, CSSScraper):
+            link_type = 'css'
+        elif isinstance(scraper, HTMLScraper):
             link_type = 'html'
         else:
             link_type = None
