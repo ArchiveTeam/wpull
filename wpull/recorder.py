@@ -169,7 +169,7 @@ class WARCRecorder(BaseRecorder):
             with open(self._filename, 'wb'):
                 pass
 
-        if os.path.exists(self._cdx_filename):
+        if self._cdx_filename and os.path.exists(self._cdx_filename):
             with open(self._cdx_filename, 'wb'):
                 pass
 
