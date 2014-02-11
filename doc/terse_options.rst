@@ -25,9 +25,10 @@ Brief Option Overview
                      [--ca-certificate FILE] [--ca-directory DIR]
                      [--no-use-internal-ca-certs] [--random-file FILE]
                      [--edg-file FILE] [--warc-file FILENAME] [--warc-append]
-                     [--warc-header STRING] [--no-warc-compression]
-                     [--no-warc-keep-log] [--warc-tempdir DIRECTORY] [-r]
-                     [-l NUMBER] [--delete-after] [-p] [--accept-regex REGEX]
+                     [--warc-header STRING] [--warc-cdx] [--no-warc-compression]
+                     [--no-warc-digests] [--no-warc-keep-log]
+                     [--warc-tempdir DIRECTORY] [-r] [-l NUMBER]
+                     [--delete-after] [-p] [--accept-regex REGEX]
                      [--reject-regex REGEX] [--regex-type TYPE] [-D LIST]
                      [--exclude-domains LIST] [--hostnames LIST]
                      [--exclude-hostnames LIST] [--follow-tags LIST]
@@ -145,8 +146,10 @@ Brief Option Overview
     --warc-file FILENAME  save WARC file to filename prefixed with FILENAME
     --warc-append         append instead of overwrite the output WARC file
     --warc-header STRING  include STRING in WARC file metadata
+    --warc-cdx            write CDX file along with the WARC file
     --no-warc-compression
                           do not compress the WARC file
+    --no-warc-digests     do not compute and save SHA1 hash digests
     --no-warc-keep-log    do not save a log into the WARC file
     --warc-tempdir DIRECTORY
                           use temporary DIRECTORY for preparing WARC files
@@ -155,7 +158,7 @@ Brief Option Overview
     -r, --recursive       follow links and download them
     -l NUMBER, --level NUMBER
                           limit recursion depth to NUMBER
-    --delete-after        delete the file after downloading it
+    --delete-after        download files temporarily and delete them after
     -p, --page-requisites
                           download objects embedded in pages
 

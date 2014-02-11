@@ -774,7 +774,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('do not compress the WARC file'),
         )
-        self.add_argument(
+        group.add_argument(
             '--no-warc-digests',
             action='store_false',
             dest='warc_digests',
