@@ -138,7 +138,7 @@ class WARCRecord(object):
 
         Returns:
             Response, None: Returns an instance of
-            :class:`.http.Respponse` or None.
+            :class:`.http.Response` or None.
         '''
         with wpull.util.reset_file_offset(self.block_file):
             data = self.block_file.read(4096)
