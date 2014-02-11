@@ -6,9 +6,9 @@ import itertools
 import re
 
 from wpull.document import (BaseDocumentReader, HTMLReader, get_heading_encoding,
-    get_encoding)
+    get_encoding, CSSReader)
+import wpull.url
 from wpull.util import to_str
-import wpull.util
 
 
 class BaseDocumentScraper(BaseDocumentReader):
@@ -127,19 +127,6 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         else:
             self._ignored_tags = None
 
-    @classmethod
-    def is_html(cls, request, response):
-        '''Check if the response is likely to be HTML.'''
-        if 'html' in response.fields.get('content-type', '').lower() \
-        or '.htm' in request.url_info.path.lower():
-            return True
-
-        if response.body:
-            peeked_data = wpull.util.peek_file(
-                response.body.content_file).lower()
-            if b'html' in peeked_data:
-                return True
-
     def scrape(self, request, response):
         if not self.is_html(request, response):
             return
@@ -147,7 +134,8 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         content_file = response.body.content_file
         encoding = get_heading_encoding(response)
 
-        root = self.parse(content_file, encoding, request.url_info.url)
+        tree = self.parse(content_file, encoding, request.url_info.url)
+        root = tree.getroot()
 
         if root is None:
             return
@@ -364,12 +352,8 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
                     return True
 
 
-class CSSScraper(BaseDocumentScraper):
+class CSSScraper(CSSReader, BaseDocumentScraper):
     '''Scrapes CSS stylesheet documents.'''
-
-    def parse(self, *args, **kwargs):
-        raise NotImplementedError()
-
     def scrape(self, request, response):
         if not self.is_css(request, response):
             return
@@ -390,23 +374,6 @@ class CSSScraper(BaseDocumentScraper):
             'linked_urls': (),
             'encoding': encoding,
         }
-
-    @classmethod
-    def is_css(cls, request, response):
-        '''Return whether the document is likely to be CSS.'''
-        if 'css' in response.fields.get('content-type', '').lower() \
-        or '.css' in request.url_info.path.lower():
-            return True
-
-        if response.body:
-            peeked_data = wpull.util.peek_file(
-                response.body.content_file).lower()
-            if 'html' in response.fields.get('content-type', '').lower() \
-            and b'<html' not in peeked_data.lower() \
-            and b'{' in peeked_data \
-            and b'}' in peeked_data \
-            and b':' in peeked_data:
-                return True
 
     @classmethod
     def scrape_urls(cls, text):
