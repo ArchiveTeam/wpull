@@ -2,6 +2,13 @@
 What's New
 ==========
 
+0.18.1 (2014-02-11)
+===================
+
+* Fixes error when WARC but not CDX option is specified.
+* Fixes closing of the SQLite database to avoid leaving temporary database files.
+
+
 0.18 (2014-02-11)
 ==================
 

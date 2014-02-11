@@ -247,6 +247,11 @@ class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
         '''Remove the URLs from the database.'''
         pass
 
+    @abc.abstractmethod
+    def close(self):
+        '''Run any clean-up actions and close the table.'''
+        pass
+
 
 class BaseSQLURLTable(BaseURLTable):
     def __init__(self):
@@ -417,6 +422,9 @@ class SQLiteURLTable(BaseSQLURLTable):
     def _session_maker(self):
         return self._session_maker_instance
 
+    def close(self):
+        self._engine.dispose()
+
 
 class GenericSQLURLTable(BaseSQLURLTable):
     '''URL table using SQLAlchemy without any customizations.
@@ -433,6 +441,9 @@ class GenericSQLURLTable(BaseSQLURLTable):
     @property
     def _session_maker(self):
         return self._session_maker_instance
+
+    def close(self):
+        self._engine.dispose()
 
 
 URLTable = SQLiteURLTable

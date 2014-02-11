@@ -150,6 +150,23 @@ class TestApp(GoodAppTestCase):
             '-4',
             '--no-robots',
             '--no-warc-digests',
+        ])
+        builder = Builder(args)
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+        self.assertEqual(0, exit_code)
+        self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_args_warc_with_cdx(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--no-parent',
+            '--warc-file', 'test',
+            '-4',
+            '--no-robots',
             '--warc-cdx',
         ])
         builder = Builder(args)

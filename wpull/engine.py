@@ -96,6 +96,7 @@ class Engine(object):
         self._statistics.stop()
         self._print_stats()
         self._processor.close()
+        self._url_table.close()
         self.stop_event.fire()
 
         raise tornado.gen.Return(self._exit_code)

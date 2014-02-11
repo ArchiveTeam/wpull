@@ -19,7 +19,12 @@ from wpull.http import Response
 
 
 class WARCRecord(object):
-    '''A record in a WARC file.'''
+    '''A record in a WARC file.
+
+    Attributes:
+        fields: An instance of :class:`.namevalue.NameValueRecord`.
+        block_file: A file object. May be None.
+    '''
     VERSION = 'WARC/1.0'
     WARC_TYPE = 'WARC-Type'
     CONTENT_TYPE = 'Content-Type'
@@ -114,6 +119,7 @@ class WARCRecord(object):
         self.fields['Content-Length'] = str(content_length)
 
     def __iter__(self):
+        '''Iterate the record as bytes.'''
         yield self.VERSION.encode()
         yield b'\r\n'
         yield bytes(self.fields)
@@ -128,8 +134,9 @@ class WARCRecord(object):
 
         yield b'\r\n\r\n'
 
-    def __str__(self):
-        return ''.join(iter(self))
+    def __bytes__(self):
+        '''Return the record as bytes.'''
+        return b''.join(iter(self))
 
     def get_http_header(self):
         '''Return the HTTP header.
