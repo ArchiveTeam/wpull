@@ -2,10 +2,11 @@
 What's New
 ==========
 
-0.XXX (2014-02-DD)
+0.18 (2014-02-11)
 ==================
 
 * Implements ``--no-warc-digests``, ``--warc-cdx``.
+* Improvements on reducing CPU usage consumption.
 * API: Engine and Processor interaction refactored to be asynchronous.
 
   * The Engine and Processor classes were modified significantly.
