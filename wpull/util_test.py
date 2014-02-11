@@ -5,7 +5,8 @@ import tornado.testing
 
 from wpull.backport.testing import unittest
 from wpull.util import (to_bytes, sleep, to_str, datetime_str, OrderedDefaultDict,
-    wait_future, TimedOut, python_version, filter_pem, detect_encoding)
+    wait_future, TimedOut, python_version, filter_pem, detect_encoding,
+    parse_iso8601_str)
 
 
 class TestUtil(unittest.TestCase):
@@ -21,6 +22,9 @@ class TestUtil(unittest.TestCase):
 
     def test_datetime_str(self):
         self.assertEqual(20, len(datetime_str()))
+
+    def test_parse_iso8601_str(self):
+        self.assertEqual(10, parse_iso8601_str('1970-01-01T00:00:10Z'))
 
     def test_ordered_default_dict(self):
         mapping = OrderedDefaultDict(lambda: 2)

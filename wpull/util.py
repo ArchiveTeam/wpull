@@ -1,5 +1,6 @@
 # encoding=utf-8
 '''Miscellaneous functions.'''
+import calendar
 import chardet
 import codecs
 import collections
@@ -169,7 +170,8 @@ def parse_iso8601_str(string):
     Returns:
         float: A UNIX timestamp.
     '''
-    return datetime.datetime.strptime(string, "%Y-%m-%dT%H:%M:%SZ").timestamp()
+    datetime_obj = datetime.datetime.strptime(string, "%Y-%m-%dT%H:%M:%SZ")
+    return int(calendar.timegm(datetime_obj.utctimetuple()))
 
 
 class TimedOut(Exception):
