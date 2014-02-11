@@ -761,9 +761,11 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--warc-max-size',
 #             metavar='NUMBER'
 #         )
-#         self.add_argument(
-#             '--warc-cdx'
-#         )
+        group.add_argument(
+            '--warc-cdx',
+            action='store_true',
+            help=_('write CDX file along with the WARC file')
+        )
 #         self.add_argument(
 #             '--warc-dedup',
 #         )
@@ -772,10 +774,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('do not compress the WARC file'),
         )
-#         self.add_argument(
-#             '--no-warc-digests',
-#             action='store_true',
-#         )
+        group.add_argument(
+            '--no-warc-digests',
+            action='store_false',
+            dest='warc_digests',
+            default=True,
+            help=_('do not compute and save SHA1 hash digests')
+        )
         group.add_argument(
             '--no-warc-keep-log',
             action='store_false',
@@ -808,7 +813,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         group.add_argument(
             '--delete-after',
             action='store_true',
-            help=_('delete the file after downloading it'),
+            help=_('download files temporarily and delete them after'),
         )
 #         self.add_argument(
 #             '-k',

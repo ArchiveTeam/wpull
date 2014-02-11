@@ -81,6 +81,10 @@ class Callbacks(object):
                 :class:`.database.URLRecord`.
             verdict (bool): A bool indicating whether Wpull wants to download
                 the URL.
+            reasons (dict): A dict containing information for the verdict:
+
+                * ``filters`` (dict): A mapping (str to bool) from filter name
+                  to whether the filter passed or not.
 
         Returns:
             bool: If True, the URL should be downloaded. Otherwise, the URL
@@ -210,17 +214,15 @@ class HookedWebProcessor(WebProcessor):
 
         super().__init__(*args, **kwargs)
 
-        if self._robots_txt_pool:
-            self._session_class = HookedWebProcessorWithRobotsTxtSession
-        else:
-            self._session_class = HookedWebProcessorSession
+        self._session_class = HookedWebProcessorSession
 
-    @contextlib.contextmanager
-    def session(self, url_item):
-        with super().session(url_item) as session:
-            session.hook_env = self._hook_env
-            session.callbacks_hook = self._callbacks_hook
-            yield session
+    @tornado.gen.coroutine
+    def process(self, url_item):
+        session = self._session_class(self, url_item)
+        session.hook_env = self._hook_env
+        session.callbacks_hook = self._callbacks_hook
+
+        raise tornado.gen.Return((yield session.process()))
 
 
 class HookedWebProcessorSessionMixin(object):
@@ -234,8 +236,8 @@ class HookedWebProcessorSessionMixin(object):
         '''Convert the instance to script's native types.'''
         return self.hook_env.to_script_native_type(instance)
 
-    def should_fetch(self):
-        verdict = super().should_fetch()
+    def _should_fetch(self):
+        verdict = super()._should_fetch()
 
         # super() may have skipped this already. We undo it.
         self._url_item.set_status(Status.in_progress,
@@ -278,9 +280,9 @@ class HookedWebProcessorSessionMixin(object):
 
         return filter_info_dict
 
-    def handle_response(self, response):
+    def _handle_response(self, response):
         url_info_dict = self._to_script_native_type(
-            self._next_url_info.to_dict())
+            self._request.url_info.to_dict())
         response_info_dict = self._to_script_native_type(response.to_dict())
         action = self.callbacks_hook.handle_response(
             url_info_dict, response_info_dict)
@@ -288,7 +290,7 @@ class HookedWebProcessorSessionMixin(object):
         _logger.debug('Hooked response returned {0}'.format(action))
 
         if action == Actions.NORMAL:
-            return super().handle_response(response)
+            return super()._handle_response(response)
         elif action == Actions.RETRY:
             return False
         elif action == Actions.FINISH:
@@ -299,9 +301,9 @@ class HookedWebProcessorSessionMixin(object):
         else:
             raise NotImplementedError()
 
-    def handle_error(self, error):
+    def _handle_error(self, error):
         url_info_dict = self._to_script_native_type(
-            self._next_url_info.to_dict())
+            self._request.url_info.to_dict())
         error_info_dict = self._to_script_native_type({
             'error': error.__class__.__name__,
         })
@@ -327,7 +329,7 @@ class HookedWebProcessorSessionMixin(object):
 
         to_native = self._to_script_native_type
         filename = to_native(response.body.content_file.name)
-        url_info_dict = to_native(self._next_url_info.to_dict())
+        url_info_dict = to_native(self._request.url_info.to_dict())
         document_info_dict = to_native(response.body.to_dict())
 
         new_url_dicts = self.callbacks_hook.get_urls(
@@ -407,12 +409,6 @@ class HookedWebProcessorSessionMixin(object):
 class HookedWebProcessorSession(HookedWebProcessorSessionMixin,
 WebProcessorSession):
     '''Hooked Web Processor Session.'''
-    pass
-
-
-class HookedWebProcessorWithRobotsTxtSession(
-HookedWebProcessorSessionMixin, WebProcessorSession):
-    '''Hoooked Web Processor with Robots Txt Session.'''
     pass
 
 

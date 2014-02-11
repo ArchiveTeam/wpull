@@ -316,7 +316,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         l_linger = 0
         self.connection.setsockopt(
             socket.SOL_SOCKET, socket.SO_LINGER,
-            struct.pack('ii', l_onoff, l_linger)
+            struct.pack(b'ii', l_onoff, l_linger)
         )
         _logger.debug('Bad socket reset set.')
 

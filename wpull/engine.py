@@ -30,9 +30,6 @@ class Engine(object):
     Args:
         url_table (BaseURLTable): An instance of
             :class:`.database.BaseURLTable` which contains the URLs to process.
-        request_client (BaseClient): An instance of
-            :class:`.conversation.BaseClient` which will be fetching
-            our requests.
         processor (BaseProcessor): An instance of
             :class:`.processor.BaseProcessor` that will decide what to do with
             the items.
@@ -43,13 +40,9 @@ class Engine(object):
     The engine is described like the following:
 
     1. Get an item from the table. In the context of Wpull, URLs are the
-       central part of items.
-    2. Start a session on the URL.
-    3. Ask the processor what the engine should do.
-    4. Make a HTTP request.
-    5. Return the HTTP response to the processor.
-    6. Get the URLs from the processor.
-    7. Either return to step 3 or step 1.
+       central part of items. If there are no items, stop.
+    2. Ask the processor to process the item.
+    3. Go to step 1.
     '''
     ERROR_CODE_MAP = OrderedDict([
         (ServerError, ExitStatus.server_error),
@@ -64,10 +57,9 @@ class Engine(object):
     ])
     '''Mapping of error types to exit status.'''
 
-    def __init__(self, url_table, request_client, processor, statistics,
+    def __init__(self, url_table, processor, statistics,
     concurrent=1):
         self._url_table = url_table
-        self._request_client = request_client
         self._processor = processor
         self._statistics = statistics
         self._worker_semaphore = toro.BoundedSemaphore(concurrent)
@@ -83,13 +75,14 @@ class Engine(object):
         '''Run the engine.
 
         This function will clear any items marked as in-progress, start up
-        the works, and loop until a stop is requested.
+        the workers, and loop until a stop is requested.
 
         Returns:
             int: An integer describing the exit status.
 
             :seealso: :class:`.errors.ExitStatus`
         '''
+        self._statistics.start()
         self._release_in_progress()
         self._run_workers()
 
@@ -100,9 +93,9 @@ class Engine(object):
         if self._exit_code == ExitStatus.ssl_verification_error:
             self._print_ssl_error()
 
-        self._processor.close()
+        self._statistics.stop()
         self._print_stats()
-        self._request_client.close()
+        self._processor.close()
         self.stop_event.fire()
 
         raise tornado.gen.Return(self._exit_code)
@@ -192,90 +185,15 @@ class Engine(object):
     def _process_url_item(self, url_item):
         '''Process a :class:`URLItem`.
 
-        This function requests a Session from the Processor and processes
-        the Session until the Session says its OK.
-
-        A Session may need to be reprocessed to in order to handle
-        redirects.
-
-        :seealso: :func:`_process_session`
+        This function calls :func:`.processor.BaseProcessor.process`.
         '''
         _logger.debug('Begin session for {0} {1}.'.format(
             url_item.url_record, url_item.url_info))
 
-        with self._processor.session(url_item) as session:
-            while True:
-                if not session.should_fetch():
-                    break
+        yield self._processor.process(url_item)
 
-                should_reprocess = yield self._process_session(
-                    session, url_item)
-
-                wait_time = session.wait_time()
-
-                if wait_time:
-                    _logger.debug('Sleeping {0}.'.format(wait_time))
-                    yield wpull.util.sleep(wait_time)
-
-                if not should_reprocess:
-                    break
-
-    @tornado.gen.coroutine
-    def _process_session(self, session, url_item):
-        '''Fetch a single request for the Processor.
-
-        Returns:
-            bool: ``True`` if the Session requires fetching another request.
-        '''
-        _logger.debug('Session iteration for {0} {1}'.format(
+        _logger.debug('End session for {0} {1}.'.format(
             url_item.url_record, url_item.url_info))
-
-        request = session.new_request()
-
-        _logger.info(_('Fetching ‘{url}’.').format(url=request.url_info.url))
-
-        try:
-            response = yield self._request_client.fetch(request,
-                response_factory=session.response_factory())
-        except (NetworkError, ProtocolError) as error:
-            response = None
-            _logger.error(
-                _('Fetching ‘{url}’ encountered an error: {error}')\
-                    .format(url=request.url_info.url, error=error)
-            )
-
-            is_done = session.handle_error(error)
-        else:
-            _logger.info(
-                _('Fetched ‘{url}’: {status_code} {reason}. '
-                    'Length: {content_length} [{content_type}].').format(
-                    url=request.url_info.url,
-                    status_code=response.status_code,
-                    reason=response.status_reason,
-                    content_length=response.fields.get('Content-Length'),
-                    content_type=response.fields.get('Content-Type'),
-                )
-            )
-
-            is_done = session.handle_response(response)
-
-        if not is_done:
-            # Retry request for things such as redirects
-            raise tornado.gen.Return(True)
-        else:
-            self._close_instance_body(request)
-            self._close_instance_body(response)
-
-    def _close_instance_body(self, instance):
-        '''Close any files on instance.
-
-        This function will attempt to call ``body.content_file.close`` on
-        the instance.
-        '''
-        if hasattr(instance, 'body') \
-        and hasattr(instance.body, 'content_file') \
-        and instance.body.content_file:
-            instance.body.content_file.close()
 
     def stop(self, force=False):
         '''Stop the engine.

@@ -321,8 +321,8 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
 
     def _scrape_links_by_attrib(self, element):
         '''Scrape an element by looking at its attributes.'''
-        for attrib_name in self.LINK_ATTRIBUTES:
-            if attrib_name in element.attrib:
+        for attrib_name in element.keys():
+            if attrib_name in self.LINK_ATTRIBUTES:
                 yield attrib_name, element.get(attrib_name)
 
     def _is_link_inline(self, tag, attribute):

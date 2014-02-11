@@ -28,6 +28,9 @@ MODULES = [
     'util',
     'version',
     'waiter',
+    'warc',
+    'web',
+    'wrapper',
     'writer',
 ]
 

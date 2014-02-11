@@ -6,7 +6,10 @@ Here lists all documented classes and functions. Not all members are documented 
 
 If the documentation is not sufficient, please take a look at the source code. Suggestions and improvements are welcomed.
 
-.. Warning:: The API is not thread-safe. It is intended to be run with Tornado.
+.. Warning:: The API is not thread-safe. It is intended to be run asynchronously with Tornado.
+
+.. Note:: Many functions also are decorated with the :func:`tornado.gen.coroutine` decorator. These functions return a ``Future`` and alternatively accept a ``callback`` parameter. For more information, see: http://www.tornadoweb.org/en/stable/gen.html.
+
 
 wpull Package
 =============
@@ -37,6 +40,8 @@ wpull Package
    api/util
    api/version
    api/waiter
+   api/warc
+   api/web
    api/wrapper
    api/writer
 

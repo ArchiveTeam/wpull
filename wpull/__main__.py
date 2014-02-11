@@ -1,8 +1,10 @@
 # encoding=utf-8
 import gettext
 import logging
+import os
 import signal
 import sys
+import time
 import tornado.ioloop
 
 from wpull.app import Builder
@@ -43,4 +45,9 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if os.environ.get('RUN_PROFILE'):
+        import cProfile
+        cProfile.run('main()', 'stats-{0}.profile'.format(int(time.time())))
+        # I suggest installing runsnakerun to view the profile file graphically
+    else:
+        main()
