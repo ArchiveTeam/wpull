@@ -22,10 +22,15 @@ class BaseDocumentScraper(BaseDocumentReader):
             response: :class:`http.Response`
 
         Returns:
-            :class:`dict`: The mandatory values are:
+            dict, None: Returns a dict or None.
+
+            If a dict is provided, the mandatory values are:
+
                 * ``inline_urls``: URLs of objects embedded in the document
                 * ``linked_urls``': URLs of objects linked from the document
                 *  ``encoding``: the character encoding of the document
+
+            If None, then the scraper does not support scraping the document.
         '''
         pass
 
@@ -378,13 +383,13 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
     @classmethod
     def scrape_urls(cls, text):
         '''Scrape any thing that is a ``url()``.'''
-        for match in re.finditer(r'''url\(\s*['"]?(.*?)['"]?\s*\)''', text):
+        for match in re.finditer(cls.URL_PATTERN, text):
             yield match.group(1)
 
     @classmethod
     def scrape_imports(cls, text):
         '''Scrape any thing that looks like an import.'''
-        for match in re.finditer(r'''@import\s*([^\s]+).*?;''', text):
+        for match in re.finditer(cls.IMPORT_URL_PATTERN, text):
             url_str_fragment = match.group(1)
             if url_str_fragment.startswith('url('):
                 for url in cls.scrape_urls(url_str_fragment):

@@ -106,6 +106,9 @@ class HTMLReader(BaseDocumentReader):
 
 class CSSReader(BaseDocumentReader):
     '''Cascading Stylesheet Document Reader.'''
+    URL_PATTERN = r'''url\(\s*['"]?(.*?)['"]?\s*\)'''
+    IMPORT_URL_PATTERN = r'''@import\s*([^\s]+).*?;'''
+
     def parse(self, *args, **kwargs):
         raise NotImplementedError()
 
