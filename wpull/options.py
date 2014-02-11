@@ -761,9 +761,11 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--warc-max-size',
 #             metavar='NUMBER'
 #         )
-#         self.add_argument(
-#             '--warc-cdx'
-#         )
+        group.add_argument(
+            '--warc-cdx',
+            action='store_true',
+            help=_('write CDX file along with the WARC file')
+        )
 #         self.add_argument(
 #             '--warc-dedup',
 #         )

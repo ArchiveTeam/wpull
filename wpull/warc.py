@@ -10,10 +10,12 @@ https://github.com/internetarchive/CDX-Writer.
 '''
 import base64
 import hashlib
+import re
 import uuid
 
 from wpull.namevalue import NameValueRecord
 import wpull.util
+from wpull.http import Response
 
 
 class WARCRecord(object):
@@ -128,3 +130,36 @@ class WARCRecord(object):
 
     def __str__(self):
         return ''.join(iter(self))
+
+    def get_http_header(self):
+        '''Return the HTTP header.
+
+        It only attempts to read the first 4 KiB of the payload.
+
+        Returns:
+            Response, None: Returns an instance of
+            :class:`.http.Respponse` or None.
+        '''
+        with wpull.util.reset_file_offset(self.block_file):
+            data = self.block_file.read(4096)
+
+        match = re.match(br'(.*?\r?\n\r?\n)', data)
+
+        if not match:
+            return
+
+        status_line, dummy, field_str = match.group(1).partition(b'\n')
+
+        try:
+            version, code, reason = Response.parse_status_line(status_line)
+        except ValueError:
+            return
+
+        response = Response(version, code, reason)
+
+        try:
+            response.fields.parse(field_str, strict=False)
+        except ValueError:
+            return
+
+        return response

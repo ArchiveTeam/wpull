@@ -5,7 +5,7 @@ What's New
 0.XXX (2014-02-DD)
 ==================
 
-* Implements ``--no-warc-digests``.
+* Implements ``--no-warc-digests``, ``--warc-cdx``.
 * API: Engine and Processor interaction refactored to be asynchronous.
 
   * The Engine and Processor classes were modified significantly.

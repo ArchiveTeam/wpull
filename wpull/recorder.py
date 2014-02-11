@@ -1,11 +1,9 @@
 # encoding=utf-8
 '''HTTP communication recorders.'''
 import abc
-import base64
 import contextlib
 import datetime
 import gettext
-import hashlib
 import http.client
 import io
 import itertools
@@ -16,7 +14,6 @@ import sys
 from tempfile import NamedTemporaryFile
 import tempfile
 import time
-import uuid
 
 import wpull.backport.gzip
 from wpull.namevalue import NameValueRecord
@@ -25,6 +22,7 @@ import wpull.util
 from wpull.warc import WARCRecord
 
 
+_logger = logging.getLogger(__name__)
 _ = gettext.gettext
 
 
@@ -128,7 +126,7 @@ class WARCRecorder(BaseRecorder):
     '''Record to WARC file.
 
     Args:
-        filename (str): The filename (excluding the extension)
+        filename (str): The filename (including the extension).
         compress (bool): If True, files will be compressed with gzip
         extra_fields (list): A list of key-value pairs containing extra
             metadata fields
@@ -136,9 +134,12 @@ class WARCRecorder(BaseRecorder):
         log (bool): Include the program logging messages in the WARC file
         appending (bool): If True, the file is not overwritten upon opening
         digests (bool): If True, the SHA1 hash digests will be written.
+        cdx_filename (str): If given, a CDX file will be written.
     '''
+    CDX_DELIMINATOR = ' '
+
     def __init__(self, filename, compress=True, extra_fields=None,
-    temp_dir=None, log=True, appending=False, digests=True):
+    temp_dir=None, log=True, appending=False, digests=True, cdx_filename=None):
         self._filename = filename
         self._gzip_enabled = compress
         self._temp_dir = temp_dir
@@ -146,6 +147,7 @@ class WARCRecorder(BaseRecorder):
         self._log_record = None
         self._log_handler = None
         self._digests_enabled = digests
+        self._cdx_filename = cdx_filename
 
         if not appending:
             self._truncate_existing_file()
@@ -156,12 +158,19 @@ class WARCRecorder(BaseRecorder):
             self._log_record = WARCRecord()
             self._setup_log()
 
+        if self._cdx_filename:
+            self._write_cdx_header()
+
         self.write_record(self._warcinfo_record)
 
     def _truncate_existing_file(self):
-        '''Truncate existing WARC file if it exists.'''
+        '''Truncate existing WARC and CDX file if it exists.'''
         if os.path.exists(self._filename):
             with open(self._filename, 'wb'):
+                pass
+
+        if os.path.exists(self._cdx_filename):
+            with open(self._cdx_filename, 'wb'):
                 pass
 
     def _populate_warcinfo(self, extra_fields=None):
@@ -223,14 +232,32 @@ class WARCRecorder(BaseRecorder):
         record.fields['WARC-Warcinfo-ID'] = self._warcinfo_record.fields[
             WARCRecord.WARC_RECORD_ID]
 
+        _logger.debug('Writing WARC record {0}.'.format(
+            record.fields['WARC-Type']))
+
         if self._gzip_enabled:
             open_func = wpull.backport.gzip.GzipFile
         else:
             open_func = open
 
+        if os.path.exists(self._filename):
+            before_offset = os.path.getsize(self._filename)
+        else:
+            before_offset = 0
+
         with open_func(self._filename, mode='ab') as out_file:
             for data in record:
                 out_file.write(data)
+
+        after_offset = os.path.getsize(self._filename)
+
+        if self._cdx_filename:
+            raw_file_offset = before_offset
+            raw_file_record_size = after_offset - before_offset
+
+            self._write_cdx_field(
+                record, raw_file_record_size, raw_file_offset
+            )
 
     def close(self):
         '''Close the WARC file and clean up any logging handlers.'''
@@ -252,6 +279,96 @@ class WARCRecorder(BaseRecorder):
             self.write_record(self._log_record)
 
             self._log_record.block_file.close()
+
+    def _write_cdx_header(self):
+        '''Write the CDX header.
+
+        It writes the fields:
+
+        1. a: original URL
+        2. b: UNIX timestamp
+        3. m: MIME Type from the HTTP Content-type
+        4. s: response code
+        5. k: new style checksum
+        6. S: raw file record size
+        7. V: offset in raw file
+        8. g: filename of raw file
+        9. u: record ID
+        '''
+        with open(self._cdx_filename, mode='a', encoding='utf-8') as out_file:
+            out_file.write(self.CDX_DELIMINATOR)
+            out_file.write(self.CDX_DELIMINATOR.join((
+                'CDX',
+                'a', 'b', 'm', 's',
+                'k', 'S', 'V', 'g',
+                'u'
+            )))
+            out_file.write('\n')
+
+    def _write_cdx_field(self, record, raw_file_record_size, raw_file_offset):
+        '''Write the CDX field if needed.'''
+        if record.fields[WARCRecord.WARC_TYPE] != WARCRecord.RESPONSE \
+        or not re.match(r'application/http; *msgtype *= *response',
+        record.fields[WARCRecord.CONTENT_TYPE]):
+            return
+
+        url = record.fields['WARC-Target-URI']
+
+        _logger.debug('Writing CDX record {0}.'.format(url))
+
+        http_header = record.get_http_header()
+
+        if http_header:
+            mime_type = self.parse_mimetype(
+                http_header.fields.get('Content-Type', '')
+            ) or '-'
+            response_code = str(http_header.status_code)
+        else:
+            mime_type = '-'
+            response_code = '-'
+
+        timestamp = str(int(
+            wpull.util.parse_iso8601_str(record.fields[WARCRecord.WARC_DATE])
+        ))
+
+        checksum = record.fields.get('WARC-Payload-Digest', '')
+
+        if checksum.startswith('sha1:'):
+            checksum = checksum.replace('sha1:', '', 1)
+        else:
+            checksum = '-'
+
+        raw_file_record_size_str = str(raw_file_record_size)
+        raw_file_offset_str = str(raw_file_offset)
+        filename = os.path.basename(self._filename)
+        record_id = record.fields[WARCRecord.WARC_RECORD_ID]
+        fields_strs = (
+            url,
+            timestamp,
+            mime_type,
+            response_code,
+            checksum,
+            raw_file_record_size_str,
+            raw_file_offset_str,
+            filename,
+            record_id
+        )
+
+        with open(self._cdx_filename, mode='a', encoding='utf-8') as out_file:
+            out_file.write(self.CDX_DELIMINATOR.join(fields_strs))
+            out_file.write('\n')
+
+    @classmethod
+    def parse_mimetype(cls, value):
+        '''Return the MIME type from a Content-Type string.
+
+        Returns:
+            str, None: A string in the form ``type/subtype`` or None.
+        '''
+        match = re.match(r'([a-zA-Z0-9-]+/[a-zA-Z0-9-]+)', value)
+
+        if match:
+            return match.group(1)
 
 
 class WARCRecorderSession(BaseRecorderSession):

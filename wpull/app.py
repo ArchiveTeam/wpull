@@ -363,6 +363,11 @@ class Builder(object):
             else:
                 warc_path = args.warc_file + '.warc.gz'
 
+            if args.warc_cdx:
+                cdx_path = args.warc_file + '.cdx'
+            else:
+                cdx_path = None
+
             extra_fields = [
                 ('robots', 'on' if args.robots else 'off'),
                 ('wpull-arguments', str(args))
@@ -383,6 +388,7 @@ class Builder(object):
                     log=args.warc_log,
                     appending=args.warc_append,
                     digests=args.warc_digests,
+                    cdx_filename=cdx_path,
                 )
             )
 
