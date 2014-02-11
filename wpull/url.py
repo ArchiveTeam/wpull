@@ -564,20 +564,23 @@ def uppercase_percent_encoding(string):
         string)
 
 
+PRINTABLE_CHARS = frozenset(string.printable)
+HEX_CHARS = frozenset(string.hexdigits)
+UNESCAPED_CHARS = frozenset(' &=')
+
+
 def is_percent_encoded(url):
     '''Return whether the URL is percent-encoded.'''
     input_chars = frozenset(url)
-    printable_chars = frozenset(string.printable)
-    hex_chars = frozenset(string.hexdigits)
 
-    if not input_chars <= printable_chars:
+    if not input_chars <= PRINTABLE_CHARS:
         return False
 
-    if frozenset(' &=') & input_chars:
+    if UNESCAPED_CHARS & input_chars:
         return False
 
     for match_str in re.findall('%(..)', url):
-        if not frozenset(match_str) <= hex_chars:
+        if not frozenset(match_str) <= HEX_CHARS:
             return False
 
     return True
