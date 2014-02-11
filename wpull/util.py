@@ -5,6 +5,7 @@ import codecs
 import collections
 import contextlib
 import copy
+import datetime
 import itertools
 import re
 import sys
@@ -156,6 +157,19 @@ def sleep(seconds):
 def datetime_str():
     '''Return the current time in simple ISO8601 notation.'''
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def parse_iso8601_str(string):
+    '''Parse a fixed ISO8601 datetime string.
+
+    .. Note:: This function only parses dates in the format
+       ``%Y-%m-%dT%H:%M:%SZ``. You must use a library like ``dateutils``
+       to properly parse dates and times.
+
+    Returns:
+        float: A UNIX timestamp.
+    '''
+    return datetime.datetime.strptime(string, "%Y-%m-%dT%H:%M:%SZ").timestamp()
 
 
 class TimedOut(Exception):
