@@ -14,6 +14,7 @@ What's New
   * Requests are handled within Processors. This will benefit future Processors to allow them to make arbitrary requests during processing.
   * The ``RedirectTracker`` was moved to a new ``web`` module.
   * A ``RichClient`` is implemented. It handles robots.txt, cookies, and redirect concerns.
+  * ``WARCRecord`` was moved into a new ``warc`` module.
 
 
 0.17.3 (2014-02-07)
