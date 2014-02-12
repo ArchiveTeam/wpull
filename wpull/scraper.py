@@ -359,6 +359,9 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
 
 class CSSScraper(CSSReader, BaseDocumentScraper):
     '''Scrapes CSS stylesheet documents.'''
+    URL_PATTERN = r'''url\(\s*['"]?(.*?)['"]?\s*\)'''
+    IMPORT_URL_PATTERN = r'''@import\s*([^\s]+).*?;'''
+
     def scrape(self, request, response):
         if not self.is_css(request, response):
             return

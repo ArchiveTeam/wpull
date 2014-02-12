@@ -8,7 +8,7 @@ import re
 import shutil
 
 from wpull.database import Status
-from wpull.document import CSSReader, HTMLReader
+from wpull.scraper import HTMLScraper, CSSScraper
 from wpull.url import URLInfo
 import wpull.util
 
@@ -73,22 +73,33 @@ class BatchDocumentConverter(object):
                 filename, filename, base_url=url_record.url)
 
 
-class HTMLConverter(HTMLReader, BaseDocumentConverter):
+class HTMLConverter(HTMLScraper, BaseDocumentConverter):
     '''HTML converter.'''
     def convert(self, input_filename, output_filename, base_url=None):
         raise NotImplementedError()
 
 
-class CSSConverter(CSSReader, BaseDocumentConverter):
+class CSSConverter(CSSScraper, BaseDocumentConverter):
     '''CSS converter.'''
     ALL_URL_PATTERN = r'{0}|{1}'.format(
-        CSSReader.URL_PATTERN, CSSReader.IMPORT_URL_PATTERN)
+        CSSScraper.URL_PATTERN, CSSScraper.IMPORT_URL_PATTERN)
 
     def __init__(self, path_namer, url_table):
         self._path_namer = path_namer
         self._url_table = url_table
 
     def convert(self, input_filename, output_filename, base_url=None):
+        with open(input_filename, 'rb') as in_file:
+            text = in_file.read()
+
+        encoding = wpull.util.detect_encoding(text)
+        text = text.decode(encoding)
+        new_text = self.convert_text(text, base_url, encoding)
+
+        with open(output_filename, 'wb') as out_file:
+            out_file.write(new_text.encode(encoding))
+
+    def convert_text(self, text, base_url=None, encoding='latin1'):
         def repl(match):
             url = match.group(1) or match.group(2)
 
@@ -103,13 +114,4 @@ class CSSConverter(CSSReader, BaseDocumentConverter):
 
             return match.group().replace(url, new_url)
 
-        with open(input_filename, 'rb') as in_file:
-            text = in_file.read()
-
-        encoding = wpull.util.detect_encoding(text)
-        text = text.decode(encoding)
-
-        new_text = re.sub(self.ALL_URL_PATTERN, repl, text)
-
-        with open(output_filename, 'wb') as out_file:
-            out_file.write(new_text.encode(encoding))
+        return re.sub(self.ALL_URL_PATTERN, repl, text)
