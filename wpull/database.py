@@ -292,7 +292,7 @@ class BaseSQLURLTable(BaseURLTable):
 
     def __iter__(self):
         with self._session() as session:
-            return session.query(URLDBRecord.url)
+            return iter([record.url for record in session.query(URLDBRecord)])
 
     def __len__(self):
         return self.count()
