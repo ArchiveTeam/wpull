@@ -8,6 +8,12 @@ import re
 import wpull.util
 
 
+try:
+    abstractclassmethod = abc.abstractclassmethod
+except AttributeError:
+    abstractclassmethod = lambda f: f
+
+
 class BaseDocumentReader(object, metaclass=abc.ABCMeta):
     '''Base class for classes that read documents.'''
 
@@ -19,8 +25,9 @@ class BaseDocumentReader(object, metaclass=abc.ABCMeta):
         '''
         pass
 
-    @abc.abstractclassmethod
-    def is_supported(self, file):
+    @classmethod
+    @abstractclassmethod
+    def is_supported(cls, file):
         '''Return whether the reader is likely able to read the document.
 
         The arguments will depend on the implementation.
