@@ -45,6 +45,8 @@ class BatchDocumentConverter(object):
             if url_record.status != Status.done:
                 continue
 
+            self.convert_by_record(url_record)
+
     def convert_by_record(self, url_record):
         '''Convert using given URL Record.'''
         filename = self._path_namer.get_filename(
@@ -54,21 +56,34 @@ class BatchDocumentConverter(object):
         if not os.path.exists(filename):
             return
 
-        if url_record.link_type not in ('css', 'html'):
-            return
+        if url_record.link_type:
+            if url_record.link_type not in ('css', 'html'):
+                return
+            else:
+                link_type = url_record.link_type
+        else:
+            with open(filename, 'rb') as in_file:
+                if HTMLScraper.is_supported(
+                in_file, url_info=url_record.url_info):
+                    link_type = 'html'
+                elif CSSScraper.is_supported(
+                in_file, url_info=url_record.url_info):
+                    link_type = 'css'
+                else:
+                    link_type = None
 
         _logger.info(
-            _('Converting links in file ‘{filename}.’')\
-            .format(filename=filename)
+            _('Converting links in file ‘{filename}’ (type={type}).')\
+            .format(filename=filename, type=link_type)
         )
 
         if self._backup_enabled:
             shutil.copyfile(filename, filename + '.orig')
 
-        if url_record.link_type == 'css':
+        if link_type == 'css':
             self._css_converter.convert(
                 filename, filename, base_url=url_record.url)
-        elif url_record.link_type == 'html':
+        elif link_type == 'html':
             self._html_converter.convert(
                 filename, filename, base_url=url_record.url)
 

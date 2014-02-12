@@ -68,12 +68,11 @@ class HTMLReader(BaseDocumentReader):
             return tree
 
     @classmethod
-    def is_supported(cls, file, request=None, response=None):
+    def is_supported(cls, file, request=None, response=None, url_info=None):
         '''Return whether the file is likely to be HTML.'''
-        if response and cls.is_html_response(response):
-            return True
-
-        if response and cls.is_html_request(request):
+        if response and cls.is_html_response(response) \
+        or request and cls.is_html_request(request) \
+        or url_info and cls.is_html_url_info(url_info):
             return True
 
         if cls.is_html_file(file):
@@ -96,7 +95,12 @@ class HTMLReader(BaseDocumentReader):
     @classmethod
     def is_html_request(cls, request):
         '''Return whether the Request is likely to be a HTML.'''
-        if '.htm' in request.url_info.path.lower():
+        return cls.is_html_url_info(request.url_info)
+
+    @classmethod
+    def is_html_url_info(cls, url_info):
+        '''Return whether the URLInfo is likely to be a HTML.'''
+        if '.htm' in url_info.path.lower():
             return True
 
     @classmethod
@@ -112,20 +116,17 @@ class HTMLReader(BaseDocumentReader):
             return True
 
 
-
 class CSSReader(BaseDocumentReader):
     '''Cascading Stylesheet Document Reader.'''
     def parse(self, *args, **kwargs):
         raise NotImplementedError()
 
     @classmethod
-    def is_supported(cls, file, request=None, response=None):
+    def is_supported(cls, file, request=None, response=None, url_info=None):
         '''Return whether the file is likely to be CSS.'''
-
-        if request and cls.is_css_request(request):
-            return True
-
-        if request and cls.is_css_response(response):
+        if request and cls.is_css_request(request) \
+        or response and cls.is_css_response(response) \
+        or url_info and cls.is_css_url_info(url_info):
             return True
 
         return cls.is_css_file(file)
@@ -142,12 +143,19 @@ class CSSReader(BaseDocumentReader):
                 return True
 
     @classmethod
-    def is_css_request(cls, request):
-        if '.css' in request.url_info.path.lower():
+    def is_css_url_info(cls, url_info):
+        '''Return whether the document is likely to be CSS.'''
+        if '.css' in url_info.path.lower():
             return True
 
     @classmethod
+    def is_css_request(cls, request):
+        '''Return whether the document is likely to be CSS.'''
+        return cls.is_css_url_info(request.url_info)
+
+    @classmethod
     def is_css_response(cls, response):
+        '''Return whether the document is likely to be CSS.'''
         if 'css' in response.fields.get('content-type', '').lower():
             return True
 
