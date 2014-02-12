@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2014-02-DD)
+0.19 (2014-02-12)
 =================
 
 * Fixes files not actually being written.
