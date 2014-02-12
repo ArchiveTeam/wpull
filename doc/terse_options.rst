@@ -28,7 +28,7 @@ Brief Option Overview
                      [--warc-header STRING] [--warc-cdx] [--no-warc-compression]
                      [--no-warc-digests] [--no-warc-keep-log]
                      [--warc-tempdir DIRECTORY] [-r] [-l NUMBER]
-                     [--delete-after] [-p] [--accept-regex REGEX]
+                     [--delete-after] [-k] [-K] [-p] [--accept-regex REGEX]
                      [--reject-regex REGEX] [--regex-type TYPE] [-D LIST]
                      [--exclude-domains LIST] [--hostnames LIST]
                      [--exclude-hostnames LIST] [--follow-tags LIST]
@@ -159,6 +159,9 @@ Brief Option Overview
     -l NUMBER, --level NUMBER
                           limit recursion depth to NUMBER
     --delete-after        download files temporarily and delete them after
+    -k, --convert-links   rewrite links in files that point to local files
+    -K, --backup-converted
+                          save original files before converting their links
     -p, --page-requisites
                           download objects embedded in pages
 

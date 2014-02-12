@@ -11,13 +11,13 @@ from wpull.database import Status
 from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
     DNSNotFound, NetworkError)
 from wpull.http import Response, Request
-from wpull.scraper import HTMLScraper, DemuxDocumentScraper
+from wpull.scraper import HTMLScraper, DemuxDocumentScraper, CSSScraper
 from wpull.stats import Statistics
 from wpull.url import URLInfo, DemuxURLFilter
 import wpull.util
 from wpull.waiter import LinearWaiter
-from wpull.writer import NullWriter
 from wpull.web import RichClientResponseType
+from wpull.writer import NullWriter
 
 
 _logger = logging.getLogger(__name__)
@@ -70,6 +70,7 @@ class WebProcessor(BaseProcessor):
         post_data (str): If provided, all requests will be POSTed with the
             given `post_data`. `post_data` must be in percent-encoded
             query format ("application/x-www-form-urlencoded").
+        converter: An instance of :class:`.converter.BatchDocumentConverter`.
 
     :seealso: :class:`WebProcessorSession`,
         :class:`WebProcessorWithRobotsTxtSession`
@@ -83,7 +84,8 @@ class WebProcessor(BaseProcessor):
     def __init__(self, rich_client,
     url_filter=None, document_scraper=None, file_writer=None,
     waiter=None, statistics=None, request_factory=Request.new,
-    retry_connrefused=False, retry_dns_error=False, post_data=None):
+    retry_connrefused=False, retry_dns_error=False, post_data=None,
+    converter=None):
         self._rich_client = rich_client
         self._url_filter = url_filter or DemuxURLFilter([])
         self._document_scraper = document_scraper or DemuxDocumentScraper([])
@@ -95,6 +97,7 @@ class WebProcessor(BaseProcessor):
         self._retry_dns_error = retry_dns_error
         self._post_data = post_data
         self._session_class = WebProcessorSession
+        self._converter = converter
 
     @property
     def rich_client(self):
@@ -142,7 +145,11 @@ class WebProcessor(BaseProcessor):
         raise tornado.gen.Return((yield session.process()))
 
     def close(self):
+        '''Close the client and invoke document converter.'''
         self._rich_client.close()
+
+        if self._converter:
+            self._converter.convert_all()
 
 
 class WebProcessorSession(object):
@@ -422,7 +429,9 @@ class WebProcessorSession(object):
         if not scrape_info:
             return 0, 0
 
-        if isinstance(scraper, HTMLScraper):
+        if isinstance(scraper, CSSScraper):
+            link_type = 'css'
+        elif isinstance(scraper, HTMLScraper):
             link_type = 'html'
         else:
             link_type = None

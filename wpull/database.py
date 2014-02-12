@@ -83,8 +83,11 @@ class URLRecord(_URLRecordType):
         referrer (str): The parent URL that linked to this URL.
         inline (bool): Whether this URL was an embedded object (such as an
             image or a stylesheet) of the parent URL.
-        link_type (str): Describes the document type. The only value used
-            is ``html`` for HTML documents.
+        link_type (str): Describes the document type. Values are:
+
+            * ``html``: HTML document
+            * ``css``: CSS document
+
         url_encoding (str): The name of the codec used to encode/decode
             the URL. See :class:`.url.URLInfo`.
         post_data (str): If given, the URL should be fetched as a
@@ -283,13 +286,13 @@ class BaseSQLURLTable(BaseURLTable):
             result = session.query(URLDBRecord).filter_by(url=url).first()
 
             if not result:
-                raise IndexError()
+                raise KeyError()
             else:
                 return result.to_plain()
 
     def __iter__(self):
         with self._session() as session:
-            return session.query(URLDBRecord.url)
+            return iter([record.url for record in session.query(URLDBRecord)])
 
     def __len__(self):
         return self.count()
