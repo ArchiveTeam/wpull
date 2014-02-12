@@ -2,6 +2,14 @@
 What's New
 ==========
 
+0.XX (2014-02-DD)
+=================
+
+* Fixes files not actually being written.
+* Implements ``--convert-links`` and ``--backup-converted``.
+* API: ``HTMLScraper`` functions were refactored to be class methods. ``ScrapedLink`` was renamed to ``LinkInfo``.
+
+
 0.18.1 (2014-02-11)
 ===================
 
