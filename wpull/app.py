@@ -12,6 +12,7 @@ import sys
 import tempfile
 import tornado.ioloop
 
+from wpull.converter import BatchDocumentConverter
 from wpull.database import URLTable
 from wpull.engine import Engine
 from wpull.factory import Factory
@@ -53,6 +54,7 @@ class Builder(object):
     def __init__(self, args):
         self._args = args
         self._factory = Factory({
+            'BatchDocumentConverter': BatchDocumentConverter,
             'Client': Client,
             'CookieJar': CookieJar,
             'CookieJarWrapper': CookieJarWrapper,
@@ -421,7 +423,7 @@ class Builder(object):
             self._build_document_scrapers())
         file_writer = self._build_file_writer()
         post_data = self._get_post_data()
-
+        converter = self._build_document_converter()
         rich_http_client = self._build_rich_http_client()
 
         waiter = self._factory.new('Waiter',
@@ -439,6 +441,7 @@ class Builder(object):
             retry_dns_error=args.retry_dns_error,
             statistics=self._factory['Statistics'],
             post_data=post_data,
+            converter=converter,
         )
 
         return processor
@@ -626,6 +629,20 @@ class Builder(object):
         )
 
         return cookie_jar_wrapper
+
+    def _build_document_converter(self):
+        '''Build the Document Converter.'''
+
+        if not self._args.convert_links:
+            return
+
+        converter = self._factory.new(
+            'BatchDocumentConverter',
+            self._factory['PathNamer'], self._factory['URLTable'],
+            backup=self._args.backup_converted
+        )
+
+        return converter
 
     def _build_ssl_options(self):
         '''Create the SSL options.

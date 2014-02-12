@@ -117,6 +117,7 @@ class TestApp(GoodAppTestCase):
             '--ascii-print',
             '--progress', 'dot',
             '--secure-protocol', 'TLSv1',
+            '--convert-links', '--backup-converted',
         ])
         with cd_tempdir():
             engine = Builder(args).build()
@@ -124,6 +125,8 @@ class TestApp(GoodAppTestCase):
 
             print(list(os.walk('.')))
             self.assertTrue(os.path.exists('http/localhost/index.html'))
+            self.assertTrue(os.path.exists('http/localhost/index.html.orig'))
+
         self.assertEqual(0, exit_code)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
