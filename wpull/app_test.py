@@ -62,6 +62,8 @@ class TestApp(GoodAppTestCase):
         with cd_tempdir():
             engine = builder.build()
             exit_code = yield engine()
+            self.assertTrue(os.path.exists('index.html'))
+
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
@@ -119,6 +121,9 @@ class TestApp(GoodAppTestCase):
         with cd_tempdir():
             engine = Builder(args).build()
             exit_code = yield engine()
+
+            print(list(os.walk('.')))
+            self.assertTrue(os.path.exists('http/localhost/index.html'))
         self.assertEqual(0, exit_code)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
@@ -155,6 +160,9 @@ class TestApp(GoodAppTestCase):
         with cd_tempdir():
             engine = builder.build()
             exit_code = yield engine()
+
+            self.assertTrue(os.path.exists('test.warc.gz'))
+
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
 

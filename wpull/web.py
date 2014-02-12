@@ -366,7 +366,7 @@ class RobotsTxtRichClientSession(RichClientSession):
             )
 
         if self._robots_state in (RobotsState.ok, RobotsState.error):
-            raise tornado.gen.Return((yield super().fetch()))
+            raise tornado.gen.Return((yield super().fetch(**kwargs)))
 
         request = self._next_robots_request()
         response = yield self._rich_client.http_client.fetch(request)
