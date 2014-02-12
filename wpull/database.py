@@ -286,7 +286,7 @@ class BaseSQLURLTable(BaseURLTable):
             result = session.query(URLDBRecord).filter_by(url=url).first()
 
             if not result:
-                raise IndexError()
+                raise KeyError()
             else:
                 return result.to_plain()
 
