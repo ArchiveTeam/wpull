@@ -123,7 +123,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
         )
 
     def _convert_plain(self, link_info, root):
-        base_url = root.base_url
+        base_url = wpull.util.to_str(root.base_url)
 
         if link_info.base_link:
             base_url = wpull.url.urljoin(base_url, link_info.base_link)
@@ -140,7 +140,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
             if done_key in css_already_done:
                 return
 
-            text = link_info.element.get(link_info.attrib)
+            text = wpull.util.to_str(link_info.element.get(link_info.attrib))
             new_text = self._css_converter.convert_text(text, base_url)
 
             link_info.element.set(link_info.attrib, new_text)
@@ -149,7 +149,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
             if link_info.element in css_already_done:
                 return
 
-            text = link_info.element.text
+            text = wpull.util.to_str(link_info.element.text)
             new_text = self._css_converter.convert_text(text, base_url)
             link_info.element.text = new_text
 
