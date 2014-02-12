@@ -75,8 +75,79 @@ class BatchDocumentConverter(object):
 
 class HTMLConverter(HTMLScraper, BaseDocumentConverter):
     '''HTML converter.'''
+    def __init__(self, path_namer, url_table):
+        super().__init__()
+        self._path_namer = path_namer
+        self._url_table = url_table
+        self._css_converter = CSSConverter(path_namer, url_table)
+
     def convert(self, input_filename, output_filename, base_url=None):
-        raise NotImplementedError()
+        css_already_done = set()
+
+        with open(input_filename, 'rb') as in_file:
+            tree = self.parse(in_file, base_url=base_url)
+
+        root = tree.getroot()
+
+        if root is None:
+            _logger.warning(
+                _('Failed to convert ‘{filename}’.')\
+                .format(filename=input_filename)
+            )
+            return
+
+        for link_info in self.iter_links(root):
+            if link_info.value_type == 'plain':
+                self._convert_plain(link_info, root)
+            elif link_info.value_type == 'css':
+                self._convert_css(link_info, css_already_done, base_url)
+
+        tree.write(
+            output_filename, method='html', pretty_print=True,
+            encoding=wpull.util.to_str(tree.docinfo.encoding)
+        )
+
+    def _convert_plain(self, link_info, root):
+        base_url = root.base_url
+
+        if link_info.base_link:
+            base_url = wpull.url.urljoin(base_url, link_info.base_link)
+
+        url = wpull.url.urljoin(base_url, link_info.link)
+        new_url = self._get_new_url(url)
+
+        link_info.element.set(link_info.attrib, new_url)
+
+    def _convert_css(self, link_info, css_already_done, base_url=None):
+        if link_info.attrib:
+            done_key = (link_info.element, link_info.attrib)
+
+            if done_key in css_already_done:
+                return
+
+            text = link_info.element.get(link_info.attrib)
+            new_text = self._css_converter.convert_text(text, base_url)
+
+            link_info.element.set(link_info.attrib, new_text)
+            css_already_done.add(done_key)
+        else:
+            if link_info.element in css_already_done:
+                return
+
+            text = link_info.element.text
+            new_text = self._css_converter.convert_text(text, base_url)
+            link_info.element.text = new_text
+
+            css_already_done.add(link_info.element)
+
+    def _get_new_url(self, url):
+        if url in self._url_table \
+        and self._url_table[url].status == Status.done:
+            new_url = self._path_namer.get_filename(URLInfo.parse(url))
+        else:
+            new_url = url
+
+        return new_url
 
 
 class CSSConverter(CSSScraper, BaseDocumentConverter):
@@ -85,6 +156,7 @@ class CSSConverter(CSSScraper, BaseDocumentConverter):
         CSSScraper.URL_PATTERN, CSSScraper.IMPORT_URL_PATTERN)
 
     def __init__(self, path_namer, url_table):
+        super().__init__()
         self._path_namer = path_namer
         self._url_table = url_table
 
@@ -94,12 +166,12 @@ class CSSConverter(CSSScraper, BaseDocumentConverter):
 
         encoding = wpull.util.detect_encoding(text)
         text = text.decode(encoding)
-        new_text = self.convert_text(text, base_url, encoding)
+        new_text = self.convert_text(text, base_url)
 
         with open(output_filename, 'wb') as out_file:
             out_file.write(new_text.encode(encoding))
 
-    def convert_text(self, text, base_url=None, encoding='latin1'):
+    def convert_text(self, text, base_url=None):
         def repl(match):
             url = match.group(1) or match.group(2)
 
