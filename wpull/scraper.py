@@ -67,11 +67,32 @@ class DemuxDocumentScraper(object):
         return info
 
 
-ScrapedLink = collections.namedtuple(
-    'ScrapedLinkType',
-    ['tag', 'attrib', 'link', 'inline', 'linked', 'base_link']
+LinkInfo = collections.namedtuple(
+    'LinkInfoType',
+    [
+        'element', 'tag', 'attrib', 'link',
+        'inline', 'linked', 'base_link', 'value_type'
+    ]
 )
-'''Information about the scraped link.'''
+'''Information about a link in a lxml document.
+
+Attributes:
+    element: An instance of :class:`lxml.html.HtmlElement`.
+    tag (str): The element tag name.
+    attrib (str, None): If ``str``, the name of the attribute. Otherwise,
+        the link was found in ``element.text``.
+    link (str): The link found.
+    inline (bool): Whether the link is an embedded object (like images or
+        stylesheets).
+    linked (bool): Whether the link is a link to another page.
+    base_link (str, None): The base URL.
+    value_type (str): Indicates how the link was found. Possible values are
+
+        * ``plain``: The link was found plainly in an attribute value.
+        * ``list``: The link was found in a space separated list.
+        * ``css``: The link was found in a CSS text.
+        * ``refresh``: The link was found in a refresh meta string.
+'''
 
 
 class HTMLScraper(HTMLReader, BaseDocumentScraper):
@@ -89,8 +110,11 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         'usemap',
         'dynsrc', 'lowsrc',
     ])
+    '''HTML element attributes that may contain links.'''
     ATTR_INLINE = 1
+    '''Flag for embedded objects (like images, stylesheets) in documents.'''
     ATTR_HTML = 2
+    '''Flag for links that point to other documents.'''
     TAG_ATTRIBUTES = {
         'a': {'href': ATTR_HTML},
         'applet': {'code': ATTR_INLINE},
@@ -113,6 +137,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         'td': {'background': ATTR_INLINE},
         'th': {'background': ATTR_INLINE},
     }
+    '''Mapping of element tag names to attributes containing links.'''
 
     def __init__(self, followed_tags=None, ignored_tags=None, robots=False,
     only_relative=False):
@@ -148,7 +173,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         linked_urls = set()
         inline_urls = set()
 
-        for scraped_link in self._scrape_tree(root):
+        for scraped_link in self.iter_links(root):
             if self._only_relative:
                 if scraped_link.base_link or '://' in scraped_link.link:
                     continue
@@ -179,43 +204,55 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             'encoding': to_str(root.getroottree().docinfo.encoding),
         }
 
-    def _scrape_tree(self, root):
-        '''Iterate the document tree.'''
+    @classmethod
+    def iter_links(cls, root):
+        '''Iterate the document root for links.
+
+        Returns:
+            LinkInfo: A iterator of :class:`LinkedInfo`.
+        '''
         for element in root.iter():
-            for scraped_link in self._scrape_element(element):
+            for scraped_link in cls.iter_links_element(element):
                 yield scraped_link
 
-    def _scrape_element(self, element):
-        '''Scrape a HTML elmement.'''
+    @classmethod
+    def iter_links_element(cls, element):
+        '''Iterate a HTML element.'''
         # reference: lxml.html.HtmlMixin.iterlinks()
+        # NOTE: to_str is needed because on Python 2, only byte strings
+        # are returned from lxml
         attrib = element.attrib
         tag = element.tag
 
         if tag == 'link':
-            iterable = self._scrape_link_element(element)
+            iterable = cls.iter_links_link_element(element)
         elif tag == 'meta':
-            iterable = self._scrape_meta_element(element)
+            iterable = cls.iter_links_meta_element(element)
         elif tag in ('object', 'applet'):
-            iterable = self._scrape_object_element(element)
+            iterable = cls.iter_links_object_element(element)
         elif tag == 'param':
-            iterable = self._scrape_param_element(element)
+            iterable = cls.iter_links_param_element(element)
         elif tag == 'style':
-            iterable = self._scrape_style_element(element)
+            iterable = cls.iter_links_style_element(element)
         else:
-            iterable = self._scrape_plain_element(element)
+            iterable = cls.iter_links_plain_element(element)
 
-        for scraped_link in iterable:
-            yield scraped_link
+        for link_info in iterable:
+            yield link_info
 
         if 'style' in attrib:
             for link in CSSScraper.scrape_urls(attrib['style']):
-                yield ScrapedLink(
-                    element.tag, 'style',
-                    to_str(link), True,
-                    False, None)
+                yield LinkInfo(
+                    element, element.tag, 'style',
+                    to_str(link),
+                    True, False,
+                    None,
+                    'css'
+                )
 
-    def _scrape_link_element(self, element):
-        '''Scrape a ``link`` for URLs.
+    @classmethod
+    def iter_links_link_element(cls, element):
+        '''Iterate a ``link`` for URLs.
 
         This function handles stylesheets and icons in addition to
         standard scraping rules.
@@ -223,15 +260,18 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         rel = element.get('rel', '')
         inline = 'stylesheet' in rel or 'icon' in rel
 
-        for attrib_name, link in self._scrape_links_by_attrib(element):
-            yield ScrapedLink(
-                element.tag, attrib_name,
-                to_str(link), inline,
-                not inline, None
+        for attrib_name, link in cls.iter_links_by_attrib(element):
+            yield LinkInfo(
+                element, element.tag, attrib_name,
+                to_str(link),
+                inline, not inline,
+                None,
+                'plain'
             )
 
-    def _scrape_meta_element(self, element):
-        '''Scrape the ``meta`` element.
+    @classmethod
+    def iter_links_meta_element(cls, element):
+        '''Iterate the ``meta`` element for links.
 
         This function handles refresh URLs.
         '''
@@ -239,14 +279,17 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             content_value = element.get('content')
             match = re.search(r'url=(.+)', content_value, re.IGNORECASE)
             if match:
-                yield ScrapedLink(
-                    element.tag, 'http-equiv',
-                    to_str(match.group(1)), False,
-                    True, None
+                yield LinkInfo(
+                    element, element.tag, 'http-equiv',
+                    to_str(match.group(1)),
+                    False, True,
+                    None,
+                    'refresh'
                 )
 
-    def _scrape_object_element(self, element):
-        '''Scrape ``object`` and ``embed`` elements.
+    @classmethod
+    def iter_links_object_element(cls, element):
+        '''Iterate ``object`` and ``embed`` elements.
 
         This function also looks at ``codebase`` and ``archive`` attributes.
         '''
@@ -254,85 +297,104 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
 
         if base_link:
             # lxml returns codebase as inline
-            yield ScrapedLink(
-                element.tag, 'codebase',
-                base_link, True,
-                False, None
+            yield LinkInfo(
+                element, element.tag, 'codebase',
+                base_link,
+                True, False,
+                None,
+                'plain'
             )
 
         for attribute in ('code', 'src', 'classid', 'data'):
             if attribute in element.attrib:
-                yield ScrapedLink(
-                    element.tag, attribute,
-                    to_str(element.get(attribute)), True,
-                    False, base_link
+                yield LinkInfo(
+                    element, element.tag, attribute,
+                    to_str(element.get(attribute)),
+                    True, False,
+                    base_link,
+                    'plain'
                 )
 
         if 'archive' in element.attrib:
             for match in re.finditer(r'[^ ]+', element.get('archive')):
                 value = match.group(0)
-                yield ScrapedLink(
-                    element.tag, 'archive',
-                    to_str(value), True,
-                    False, base_link
+                yield LinkInfo(
+                    element, element.tag, 'archive',
+                    to_str(value),
+                    True, False,
+                    base_link,
+                    'list'
                 )
 
-    def _scrape_param_element(self, element):
-        '''Scrape a ``param`` element.'''
+    @classmethod
+    def iter_links_param_element(cls, element):
+        '''Iterate a ``param`` element.'''
         valuetype = element.get('valuetype', '')
 
         if valuetype.lower() == 'ref' and 'value' in element.attrib:
-            yield ScrapedLink(
-                element.tag, 'value',
-                to_str(element.get('value')), True,
-                False, None)
+            yield LinkInfo(
+                element, element.tag, 'value',
+                to_str(element.get('value')),
+                True, False,
+                None,
+                'plain'
+            )
 
-    def _scrape_style_element(self, element):
-        '''Scrape a ``style`` element.'''
+    @classmethod
+    def iter_links_style_element(self, element):
+        '''Iterate a ``style`` element.'''
         if element.text:
             link_iter = itertools.chain(
                 CSSScraper.scrape_imports(element.text),
                 CSSScraper.scrape_urls(element.text)
             )
             for link in link_iter:
-                yield ScrapedLink(
-                    element.tag, None,
-                    to_str(link), True,
-                    False, None
+                yield LinkInfo(
+                    element, element.tag, None,
+                    to_str(link),
+                    True, False,
+                    None,
+                    'css'
                 )
 
-    def _scrape_plain_element(self, element):
-        '''Scrape any element using generic rules.'''
-        for attrib_name, link in self._scrape_links_by_attrib(element):
-            inline = self._is_link_inline(element.tag, attrib_name)
-            linked = self._is_html_link(element.tag, attrib_name)
-            yield ScrapedLink(
-                element.tag, attrib_name,
-                to_str(link), inline,
-                linked, None
+    @classmethod
+    def iter_links_plain_element(cls, element):
+        '''Iterate any element for links using generic rules.'''
+        for attrib_name, link in cls.iter_links_by_attrib(element):
+            inline = cls.is_link_inline(element.tag, attrib_name)
+            linked = cls.is_html_link(element.tag, attrib_name)
+            yield LinkInfo(
+                element, element.tag, attrib_name,
+                to_str(link),
+                inline, linked,
+                None,
+                'plain'
             )
 
-    def _scrape_links_by_attrib(self, element):
-        '''Scrape an element by looking at its attributes.'''
+    @classmethod
+    def iter_links_by_attrib(cls, element):
+        '''Iterate an element by looking at its attributes for links.'''
         for attrib_name in element.keys():
-            if attrib_name in self.LINK_ATTRIBUTES:
+            if attrib_name in cls.LINK_ATTRIBUTES:
                 yield attrib_name, element.get(attrib_name)
 
-    def _is_link_inline(self, tag, attribute):
+    @classmethod
+    def is_link_inline(cls, tag, attribute):
         '''Return whether the link is likely to be inline object.'''
-        if tag in self.TAG_ATTRIBUTES \
-        and attribute in self.TAG_ATTRIBUTES[tag]:
-            attr_flags = self.TAG_ATTRIBUTES[tag][attribute]
-            return attr_flags & self.ATTR_INLINE
+        if tag in cls.TAG_ATTRIBUTES \
+        and attribute in cls.TAG_ATTRIBUTES[tag]:
+            attr_flags = cls.TAG_ATTRIBUTES[tag][attribute]
+            return attr_flags & cls.ATTR_INLINE
 
         return attribute != 'href'
 
-    def _is_html_link(self, tag, attribute):
+    @classmethod
+    def is_html_link(cls, tag, attribute):
         '''Return whether the link is likely to be external object.'''
-        if tag in self.TAG_ATTRIBUTES \
-        and attribute in self.TAG_ATTRIBUTES[tag]:
-            attr_flags = self.TAG_ATTRIBUTES[tag][attribute]
-            return attr_flags & self.ATTR_HTML
+        if tag in cls.TAG_ATTRIBUTES \
+        and attribute in cls.TAG_ATTRIBUTES[tag]:
+            attr_flags = cls.TAG_ATTRIBUTES[tag][attribute]
+            return attr_flags & cls.ATTR_HTML
 
         return attribute == 'href'
 
