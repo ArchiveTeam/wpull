@@ -17,6 +17,7 @@ body {
     background: url('http://example.com/image.png');
     background: url('http://example.com/cat.jpg');
 }
+/* ð £fbġ̉bbb */
 '''
 HTML_TEXT = '''
 <html>
@@ -26,6 +27,7 @@ HTML_TEXT = '''
     background: url('http://example.com/cat.jpg');
 </style>
 <body>
+    ¡¡ÐÉ§bh¾Í¿fg½½ËGFÐÅFÁ
     <a href="http://example.com/tubes.html">Series of tubes</a>
     <a href="http://example.com/lol.html">LOL Internet</a>
     <div style="background: url('http://example.com/fox.jpg');"></div>

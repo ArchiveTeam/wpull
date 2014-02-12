@@ -111,25 +111,28 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
             )
             return
 
+        encoding = wpull.util.to_str(tree.docinfo.encoding)
+
         for link_info in self.iter_links(root):
             if link_info.value_type == 'plain':
-                self._convert_plain(link_info, root)
+                self._convert_plain(link_info, root, encoding)
             elif link_info.value_type == 'css':
                 self._convert_css(link_info, css_already_done, base_url)
 
         tree.write(
             output_filename, method='html', pretty_print=True,
-            encoding=wpull.util.to_str(tree.docinfo.encoding)
+            encoding=encoding
         )
 
-    def _convert_plain(self, link_info, root):
+    def _convert_plain(self, link_info, root, encoding):
         base_url = wpull.util.to_str(root.base_url)
 
         if link_info.base_link:
             base_url = wpull.url.urljoin(base_url, link_info.base_link)
 
         url = wpull.url.urljoin(base_url, link_info.link)
-        new_url = self._get_new_url(url)
+        url_info = URLInfo.parse(url, encoding=encoding)
+        new_url = self._get_new_url(url_info)
 
         link_info.element.set(link_info.attrib, new_url)
 
@@ -155,12 +158,12 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
 
             css_already_done.add(link_info.element)
 
-    def _get_new_url(self, url):
-        if url in self._url_table \
-        and self._url_table[url].status == Status.done:
-            new_url = self._path_namer.get_filename(URLInfo.parse(url))
+    def _get_new_url(self, url_info):
+        if url_info.url in self._url_table \
+        and self._url_table[url_info.url].status == Status.done:
+            new_url = self._path_namer.get_filename(url_info)
         else:
-            new_url = url
+            new_url = url_info.url
 
         return new_url
 
