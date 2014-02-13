@@ -17,7 +17,7 @@ install:
     else
       pip install -r requirements.txt;
     fi
-  - pip install git+https://github.com/bastibe/lunatic-python.git@f3f68d2c8638c6f423912264aeb750f5f7eb14ee#egg=lunatic-python
+  - pip install -r requirements-optional.txt
 
 
 # command to run tests

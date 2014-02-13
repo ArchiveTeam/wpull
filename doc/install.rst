@@ -17,6 +17,7 @@ Wpull requires the following:
 * `SQLAlchemy <https://pypi.python.org/pypi/SQLAlchemy>`_
 * `Lunatic Python (bastibe version)
   <https://github.com/bastibe/lunatic-python>`_ (optional for Lua support)
+* `cssutils <https://pypi.python.org/pypi/cssutils>`_ (optional for web browser engine)
 
 For installing Wpull, it is recommended to use `pip installer
 <http://www.pip-installer.org/>`_.
@@ -47,8 +48,8 @@ pip. Note for Linux users, ensure you are executing the appropriate
 Python version when installing pip.
 
 
-Lua Scripting
-+++++++++++++
+Lua Scripting (Optional)
+++++++++++++++++++++++++
 
 To enable optional Lua scripting support, Lunatic Python (bastibe version)
 can be installed using pip::
@@ -77,6 +78,14 @@ Run pip to install Lunatic Python with ``LOCATION`` replaced with the
 location of the Lunatic Python source code.::
 
     pip install LOCATION
+
+
+Other Optional
+++++++++++++++
+
+Other optional libraries can be installed using (where NAME is the name of the Python library)::
+
+    pip3 install NAME
 
 
 Automatic Install
@@ -128,8 +137,8 @@ Python 2.6/2.7
 Requires
 
 * `futures <https://pypi.python.org/pypi/futures>`_
-* `lib3to2 <https://bitbucket.org/amentajo/lib3to2>`_ (the one on PyPI is
-   *very* outdated!)
+* `lib3to2 <https://bitbucket.org/amentajo/lib3to2>`_
+   (the one on PyPI is *very* outdated!)
 
 Install additional dependencies before installing Wpull::
 

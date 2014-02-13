@@ -35,6 +35,8 @@ Requires:
 * `SQLAlchemy <https://pypi.python.org/pypi/SQLAlchemy>`_
 * `Lunatic Python (bastibe version)
   <https://github.com/bastibe/lunatic-python>`_ (optional for Lua support)
+* `cssutils <https://pypi.python.org/pypi/cssutils>`_ (optional for web browser engine)
+
 
 Once you install the requirements, install Wpull from PyPI using pip::
 

@@ -2,4 +2,5 @@ tornado>=3.1.1
 toro>=0.5
 chardet>=2.0.1
 sqlalchemy>=0.9
+cssutils>=1.0
 sphinxcontrib-napoleon>=0.2.4

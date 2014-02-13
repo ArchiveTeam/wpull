@@ -8,6 +8,11 @@ import re
 
 import wpull.util
 
+try:
+    import cssutils
+except ImportError:
+    cssutils = None
+
 
 try:
     abstractclassmethod = abc.abstractclassmethod
@@ -19,7 +24,7 @@ class BaseDocumentReader(object, metaclass=abc.ABCMeta):
     '''Base class for classes that read documents.'''
 
     @abc.abstractmethod
-    def parse(self, file):
+    def parse(self, file, encoding=None, base_url=None):
         '''Read and return a document.
 
         The arguments and return value will depend on the implementation.
@@ -28,7 +33,7 @@ class BaseDocumentReader(object, metaclass=abc.ABCMeta):
 
     @classmethod
     @abstractclassmethod
-    def is_supported(cls, file):
+    def is_supported(cls, file, request=None, response=None, url_info=None):
         '''Return whether the reader is likely able to read the document.
 
         The arguments will depend on the implementation.
@@ -118,8 +123,28 @@ class HTMLReader(BaseDocumentReader):
 
 class CSSReader(BaseDocumentReader):
     '''Cascading Stylesheet Document Reader.'''
-    def parse(self, *args, **kwargs):
-        raise NotImplementedError()
+    def parse(self, file, encoding=None, base_url=None):
+        '''Parse the CSS file and return the document.
+
+        Returns:
+            CSSStyleSheet: An instance of :class:`cssutils.css.CSSStyleSheet`.
+
+        Raises:
+            Exception: When cssutils is not installed.
+        '''
+        if not cssutils:
+            raise Exception('cssutils is not installed.')
+
+        with wpull.util.reset_file_offset(file):
+            data = file.read()
+
+        try:
+            stylesheet = cssutils.parseString(data, encoding=None)
+        except UnicodeError:
+            detected_encoding = wpull.util.detect_encoding(data)
+            stylesheet = cssutils.parseString(data, encoding=detected_encoding)
+
+        return stylesheet
 
     @classmethod
     def is_supported(cls, file, request=None, response=None, url_info=None):
