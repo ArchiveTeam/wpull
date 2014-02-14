@@ -75,7 +75,7 @@ class WebProcessor(BaseProcessor):
     :seealso: :class:`WebProcessorSession`,
         :class:`WebProcessorWithRobotsTxtSession`
     '''
-    DOCUMENT_STATUS_CODES = (200, 206)
+    DOCUMENT_STATUS_CODES = (200, 206, 304,)
     '''Default status codes considered successfully fetching a document.'''
 
     NO_DOCUMENT_STATUS_CODES = (401, 403, 404, 405, 410,)

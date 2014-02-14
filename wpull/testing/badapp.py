@@ -55,6 +55,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/gzip_corrupt': self.gzip_corrupt,
             '/bad_cookie': self.bad_cookie,
             '/header_early_close': self.header_early_close,
+            '/no_content': self.no_content,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -322,6 +323,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         self.wfile.write(b'HTTP/1.0 200 OK')
         self.connection.close()
+
+    def no_content(self):
+        self.send_response(206)
+        self.end_headers()
 
 
 class ConcurrentHTTPServer(socketserver.ThreadingMixIn,

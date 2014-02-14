@@ -1,4 +1,6 @@
 # encoding=utf-8
+import email.utils
+import http.client
 import logging
 import os.path
 import time
@@ -70,6 +72,20 @@ class RedirectHandler(tornado.web.RequestHandler):
             self.redirect('/', status=301)
 
 
+class LastModifiedHandler(tornado.web.RequestHandler):
+    def get(self):
+        if 'If-Modified-Since' in self.request.headers:
+            time_tuple = email.utils.parsedate_tz(
+                self.request.headers['If-Modified-Since'])
+            timestamp = time.mktime(time_tuple[:9])
+
+            if timestamp < 634521600:
+                self.set_status(http.client.NOT_MODIFIED)
+                return
+
+        self.write('HELLO')
+
+
 class GoodApp(tornado.web.Application):
     def __init__(self):
         tornado.web.Application.__init__(self, [
@@ -80,6 +96,7 @@ class GoodApp(tornado.web.Application):
                 (r'/post/', PostHandler),
                 (r'/cookie', CookieHandler),
                 (r'/redirect', RedirectHandler),
+                (r'/lastmod', LastModifiedHandler),
             ],
             template_path=os.path.join(os.path.dirname(__file__),
                 'templates'),

@@ -203,6 +203,17 @@ class TestConnection(BadAppTestCase):
             self.assertEqual(len(test_data), len(response.body.content))
             self.assertEqual(test_data, response.body.content)
 
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_no_content(self):
+        yield self.fetch('/no_content')
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_head_no_content(self):
+        yield self.connection.fetch(
+            Request.new(self.get_url('/no_content'), method='HEAD'),
+            DebugPrintRecorder()
+        )
+
 
 class TestClient(BadAppTestCase):
     def setUp(self):

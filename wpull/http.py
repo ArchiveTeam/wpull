@@ -4,6 +4,7 @@ import abc
 import collections
 import errno
 import gettext
+import itertools
 import logging
 import re
 import socket
@@ -74,7 +75,7 @@ class Request(BaseRequest):
         if url_info.query:
             resource_path += '?' + url_info.query
 
-        request = Request(method, resource_path)
+        request = Request(method.upper(), resource_path)
         request.url_info = url_info
         request.fields['Host'] = url_info.hostname
 
@@ -208,10 +209,16 @@ class Connection(object):
             self.response_data.clear()
 
     DEFAULT_BUFFER_SIZE = 10485760
+    '''Default buffer size in bytes.'''
+    DEFAULT_NO_CONTENT_CODES = frozenset(itertools.chain(
+        range(100, 200), [206, 304]
+    ))
+    '''Status codes where a response body is prohibited.'''
 
     def __init__(self, host, port, ssl=False, bind_address=None,
     resolver=None, connect_timeout=None, read_timeout=None,
-    keep_alive=True, ssl_options=None, buffer_size=DEFAULT_BUFFER_SIZE):
+    keep_alive=True, ssl_options=None, buffer_size=DEFAULT_BUFFER_SIZE,
+    no_content_codes=DEFAULT_NO_CONTENT_CODES):
         self._host = host
         self._port = port
         self._ssl = ssl
@@ -229,6 +236,7 @@ class Connection(object):
         self._ssl_options = ssl_options
         self._buffer_size = buffer_size
         self._gzip_decompressor = None
+        self._no_content_codes = no_content_codes
 
     @tornado.gen.coroutine
     def _make_socket(self):
@@ -365,7 +373,7 @@ class Connection(object):
             response = yield self._read_response_header(response_factory)
             # TODO: handle 100 Continue
 
-            yield self._read_response_body(response)
+            yield self._read_response_body(request, response)
         except error_class as error:
             raise NetworkError('Network error: {0}'.format(error)) from error
 
@@ -408,8 +416,16 @@ class Connection(object):
         raise tornado.gen.Return(response)
 
     @tornado.gen.coroutine
-    def _read_response_body(self, response):
+    def _read_response_body(self, request, response):
         '''Read the response's content body.'''
+        if 'Content-Length' not in response.fields \
+        and 'Transfer-Encoding' not in response.fields \
+        and (
+            response.status_code in self._no_content_codes \
+            or request.method.upper() == 'HEAD'
+        ):
+            return
+
         self._setup_decompressor(response)
 
         if re.match(r'chunked($|;)',

@@ -294,10 +294,23 @@ class TimestampingFileWriter(BaseFileWriter):
 
 class TimestampingFileWriterSession(BaseFileWriterSession):
     def process_request(self, request):
-        request = super().request(request)
+        request = super().process_request(request)
 
-        date_str = email.utils.formatdate(os.path.getmtime(self._filename))
-        request.fields['If-Modified-Since'] = date_str
+        orig_file = '{0}.orig'.format(self._filename)
+
+        if os.path.exists(orig_file):
+            modified_time = os.path.getmtime(orig_file)
+        elif os.path.exists(self._filename):
+            modified_time = os.path.getmtime(self._filename)
+        else:
+            modified_time = None
+
+        _logger.debug('Checking for last modified={0}.'.format(modified_time))
+
+        if modified_time:
+            date_str = email.utils.formatdate(modified_time)
+
+            request.fields['If-Modified-Since'] = date_str
 
         return request
 

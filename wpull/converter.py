@@ -78,7 +78,7 @@ class BatchDocumentConverter(object):
         )
 
         if self._backup_enabled:
-            shutil.copyfile(filename, filename + '.orig')
+            shutil.copy2(filename, filename + '.orig')
 
         if link_type == 'css':
             self._css_converter.convert(

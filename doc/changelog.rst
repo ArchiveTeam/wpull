@@ -2,6 +2,14 @@
 What's New
 ==========
 
+0.19.1 (2014-02-14)
+===================
+
+* Fixes ``--timestamping`` functionality.
+* Fixes ``--timestamping`` not checking ``.orig`` files.
+* Fixes HTTP handling of responses which do not return content.
+
+
 0.19 (2014-02-12)
 =================
 
