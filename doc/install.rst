@@ -18,6 +18,7 @@ Wpull requires the following:
 * `Lunatic Python (bastibe version)
   <https://github.com/bastibe/lunatic-python>`_ (optional for Lua support)
 * `cssutils <https://pypi.python.org/pypi/cssutils>`_ (optional for web browser engine)
+* `pyv8 <https://code.google.com/p/pyv8/>`_ (optional for web browser engine)
 
 For installing Wpull, it is recommended to use `pip installer
 <http://www.pip-installer.org/>`_.
@@ -79,6 +80,39 @@ location of the Lunatic Python source code.::
 
     pip install LOCATION
 
+
+PyV8 (Optional)
++++++++++++++++
+
+To enable web browser engine support, V8 and Py8 must be installed. V8 is a JavaScript engine. At time of writing, no recent pre-built binaries are available.
+
+Prerequisites:
+
+* SCons
+* Boost
+
+On Debian/Ubuntu systems, you can install these with::
+
+    apt-get install scons libboost-python-dev libboost-system-dev libboost-thread-dev
+
+Download the source code with SVN::
+
+    svn checkout http://v8.googlecode.com/svn/trunk/ v8-read-only
+    svn checkout http://pyv8.googlecode.com/svn/trunk/ pyv8-read-only
+
+If Python 3, seek to the line with ``boost_libs``. Modify ``boost_python`` to match the appropriate Python version. For example, ``boost_python-py32`` or ``boost_python-py33``. 
+
+If Python 3, patch setup.py::
+
+    2to3 pyv8-read-only/setup.py -w
+
+Specify the location of V8 source code in the environment variable ``V8_HOME``. Then install PyV8. On Linux, use::
+
+    V8_HOME=`pwd`/v8-read-only pip3 install ./pyv8-read-only
+
+It will take a moment to install.
+
+These instructions were based on http://blog.dinotools.de/2013/02/27/python-build-pyv8-for-python3-on-ubuntu/.
 
 Other Optional
 ++++++++++++++
