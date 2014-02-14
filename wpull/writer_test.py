@@ -38,6 +38,7 @@ class TestWriterApp(GoodAppTestCase):
     def test_new_file_and_clobber(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([self.get_url('/static/my_file.txt')])
+
         with cd_tempdir() as temp_dir:
             engine = Builder(args).build()
             exit_code = yield engine()
@@ -65,11 +66,12 @@ class TestWriterApp(GoodAppTestCase):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([self.get_url('/static/my_file.txt'),
             '--continue', '--debug'])
+
         with cd_tempdir() as temp_dir:
             filename = os.path.join(temp_dir, 'my_file.txt')
 
-            with open(filename, 'wb') as in_file:
-                in_file.write(b'START')
+            with open(filename, 'wb') as out_file:
+                out_file.write(b'START')
 
             engine = Builder(args).build()
             exit_code = yield engine()
@@ -81,3 +83,85 @@ class TestWriterApp(GoodAppTestCase):
 
                 self.assertEqual('54388a281352fdb2cfa66009ac0e35dd8916af7c',
                     hashlib.sha1(data).hexdigest())
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_timestamping_hit(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/lastmod'),
+            '--timestamping'
+        ])
+
+        with cd_tempdir() as temp_dir:
+            filename = os.path.join(temp_dir, 'lastmod')
+
+            with open(filename, 'wb') as out_file:
+                out_file.write(b'HI')
+
+            os.utime(filename, (631152000, 631152000))
+
+            builder = Builder(args)
+            engine = builder.build()
+            exit_code = yield engine()
+
+            self.assertEqual(0, exit_code)
+
+            with open(filename, 'rb') as in_file:
+                self.assertEqual(b'HI', in_file.read())
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_timestamping_miss(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/lastmod'),
+            '--timestamping'
+        ])
+
+        with cd_tempdir() as temp_dir:
+            filename = os.path.join(temp_dir, 'lastmod')
+
+            with open(filename, 'wb') as out_file:
+                out_file.write(b'HI')
+
+            os.utime(filename, (636249600, 636249600))
+
+            builder = Builder(args)
+            engine = builder.build()
+            exit_code = yield engine()
+
+            self.assertEqual(0, exit_code)
+
+            with open(filename, 'rb') as in_file:
+                self.assertEqual(b'HELLO', in_file.read())
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_timestamping_hit_orig(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/lastmod'),
+            '--timestamping'
+        ])
+
+        with cd_tempdir() as temp_dir:
+            filename = os.path.join(temp_dir, 'lastmod')
+            filename_orig = os.path.join(temp_dir, 'lastmod')
+
+            with open(filename, 'wb') as out_file:
+                out_file.write(b'HI')
+
+            with open(filename_orig, 'wb') as out_file:
+                out_file.write(b'HI')
+
+            os.utime(filename_orig, (631152000, 631152000))
+
+            builder = Builder(args)
+            engine = builder.build()
+            exit_code = yield engine()
+
+            self.assertEqual(0, exit_code)
+
+            with open(filename, 'rb') as in_file:
+                self.assertEqual(b'HI', in_file.read())
+
+            with open(filename_orig, 'rb') as in_file:
+                self.assertEqual(b'HI', in_file.read())
