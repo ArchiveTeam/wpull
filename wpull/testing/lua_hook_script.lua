@@ -16,9 +16,16 @@ wpull_hook.callbacks.accept_url = function(url_info, record_info, verdict, reaso
     ['/%95%B6%8E%9A%89%BB%82%AF/'] = true,
     ['/static/style.css'] = true,
   }
-  assert(accepted_paths[url_info['path']])
+
+  if string.match(url_info['url'], 'mailto:') then
+    assert(not reasons['filters']['HTTPFilter'])
+    assert(not verdict)
+  else
+    assert(accepted_paths[url_info['path']])
+    assert(reasons['filters']['HTTPFilter'])
+  end
+
   assert(record_info['url'])
-  assert(reasons['filters']['HTTPFilter'])
 
   for name, passed in pairs(reasons.filters) do
     assert(name)
@@ -70,12 +77,12 @@ wpull_hook.callbacks.get_urls = function(filename, url_info, document_info)
   if url_info['path'] == '/' then
     local url_table = {}
     table.insert(url_table,
-      {
-        ['url'] = 'http://localhost:'..url_info['port']..'/post/',
-        ['inline'] = true,
-        ['post_data'] = 'text=hello',
-        ['replace'] = true,
-      })
+    {
+      ['url'] = 'http://localhost:'..url_info['port']..'/post/',
+      ['inline'] = true,
+      ['post_data'] = 'text=hello',
+      ['replace'] = true,
+    })
     return url_table
   end
 

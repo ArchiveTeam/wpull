@@ -20,6 +20,8 @@ class TestHook(unittest.TestCase):
         lua_globals.text2 = to_lua_string('hé')
         lua_globals.text3 = to_lua_string('狗')
         lua_globals.num1 = to_lua_type(42)
+        lua_globals.bool1 = to_lua_type(True)
+        lua_globals.bool2 = to_lua_type(False)
 
         with open(test_filename, 'rb') as in_file:
             lua.execute(in_file.read())

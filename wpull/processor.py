@@ -169,9 +169,7 @@ class WebProcessorSession(object):
         self._processor = processor
         self._url_item = url_item
         self._file_writer_session = processor.file_writer.session()
-        self._rich_client_session = processor.rich_client.session(
-            self._new_initial_request()
-        )
+        self._rich_client_session = None
 
         self._document_codes = WebProcessor.DOCUMENT_STATUS_CODES
         self._no_document_codes = WebProcessor.NO_DOCUMENT_STATUS_CODES
@@ -208,6 +206,14 @@ class WebProcessorSession(object):
 
     @tornado.gen.coroutine
     def process(self):
+        if not self._should_fetch():
+            self._url_item.skip()
+            return
+
+        self._rich_client_session = self._processor.rich_client.session(
+            self._new_initial_request()
+        )
+
         while not self._rich_client_session.done:
             if not self._should_fetch():
                 self._url_item.skip()
@@ -276,6 +282,9 @@ class WebProcessorSession(object):
         This returns either the original URLInfo or the next URLinfo
         containing the redirect link.
         '''
+        if not self._rich_client_session:
+            return self._url_item.url_info
+
         return self._rich_client_session.next_request.url_info
 
     def _should_fetch(self):

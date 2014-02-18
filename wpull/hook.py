@@ -505,7 +505,9 @@ def to_lua_string(instance):
 def to_lua_number(instance):
     '''If Lua and Python 2, convert to long.'''
     if sys.version_info[0] == 2:
-        if isinstance(instance, int):
+        if instance is True or instance is False:
+            return instance
+        elif isinstance(instance, int):
             return long(instance)
         elif isinstance(instance, list):
             return list([to_lua_number(item) for item in instance])
