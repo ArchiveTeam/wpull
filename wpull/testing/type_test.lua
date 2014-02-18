@@ -10,3 +10,6 @@ text4 = '猫'
 print(num1, type(num1))
 assert(num1 == 42)
 num2 = 42
+
+assert(bool1)
+assert(not bool2)
