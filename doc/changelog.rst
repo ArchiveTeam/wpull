@@ -2,10 +2,11 @@
 What's New
 ==========
 
-0.XX (2014-02-DD)
+0.19.2 (2014-02-18)
 ===================
 
 * Fixes crash if a non-HTTP URL was found during download.
+* Lua scripting: Fixes booleans, coming from Wpull, mistakenly converted to integers on Python 2
 
 
 0.19.1 (2014-02-14)
