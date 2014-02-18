@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.XX (2014-02-DD)
+===================
+
+* Fixes crash if a non-HTTP URL was found during download.
+
+
 0.19.1 (2014-02-14)
 ===================
 

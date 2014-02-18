@@ -15,10 +15,16 @@ def resolve_dns(host):
 def accept_url(url_info, record_info, verdict, reasons):
     print('accept_url', url_info)
     assert url_info['url']
-    assert url_info['path'] in ('/robots.txt', '/', '/post/',
-        '/%95%B6%8E%9A%89%BB%82%AF/', '/static/style.css')
+
+    if 'mailto:' in url_info['url']:
+        assert not verdict
+        assert not reasons['filters']['HTTPFilter']
+    else:
+        assert url_info['path'] in ('/robots.txt', '/', '/post/',
+            '/%95%B6%8E%9A%89%BB%82%AF/', '/static/style.css')
+        assert reasons['filters']['HTTPFilter']
+
     assert record_info['url']
-    assert reasons['filters']['HTTPFilter']
 
     for name, passed in reasons['filters'].items():
         assert name
