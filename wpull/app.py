@@ -555,7 +555,8 @@ class Builder(object):
         resolver = self._factory.new('Resolver',
             families=families,
             timeout=dns_timeout,
-            rotate=args.rotate_dns
+            rotate=args.rotate_dns,
+            cache_enabled=args.dns_cache,
         )
 
         def connection_factory(*args, **kwargs):

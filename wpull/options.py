@@ -383,11 +383,13 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             type=self.int_bytes,
 #             help=_('limit download bandwidth to RATE'),
 #         )
-#         self.add_argument(
-#             '--no-dns-cache',
-#             action='store_true',
-#             help=_('disable caching of DNS lookups'),
-#         )
+        group.add_argument(
+            '--no-dns-cache',
+            action='store_false',
+            default=True,
+            dest='dns_cache',
+            help=_('disable caching of DNS lookups'),
+        )
         group.add_argument(
             '--rotate-dns',
             action='store_true',
