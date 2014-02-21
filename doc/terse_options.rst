@@ -10,10 +10,10 @@ Brief Option Overview
                      [--progress TYPE] [-N] [--no-use-server-timestamps] [-S]
                      [-T SECONDS] [--dns-timeout SECS] [--connect-timeout SECS]
                      [--read-timeout SECS] [-w SECONDS] [--waitretry SECONDS]
-                     [--random-wait] [--bind-address ADDRESS] [--rotate-dns]
-                     [-4 | -6 | --prefer-family FAMILY] [-nd | -x] [-nH]
-                     [--protocol-directories] [-P PREFIX] [--cut-dirs NUMBER]
-                     [--default-page NAME] [--header STRING]
+                     [--random-wait] [--bind-address ADDRESS] [--no-dns-cache]
+                     [--rotate-dns] [-4 | -6 | --prefer-family FAMILY]
+                     [-nd | -x] [-nH] [--protocol-directories] [-P PREFIX]
+                     [--cut-dirs NUMBER] [--default-page NAME] [--header STRING]
                      [--max-redirect NUMBER] [--referer URL] [--save-headers]
                      [-U AGENT] [--no-robots] [--no-http-keep-alive]
                      [--no-cookies] [--load-cookies FILE] [--save-cookies FILE]
@@ -28,11 +28,12 @@ Brief Option Overview
                      [--warc-header STRING] [--warc-cdx] [--no-warc-compression]
                      [--no-warc-digests] [--no-warc-keep-log]
                      [--warc-tempdir DIRECTORY] [-r] [-l NUMBER]
-                     [--delete-after] [-k] [-K] [-p] [--accept-regex REGEX]
-                     [--reject-regex REGEX] [--regex-type TYPE] [-D LIST]
-                     [--exclude-domains LIST] [--hostnames LIST]
-                     [--exclude-hostnames LIST] [--follow-tags LIST]
-                     [--ignore-tags LIST] [-H] [-L] [-I LIST] [-X LIST] [-np]
+                     [--delete-after] [-k] [-K] [-p] [-A LIST] [-R LIST]
+                     [--accept-regex REGEX] [--reject-regex REGEX]
+                     [--regex-type TYPE] [-D LIST] [--exclude-domains LIST]
+                     [--hostnames LIST] [--exclude-hostnames LIST]
+                     [--follow-tags LIST] [--ignore-tags LIST] [-H] [-L]
+                     [-I LIST] [-X LIST] [-np]
                      [URL [URL ...]]
 
   Wget-compatible web downloader.
@@ -88,6 +89,7 @@ Brief Option Overview
     --random-wait         randomly perturb the time between requests
     --bind-address ADDRESS
                           bind to ADDRESS on the local host
+    --no-dns-cache        disable caching of DNS lookups
     --rotate-dns          use different resolved IP addresses on requests
     -4, --inet4-only      connect to IPv4 addresses only
     -6, --inet6-only      connect to IPv6 addresses only
@@ -166,6 +168,10 @@ Brief Option Overview
                           download objects embedded in pages
 
   filters:
+    -A LIST, --accept LIST
+                          download only files with suffix in LIST
+    -R LIST, --reject LIST
+                          don’t download files with suffix in LIST
     --accept-regex REGEX  download only URLs matching REGEX
     --reject-regex REGEX  don’t download URLs matching REGEX
     --regex-type TYPE     use regex TYPE
