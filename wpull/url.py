@@ -430,6 +430,41 @@ class DirectoryFilter(BaseURLFilter):
                 return True
 
 
+class BackwardFilenameFilter(BaseURLFilter):
+    '''Filter URLs that match the filename suffixes.'''
+    def __init__(self, accepted=None, rejected=None):
+        self._accepted = accepted
+        self._rejected = rejected
+
+    def test(self, url_info, url_table_record):
+        test_filename = url_info.path.rsplit('/', 1)[-1]
+
+        if not test_filename:
+            return True
+
+        if self._accepted:
+            if self._rejected:
+                return self.match(self._accepted, test_filename)\
+                    and not self.match(self._rejected, test_filename)
+            else:
+                return self.match(self._accepted, test_filename)
+
+        elif self._rejected and self.match(self._rejected, test_filename):
+            return False
+
+        return True
+
+    @classmethod
+    def match(cls, suffix_list, test_filename):
+        if not test_filename:
+            return False
+
+        for suffix in suffix_list:
+            match = re.search(fnmatch.translate(suffix), test_filename)
+            if match:
+                return True
+
+
 def schemes_similar(scheme1, scheme2):
     '''Return whether URL schemes are similar.
 

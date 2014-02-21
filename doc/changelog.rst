@@ -5,7 +5,7 @@ What's New
 0.XX (2014-02-DD)
 =================
 
-* Implements ``--no-dns-cache``.
+* Implements ``--no-dns-cache``, ``--accept``, ``--reject``.
 
 
 0.19.2 (2014-02-18)
