@@ -272,6 +272,7 @@ class Connection(object):
     def _connect(self):
         '''Connect the socket if not already connected.'''
         if self.connected:
+            # Reset the callback so the context does not leak to another
             self._io_stream.set_close_callback(self._stream_closed_callback)
             return
 
@@ -593,6 +594,12 @@ class Connection(object):
                 self._io_stream.reading(),
                 self._io_stream.writing())
         )
+
+        if not self._active:
+            # We are likely in a context that's already dead
+            _logger.debug('Ignoring stream closed error={0}.'\
+                .format(self._io_stream.error))
+            return
 
         if self._io_stream.error:
             _logger.debug('Throwing error {0}.'.format(self._io_stream.error))

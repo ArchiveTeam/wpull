@@ -7,6 +7,7 @@ What's New
 
 * Implements ``--no-dns-cache``, ``--accept``, ``--reject``.
 * Scripting: Fixes ``AttributeError`` crash on ``handle_error``.
+* Another possible fix for issue #27.
 
 
 0.19.2 (2014-02-18)
