@@ -162,6 +162,8 @@ class TestConnection(BadAppTestCase):
         else:
             self.fail()
 
+        yield self.fetch('/')
+
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_header_early_close(self):
         try:
@@ -170,6 +172,8 @@ class TestConnection(BadAppTestCase):
             pass
         else:
             self.fail()
+
+        yield self.fetch('/')
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_unclean_8bit_header(self):
