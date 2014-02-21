@@ -313,7 +313,7 @@ class HookedWebProcessorSessionMixin(object):
         _logger.debug('Hooked error returned {0}'.format(action))
 
         if action == Actions.NORMAL:
-            return super().handle_error(error)
+            return super()._handle_error(error)
         elif action == Actions.RETRY:
             return False
         elif action == Actions.FINISH:

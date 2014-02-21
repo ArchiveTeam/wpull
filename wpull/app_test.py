@@ -239,6 +239,7 @@ class TestApp(GoodAppTestCase):
             'testing', 'py_hook_script.py')
         args = arg_parser.parse_args([
             self.get_url('/'),
+            'localhost:1',
             '--python-script', filename,
             '--page-requisites',
             '--reject-regex', '/post/',
@@ -271,6 +272,7 @@ class TestApp(GoodAppTestCase):
             'testing', 'lua_hook_script.lua')
         args = arg_parser.parse_args([
             self.get_url('/'),
+            'localhost:1',
             '--lua-script', filename,
             '--page-requisites',
             '--reject-regex', '/post/',

@@ -90,7 +90,7 @@ def finish_statistics(start_time, end_time, num_urls, bytes_downloaded):
 
 
 def exit_status(exit_code):
-    assert exit_code == 0
+    assert exit_code == 4
     assert injected_url_found
     print('exit_status', exit_code)
     return 42
