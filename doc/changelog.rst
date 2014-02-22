@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2014-02-DD)
+0.20 (2014-02-22)
 =================
 
 * Implements ``--no-dns-cache``, ``--accept``, ``--reject``.
