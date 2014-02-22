@@ -226,7 +226,6 @@ class Connection(object):
         self._socket = None
         self._io_stream = None
         self._bind_address = bind_address
-        self._connected = False
         self._events = Connection.ConnectionEvents()
         self._resolver = resolver or Resolver()
         self._connect_timeout = connect_timeout
@@ -272,7 +271,8 @@ class Connection(object):
     @tornado.gen.coroutine
     def _connect(self):
         '''Connect the socket if not already connected.'''
-        if self._connected:
+        if self.connected:
+            # Reset the callback so the context does not leak to another
             self._io_stream.set_close_callback(self._stream_closed_callback)
             return
 
@@ -577,7 +577,7 @@ class Connection(object):
     @property
     def connected(self):
         '''Return whether the connection is connected.'''
-        return self._connected
+        return self._io_stream and not self._io_stream.closed()
 
     def close(self):
         '''Close the connection if open.'''
@@ -589,13 +589,17 @@ class Connection(object):
             'active={0} connected={1} ' \
             'closed={2} reading={3} writing={3}'.format(
                 self._active,
-                self._connected,
+                self.connected,
                 self._io_stream.closed(),
                 self._io_stream.reading(),
                 self._io_stream.writing())
         )
 
-        self._connected = False
+        if not self._active:
+            # We are likely in a context that's already dead
+            _logger.debug('Ignoring stream closed error={0}.'\
+                .format(self._io_stream.error))
+            return
 
         if self._io_stream.error:
             _logger.debug('Throwing error {0}.'.format(self._io_stream.error))

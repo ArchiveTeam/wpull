@@ -383,11 +383,13 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             type=self.int_bytes,
 #             help=_('limit download bandwidth to RATE'),
 #         )
-#         self.add_argument(
-#             '--no-dns-cache',
-#             action='store_true',
-#             help=_('disable caching of DNS lookups'),
-#         )
+        group.add_argument(
+            '--no-dns-cache',
+            action='store_false',
+            default=True,
+            dest='dns_cache',
+            help=_('disable caching of DNS lookups'),
+        )
         group.add_argument(
             '--rotate-dns',
             action='store_true',
@@ -847,19 +849,19 @@ class AppArgumentParser(argparse.ArgumentParser):
 
     def _add_accept_args(self):
         group = self.add_argument_group(_('filters'))
-#         self.add_argument(
-#             '-A',
-#             '--accept',
-#             metavar='LIST',
-#             type=self.comma_list,
-#             help=_('download only files with extension in LIST'),
-#         )
-#         self.add_argument(
-#             '-R',
-#             '--reject',
-#             metavar='LIST',
-#             help=_('don’t download files with extension in LIST'),
-#         )
+        group.add_argument(
+            '-A',
+            '--accept',
+            metavar='LIST',
+            type=self.comma_list,
+            help=_('download only files with suffix in LIST'),
+        )
+        group.add_argument(
+            '-R',
+            '--reject',
+            metavar='LIST',
+            help=_('don’t download files with suffix in LIST'),
+        )
         group.add_argument(
             '--accept-regex',
             metavar='REGEX',

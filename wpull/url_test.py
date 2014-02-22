@@ -5,7 +5,7 @@ from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     ParentFilter, RecursiveFilter, SpanHostsFilter, RegexFilter, HTTPFilter,
     HostnameFilter, schemes_similar, is_subdir, DirectoryFilter, unquote,
     unquote_plus, quote, quote_plus, split_query, uppercase_percent_encoding,
-    urljoin)
+    urljoin, BackwardFilenameFilter)
 
 
 class MockURLTableRecord(object):
@@ -551,3 +551,33 @@ class TestURL(unittest.TestCase):
             'http://example.com/',
             urljoin('http://example.com', '//example.com/')
         )
+
+    def test_backward_filename_filter(self):
+        url_filter = BackwardFilenameFilter(
+            accepted=['html', 'image.*.png'],
+            rejected=['bmp', 'jp[eg]', 'image.123.png']
+        )
+
+        mock_record = MockURLTableRecord()
+        mock_record.url = 'http://example.com/'
+
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://example/index.html'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://example/myimage.1003.png'),
+            mock_record
+        ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('http://example/myimage.123.png'),
+            mock_record
+        ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('http://example/blah.png'),
+            mock_record
+        ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('http://example/image.1003.png.bmp'),
+            mock_record
+        ))

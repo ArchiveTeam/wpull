@@ -97,7 +97,7 @@ end
 
 wpull_hook.callbacks.exit_status = function(exit_code)
   --  print('exit_status', exit_code)
-  assert(exit_code == 0)
+  assert(exit_code == 4)
   assert(injected_url_found)
   return 42
 end

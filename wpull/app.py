@@ -28,7 +28,7 @@ from wpull.scraper import HTMLScraper, CSSScraper, DemuxDocumentScraper
 from wpull.stats import Statistics
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     RecursiveFilter, SpanHostsFilter, ParentFilter, RegexFilter, HTTPFilter,
-    DirectoryFilter, HostnameFilter, DemuxURLFilter)
+    DirectoryFilter, HostnameFilter, DemuxURLFilter, BackwardFilenameFilter)
 from wpull.util import ASCIIStreamWriter
 import wpull.version
 from wpull.waiter import LinearWaiter
@@ -315,6 +315,7 @@ class Builder(object):
             RegexFilter(args.accept_regex, args.reject_regex),
             DirectoryFilter(args.include_directories,
                 args.exclude_directories),
+            BackwardFilenameFilter(args.accept, args.reject),
         ]
 
         if args.no_parent:
@@ -555,7 +556,8 @@ class Builder(object):
         resolver = self._factory.new('Resolver',
             families=families,
             timeout=dns_timeout,
-            rotate=args.rotate_dns
+            rotate=args.rotate_dns,
+            cache_enabled=args.dns_cache,
         )
 
         def connection_factory(*args, **kwargs):
