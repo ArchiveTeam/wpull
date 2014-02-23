@@ -496,59 +496,23 @@ class Connection(object):
     @tornado.gen.coroutine
     def _read_response_by_chunk(self, response):
         '''Read the connection using chunked transfer encoding.'''
+        stream_reader = ChunkedTransferStreamReader(self._io_stream)
+        stream_reader.data_event.handle(self._events.response_data.fire)
+        stream_reader.content_event.handle(
+            lambda data:
+                response.body.content_file.write(self._decompress_data(data))
+        )
+
         while True:
-            chunk_size = yield self._read_response_chunk(response)
+            chunk_size = yield stream_reader.read_chunk()
 
             if chunk_size == 0:
                 break
 
-        yield self._read_response_chunked_trailer(response)
-
-    @tornado.gen.coroutine
-    def _read_response_chunk(self, response):
-        '''Read a single chunk of the chunked transfer encoding.'''
-        _logger.debug('Reading chunk.')
-        chunk_size_hex = yield self._io_stream.read_until_regex(b'[^\n\r]+')
-
-        self._events.response_data.fire(chunk_size_hex)
-
-        try:
-            chunk_size = int(chunk_size_hex.split(b';', 1)[0].strip(), 16)
-        except ValueError as error:
-            raise ProtocolError(error.args[0]) from error
-
-        _logger.debug('Getting chunk size={0}.'.format(chunk_size))
-
-        if not chunk_size:
-            raise tornado.gen.Return(chunk_size)
-
-        newline_data = yield self._io_stream.read_until(b'\n')
-
-        self._events.response_data.fire(newline_data)
-
-        data_queue = self._io_stream.read_bytes_queue(chunk_size)
-
-        while True:
-            data = yield data_queue.get()
-
-            if data is None:
-                break
-
-            self._events.response_data.fire(data)
-            response.body.content_file.write(self._decompress_data(data))
+        trailer_data = yield stream_reader.read_trailer()
+        response.fields.parse(trailer_data)
 
         response.body.content_file.write(self._flush_decompressor())
-
-        raise tornado.gen.Return(chunk_size)
-
-    @tornado.gen.coroutine
-    def _read_response_chunked_trailer(self, response):
-        '''Read the HTTP trailer fields.'''
-        _logger.debug('Reading chunked trailer.')
-        trailer_data = yield self._io_stream.read_until_regex(br'\r?\n\r?\n')
-
-        self._events.response_data.fire(trailer_data)
-        response.fields.parse(trailer_data)
 
     @tornado.gen.coroutine
     def _read_response_until_close(self, response):
@@ -608,6 +572,77 @@ class Connection(object):
         if self._io_stream.buffer_full:
             _logger.debug('Buffer full.')
             raise ProtocolError('Buffer full.')
+
+
+class ChunkedTransferStreamReader(object):
+    '''Read chunked transfer encoded stream.
+
+    Args:
+        io_stream: An instance of :class:`.extended.IOStream`.
+
+    Attributes:
+        data_event (Event): An instance of :class:`.actor.Event` that will
+            be fired when raw data is read from the stream.
+        content_event (Event): An instance of :class:`.actor.Event` that will
+            be fired when content data is decoded from the stream.
+    '''
+    def __init__(self, io_stream):
+        self._io_stream = io_stream
+        self.data_event = Event()
+        self.content_event = Event()
+
+    @tornado.gen.coroutine
+    def read_chunk(self):
+        '''Read a single chunk of the chunked transfer encoding.
+
+        Returns:
+            int: The size of the content in the chunk.
+        '''
+        _logger.debug('Reading chunk.')
+        chunk_size_hex = yield self._io_stream.read_until_regex(b'[^\n\r]+')
+
+        self.data_event.fire(chunk_size_hex)
+
+        try:
+            chunk_size = int(chunk_size_hex.split(b';', 1)[0].strip(), 16)
+        except ValueError as error:
+            raise ProtocolError(error.args[0]) from error
+
+        _logger.debug('Getting chunk size={0}.'.format(chunk_size))
+
+        if not chunk_size:
+            raise tornado.gen.Return(chunk_size)
+
+        newline_data = yield self._io_stream.read_until(b'\n')
+
+        self.data_event.fire(newline_data)
+
+        data_queue = self._io_stream.read_bytes_queue(chunk_size)
+
+        while True:
+            data = yield data_queue.get()
+
+            if data is None:
+                break
+
+            self.data_event.fire(data)
+            self.content_event.fire(data)
+
+        raise tornado.gen.Return(chunk_size)
+
+    @tornado.gen.coroutine
+    def read_trailer(self):
+        '''Read the HTTP trailer fields.
+
+        Returns:
+            bytes: The trailer data.
+        '''
+        _logger.debug('Reading chunked trailer.')
+        trailer_data = yield self._io_stream.read_until_regex(br'\r?\n\r?\n')
+
+        self.data_event.fire(trailer_data)
+
+        raise tornado.gen.Return(trailer_data)
 
 
 class HostConnectionPool(collections.Set):
