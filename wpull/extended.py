@@ -54,6 +54,11 @@ class IOStreamMixin(object):
             raise NetworkError('Connection timed out') from error
 
     @tornado.gen.coroutine
+    def write_gen(self, data):
+        '''Write but this function is a coroutine.'''
+        yield tornado.gen.Task(self.super.write, self, data)
+
+    @tornado.gen.coroutine
     def read_gen(self, func_name, *args, **kwargs):
         '''Read with timeout.
 
@@ -153,6 +158,7 @@ class IOStream(BaseIOStream, tornado.iostream.IOStream, IOStreamMixin):
         return tornado.iostream.IOStream
 
     connect = IOStreamMixin.connect
+    write = IOStreamMixin.write_gen
     read_bytes = IOStreamMixin.read_bytes
     read_until = IOStreamMixin.read_until
     read_until_close = IOStreamMixin.read_until_close
@@ -166,6 +172,7 @@ class SSLIOStream(BaseIOStream, tornado.iostream.SSLIOStream, IOStreamMixin):
         return tornado.iostream.SSLIOStream
 
     connect = IOStreamMixin.connect
+    write = IOStreamMixin.write_gen
     read_bytes = IOStreamMixin.read_bytes
     read_until = IOStreamMixin.read_until
     read_until_close = IOStreamMixin.read_until_close
