@@ -10,7 +10,7 @@ import toro
 
 import wpull.extended
 from wpull.http.request import Request
-from wpull.recorder import BaseRecorder, BaseRecorderSession
+from wpull.recorder import BaseRecorder, BaseRecorderSession, ProgressRecorder
 
 
 _logger = logging.getLogger(__name__)
@@ -187,11 +187,11 @@ class ProxyRecorderSession(BaseRecorderSession):
 
 
 if __name__ == '__main__':
-    from wpull.http import Client
+    from wpull.http.client import Client
 
     logging.basicConfig(level=logging.DEBUG)
 
-    http_client = Client()
+    http_client = Client(recorder=ProgressRecorder())
     proxy = HTTPProxyServer(http_client)
 
     proxy.listen(8888)
