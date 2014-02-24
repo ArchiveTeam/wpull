@@ -20,6 +20,7 @@ MODULES = [
     'network',
     'options',
     'processor',
+    'proxy',
     'recorder',
     'robotstxt',
     'scraper',

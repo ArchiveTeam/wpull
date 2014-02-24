@@ -81,6 +81,28 @@ class Request(BaseRequest):
 
         return request
 
+    @classmethod
+    def parse_status_line(cls, string):
+        '''Parse the status line bytes.
+
+        Returns:
+            tuple: An tuple representing the method, resource path, and
+            version.
+        '''
+        match = re.match(
+            br'([a-zA-Z]+)[ \t]+([^ \t]+)[ \t]+(HTTP/1\.[01])',
+            string
+        )
+        if match:
+            groups = match.groups()
+            if len(groups) == 3:
+                return wpull.util.to_str(
+                    (groups[0], groups[1], groups[2]),
+                    encoding='latin-1',
+                )
+
+        raise ProtocolError('Error parsing status line ‘{0}’'.format(string))
+
     def header(self):
         '''Return the HTTP header as bytes.'''
         return '{0} {1} {2}\r\n{3}\r\n'.format(
