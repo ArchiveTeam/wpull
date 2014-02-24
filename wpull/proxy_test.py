@@ -1,6 +1,5 @@
 # encoding=utf-8
 import logging
-import tornado.curl_httpclient
 import tornado.httpclient
 import tornado.testing
 
@@ -13,8 +12,10 @@ import wpull.testing.goodapp
 
 try:
     import pycurl
+    import tornado.curl_httpclient
 except ImportError:
     pycurl = None
+    tornado.curl_httpclient = None
 
 
 _logger = logging.getLogger(__name__)
