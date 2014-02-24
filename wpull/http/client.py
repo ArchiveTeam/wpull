@@ -7,6 +7,7 @@ import toro
 
 from wpull.conversation import BaseClient
 from wpull.http.connection import ConnectionPool
+from wpull.recorder import DemuxRecorder
 
 
 _ = gettext.gettext
@@ -50,6 +51,10 @@ class Client(BaseClient):
 
         if 'recorder' not in kwargs:
             kwargs['recorder'] = self._recorder
+        elif self._recorder:
+            kwargs['recorder'] = DemuxRecorder(
+                (kwargs['recorder'], self._recorder)
+            )
 
         async_result = toro.AsyncResult()
         yield self._connection_pool.put(request, kwargs, async_result)
