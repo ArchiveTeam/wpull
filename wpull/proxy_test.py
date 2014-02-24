@@ -4,10 +4,17 @@ import tornado.curl_httpclient
 import tornado.httpclient
 import tornado.testing
 
+from wpull.backport.testing import unittest
 from wpull.http import Client
 from wpull.proxy import HTTPProxyServer
 from wpull.recorder import DebugPrintRecorder
 import wpull.testing.goodapp
+
+
+try:
+    import pycurl
+except ImportError:
+    pycurl = None
 
 
 _logger = logging.getLogger(__name__)
@@ -15,6 +22,8 @@ DEFAULT_TIMEOUT = 30
 
 
 class TestProxy(wpull.testing.goodapp.GoodAppTestCase):
+    # TODO: fix Travis CI to install pycurl
+    @unittest.skipIf(pycurl is None, "pycurl module not present")
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_basic(self):
         http_client = Client(recorder=DebugPrintRecorder())

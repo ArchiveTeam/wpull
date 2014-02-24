@@ -14,10 +14,8 @@ install:
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then
       pip install -r requirements-py2.txt &&
       pip install unittest2;
-      sudo apt-get install python-pycurl;
     else
       pip install -r requirements.txt;
-      sudo apt-get install python3-pycurl;
     fi
   - pip install git+https://github.com/bastibe/lunatic-python.git@f3f68d2c8638c6f423912264aeb750f5f7eb14ee#egg=lunatic-python
 
