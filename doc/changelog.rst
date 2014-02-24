@@ -2,6 +2,17 @@
 What's New
 ==========
 
+0.XX (2014-02-DD)
+=================
+
+* API changes:
+
+  * The ``http`` module was split up into smaller modules: ``http.client``, ``http.connection``, ``http.request``, ``http.util``.
+  * ``ChunkedTransferStreamReader`` was added as a reusable abstraction.
+  * The ``web`` module was moved to ``http.web``.
+  * Added ``proxy`` module.
+
+
 0.20 (2014-02-22)
 =================
 
