@@ -111,7 +111,11 @@ class Engine(object):
         '''Start the worker tasks.'''
         while True:
             yield self._worker_semaphore.acquire()
-            self._process_input()
+
+            tornado.ioloop.IOLoop.current().add_future(
+                self._process_input(),
+                lambda dummy: dummy,
+            )
 
     def _get_next_url_record(self):
         '''Return the next available URL from the URL table.

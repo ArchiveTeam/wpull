@@ -653,7 +653,10 @@ class HostConnectionPool(collections.Set):
                 self._host, self._port, self._ssl))
             yield self._max_count_semaphore.acquire()
 
-            self._process_request_wrapper()
+            tornado.ioloop.IOLoop.current().add_future(
+                self._process_request_wrapper(),
+                lambda dummy: dummy
+            )
 
     @tornado.gen.coroutine
     def _process_request_wrapper(self):
