@@ -280,8 +280,7 @@ class Connection(object):
 
         _logger.debug('Connecting to {0}.'.format(self._address))
         try:
-            yield tornado.gen.Task(
-                self._io_stream.connect, self._address, self._host)
+            yield self._io_stream.connect(self._address, self._host)
         except (ssl.SSLError, tornado.netutil.SSLCertificateError,
         SSLVerficationError) as error:
             raise SSLVerficationError('SSLError: {error}'.format(
@@ -387,7 +386,7 @@ class Connection(object):
         _logger.debug('Sending headers.')
         data = request.header()
         self._events.request_data.fire(data)
-        yield tornado.gen.Task(self._io_stream.write, data)
+        yield self._io_stream.write(data)
 
     @tornado.gen.coroutine
     def _send_request_body(self, request):
@@ -395,14 +394,14 @@ class Connection(object):
         _logger.debug('Sending body.')
         for data in request.body or ():
             self._events.request_data.fire(data)
-            yield tornado.gen.Task(self._io_stream.write, data)
+            yield self._io_stream.write(data)
 
     @tornado.gen.coroutine
     def _read_response_header(self, response_factory):
         '''Read the response's HTTP status line and header fields.'''
         _logger.debug('Reading header.')
-        response_header_data = yield tornado.gen.Task(
-            self._io_stream.read_until_regex, br'\r?\n\r?\n')
+        response_header_data = yield self._io_stream.read_until_regex(
+            br'\r?\n\r?\n')
 
         self._events.response_data.fire(response_header_data)
 
