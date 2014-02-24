@@ -5,9 +5,12 @@ import tornado.testing
 import tornado.web
 
 from wpull.backport.testing import unittest
-from wpull.errors import ConnectionRefused, SSLVerficationError
-from wpull.http import (Request, Connection, NetworkError, ProtocolError, Client,
-    ConnectionPool, parse_charset, Response, HostConnectionPool)
+from wpull.errors import (ConnectionRefused, SSLVerficationError, NetworkError,
+    ProtocolError)
+from wpull.http.client import Client
+from wpull.http.connection import Connection, ConnectionPool, HostConnectionPool
+from wpull.http.request import Request, Response
+from wpull.http.util import parse_charset
 from wpull.recorder import DebugPrintRecorder
 from wpull.testing.badapp import BadAppTestCase
 
@@ -194,7 +197,9 @@ class TestConnection(BadAppTestCase):
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_gzip_encoding(self):
         filename = os.path.join(
-            os.path.dirname(__file__), 'testing', 'samples', 'xkcd_1.html')
+            os.path.dirname(__file__),
+            '..', 'testing', 'samples', 'xkcd_1.html'
+        )
 
         with open(filename, 'rb') as in_file:
             test_data = in_file.read()

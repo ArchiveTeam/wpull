@@ -1,12 +1,12 @@
 # encoding=utf-8
-'''Advanced HTTP handling.'''
+'''Advanced HTTP Client handling.'''
 import gettext
 import logging
 import tornado.gen
 
 from wpull.conversation import BaseClient
 from wpull.errors import ProtocolError
-from wpull.http import Request
+from wpull.http.request import Request
 from wpull.robotstxt import RobotsState, RobotsDenied
 from wpull.url import URLInfo
 import wpull.url

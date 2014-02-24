@@ -17,8 +17,10 @@ from wpull.database import URLTable
 from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
-from wpull.http import (Client, Connection, HostConnectionPool, ConnectionPool,
-    Request)
+from wpull.http.client import Client
+from wpull.http.connection import Connection, ConnectionPool, HostConnectionPool
+from wpull.http.request import Request
+from wpull.http.web import RedirectTracker, RichClient
 from wpull.network import Resolver
 from wpull.processor import WebProcessor
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
@@ -32,7 +34,6 @@ from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
 from wpull.util import ASCIIStreamWriter
 import wpull.version
 from wpull.waiter import LinearWaiter
-from wpull.web import RedirectTracker, RichClient
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
     IgnoreFileWriter, TimestampingFileWriter, AntiClobberFileWriter)

@@ -15,7 +15,8 @@ import tornado.gen
 from tornado.testing import AsyncTestCase
 
 from wpull.backport.gzip import GzipFile
-from wpull.http import Connection, Request
+from wpull.http.connection import Connection
+from wpull.http.request import Request
 from wpull.recorder import DebugPrintRecorder
 
 

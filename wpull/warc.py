@@ -15,7 +15,7 @@ import uuid
 
 from wpull.namevalue import NameValueRecord
 import wpull.util
-from wpull.http import Response
+from wpull.http.request import Response
 
 
 class WARCRecord(object):

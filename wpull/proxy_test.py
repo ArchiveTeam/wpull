@@ -4,7 +4,7 @@ import tornado.httpclient
 import tornado.testing
 
 from wpull.backport.testing import unittest
-from wpull.http import Client
+from wpull.http.client import Client
 from wpull.proxy import HTTPProxyServer
 from wpull.recorder import DebugPrintRecorder
 import wpull.testing.goodapp

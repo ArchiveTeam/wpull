@@ -28,10 +28,16 @@ wpull Package
    api/factory
    api/hook
    api/http
+   api/http.client
+   api/http.connection
+   api/http.request
+   api/http.util
+   api/http.web
    api/namevalue
    api/network
    api/options
    api/processor
+   api/proxy
    api/recorder
    api/robotstxt
    api/scraper
@@ -41,7 +47,6 @@ wpull Package
    api/version
    api/waiter
    api/warc
-   api/web
    api/wrapper
    api/writer
 

@@ -10,13 +10,13 @@ from wpull.conversation import Body
 from wpull.database import Status
 from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
     DNSNotFound, NetworkError)
-from wpull.http import Response, Request
+from wpull.http.request import Response, Request
 from wpull.scraper import HTMLScraper, DemuxDocumentScraper, CSSScraper
 from wpull.stats import Statistics
 from wpull.url import URLInfo, DemuxURLFilter
 import wpull.util
 from wpull.waiter import LinearWaiter
-from wpull.web import RichClientResponseType
+from wpull.http.web import RichClientResponseType
 from wpull.writer import NullWriter
 
 

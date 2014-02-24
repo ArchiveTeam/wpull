@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`web` Module
-=================
+:mod:`http.client` Module
+=========================
 
-.. automodule:: wpull.web
+.. automodule:: wpull.http.client
     :members:
     :show-inheritance:
     :private-members:

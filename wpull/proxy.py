@@ -9,7 +9,7 @@ import tornado.tcpserver
 import toro
 
 import wpull.extended
-from wpull.http import Request
+from wpull.http.request import Request
 from wpull.recorder import BaseRecorder, BaseRecorderSession
 
 
