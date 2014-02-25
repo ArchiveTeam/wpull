@@ -30,7 +30,7 @@ class PhantomJSRPCError(Exception):
     pass
 
 
-class PhantomJS(object):
+class PhantomJSRemote(object):
     '''PhantomJS RPC wrapper.
 
     Args:
@@ -311,6 +311,6 @@ class RPCHandler(tornado.websocket.WebSocketHandler):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
 
-    phantomjs = PhantomJS()
+    phantomjs = PhantomJSRemote()
 
     tornado.ioloop.IOLoop.current().start()

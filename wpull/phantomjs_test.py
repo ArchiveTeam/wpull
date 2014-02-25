@@ -1,7 +1,7 @@
 # encoding=utf-8
 import tornado.testing
 
-from wpull.phantomjs import PhantomJS
+from wpull.phantomjs import PhantomJSRemote
 
 
 DEFAULT_TIMEOUT = 30
@@ -10,37 +10,37 @@ DEFAULT_TIMEOUT = 30
 class TestPhantomJS(tornado.testing.AsyncTestCase):
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_rpc(self):
-        phantomjs = PhantomJS()
+        remote = PhantomJSRemote()
 
-        result = yield phantomjs.call('debugEcho', 'hello!')
+        result = yield remote.call('debugEcho', 'hello!')
 
         self.assertEqual('hello!', result)
 
-        yield phantomjs.eval('var myvalue;')
-        yield phantomjs.set('myvalue', 123)
+        yield remote.eval('var myvalue;')
+        yield remote.set('myvalue', 123)
 
-        result = yield phantomjs.eval('myvalue')
+        result = yield remote.eval('myvalue')
 
         self.assertEqual(123, result)
 
-        yield phantomjs.set('myvalue', 'abc')
+        yield remote.set('myvalue', 'abc')
 
-        result = yield phantomjs.eval('myvalue')
+        result = yield remote.eval('myvalue')
 
         self.assertEqual('abc', result)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_events(self):
-        phantomjs = PhantomJS()
+        remote = PhantomJSRemote()
 
-        yield phantomjs.call('page.open', 'http://example.invalid')
+        yield remote.call('page.open', 'http://example.invalid')
 
-        rpc_info = yield phantomjs.wait_page_event('load_finished')
+        rpc_info = yield remote.wait_page_event('load_finished')
 
         self.assertEqual('fail', rpc_info['status'])
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_page_reset(self):
-        phantomjs = PhantomJS()
+        remote = PhantomJSRemote()
 
-        yield phantomjs.call('reset_page')
+        yield remote.call('reset_page')
