@@ -14,6 +14,8 @@ import tornado.websocket
 import toro
 import uuid
 
+import wpull.actor
+
 
 _logger = logging.getLogger(__name__)
 
@@ -36,11 +38,19 @@ class PhantomJS(object):
 
     This class automatically manages the life of the PhantomJS process. It
     will automatically terminate the process on interpreter shutdown.
+
+    Attributes:
+        page_event: An instance of :class:`.actor.Event` that is fired whenever
+            a page event occurs. The argument passed to the listener is a
+            RPC Info ``dict``.
+
+    The messages passed are in the JSON format.
     '''
     def __init__(self, exe_path='phantomjs', extra_args=None):
         script_path = os.path.join(os.path.dirname(__file__), 'phantomjs.js')
         self._in_queue = toro.Queue()
         self._out_queue = toro.Queue()
+        self.page_event = wpull.actor.Event()
         self._rpc_app = RPCApplication(self._out_queue, self._in_queue)
         self._http_server = tornado.httpserver.HTTPServer(self._rpc_app)
         http_socket, port = tornado.testing.bind_unused_port()
@@ -112,7 +122,10 @@ class PhantomJS(object):
             except ValueError:
                 _logger.exception('Error decoding message.')
             else:
-                self._process_rpc_result(rpc_info)
+                if 'event' in rpc_info:
+                    self.page_event.fire(rpc_info)
+                else:
+                    self._process_rpc_result(rpc_info)
 
     @tornado.gen.coroutine
     def call(self, name, *args):
@@ -174,6 +187,30 @@ class PhantomJS(object):
         }
         result = yield self._rpc_exec(rpc_info)
         raise tornado.gen.Return(result)
+
+    @tornado.gen.coroutine
+    def wait_page_event(self, event_name, deadline=None):
+        '''Wait until given event occurs.
+
+        Args:
+            event_name (str): The event name.
+
+        Returns:
+            dict:
+        '''
+        async_result = toro.AsyncResult()
+
+        def page_event_cb(rpc_info):
+            if rpc_info['event'] == event_name:
+                async_result.set(rpc_info)
+
+        self.page_event.handle(page_event_cb)
+
+        rpc_info = yield async_result.get(deadline)
+
+        self.page_event.unhandle(page_event_cb)
+
+        raise tornado.gen.Return(rpc_info)
 
     @tornado.gen.coroutine
     def _rpc_exec(self, rpc_info):
