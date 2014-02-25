@@ -2,8 +2,6 @@
 import tornado.testing
 
 from wpull.phantomjs import PhantomJS
-import wpull.util
-import toro
 
 
 DEFAULT_TIMEOUT = 30

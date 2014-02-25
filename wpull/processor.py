@@ -206,7 +206,7 @@ class WebProcessorSession(object):
 
     @tornado.gen.coroutine
     def process(self):
-        if not self._should_fetch():
+        if not self._should_fetch(self._next_url_info):
             self._url_item.skip()
             return
 
@@ -215,7 +215,7 @@ class WebProcessorSession(object):
         )
 
         while not self._rich_client_session.done:
-            if not self._should_fetch():
+            if not self._should_fetch(self._next_url_info):
                 self._url_item.skip()
                 break
 
@@ -287,9 +287,8 @@ class WebProcessorSession(object):
 
         return self._rich_client_session.next_request.url_info
 
-    def _should_fetch(self):
+    def _should_fetch(self, url_info):
         '''Return whether the URL should be fetched.'''
-        url_info = self._next_url_info
         url_record = self._url_item.url_record
         test_info = self._processor.url_filter.test_info(url_info, url_record)
 
