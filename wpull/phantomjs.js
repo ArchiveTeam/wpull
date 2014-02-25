@@ -14,7 +14,7 @@ console.log('Created websocket', connection)
 connection.onopen = function(event) {
 	console.log('WebSocket ready', event);
 
-	setupEvents(connection);
+	setupEvents();
 };
 
 connection.onerror = function(event) {
@@ -42,7 +42,6 @@ connection.onmessage = function(event) {
 }
 
 // Evaluate the RPC.
-// Object => anything
 function rpcEval(rpcInfo) {
 	var action = rpcInfo['action'];
 
@@ -63,7 +62,6 @@ function rpcEval(rpcInfo) {
 }
 
 // Globally evaluate the text.
-// String => anything
 function globalEval(text) {
 	return eval.call(null, text);
 }
@@ -87,8 +85,8 @@ function debugEcho(message) {
 	return message;
 }
 
-// Attaches the RPC event handlers to the page
-function setupEvents(connection) {
+// Attaches the RPC event handlers to the page.
+function setupEvents() {
 	page.onAlert = function(msg) {
 		sendRpcEvent('alert', {
 			'message' : msg
@@ -198,4 +196,11 @@ function sendRpcEvent(eventName, info) {
 	}
 
 	connection.send(JSON.stringify(rpcInfo));
+}
+
+// Close, create a new page, and setup event handlers.
+function reset_page() {
+	page.close();
+	page = require('webpage').create();
+	setupEvents();
 }

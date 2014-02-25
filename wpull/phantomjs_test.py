@@ -38,3 +38,9 @@ class TestPhantomJS(tornado.testing.AsyncTestCase):
         rpc_info = yield phantomjs.wait_page_event('load_finished')
 
         self.assertEqual('fail', rpc_info['status'])
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_page_reset(self):
+        phantomjs = PhantomJS()
+
+        yield phantomjs.call('reset_page')
