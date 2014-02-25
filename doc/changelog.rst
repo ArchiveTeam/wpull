@@ -11,6 +11,7 @@ What's New
   * ``ChunkedTransferStreamReader`` was added as a reusable abstraction.
   * The ``web`` module was moved to ``http.web``.
   * Added ``proxy`` module.
+  * Added ``phantomjs`` module.
 
 
 0.20 (2014-02-22)

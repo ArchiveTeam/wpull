@@ -24,6 +24,7 @@ MODULES = [
     'namevalue',
     'network',
     'options',
+    'phantomjs',
     'processor',
     'proxy',
     'recorder',
@@ -35,7 +36,6 @@ MODULES = [
     'version',
     'waiter',
     'warc',
-    'web',
     'wrapper',
     'writer',
 ]

@@ -36,6 +36,7 @@ wpull Package
    api/namevalue
    api/network
    api/options
+   api/phantomjs
    api/processor
    api/proxy
    api/recorder
