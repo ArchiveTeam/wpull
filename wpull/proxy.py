@@ -38,13 +38,13 @@ class HTTPProxyServer(tornado.tcpserver.TCPServer):
 
         handler = HTTPProxyHandler(self._http_client, wpull_stream)
         tornado.ioloop.IOLoop.current().add_future(
-            handler.handle(), lambda dummy: dummy
+            handler.handle(), lambda future: future.result()
         )
 
 
 class HTTPProxyHandler(object):
     '''Handler class for HTTP Proxy Server.
-    
+
     Args:
         http_client: An instance of :class:`.http.Client`.
         stream: An instance of class:`.extended.IOStream`.
