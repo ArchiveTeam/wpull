@@ -37,16 +37,15 @@ class PhantomJS(object):
     This class automatically manages the life of the PhantomJS process. It
     will automatically terminate the process on interpreter shutdown.
     '''
-    def __init__(self, exe_path='phantomjs'):
+    def __init__(self, exe_path='phantomjs', extra_args=None):
         script_path = os.path.join(os.path.dirname(__file__), 'phantomjs.js')
         self._in_queue = toro.Queue()
         self._out_queue = toro.Queue()
         self._rpc_app = RPCApplication(self._out_queue, self._in_queue)
         self._http_server = tornado.httpserver.HTTPServer(self._rpc_app)
         http_socket, port = tornado.testing.bind_unused_port()
-        self._subproc = tornado.process.Subprocess([
-                exe_path, script_path, str(port),
-            ],
+        self._subproc = tornado.process.Subprocess(
+            [exe_path] + (extra_args or []) + [script_path, str(port)],
             stdout=tornado.process.Subprocess.STREAM,
         )
         self._rpc_reply_map = {}

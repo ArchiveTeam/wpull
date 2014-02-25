@@ -5,6 +5,7 @@ if (system.args.length !== 2) {
 	phantom.exit(1);
 }
 
+var page = require('webpage').create();
 var host_port = system.args[1];
 
 var connection = new WebSocket('ws://localhost:' + host_port);
