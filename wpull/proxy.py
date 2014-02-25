@@ -20,7 +20,7 @@ class HTTPProxyServer(tornado.tcpserver.TCPServer):
     '''HTTP proxy server for use with man-in-the-middle recording.
 
     Args:
-        http_client: An instance of :class:`.http.Client`.
+        http_client: An instance of :class:`.http.client.Client`.
     '''
     def __init__(self, http_client, **kwargs):
         super().__init__(**kwargs)
@@ -46,7 +46,7 @@ class HTTPProxyHandler(object):
     '''Handler class for HTTP Proxy Server.
 
     Args:
-        http_client: An instance of :class:`.http.Client`.
+        http_client: An instance of :class:`.http.client.Client`.
         stream: An instance of class:`.extended.IOStream`.
     '''
     def __init__(self, http_client, stream):

@@ -53,7 +53,7 @@ class WebProcessor(BaseProcessor):
     '''HTTP processor.
 
     Args:
-        rich_client (RichClient): An instance of :class:`.http.RichClient`.
+        rich_client (RichClient): An instance of :class:`.http.web.RichClient`.
         url_filter (DemuxURLFilter): An instance of
             :class:`.url.DemuxURLFilter`.
         document_scraper (DemuxDocumentScraper): An instance of
