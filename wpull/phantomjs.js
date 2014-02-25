@@ -54,7 +54,7 @@ function rpcEval(rpcInfo) {
 	} else if (action == 'set') {
 		console.debug('Set', rpcInfo['name'], rpcInfo['value']);
 
-		globalEval(rpcInfo['name'] + '=' + rpcInfo['value']);
+		globalEval(rpcInfo['name'] + '=' + JSON.stringify(rpcInfo['value']));
 	} else if (action == 'eval') {
 		console.debug('Eval', rpcInfo['text']);
 
@@ -65,7 +65,7 @@ function rpcEval(rpcInfo) {
 // Globally evaluate the text.
 // String => anything
 function globalEval(text) {
-	return eval.call(this, text);
+	return eval.call(null, text);
 }
 
 // Call a function preserving "this"

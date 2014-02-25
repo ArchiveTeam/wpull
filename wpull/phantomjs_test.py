@@ -23,6 +23,12 @@ class TestPhantomJS(tornado.testing.AsyncTestCase):
 
         self.assertEqual(123, result)
 
+        yield phantomjs.set('myvalue', 'abc')
+
+        result = yield phantomjs.eval('myvalue')
+
+        self.assertEqual('abc', result)
+
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_events(self):
         phantomjs = PhantomJS()
