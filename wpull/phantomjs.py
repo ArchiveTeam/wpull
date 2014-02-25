@@ -46,7 +46,8 @@ class PhantomJSRemote(object):
 
     The messages passed are in the JSON format.
     '''
-    def __init__(self, exe_path='phantomjs', extra_args=None):
+    def __init__(self, exe_path='phantomjs', extra_args=None,
+    page_settings=None):
         script_path = os.path.join(os.path.dirname(__file__), 'phantomjs.js')
         self._in_queue = toro.Queue()
         self._out_queue = toro.Queue()
@@ -60,9 +61,9 @@ class PhantomJSRemote(object):
         )
         self._rpc_reply_map = {}
 
-        self._setup(http_socket)
+        self._setup(http_socket, page_settings)
 
-    def _setup(self, http_socket):
+    def _setup(self, http_socket, page_settings):
         '''Set up the callbacks and loops.'''
         self._http_server.add_socket(http_socket)
         atexit.register(self._atexit_kill_subprocess)
@@ -75,6 +76,12 @@ class PhantomJSRemote(object):
             self._log_loop(),
             lambda future: future.result()
         )
+
+        if page_settings:
+            tornado.ioloop.IOLoop.current().add_future(
+                self.call('setDefaultPageSettings', page_settings),
+                lambda future: future.result()
+            )
 
     def close(self):
         '''Terminate the PhantomJS process.'''

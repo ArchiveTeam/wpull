@@ -7,6 +7,7 @@ if (system.args.length !== 2) {
 
 var page = require('webpage').create();
 var hostPort = system.args[1];
+var defaultPageSettings = null;
 
 var connection = new WebSocket('ws://localhost:' + hostPort);
 console.log('Created websocket', connection)
@@ -198,9 +199,27 @@ function sendRpcEvent(eventName, info) {
 	connection.send(JSON.stringify(rpcInfo));
 }
 
+// Set the default page settings
+function setDefaultPageSettings(settings) {
+	defaultPageSettings = settings;
+	applyDefaultPageSettings(settings);
+}
+
+// Apply the default page settings
+function applyDefaultPageSettings() {
+	if (!defaultPageSettings) {
+		return;
+	}
+
+	for (name in defaultPageSettings) {
+		page.settings[name] = defaultPageSettings[name];
+	}
+}
+
 // Close, create a new page, and setup event handlers.
-function reset_page() {
+function resetPage() {
 	page.close();
 	page = require('webpage').create();
 	setupEvents();
+	applyDefaultPageSettings();
 }
