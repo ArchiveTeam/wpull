@@ -114,7 +114,7 @@ class Engine(object):
 
             tornado.ioloop.IOLoop.current().add_future(
                 self._process_input(),
-                lambda dummy: dummy,
+                lambda future: future.result(),
             )
 
     def _get_next_url_record(self):

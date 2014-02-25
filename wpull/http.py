@@ -655,7 +655,7 @@ class HostConnectionPool(collections.Set):
 
             tornado.ioloop.IOLoop.current().add_future(
                 self._process_request_wrapper(),
-                lambda dummy: dummy
+                lambda future: future.result()
             )
 
     @tornado.gen.coroutine
