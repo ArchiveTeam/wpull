@@ -135,7 +135,7 @@ class PhantomJS(object):
             'args': args,
         }
         result = yield self._rpc_exec(rpc_info)
-        return result
+        raise tornado.gen.Return(result)
 
     @tornado.gen.coroutine
     def set(self, name, value):
@@ -154,7 +154,7 @@ class PhantomJS(object):
             'value': value,
         }
         result = yield self._rpc_exec(rpc_info)
-        return result
+        raise tornado.gen.Return(result)
 
     @tornado.gen.coroutine
     def eval(self, text):
@@ -174,7 +174,7 @@ class PhantomJS(object):
             'text': text,
         }
         result = yield self._rpc_exec(rpc_info)
-        return result
+        raise tornado.gen.Return(result)
 
     @tornado.gen.coroutine
     def _rpc_exec(self, rpc_info):
