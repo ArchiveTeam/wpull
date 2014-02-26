@@ -307,7 +307,7 @@ class RPCHandler(tornado.websocket.WebSocketHandler):
 
         tornado.ioloop.IOLoop.current().add_future(
             self._send_loop(),
-            lambda dummy: dummy
+            lambda future: future.result()
         )
 
     @tornado.gen.coroutine
