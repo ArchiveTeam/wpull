@@ -91,6 +91,10 @@ class PhantomJSRemote(object):
 
         self._subproc.proc.terminate()
 
+    @property
+    def return_code(self):
+        return self._subproc.returncode
+
     def _subprocess_exited_cb(self, exit_status):
         '''Callback when PhantomJS exits.'''
         _logger.debug('phantomjs exited with status {0}.'.format(exit_status))
@@ -239,6 +243,8 @@ class PhantomJSRemote(object):
         if 'id' not in rpc_info:
             rpc_info['id'] = uuid.uuid4().hex
 
+        assert self._subproc.returncode is None
+
         rpc_call_info = yield self._put_rpc_info(rpc_info).get()
 
         if 'error' in rpc_call_info:
@@ -356,10 +362,17 @@ class PhantomJSClient(object):
     def remote(self):
         '''Return a PhantomJS Remote within a context manager.'''
         if not self._remotes_ready:
-            extra_args = ['--proxy', '{0}:{1}'.format(*self._proxy_address)]
+            extra_args = [
+                '--proxy={0}'.format(self._proxy_address)
+            ]
 
             if self._extra_args:
                 extra_args.extend(self._extra_args)
+
+            _logger.debug(
+                'Creating new remote with proxy {0}'.format(
+                    self._proxy_address)
+            )
 
             remote = PhantomJSRemote(
                 self._exe_path,
@@ -369,6 +382,8 @@ class PhantomJSClient(object):
             remote = self._remotes_ready.pop()
 
         self._remotes_busy.add(remote)
+
+        assert remote.return_code is None
 
         try:
             yield remote
