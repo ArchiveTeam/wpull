@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2014-02-DD)
+0.21 (2014-02-26)
 =================
 
 * Fixes Request factory not used. This resolves issues where the User Agent was not set.
