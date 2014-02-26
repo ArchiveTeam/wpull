@@ -14,7 +14,7 @@ def convert_http_request(request, referrer_host=None):
     '''Convert a HTTP request.
 
     Args:
-        request: An instance of :class:`.http.Request`.
+        request: An instance of :class:`.http.request.Request`.
         referrer_host (str): The referrering hostname or IP address.
 
     Returns:
@@ -35,7 +35,7 @@ class HTTPResponseInfoWrapper(object):
     '''Wraps a HTTP Response.
 
     Args:
-        response: An instance of :class:`.http.Response`
+        response: An instance of :class:`.http.request.Response`
     '''
     def __init__(self, response):
         self._response = response
@@ -72,7 +72,7 @@ class CookieJarWrapper(object):
         '''Wrapped ``add_cookie_header``.
 
         Args:
-            request: An instance of :class:`.http.Request`.
+            request: An instance of :class:`.http.request.Request`.
             referrer_host (str): An hostname or IP address of the referrer
                 URL.
         '''
@@ -88,8 +88,8 @@ class CookieJarWrapper(object):
         '''Wrapped ``extract_cookies``.
 
         Args:
-            response: An instance of :class:`.http.Response`.
-            request: An instance of :class:`.http.Request`.
+            response: An instance of :class:`.http.request.Response`.
+            request: An instance of :class:`.http.request.Request`.
             referrer_host (str): An hostname or IP address of the referrer
                 URL.
         '''

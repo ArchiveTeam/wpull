@@ -2,9 +2,10 @@
 import tornado.testing
 
 from wpull.backport.testing import unittest
-from wpull.http import Response, Client, Request
+from wpull.http.client import Client
+from wpull.http.request import Response, Request
+from wpull.http.web import RedirectTracker, RichClient, RichClientResponseType
 from wpull.testing.goodapp import GoodAppTestCase
-from wpull.web import RedirectTracker, RichClient, RichClientResponseType
 
 
 class TestWeb(unittest.TestCase):

@@ -4,7 +4,7 @@ import shutil
 
 from wpull.backport.testing import unittest
 from wpull.scraper import HTMLScraper, CSSScraper
-from wpull.http import Request, Response
+from wpull.http.request import Request, Response
 import wpull.util
 
 

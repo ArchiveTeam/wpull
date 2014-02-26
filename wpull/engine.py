@@ -9,8 +9,7 @@ import toro
 import wpull.actor
 from wpull.database import Status, NotFound
 from wpull.errors import (ExitStatus, ServerError, ConnectionRefused, DNSNotFound,
-    SSLVerficationError)
-from wpull.http import NetworkError, ProtocolError
+    SSLVerficationError, ProtocolError, NetworkError)
 from wpull.url import URLInfo
 import wpull.util
 

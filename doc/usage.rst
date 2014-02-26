@@ -55,6 +55,14 @@ partial crawls.
    file manually or use the additional option ``--warc-append``.
 
 
+PhantomJS Integration (Experimental)
+====================================
+
+``--phantomjs`` will enable PhantomJS integration. If a HTML document is encountered, Wpull will open the URL in PhantomJS. The requests will go through an HTTP proxy to Wpull's HTTP client. Currently, Wpull will not do anything else. The only noticeable effect is that the HTTP requests are recorded if ``--warc-file`` is enabled.
+
+The filename of the PhantomJS executable must be on the PATH environment variable.
+
+
 Options
 =======
 
