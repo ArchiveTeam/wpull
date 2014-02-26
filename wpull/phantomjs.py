@@ -48,7 +48,7 @@ class PhantomJSRemote(object):
     The messages passed are in the JSON format.
     '''
     def __init__(self, exe_path='phantomjs', extra_args=None,
-    page_settings=None):
+    page_settings=None, default_headers=None):
         script_path = os.path.join(os.path.dirname(__file__), 'phantomjs.js')
         self._in_queue = toro.Queue()
         self._out_queue = toro.Queue()
@@ -62,9 +62,9 @@ class PhantomJSRemote(object):
         )
         self._rpc_reply_map = {}
 
-        self._setup(http_socket, page_settings)
+        self._setup(http_socket, page_settings, default_headers)
 
-    def _setup(self, http_socket, page_settings):
+    def _setup(self, http_socket, page_settings, default_headers):
         '''Set up the callbacks and loops.'''
         self._http_server.add_socket(http_socket)
         atexit.register(self._atexit_kill_subprocess)
@@ -81,6 +81,12 @@ class PhantomJSRemote(object):
         if page_settings:
             tornado.ioloop.IOLoop.current().add_future(
                 self.call('setDefaultPageSettings', page_settings),
+                lambda future: future.result()
+            )
+
+        if default_headers:
+            tornado.ioloop.IOLoop.current().add_future(
+                self.call('setDefaultPageHeaders', default_headers),
                 lambda future: future.result()
             )
 
@@ -335,12 +341,13 @@ class PhantomJSClient(object):
     are used.
     '''
     def __init__(self, proxy_address, exe_path='phantomjs', extra_args=None,
-    page_settings=None):
+    page_settings=None, default_headers=None):
         self._remotes_ready = set()
         self._remotes_busy = set()
         self._exe_path = exe_path
         self._extra_args = extra_args
         self._page_settings = page_settings
+        self._default_headers = default_headers
         self._proxy_address = proxy_address
 
     def test_client_exe(self):
@@ -376,7 +383,9 @@ class PhantomJSClient(object):
 
             remote = PhantomJSRemote(
                 self._exe_path,
-                extra_args=extra_args, page_settings=self._page_settings
+                extra_args=extra_args, 
+                page_settings=self._page_settings,
+                default_headers=self._default_headers,
             )
         else:
             remote = self._remotes_ready.pop()

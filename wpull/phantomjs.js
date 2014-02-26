@@ -8,6 +8,7 @@ if (system.args.length !== 2) {
 var page = require('webpage').create();
 var hostPort = system.args[1];
 var defaultPageSettings = null;
+var defaultPageHeaders = {};
 
 var connection = new WebSocket('ws://localhost:' + hostPort);
 console.log('Created websocket', connection)
@@ -205,6 +206,12 @@ function setDefaultPageSettings(settings) {
 	applyDefaultPageSettings(settings);
 }
 
+// Set the default page headers
+function setDefaultPageHeaders(headers) {
+	defaultPageHeaders = headers;
+	page.customHeaders = headers;
+}
+
 // Apply the default page settings
 function applyDefaultPageSettings() {
 	if (!defaultPageSettings) {
@@ -222,4 +229,5 @@ function resetPage() {
 	page = require('webpage').create();
 	setupEvents();
 	applyDefaultPageSettings();
+	page.customHeaders = defaultPageHeaders;
 }

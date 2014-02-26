@@ -34,7 +34,10 @@ class TestPhantomJS(tornado.testing.AsyncTestCase):
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_events(self):
-        remote = PhantomJSRemote(page_settings={'userAgent': 'Blah'})
+        remote = PhantomJSRemote(
+            page_settings={'userAgent': 'Blah'},
+            default_headers={'Accept-Encoding': 'identity'},
+        )
 
         yield remote.call('page.open', 'http://example.invalid')
 
