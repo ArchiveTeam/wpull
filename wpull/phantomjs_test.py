@@ -63,7 +63,7 @@ class TestPhantomJS(tornado.testing.AsyncTestCase):
 
             test_remote = remote
 
-        for dummy in range(50):
+        for dummy in range(100):
             if test_remote in remote_client.remotes_ready:
                 break
 
