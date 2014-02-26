@@ -86,6 +86,9 @@ class PhantomJSRemote(object):
 
     def close(self):
         '''Terminate the PhantomJS process.'''
+        if self._subproc.returncode is not None:
+            return
+
         self._subproc.proc.terminate()
 
     def _subprocess_exited_cb(self, exit_status):
@@ -97,10 +100,13 @@ class PhantomJSRemote(object):
 
         This function is blocking.
         '''
+        if self._subproc.returncode is not None:
+            return
+
         self._subproc.proc.terminate()
 
         for dummy in range(10):
-            if self._subproc.proc.poll():
+            if self._subproc.returncode is not None:
                 return
 
             time.sleep(0.1)
@@ -359,12 +365,16 @@ class PhantomJSClient(object):
                 self._exe_path,
                 extra_args=extra_args, page_settings=self._page_settings
             )
+        else:
+            remote = self._remotes_ready.pop()
 
         self._remotes_busy.add(remote)
 
         try:
             yield remote
         finally:
+            remote.page_event.clear()
+
             def put_back_remote(future):
                 future.result()
                 self._remotes_busy.remove(remote)
