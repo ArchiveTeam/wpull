@@ -5,6 +5,7 @@ What's New
 0.XX (2014-02-DD)
 =================
 
+* Experimental PhantomJS support. It can be enabled with ``--phantomjs``. See the Usage section in the documentation for more details.
 * API changes:
 
   * The ``http`` module was split up into smaller modules: ``http.client``, ``http.connection``, ``http.request``, ``http.util``.

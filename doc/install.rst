@@ -17,6 +17,7 @@ Wpull requires the following:
 * `SQLAlchemy <https://pypi.python.org/pypi/SQLAlchemy>`_
 * `Lunatic Python (bastibe version)
   <https://github.com/bastibe/lunatic-python>`_ (optional for Lua support)
+* `PhantomJS <http://phantomjs.org/>`_ (optional)
 
 For installing Wpull, it is recommended to use `pip installer
 <http://www.pip-installer.org/>`_.
@@ -77,6 +78,12 @@ Run pip to install Lunatic Python with ``LOCATION`` replaced with the
 location of the Lunatic Python source code.::
 
     pip install LOCATION
+
+
+PhantomJS (Optional)
+++++++++++++++++++++
+
+It is recommended to download a prebuilt binary build from http://phantomjs.org/download.html.
 
 
 Automatic Install

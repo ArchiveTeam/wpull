@@ -17,7 +17,8 @@ Features:
 * Familiar Wget options and behavior
 * Graceful stopping and resuming
 * Python & Lua scripting support
-* Modular, extensible, & asynchronous API 
+* Modular, extensible, & asynchronous API
+* PhantomJS integration
 
 
 .. ⬆ Please keep this intro above in sync with the README file. ⬆
