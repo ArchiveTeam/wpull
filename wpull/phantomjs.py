@@ -99,6 +99,7 @@ class PhantomJSRemote(object):
 
     @property
     def return_code(self):
+        '''Return the exit code of the PhantomJS process.'''
         return self._subproc.returncode
 
     def _subprocess_exited_cb(self, exit_status):
