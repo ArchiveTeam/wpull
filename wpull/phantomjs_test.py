@@ -1,7 +1,10 @@
 # encoding=utf-8
 import tornado.testing
 
-from wpull.phantomjs import PhantomJSRemote
+from wpull.http.client import Client
+from wpull.phantomjs import PhantomJSRemote, PhantomJSClient
+from wpull.proxy import HTTPProxyServer
+import wpull.util
 
 
 DEFAULT_TIMEOUT = 30
@@ -44,3 +47,27 @@ class TestPhantomJS(tornado.testing.AsyncTestCase):
         remote = PhantomJSRemote()
 
         yield remote.call('resetPage')
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_client(self):
+        http_client = Client()
+        proxy_server = HTTPProxyServer(http_client)
+        proxy_socket, proxy_host = tornado.testing.bind_unused_port()
+
+        proxy_server.add_socket(proxy_socket)
+
+        remote_client = PhantomJSClient('localhost:{0}'.format(proxy_host))
+
+        with remote_client.remote() as remote:
+            self.assertIn(remote, remote_client.remotes_busy)
+
+            test_remote = remote
+
+        for dummy in range(50):
+            if test_remote in remote_client.remotes_ready:
+                break
+
+            yield wpull.util.sleep(0.1)
+
+        self.assertIn(test_remote, remote_client.remotes_ready)
+        self.assertNotIn(test_remote, remote_client.remotes_busy)

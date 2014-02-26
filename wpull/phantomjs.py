@@ -1,6 +1,7 @@
 # encoding=utf-8
 '''PhantomJS wrapper.'''
 import atexit
+import contextlib
 import json
 import logging
 import os.path
@@ -313,6 +314,66 @@ class RPCHandler(tornado.websocket.WebSocketHandler):
             except WebSocketClosedError:
                 _logger.exception('Error sending RPC message.')
                 out_queue.put(message)
+
+
+class PhantomJSClient(object):
+    '''PhantomJS Remote Client.
+
+    This class wraps the components of Wpull to the Remote. A pool of Remotes
+    are used.
+    '''
+    def __init__(self, proxy_address, exe_path='phantomjs', extra_args=None,
+    page_settings=None):
+        self._remotes_ready = set()
+        self._remotes_busy = set()
+        self._exe_path = exe_path
+        self._extra_args = extra_args
+        self._page_settings = page_settings
+        self._proxy_address = proxy_address
+
+    def test_client_exe(self):
+        '''Raise an error if PhantomJS executable is not found.'''
+        remote = PhantomJSRemote(self._exe_path)
+        remote.close()
+
+    @property
+    def remotes_ready(self):
+        '''Return the Remotes that are not used.'''
+        return frozenset(self._remotes_ready)
+
+    @property
+    def remotes_busy(self):
+        '''Return the Remotes that are currently used.'''
+        return frozenset(self._remotes_busy)
+
+    @contextlib.contextmanager
+    def remote(self):
+        '''Return a PhantomJS Remote within a context manager.'''
+        if not self._remotes_ready:
+            extra_args = ['--proxy', '{0}:{1}'.format(*self._proxy_address)]
+
+            if self._extra_args:
+                extra_args.extend(self._extra_args)
+
+            remote = PhantomJSRemote(
+                self._exe_path,
+                extra_args=extra_args, page_settings=self._page_settings
+            )
+
+        self._remotes_busy.add(remote)
+
+        try:
+            yield remote
+        finally:
+            def put_back_remote(future):
+                future.result()
+                self._remotes_busy.remove(remote)
+                self._remotes_ready.add(remote)
+
+            tornado.ioloop.IOLoop.current().add_future(
+                remote.call('resetPage'),
+                put_back_remote
+            )
 
 
 if __name__ == '__main__':
