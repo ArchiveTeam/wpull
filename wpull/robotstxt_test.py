@@ -1,9 +1,9 @@
 import io
 import tornado.testing
 
-from wpull.http import Response, Request
+from wpull.http.request import Response, Request
 from wpull.robotstxt import RobotsTxtPool, RobotsState, RobotsDenied
-from wpull.web import RichClient, RobotsTxtRichClientSession
+from wpull.http.web import RichClient, RobotsTxtRichClientSession
 
 
 class MockHTTPClient(object):

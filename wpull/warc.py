@@ -15,7 +15,7 @@ import uuid
 
 from wpull.namevalue import NameValueRecord
 import wpull.util
-from wpull.http import Response
+from wpull.http.request import Response
 
 
 class WARCRecord(object):
@@ -145,7 +145,7 @@ class WARCRecord(object):
 
         Returns:
             Response, None: Returns an instance of
-            :class:`.http.Response` or None.
+            :class:`.http.request.Response` or None.
         '''
         with wpull.util.reset_file_offset(self.block_file):
             data = self.block_file.read(4096)

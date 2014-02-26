@@ -34,7 +34,7 @@ class BaseWriterSession(object, metaclass=abc.ABCMeta):
         '''Rewrite the request if needed.
 
         Args:
-            request: :class:`.http.Request`
+            request: :class:`.http.request.Request`
 
         This function is called by a Processor after it has created the
         Request, but before submitting it to the Engine.
@@ -125,7 +125,7 @@ class BaseFileWriterSession(BaseWriterSession):
 
         Args:
             filename: The path where the file is to be saved
-            response: :class:`.http.Response`
+            response: :class:`.http.request.Response`
             mode: The file mode
 
         This function will create the directories if not exist.
@@ -145,7 +145,7 @@ class BaseFileWriterSession(BaseWriterSession):
 
         Args:
             filename: The path of the file
-            response: :class:`.http.Response`
+            response: :class:`.http.request.Response`
         '''
         last_modified = response.fields.get('Last-Modified')
 
@@ -168,7 +168,7 @@ class BaseFileWriterSession(BaseWriterSession):
 
         Args:
             filename: The path of the file
-            response: :class:`.http.Response`
+            response: :class:`.http.request.Response`
         '''
         new_filename = filename + '-new'
 

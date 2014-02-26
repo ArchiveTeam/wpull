@@ -11,16 +11,21 @@ import ssl
 import sys
 import tempfile
 import tornado.ioloop
+import tornado.testing
 
 from wpull.converter import BatchDocumentConverter
 from wpull.database import URLTable
 from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
-from wpull.http import (Client, Connection, HostConnectionPool, ConnectionPool,
-    Request)
+from wpull.http.client import Client
+from wpull.http.connection import Connection, ConnectionPool, HostConnectionPool
+from wpull.http.request import Request
+from wpull.http.web import RedirectTracker, RichClient
 from wpull.network import Resolver
+from wpull.phantomjs import PhantomJSClient
 from wpull.processor import WebProcessor
+from wpull.proxy import HTTPProxyServer
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
     PrintServerResponseRecorder, ProgressRecorder)
 from wpull.robotstxt import RobotsTxtPool
@@ -32,7 +37,6 @@ from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
 from wpull.util import ASCIIStreamWriter
 import wpull.version
 from wpull.waiter import LinearWaiter
-from wpull.web import RedirectTracker, RichClient
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
     IgnoreFileWriter, TimestampingFileWriter, AntiClobberFileWriter)
@@ -52,6 +56,8 @@ class Builder(object):
     UNSAFE_OPTIONS = frozenset(['save_headers'])
 
     def __init__(self, args):
+        self.default_user_agent = 'Mozilla/5.0 (compatible) Wpull/{0}'.format(
+            wpull.version.__version__)
         self._args = args
         self._factory = Factory({
             'BatchDocumentConverter': BatchDocumentConverter,
@@ -66,8 +72,10 @@ class Builder(object):
             'DemuxURLFilter': DemuxURLFilter,
             'Engine': Engine,
             'HostConnectionPool': HostConnectionPool,
+            'HTTPProxyServer': HTTPProxyServer,
             'HTMLScraper': HTMLScraper,
             'PathNamer': PathNamer,
+            'PhantomJSClient': PhantomJSClient,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
             'ProgressRecorder': ProgressRecorder,
             'RedirectTracker': RedirectTracker,
@@ -426,6 +434,7 @@ class Builder(object):
         post_data = self._get_post_data()
         converter = self._build_document_converter()
         rich_http_client = self._build_rich_http_client()
+        phantomjs_client = self._build_phantomjs_client()
 
         waiter = self._factory.new('Waiter',
             wait=args.wait,
@@ -443,6 +452,7 @@ class Builder(object):
             statistics=self._factory['Statistics'],
             post_data=post_data,
             converter=converter,
+            phantomjs_client=phantomjs_client,
         )
 
         return processor
@@ -512,11 +522,7 @@ class Builder(object):
         def request_factory(*args, **kwargs):
             request = self._factory.class_map['Request'].new(*args, **kwargs)
 
-            if self._args.user_agent:
-                user_agent = self._args.user_agent
-            else:
-                user_agent = 'Mozilla/5.0 (compatible) Wpull/{0}'.format(
-                    wpull.version.__version__)
+            user_agent = self._args.user_agent or self.default_user_agent
 
             request.fields['User-Agent'] = user_agent
 
@@ -645,6 +651,38 @@ class Builder(object):
         )
 
         return converter
+
+    def _build_phantomjs_client(self):
+        '''Build proxy server and PhantomJS client.'''
+        if not self._args.phantomjs:
+            return
+
+        proxy_server = self._factory.new(
+            'HTTPProxyServer',
+            self.factory['Client']
+        )
+        proxy_socket, proxy_port = tornado.testing.bind_unused_port()
+
+        proxy_server.add_socket(proxy_socket)
+
+        page_settings = {}
+        default_headers = {'Accept-Encoding': 'identity'}
+
+        if self._args.read_timeout:
+            page_settings['resourceTimeout'] = self._args.read_timeout * 1000
+
+        page_settings['userAgent'] = self._args.user_agent \
+            or self.default_user_agent
+
+        phantomjs_client = self._factory.new(
+            'PhantomJSClient',
+            'localhost:{0}'.format(proxy_port),
+            page_settings=page_settings,
+            default_headers=default_headers,
+        )
+        phantomjs_client.test_client_exe()
+
+        return phantomjs_client
 
     def _build_ssl_options(self):
         '''Create the SSL options.

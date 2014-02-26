@@ -9,8 +9,7 @@ import toro
 import wpull.actor
 from wpull.database import Status, NotFound
 from wpull.errors import (ExitStatus, ServerError, ConnectionRefused, DNSNotFound,
-    SSLVerficationError)
-from wpull.http import NetworkError, ProtocolError
+    SSLVerficationError, ProtocolError, NetworkError)
 from wpull.url import URLInfo
 import wpull.util
 
@@ -111,7 +110,11 @@ class Engine(object):
         '''Start the worker tasks.'''
         while True:
             yield self._worker_semaphore.acquire()
-            self._process_input()
+
+            tornado.ioloop.IOLoop.current().add_future(
+                self._process_input(),
+                lambda future: future.result(),
+            )
 
     def _get_next_url_record(self):
         '''Return the next available URL from the URL table.

@@ -6,7 +6,7 @@ import os.path
 import tempfile
 
 from wpull.backport.testing import unittest
-from wpull.http import Request, Response
+from wpull.http.request import Request, Response
 from wpull.recorder import WARCRecorder
 import wpull.util
 import wpull.version

@@ -2,11 +2,11 @@
 '''Document readers.'''
 import abc
 import codecs
-import collections
 import lxml.html
 import re
 
 import wpull.util
+import wpull.http.util
 
 
 try:
@@ -181,7 +181,7 @@ def get_heading_encoding(response):
     Returns:
         ``str``, ``None``: The codec name.
     '''
-    encoding = wpull.http.parse_charset(
+    encoding = wpull.http.util.parse_charset(
         response.fields.get('content-type', ''))
 
     if encoding:
@@ -204,7 +204,7 @@ def get_encoding(response):
     Returns:
         ``str``, ``None``: The codec name.
     '''
-    encoding = wpull.http.parse_charset(
+    encoding = wpull.http.util.parse_charset(
         response.fields.get('content-type', ''))
 
     encoding = wpull.util.detect_encoding(response.body.content, encoding)

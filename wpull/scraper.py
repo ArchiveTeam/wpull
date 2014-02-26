@@ -18,8 +18,8 @@ class BaseDocumentScraper(BaseDocumentReader):
         '''Extract the URLs from the document.
 
         Args:
-            request: :class:`.http.Request`
-            response: :class:`http.Response`
+            request: :class:`.http.request.Request`
+            response: :class:`http.request.Response`
 
         Returns:
             dict, None: Returns a dict or None.

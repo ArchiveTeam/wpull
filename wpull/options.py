@@ -104,6 +104,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         self._add_warc_args()
         self._add_recursive_args()
         self._add_accept_args()
+        self._add_phantomjs_args()
 
     def _add_startup_args(self):
         group = self.add_argument_group(_('startup'))
@@ -956,6 +957,14 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--no-parent',
             action='store_true',
             help=_('don’t follow to parent directories on URL path'),
+        )
+
+    def _add_phantomjs_args(self):
+        group = self.add_argument_group(_('PhantomJS'))
+        group.add_argument(
+            '--phantomjs',
+            action='store_true',
+            help=_('use PhantomJS for loading dynamic pages'),
         )
 
     def _post_parse_args(self, args):

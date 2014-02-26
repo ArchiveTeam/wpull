@@ -16,7 +16,8 @@ Features:
 * Familiar Wget options and behavior
 * Graceful stopping and resuming
 * Python & Lua scripting support
-* Modular, extensible, & asynchronous API 
+* Modular, extensible, & asynchronous API
+* PhantomJS integration
 
 **Currently in beta quality! Some features are not implemented yet and the API
 is not considered stable.**
@@ -35,6 +36,7 @@ Requires:
 * `SQLAlchemy <https://pypi.python.org/pypi/SQLAlchemy>`_
 * `Lunatic Python (bastibe version)
   <https://github.com/bastibe/lunatic-python>`_ (optional for Lua support)
+* `PhantomJS <http://phantomjs.org/>`_ (optional)
 
 Once you install the requirements, install Wpull from PyPI using pip::
 

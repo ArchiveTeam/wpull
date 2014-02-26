@@ -8,15 +8,16 @@ import tornado.gen
 
 from wpull.conversation import Body
 from wpull.database import Status
+from wpull.document import HTMLReader
 from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
     DNSNotFound, NetworkError)
-from wpull.http import Response, Request
+from wpull.http.request import Response, Request
+from wpull.http.web import RichClientResponseType
 from wpull.scraper import HTMLScraper, DemuxDocumentScraper, CSSScraper
 from wpull.stats import Statistics
 from wpull.url import URLInfo, DemuxURLFilter
 import wpull.util
 from wpull.waiter import LinearWaiter
-from wpull.web import RichClientResponseType
 from wpull.writer import NullWriter
 
 
@@ -53,7 +54,7 @@ class WebProcessor(BaseProcessor):
     '''HTTP processor.
 
     Args:
-        rich_client (RichClient): An instance of :class:`.http.RichClient`.
+        rich_client (RichClient): An instance of :class:`.http.web.RichClient`.
         url_filter (DemuxURLFilter): An instance of
             :class:`.url.DemuxURLFilter`.
         document_scraper (DemuxDocumentScraper): An instance of
@@ -61,8 +62,6 @@ class WebProcessor(BaseProcessor):
         file_writer: File writer.
         waiter: Waiter.
         statistics: Statistics.
-        request_factory: A callable object that returns a new
-            :class:`.http.Request` via :func:`.http.Request.new`.
         retry_connrefused: If True, don't consider a connection refused error
             to be a permanent error.
         retry_dns_error: If True, don't consider a DNS resolution error to be
@@ -71,6 +70,7 @@ class WebProcessor(BaseProcessor):
             given `post_data`. `post_data` must be in percent-encoded
             query format ("application/x-www-form-urlencoded").
         converter: An instance of :class:`.converter.BatchDocumentConverter`.
+        phantomjs_client: An instance of :class:`.phantomjs.PhantomJSClient`.
 
     :seealso: :class:`WebProcessorSession`,
         :class:`WebProcessorWithRobotsTxtSession`
@@ -83,21 +83,21 @@ class WebProcessor(BaseProcessor):
 
     def __init__(self, rich_client,
     url_filter=None, document_scraper=None, file_writer=None,
-    waiter=None, statistics=None, request_factory=Request.new,
+    waiter=None, statistics=None,
     retry_connrefused=False, retry_dns_error=False, post_data=None,
-    converter=None):
+    converter=None, phantomjs_client=None):
         self._rich_client = rich_client
         self._url_filter = url_filter or DemuxURLFilter([])
         self._document_scraper = document_scraper or DemuxDocumentScraper([])
         self._file_writer = file_writer or NullWriter()
         self._waiter = waiter or LinearWaiter()
         self._statistics = statistics or Statistics()
-        self._request_factory = request_factory
         self._retry_connrefused = retry_connrefused
         self._retry_dns_error = retry_dns_error
         self._post_data = post_data
         self._session_class = WebProcessorSession
         self._converter = converter
+        self._phantomjs_client = phantomjs_client
 
     @property
     def rich_client(self):
@@ -124,10 +124,6 @@ class WebProcessor(BaseProcessor):
         return self._statistics
 
     @property
-    def request_factory(self):
-        return self._request_factory
-
-    @property
     def retry_dns_error(self):
         return self._retry_dns_error
 
@@ -138,6 +134,10 @@ class WebProcessor(BaseProcessor):
     @property
     def post_data(self):
         return self._post_data
+
+    @property
+    def phantomjs_client(self):
+        return self._phantomjs_client
 
     @tornado.gen.coroutine
     def process(self, url_item):
@@ -181,7 +181,7 @@ class WebProcessorSession(object):
         url_info = self._url_item.url_info
         url_record = self._url_item.url_record
 
-        request = self._processor.request_factory(
+        request = self._processor.rich_client.request_factory(
             url_info.url, url_encoding=url_info.encoding)
 
         self._populate_common_request(request)
@@ -206,7 +206,7 @@ class WebProcessorSession(object):
 
     @tornado.gen.coroutine
     def process(self):
-        if not self._should_fetch():
+        if not self._should_fetch(self._next_url_info):
             self._url_item.skip()
             return
 
@@ -215,7 +215,7 @@ class WebProcessorSession(object):
         )
 
         while not self._rich_client_session.done:
-            if not self._should_fetch():
+            if not self._should_fetch(self._next_url_info):
                 self._url_item.skip()
                 break
 
@@ -266,6 +266,8 @@ class WebProcessorSession(object):
             if self._rich_client_session.response_type \
             != RichClientResponseType.robots:
                 is_done = self._handle_response(response)
+
+                yield self._process_phantomjs(request, response)
             else:
                 _logger.debug('Not handling response {0}.'.format(
                     self._rich_client_session.response_type))
@@ -287,9 +289,8 @@ class WebProcessorSession(object):
 
         return self._rich_client_session.next_request.url_info
 
-    def _should_fetch(self):
+    def _should_fetch(self, url_info):
         '''Return whether the URL should be fetched.'''
-        url_info = self._next_url_info
         url_record = self._url_item.url_record
         test_info = self._processor.url_filter.test_info(url_info, url_record)
 
@@ -481,3 +482,67 @@ class WebProcessorSession(object):
         and hasattr(instance.body, 'content_file') \
         and instance.body.content_file:
             instance.body.content_file.close()
+
+    @tornado.gen.coroutine
+    def _process_phantomjs(self, request, response):
+        '''Process PhantomJS.'''
+        if not self._processor.phantomjs_client:
+            return
+
+        if response.status_code != 200:
+            return
+
+        if not HTMLReader.is_html(request, response):
+            return
+
+        _logger.debug('Starting PhantomJS processing.')
+
+        with self._processor.phantomjs_client.remote() as remote:
+            self._hook_phantomjs_logging(remote)
+
+            yield remote.call('page.open', request.url_info.url)
+            yield remote.wait_page_event('load_finished')
+
+    def _hook_phantomjs_logging(self, remote):
+        def fetch_log(rpc_info):
+            _logger.info(
+                _('PhantomJS fetching ‘{url}’.')\
+                .format(url=rpc_info['request_data']['url'])
+            )
+
+        def fetched_log(rpc_info):
+            response = rpc_info['response']
+
+            _logger.info(
+                _('PhantomJS fetched ‘{url}’: {status_code} {reason}. '
+                    'Length: {content_length} [{content_type}].').format(
+                    url=response['url'],
+                    status_code=response['status'],
+                    reason=response['statusText'],
+                    content_length=response.get('bodySize'),
+                    content_type=response.get('contentType'),
+                )
+            )
+
+        def fetch_error_log(rpc_info):
+            resource_error = rpc_info['resource_error']
+
+            _logger.error(
+                _('PhantomJS fetching ‘{url}’ encountered an error: {error}')\
+                .format(
+                    url=resource_error['url'],
+                    error=resource_error['errorString']
+                )
+            )
+
+        def handle_page_event(rpc_info):
+            name = rpc_info['event']
+
+            if name == 'resource_requested':
+                fetch_log(rpc_info)
+            elif name == 'resource_received':
+                fetched_log(rpc_info)
+            elif name == 'resource_error':
+                fetch_error_log(rpc_info)
+
+        remote.page_event.handle(handle_page_event)

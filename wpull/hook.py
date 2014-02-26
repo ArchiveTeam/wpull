@@ -236,15 +236,10 @@ class HookedWebProcessorSessionMixin(object):
         '''Convert the instance to script's native types.'''
         return self.hook_env.to_script_native_type(instance)
 
-    def _should_fetch(self):
-        verdict = super()._should_fetch()
+    def _should_fetch(self, url_info):
+        verdict = super()._should_fetch(url_info)
 
-        # super() may have skipped this already. We undo it.
-        self._url_item.set_status(Status.in_progress,
-            increment_try_count=False)
-
-        url_info_dict = self._to_script_native_type(
-            self._next_url_info.to_dict())
+        url_info_dict = self._to_script_native_type(url_info.to_dict())
 
         record_info_dict = self._url_item.url_record.to_dict()
         record_info_dict = self._to_script_native_type(record_info_dict)
@@ -258,9 +253,6 @@ class HookedWebProcessorSessionMixin(object):
             url_info_dict, record_info_dict, verdict, reasons)
 
         _logger.debug('Hooked should fetch returned {0}'.format(verdict))
-
-        if not verdict:
-            self._url_item.skip()
 
         return verdict
 

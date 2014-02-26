@@ -33,7 +33,7 @@ Brief Option Overview
                      [--regex-type TYPE] [-D LIST] [--exclude-domains LIST]
                      [--hostnames LIST] [--exclude-hostnames LIST]
                      [--follow-tags LIST] [--ignore-tags LIST] [-H] [-L]
-                     [-I LIST] [-X LIST] [-np]
+                     [-I LIST] [-X LIST] [-np] [--phantomjs]
                      [URL [URL ...]]
 
   Wget-compatible web downloader.
@@ -191,4 +191,7 @@ Brief Option Overview
     -X LIST, --exclude-directories LIST
                           don’t download paths in LIST
     -np, --no-parent      don’t follow to parent directories on URL path
+
+  PhantomJS:
+    --phantomjs           use PhantomJS for loading dynamic pages
 
