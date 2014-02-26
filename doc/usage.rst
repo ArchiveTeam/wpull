@@ -62,6 +62,10 @@ PhantomJS Integration (Experimental)
 
 The filename of the PhantomJS executable must be on the PATH environment variable.
 
+.. warning:: Wpull communicates insecurely with PhantomJS on localhost with TCP sockets.
+
+    It is possible for another user, on the same machine as Wpull, to send bogus requests to the HTTP proxy or RPC server. Wpull, however, does *not* expose the HTTP proxy or PRC server outside to the net.
+
 
 Options
 =======
