@@ -119,6 +119,7 @@ class TestApp(GoodAppTestCase):
             '--secure-protocol', 'TLSv1',
             '--convert-links', '--backup-converted',
             '--accept', '*',
+            '--phantomjs',
         ])
         with cd_tempdir():
             engine = Builder(args).build()
