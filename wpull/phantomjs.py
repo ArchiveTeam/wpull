@@ -384,9 +384,14 @@ class PhantomJSClient(object):
 
             remote = PhantomJSRemote(
                 self._exe_path,
-                extra_args=extra_args, 
+                extra_args=extra_args,
                 page_settings=self._page_settings,
                 default_headers=self._default_headers,
+            )
+
+            tornado.ioloop.IOLoop.current().add_future(
+                remote.set('rewriteEnabled', True),
+                lambda future: future.result()
             )
         else:
             remote = self._remotes_ready.pop()
