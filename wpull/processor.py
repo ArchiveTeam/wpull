@@ -511,8 +511,12 @@ class WebProcessorSession(object):
             )
 
         def fetched_log(rpc_info):
+            if rpc_info['response']['stage'] != 'end':
+                return
+
             response = rpc_info['response']
 
+            self._processor.statistics.increment(response.get('bodySize', 0))
             _logger.info(
                 _('PhantomJS fetched ‘{url}’: {status_code} {reason}. '
                     'Length: {content_length} [{content_type}].').format(
