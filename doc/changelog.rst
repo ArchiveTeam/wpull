@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.XX (2014-02-DD)
+=================
+
+* Fixes missing dependencies and files in ``setup.py``.
+
+
 0.21 (2014-02-26)
 =================
 
