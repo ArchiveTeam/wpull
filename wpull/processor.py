@@ -61,8 +61,6 @@ class WebProcessor(BaseProcessor):
         file_writer: File writer.
         waiter: Waiter.
         statistics: Statistics.
-        request_factory: A callable object that returns a new
-            :class:`.http.Request` via :func:`.http.Request.new`.
         retry_connrefused: If True, don't consider a connection refused error
             to be a permanent error.
         retry_dns_error: If True, don't consider a DNS resolution error to be
@@ -83,7 +81,7 @@ class WebProcessor(BaseProcessor):
 
     def __init__(self, rich_client,
     url_filter=None, document_scraper=None, file_writer=None,
-    waiter=None, statistics=None, request_factory=Request.new,
+    waiter=None, statistics=None,
     retry_connrefused=False, retry_dns_error=False, post_data=None,
     converter=None):
         self._rich_client = rich_client
@@ -92,7 +90,6 @@ class WebProcessor(BaseProcessor):
         self._file_writer = file_writer or NullWriter()
         self._waiter = waiter or LinearWaiter()
         self._statistics = statistics or Statistics()
-        self._request_factory = request_factory
         self._retry_connrefused = retry_connrefused
         self._retry_dns_error = retry_dns_error
         self._post_data = post_data
@@ -122,10 +119,6 @@ class WebProcessor(BaseProcessor):
     @property
     def statistics(self):
         return self._statistics
-
-    @property
-    def request_factory(self):
-        return self._request_factory
 
     @property
     def retry_dns_error(self):
@@ -181,7 +174,7 @@ class WebProcessorSession(object):
         url_info = self._url_item.url_info
         url_record = self._url_item.url_record
 
-        request = self._processor.request_factory(
+        request = self._processor.rich_client.request_factory(
             url_info.url, url_encoding=url_info.encoding)
 
         self._populate_common_request(request)
