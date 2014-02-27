@@ -2,6 +2,14 @@
 What's New
 ==========
 
+0.XX (2014-02-DD)
+==================
+
+* Fixes PhantomJS page scrolling to be consistent.
+* Lengthens PhantomJS viewport to ensure lazy-load images are properly triggered.
+* Lengthens PhantomJS paper size to reduce excessive fragmentation of blocks.
+
+
 0.22 (2014-02-27)
 =================
 

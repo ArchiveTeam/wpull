@@ -372,6 +372,28 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
 
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_phantomjs_scroll(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/static/DEUUEAUGH.html'),
+            '-4',
+            '--no-robots',
+            '--phantomjs',
+            '--phantomjs-wait', '0.1',
+            '--phantomjs-scroll', '10',
+        ])
+        builder = Builder(args)
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+
+            with open('DEUUEAUGH.html.snapshot.html', 'rb') as in_file:
+                data = in_file.read()
+                self.assertIn(b'Count: 10', data)
+
+        self.assertEqual(0, exit_code)
+
 
 class TestAppBad(BadAppTestCase):
     def setUp(self):

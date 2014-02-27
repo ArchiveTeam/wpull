@@ -1,0 +1,54 @@
+<html>
+<head>
+<style>
+html {
+	background: white;
+	color: black;
+}
+
+img.lazy {
+	display: block;
+	margin: 50px;
+}
+
+#info {
+	position: fixed;
+	top: 0px;
+	left: 0px;
+	background: white;
+}
+</style>
+</head>
+<body>
+	<div id="info"></div>
+	<div id="container"></div>
+
+	<script src="jquery-2.1.0.js"></script>
+	<script src="jquery.lazyload.js"></script>
+	<script>
+		var container = $('#container');
+		var token = Math.random();
+
+		for (var i = 0; i < 10; i++) {
+			container.append('<img class="lazy" data-original="Wpull.png?t='
+					+ token + '" height="500" width="500">');
+		}
+
+		$("img.lazy").lazyload({
+			effect : "fadeIn"
+		});
+
+		setInterval(function() {
+			var imgCount = 0;
+			$("img.lazy").each(function(index, value) {
+				var src = $(value).attr('src');
+				if (src && src.indexOf('Wpull.png') >= 0) {
+					imgCount++;
+				}
+			});
+
+			$("#info").text('Count: ' + imgCount);
+		}, 100);
+	</script>
+</body>
+</html>
