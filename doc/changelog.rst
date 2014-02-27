@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2014-02-DD)
+0.22 (2014-02-27)
 =================
 
 * Implements ``--phantomjs-scroll`` and ``--phantomjs-wait``.
