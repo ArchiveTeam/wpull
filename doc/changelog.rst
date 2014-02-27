@@ -2,8 +2,8 @@
 What's New
 ==========
 
-0.XX (2014-02-DD)
-=================
+0.21.1 (2014-02-27)
+===================
 
 * Fixes missing dependencies and files in ``setup.py``.
 * For PhantomJS:
