@@ -24,7 +24,7 @@ from wpull.http.request import Request
 from wpull.http.web import RedirectTracker, RichClient
 from wpull.network import Resolver
 from wpull.phantomjs import PhantomJSClient
-from wpull.processor import WebProcessor
+from wpull.processor import WebProcessor, PhantomJSController
 from wpull.proxy import HTTPProxyServer
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
     PrintServerResponseRecorder, ProgressRecorder)
@@ -76,6 +76,7 @@ class Builder(object):
             'HTMLScraper': HTMLScraper,
             'PathNamer': PathNamer,
             'PhantomJSClient': PhantomJSClient,
+            'PhantomJSController': PhantomJSController,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
             'ProgressRecorder': ProgressRecorder,
             'RedirectTracker': RedirectTracker,
@@ -434,7 +435,7 @@ class Builder(object):
         post_data = self._get_post_data()
         converter = self._build_document_converter()
         rich_http_client = self._build_rich_http_client()
-        phantomjs_client = self._build_phantomjs_client()
+        phantomjs_controller = self._build_phantomjs_controller()
 
         waiter = self._factory.new('Waiter',
             wait=args.wait,
@@ -452,7 +453,7 @@ class Builder(object):
             statistics=self._factory['Statistics'],
             post_data=post_data,
             converter=converter,
-            phantomjs_client=phantomjs_client,
+            phantomjs_controller=phantomjs_controller,
         )
 
         return processor
@@ -652,8 +653,8 @@ class Builder(object):
 
         return converter
 
-    def _build_phantomjs_client(self):
-        '''Build proxy server and PhantomJS client.'''
+    def _build_phantomjs_controller(self):
+        '''Build proxy server and PhantomJS client and controller.'''
         if not self._args.phantomjs:
             return
 
@@ -682,7 +683,15 @@ class Builder(object):
         )
         phantomjs_client.test_client_exe()
 
-        return phantomjs_client
+        phantomjs_controller = self._factory.new(
+            'PhantomJSController',
+            phantomjs_client,
+            wait_time=self._args.phantomjs_wait,
+            num_scrolls=self._args.phantomjs_scroll,
+            warc_recorder=self.factory.get('WARCRecorder'),
+        )
+
+        return phantomjs_controller
 
     def _build_ssl_options(self):
         '''Create the SSL options.

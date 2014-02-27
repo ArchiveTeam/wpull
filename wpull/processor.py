@@ -6,6 +6,7 @@ import gettext
 import io
 import logging
 import os
+import tempfile
 import tornado.gen
 
 from wpull.conversation import Body
@@ -21,6 +22,7 @@ from wpull.stats import Statistics
 from wpull.url import URLInfo, DemuxURLFilter
 import wpull.util
 from wpull.waiter import LinearWaiter
+from wpull.warc import WARCRecord
 from wpull.writer import NullWriter
 
 
@@ -73,7 +75,7 @@ class WebProcessor(BaseProcessor):
             given `post_data`. `post_data` must be in percent-encoded
             query format ("application/x-www-form-urlencoded").
         converter: An instance of :class:`.converter.BatchDocumentConverter`.
-        phantomjs_client: An instance of :class:`.phantomjs.PhantomJSClient`.
+        phantomjs_controller: An instance of :class:`PhantomJSController`.
 
     :seealso: :class:`WebProcessorSession`,
         :class:`WebProcessorWithRobotsTxtSession`
@@ -88,7 +90,7 @@ class WebProcessor(BaseProcessor):
     url_filter=None, document_scraper=None, file_writer=None,
     waiter=None, statistics=None,
     retry_connrefused=False, retry_dns_error=False, post_data=None,
-    converter=None, phantomjs_client=None):
+    converter=None, phantomjs_controller=None):
         self._rich_client = rich_client
         self._url_filter = url_filter or DemuxURLFilter([])
         self._document_scraper = document_scraper or DemuxDocumentScraper([])
@@ -100,7 +102,7 @@ class WebProcessor(BaseProcessor):
         self._post_data = post_data
         self._session_class = WebProcessorSession
         self._converter = converter
-        self._phantomjs_client = phantomjs_client
+        self._phantomjs_controller = phantomjs_controller
 
     @property
     def rich_client(self):
@@ -139,8 +141,8 @@ class WebProcessor(BaseProcessor):
         return self._post_data
 
     @property
-    def phantomjs_client(self):
-        return self._phantomjs_client
+    def phantomjs_controller(self):
+        return self._phantomjs_controller
 
     @tornado.gen.coroutine
     def process(self, url_item):
@@ -489,7 +491,7 @@ class WebProcessorSession(object):
     @tornado.gen.coroutine
     def _process_phantomjs(self, request, response):
         '''Process PhantomJS.'''
-        if not self._processor.phantomjs_client:
+        if not self._processor.phantomjs_controller:
             return
 
         if response.status_code != 200:
@@ -500,14 +502,30 @@ class WebProcessorSession(object):
 
         _logger.debug('Starting PhantomJS processing.')
 
-        with self._processor.phantomjs_client.remote() as remote:
+        controller = self._processor.phantomjs_controller
+
+        with controller.client.remote() as remote:
             self._hook_phantomjs_logging(remote)
 
+            yield controller.apply_page_size(remote)
             yield remote.call('page.open', request.url_info.url)
             yield remote.wait_page_event('load_finished')
+            yield controller.control(remote)
+
+            # FIXME: not sure where the logic should fit in
+            if controller._snapshot:
+                yield self._take_phantomjs_snapshot(controller, remote)
 
             content = yield remote.eval('page.content')
 
+        mock_response = self._new_phantomjs_response(response, content)
+
+        self._scrape_document(request, mock_response)
+
+        _logger.debug('Ended PhantomJS processing.')
+
+    def _new_phantomjs_response(self, response, content):
+        '''Return a new mock Response with the content.'''
         mock_response = copy.copy(response)
         mock_response.body.content_file = io.BytesIO(content.encode('utf-8'))
         mock_response.fields = NameValueRecord()
@@ -517,11 +535,10 @@ class WebProcessorSession(object):
 
         mock_response.fields['Content-Type'] = 'text/html; charset="utf-8"'
 
-        self._scrape_document(request, response)
-
-        _logger.debug('Ended PhantomJS processing.')
+        return mock_response
 
     def _hook_phantomjs_logging(self, remote):
+        '''Set up logging from PhantomJS to Wpull.'''
         def fetch_log(rpc_info):
             _logger.info(
                 _('PhantomJS fetching ‘{url}’.')\
@@ -568,3 +585,112 @@ class WebProcessorSession(object):
                 fetch_error_log(rpc_info)
 
         remote.page_event.handle(handle_page_event)
+
+    @tornado.gen.coroutine
+    def _take_phantomjs_snapshot(self, controller, remote):
+        '''Take HTML and PDF snapshot.'''
+        html_path = self._file_writer_session.extra_resource_path(
+            '.snapshot.html'
+        )
+        pdf_path = self._file_writer_session.extra_resource_path(
+            '.snapshot.pdf'
+        )
+
+        files_to_del = []
+
+        if not html_path:
+            html_path = tempfile.mkstemp('.html')[1]
+            files_to_del.append(html_path)
+
+        if not pdf_path:
+            pdf_path = tempfile.mkstemp('.pdf')[1]
+            files_to_del.append(pdf_path)
+
+        yield controller.snapshot(remote, html_path, pdf_path)
+
+        for filename in files_to_del:
+            os.remove(filename)
+
+
+class PhantomJSController(object):
+    '''PhantomJS Page Controller.'''
+    def __init__(self, client, wait_time=1, num_scrolls=5, snapshot=True,
+    warc_recorder=None):
+        self.client = client
+        self._wait_time = wait_time
+        self._num_scrolls = num_scrolls
+        self._snapshot = snapshot
+        self._warc_recorder = warc_recorder
+
+    @tornado.gen.coroutine
+    def apply_page_size(self, remote):
+        '''Apply page size.'''
+        yield remote.set('page.viewportSize', {'width': 1024, 'height': 768})
+        yield remote.set(
+            'page.paperSize',
+            {'width': '2048px', 'height': '1536px', 'border': '0px'}
+        )
+
+    @tornado.gen.coroutine
+    def control(self, remote):
+        '''Scroll the page.'''
+        yield wpull.util.sleep(self._wait_time)
+
+        for scroll_count in range(self._num_scrolls):
+            _logger.debug('Scrolling page. Count={0}.'.format(scroll_count))
+
+            scroll_position = yield remote.eval('page.scrollPosition')
+
+            if not scroll_position['top']:
+                scroll_position['top'] = 1000
+
+            scroll_position['top'] *= 2
+
+            yield remote.set('page.scrollPosition', scroll_position)
+            yield remote.call('page.sendEvent', 'keypress', 'PageDown')
+            yield remote.call('page.sendEvent', 'keydown', 'PageDown')
+            yield remote.call('page.sendEvent', 'keyup', 'PageDown')
+
+            yield wpull.util.sleep(self._wait_time)
+
+    @tornado.gen.coroutine
+    def snapshot(self, remote, html_path=None, render_path=None):
+        '''Take snapshot.'''
+        content = yield remote.eval('page.content')
+        url = yield remote.eval('page.url')
+
+        if html_path:
+            _logger.debug('Saving snapshot to {0}.'.format(html_path))
+            dir_path = os.path.abspath(os.path.dirname(html_path))
+
+            if not os.path.exists(dir_path):
+                os.makedirs(dir_path)
+
+            with open(html_path, 'wb') as out_file:
+                out_file.write(content.encode('utf-8'))
+
+            if self._warc_recorder:
+                self._add_warc_snapshot(html_path, 'text/html', url)
+
+        if render_path:
+            _logger.debug('Saving snapshot to {0}.'.format(render_path))
+            yield remote.call('page.render', render_path)
+
+            if self._warc_recorder:
+                self._add_warc_snapshot(render_path, 'application/pdf', url)
+
+        raise tornado.gen.Return(content)
+
+    def _add_warc_snapshot(self, filename, content_type, url):
+        _logger.debug('Adding snapshot record.')
+
+        record = WARCRecord()
+        record.set_common_fields('resource', content_type)
+        record.fields['WARC-Target-URI'] = 'urn:X-wpull:snapshot?url={0}'\
+            .format(wpull.url.quote(url))
+
+        with open(filename, 'rb') as in_file:
+            record.block_file = in_file
+
+            self._warc_recorder.set_length_and_maybe_checksums(record)
+            self._warc_recorder.write_record(record)

@@ -966,6 +966,27 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('use PhantomJS for loading dynamic pages'),
         )
+        group.add_argument(
+            '--phantomjs-scroll',
+            type=int,
+            default=5,
+            metavar='NUM',
+            help=_('scroll the page NUM times'),
+        )
+        group.add_argument(
+            '--phantomjs-wait',
+            type=float,
+            default=1.0,
+            metavar='SEC',
+            help=_('wait SEC seconds between page interactions'),
+        )
+        group.add_argument(
+            '--no-phantomjs-snapshot',
+            action='store_false',
+            dest='phantomjs_snapshot',
+            default=True,
+            help=_('don’t take dynamic page snapshots'),
+        )
 
     def _post_parse_args(self, args):
         if args.warc_file:
