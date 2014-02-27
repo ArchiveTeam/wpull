@@ -119,7 +119,6 @@ class TestApp(GoodAppTestCase):
             '--secure-protocol', 'TLSv1',
             '--convert-links', '--backup-converted',
             '--accept', '*',
-            '--phantomjs',
         ])
         with cd_tempdir():
             engine = Builder(args).build()
@@ -340,6 +339,38 @@ class TestApp(GoodAppTestCase):
             exit_code = yield engine()
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_phantomjs(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/static/simple_javascript.html'),
+            '--warc-file', 'test',
+            '-4',
+            '--no-robots',
+            '--phantomjs',
+            '--phantomjs-wait', '0.1',
+            '--phantomjs-scroll', '2',
+        ])
+        builder = Builder(args)
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+
+            self.assertTrue(os.path.exists('test.warc.gz'))
+            self.assertTrue(
+                os.path.exists('simple_javascript.html.snapshot.html')
+            )
+            self.assertTrue(
+                os.path.exists('simple_javascript.html.snapshot.pdf')
+            )
+
+            with open('simple_javascript.html.snapshot.html', 'rb') as in_file:
+                data = in_file.read()
+                self.assertIn(b'Hello world!', data)
+
+        self.assertEqual(0, exit_code)
+        self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
 
 
 class TestAppBad(BadAppTestCase):

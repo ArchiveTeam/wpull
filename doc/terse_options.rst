@@ -34,6 +34,8 @@ Brief Option Overview
                      [--hostnames LIST] [--exclude-hostnames LIST]
                      [--follow-tags LIST] [--ignore-tags LIST] [-H] [-L]
                      [-I LIST] [-X LIST] [-np] [--phantomjs]
+                     [--phantomjs-scroll NUM] [--phantomjs-wait SEC]
+                     [--no-phantomjs-snapshot]
                      [URL [URL ...]]
 
   Wget-compatible web downloader.
@@ -194,4 +196,9 @@ Brief Option Overview
 
   PhantomJS:
     --phantomjs           use PhantomJS for loading dynamic pages
+    --phantomjs-scroll NUM
+                          scroll the page NUM times
+    --phantomjs-wait SEC  wait SEC seconds between page interactions
+    --no-phantomjs-snapshot
+                          don’t take dynamic page snapshots
 

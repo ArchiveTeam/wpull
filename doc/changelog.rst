@@ -2,6 +2,14 @@
 What's New
 ==========
 
+0.22 (2014-02-27)
+=================
+
+* Implements ``--phantomjs-scroll`` and ``--phantomjs-wait``.
+* Implements saving HTML and PDF snapshots (including inside WARC file). Disable with ``--no-phantomjs-snapshot``.
+* API: Adds PhantomJSController.
+
+
 0.21.1 (2014-02-27)
 ===================
 

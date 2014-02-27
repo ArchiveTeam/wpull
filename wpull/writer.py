@@ -71,6 +71,15 @@ class BaseWriterSession(object, metaclass=abc.ABCMeta):
         '''
         pass
 
+    @abc.abstractmethod
+    def extra_resource_path(self, suffix):
+        '''Return a filename suitable for saving extra resources.
+
+        Returns:
+            str, None
+        '''
+        pass
+
 
 class BaseFileWriter(BaseWriter):
     '''Base class for saving documents to disk.
@@ -239,6 +248,10 @@ class BaseFileWriterSession(BaseWriterSession):
         if self._filename and os.path.exists(self._filename):
             os.remove(self._filename)
 
+    def extra_resource_path(self, suffix):
+        if self._filename:
+            return self._filename + suffix
+
 
 class OverwriteFileWriter(BaseFileWriter):
     '''File writer that overwrites files.'''
@@ -332,6 +345,9 @@ class NullWriterSession(BaseWriterSession):
         pass
 
     def save_document(self, response):
+        pass
+
+    def extra_resource_path(self, suffix):
         pass
 
 
