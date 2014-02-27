@@ -3,6 +3,7 @@
 import collections
 import errno
 import gettext
+import http.client
 import itertools
 import logging
 import re
@@ -74,7 +75,8 @@ class Connection(object):
     DEFAULT_BUFFER_SIZE = 10485760
     '''Default buffer size in bytes.'''
     DEFAULT_NO_CONTENT_CODES = frozenset(itertools.chain(
-        range(100, 200), [206, 304]
+        range(100, 200),
+        [http.client.NO_CONTENT, http.client.NOT_MODIFIED]
     ))
     '''Status codes where a response body is prohibited.'''
 
