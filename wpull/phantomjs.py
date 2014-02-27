@@ -99,6 +99,7 @@ class PhantomJSRemote(object):
 
     @property
     def return_code(self):
+        '''Return the exit code of the PhantomJS process.'''
         return self._subproc.returncode
 
     def _subprocess_exited_cb(self, exit_status):
@@ -307,7 +308,7 @@ class RPCHandler(tornado.websocket.WebSocketHandler):
 
         tornado.ioloop.IOLoop.current().add_future(
             self._send_loop(),
-            lambda dummy: dummy
+            lambda future: future.result()
         )
 
     @tornado.gen.coroutine
@@ -383,9 +384,14 @@ class PhantomJSClient(object):
 
             remote = PhantomJSRemote(
                 self._exe_path,
-                extra_args=extra_args, 
+                extra_args=extra_args,
                 page_settings=self._page_settings,
                 default_headers=self._default_headers,
+            )
+
+            tornado.ioloop.IOLoop.current().add_future(
+                remote.set('rewriteEnabled', True),
+                lambda future: future.result()
             )
         else:
             remote = self._remotes_ready.pop()

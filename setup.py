@@ -34,7 +34,7 @@ PROJECT_PACKAGE_DIR = dict(config.items(config_section))
 
 extras = {}
 install_requires = [
-    'tornado', 'toro', 'lxml', 'chardet',
+    'tornado', 'toro', 'lxml', 'chardet', 'sqlalchemy',
 ]
 
 if sys.version_info[0] == 2:
@@ -60,6 +60,9 @@ if __name__ == '__main__':
             'testing/*/*.css',
             'testing/*/*.html',
             'testing/*/*.txt',
+            'testing/*/*.lua',
+            'testing/*/*.rst',
+            '*.js',
         ]},
         install_requires=install_requires,
         classifiers=[

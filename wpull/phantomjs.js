@@ -9,6 +9,7 @@ var page = require('webpage').create();
 var hostPort = system.args[1];
 var defaultPageSettings = null;
 var defaultPageHeaders = {};
+var rewriteEnabled = false;
 
 var connection = new WebSocket('ws://localhost:' + hostPort);
 console.log('Created websocket', connection)
@@ -177,6 +178,12 @@ function setupEvents() {
 			'request_data' : requestData,
 			'network_request' : networkRequest
 		});
+
+		if (rewriteEnabled && requestData['url'].indexOf('https://') === 0) {
+			// Oh yeah!
+			networkRequest.changeUrl('http://wpull.invalid/'
+					+ requestData['url']);
+		}
 	};
 
 	page.onUrlChanged = function(targetUrl) {

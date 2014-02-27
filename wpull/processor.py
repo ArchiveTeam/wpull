@@ -1,7 +1,9 @@
 # encoding=utf-8
 '''Processor.'''
 import abc
+import copy
 import gettext
+import io
 import logging
 import os
 import tornado.gen
@@ -13,6 +15,7 @@ from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
     DNSNotFound, NetworkError)
 from wpull.http.request import Response, Request
 from wpull.http.web import RichClientResponseType
+from wpull.namevalue import NameValueRecord
 from wpull.scraper import HTMLScraper, DemuxDocumentScraper, CSSScraper
 from wpull.stats import Statistics
 from wpull.url import URLInfo, DemuxURLFilter
@@ -503,6 +506,21 @@ class WebProcessorSession(object):
             yield remote.call('page.open', request.url_info.url)
             yield remote.wait_page_event('load_finished')
 
+            content = yield remote.eval('page.content')
+
+        mock_response = copy.copy(response)
+        mock_response.body.content_file = io.BytesIO(content.encode('utf-8'))
+        mock_response.fields = NameValueRecord()
+
+        for name, value in response.fields.get_all():
+            mock_response.fields.add(name, value)
+
+        mock_response.fields['Content-Type'] = 'text/html; charset="utf-8"'
+
+        self._scrape_document(request, response)
+
+        _logger.debug('Ended PhantomJS processing.')
+
     def _hook_phantomjs_logging(self, remote):
         def fetch_log(rpc_info):
             _logger.info(
@@ -511,8 +529,12 @@ class WebProcessorSession(object):
             )
 
         def fetched_log(rpc_info):
+            if rpc_info['response']['stage'] != 'end':
+                return
+
             response = rpc_info['response']
 
+            self._processor.statistics.increment(response.get('bodySize', 0))
             _logger.info(
                 _('PhantomJS fetched ‘{url}’: {status_code} {reason}. '
                     'Length: {content_length} [{content_type}].').format(

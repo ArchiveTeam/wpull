@@ -21,10 +21,13 @@ class HTTPProxyServer(tornado.tcpserver.TCPServer):
 
     Args:
         http_client: An instance of :class:`.http.client.Client`.
+        rewrite (bool): If True, strip off URLs starting
+            ``http://wpull.invalid/``.
     '''
-    def __init__(self, http_client, **kwargs):
+    def __init__(self, http_client, rewrite=True, **kwargs):
         super().__init__(**kwargs)
         self._http_client = http_client
+        self._rewrite = rewrite
 
     def handle_stream(self, stream, address):
         _logger.debug('Handling stream from {0}.'.format(address))
@@ -36,7 +39,9 @@ class HTTPProxyServer(tornado.tcpserver.TCPServer):
 
         wpull_stream = wpull_io_stream_class(stream.socket, read_timeout=900)
 
-        handler = HTTPProxyHandler(self._http_client, wpull_stream)
+        handler = HTTPProxyHandler(
+            self._http_client, wpull_stream, self._rewrite
+        )
         tornado.ioloop.IOLoop.current().add_future(
             handler.handle(), lambda future: future.result()
         )
@@ -48,10 +53,12 @@ class HTTPProxyHandler(object):
     Args:
         http_client: An instance of :class:`.http.client.Client`.
         stream: An instance of class:`.extended.IOStream`.
+        rewrite (bool): See :class:`HTTPProxyServer`.
     '''
-    def __init__(self, http_client, stream):
+    def __init__(self, http_client, stream, rewrite):
         self._http_client = http_client
         self._io_stream = stream
+        self._rewrite = rewrite
 
     @tornado.gen.coroutine
     def handle(self):
@@ -124,6 +131,15 @@ class HTTPProxyHandler(object):
             br'\r?\n\r?\n')
         status_line, header = request_header_data.split(b'\n', 1)
         method, url, version = Request.parse_status_line(status_line)
+
+        if method == 'CONNECT':
+            _logger.warning('Proxy does not support CONNECT.')
+            self._io_stream.close()
+            return
+
+        if self._rewrite and url.startswith('http://wpull.invalid/'):
+            url = url.replace('http://wpull.invalid/', '', 1)
+
         request = Request.new(url, method, url_encoding='latin-1')
         request.version = version
 
@@ -137,6 +153,10 @@ class HTTPProxyHandler(object):
 
         if 'Host' not in request.fields:
             request.fields['Host'] = old_host_value
+
+        if self._rewrite and request.fields['Host'] == 'wpull.invalid':
+            request.fields['Host'] = request.url_info.hostname
+            assert request.fields['Host']
 
         raise tornado.gen.Return(request)
 

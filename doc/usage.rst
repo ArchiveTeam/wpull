@@ -58,9 +58,13 @@ partial crawls.
 PhantomJS Integration (Experimental)
 ====================================
 
-``--phantomjs`` will enable PhantomJS integration. If a HTML document is encountered, Wpull will open the URL in PhantomJS. The requests will go through an HTTP proxy to Wpull's HTTP client. Currently, Wpull will not do anything else. The only noticeable effect is that the HTTP requests are recorded if ``--warc-file`` is enabled.
+``--phantomjs`` will enable PhantomJS integration. If a HTML document is encountered, Wpull will open the URL in PhantomJS. The requests will go through an HTTP proxy to Wpull's HTTP client (which can be recorded with ``--warc-file``). After the page is loaded, the HTML source is scraped for URLs as normal. Currently, Wpull will *not do anything else* to manipulate the page such as scrolling or clicking on links. As a consequence, Wpull with PhantomJS is *not* a complete solution for dynamic web pages yet!
 
 The filename of the PhantomJS executable must be on the PATH environment variable.
+
+.. warning:: Wpull communicates insecurely with PhantomJS on localhost with TCP sockets.
+
+    It is possible for another user, on the same machine as Wpull, to send bogus requests to the HTTP proxy or RPC server. Wpull, however, does *not* expose the HTTP proxy or PRC server outside to the net.
 
 
 Options
