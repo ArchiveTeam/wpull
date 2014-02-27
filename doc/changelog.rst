@@ -6,8 +6,11 @@ What's New
 =================
 
 * Fixes missing dependencies and files in ``setup.py``.
-* Fixes capturing HTTPS connections with PhantomJS.
-* Fixes statistics with PhantomJS.
+* For PhantomJS:
+
+  * Fixes capturing HTTPS connections .
+  * Fixes statistics counter.
+  * Supports very basic scraping of HTML. See Usage section.
 
 
 0.21 (2014-02-26)
