@@ -2,8 +2,8 @@
 What's New
 ==========
 
-0.XX (2014-02-DD)
-==================
+0.22.1 (2014-02-28)
+===================
 
 * Fixes handling of "204 No Content" responses.
 * Fixes ``AssertionError`` on ``url_item.is_processed`` when robots.txt was enabled.
