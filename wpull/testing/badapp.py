@@ -326,7 +326,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.connection.close()
 
     def no_content(self):
-        self.send_response(206)
+        self.send_response(204)
         self.end_headers()
 
 

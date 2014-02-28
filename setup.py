@@ -62,6 +62,8 @@ if __name__ == '__main__':
             'testing/*/*.txt',
             'testing/*/*.lua',
             'testing/*/*.rst',
+            'testing/*/*.js',
+            'testing/*/*.png',
             '*.js',
         ]},
         install_requires=install_requires,

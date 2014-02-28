@@ -219,6 +219,10 @@ class WebProcessorSession(object):
             self._new_initial_request()
         )
 
+        if self._rich_client_session.done:
+            self._url_item.skip()
+            return
+
         while not self._rich_client_session.done:
             if not self._should_fetch(self._next_url_info):
                 self._url_item.skip()
@@ -615,20 +619,29 @@ class WebProcessorSession(object):
 class PhantomJSController(object):
     '''PhantomJS Page Controller.'''
     def __init__(self, client, wait_time=1, num_scrolls=5, snapshot=True,
-    warc_recorder=None):
+    warc_recorder=None, viewport_size=(1024, 3072), paper_size=(2048, 6144)):
         self.client = client
         self._wait_time = wait_time
         self._num_scrolls = num_scrolls
         self._snapshot = snapshot
         self._warc_recorder = warc_recorder
+        self._viewport_size = viewport_size
+        self._paper_size = paper_size
 
     @tornado.gen.coroutine
     def apply_page_size(self, remote):
         '''Apply page size.'''
-        yield remote.set('page.viewportSize', {'width': 1024, 'height': 768})
+        yield remote.set(
+            'page.viewportSize',
+            {'width': self._viewport_size[0], 'height': self._viewport_size[1]}
+        )
         yield remote.set(
             'page.paperSize',
-            {'width': '2048px', 'height': '1536px', 'border': '0px'}
+            {
+                'width': '{0}.px'.format(self._paper_size[0]),
+                'height': '{0}.px'.format(self._paper_size[1]),
+                'border': '0px'
+            }
         )
 
     @tornado.gen.coroutine
@@ -640,11 +653,7 @@ class PhantomJSController(object):
             _logger.debug('Scrolling page. Count={0}.'.format(scroll_count))
 
             scroll_position = yield remote.eval('page.scrollPosition')
-
-            if not scroll_position['top']:
-                scroll_position['top'] = 1000
-
-            scroll_position['top'] *= 2
+            scroll_position['top'] += self._viewport_size[1]
 
             yield remote.set('page.scrollPosition', scroll_position)
             yield remote.call('page.sendEvent', 'keypress', 'PageDown')

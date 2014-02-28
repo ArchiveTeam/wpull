@@ -8,6 +8,7 @@ from wpull.http.client import Client
 from wpull.proxy import HTTPProxyServer
 from wpull.recorder import DebugPrintRecorder
 import wpull.testing.goodapp
+import wpull.testing.badapp
 
 
 try:
@@ -46,3 +47,27 @@ class TestProxy(wpull.testing.goodapp.GoodAppTestCase):
 
         self.assertEqual(200, response.code)
         self.assertIn(b'Hello!', response.body)
+
+
+class TestProxy2(wpull.testing.badapp.BadAppTestCase):
+    @unittest.skipIf(pycurl is None, "pycurl module not present")
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_no_content(self):
+        http_client = Client(recorder=DebugPrintRecorder())
+        proxy = HTTPProxyServer(http_client, io_loop=self.io_loop)
+        proxy_socket, proxy_port = tornado.testing.bind_unused_port()
+        proxy.add_socket(proxy_socket)
+
+        _logger.debug('Proxy on port {0}'.format(proxy_port))
+
+        test_client = tornado.curl_httpclient.CurlAsyncHTTPClient()
+
+        request = tornado.httpclient.HTTPRequest(
+            self.get_url('/no_content'),
+            proxy_host='localhost',
+            proxy_port=proxy_port
+        )
+
+        response = yield test_client.fetch(request)
+
+        self.assertEqual(204, response.code)

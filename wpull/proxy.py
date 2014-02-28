@@ -5,6 +5,7 @@ import contextlib
 import datetime
 import logging
 import time
+from tornado.iostream import StreamClosedError
 import tornado.tcpserver
 import toro
 
@@ -66,6 +67,9 @@ class HTTPProxyHandler(object):
         while not self._io_stream.closed():
             try:
                 yield self._handle_request()
+            except StreamClosedError:
+                _logger.debug('Stream closed.')
+                self._io_stream.close()
             except Exception:
                 _logger.exception('Proxy error.')
                 self._io_stream.close()

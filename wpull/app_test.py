@@ -1,5 +1,6 @@
 # encoding=utf-8
 import contextlib
+from http import cookiejar
 import logging
 import os
 import sys
@@ -12,7 +13,7 @@ from wpull.errors import ExitStatus
 from wpull.options import AppArgumentParser
 from wpull.testing.badapp import BadAppTestCase
 from wpull.testing.goodapp import GoodAppTestCase
-from http import cookiejar
+from wpull.url import URLInfo
 
 
 try:
@@ -341,6 +342,27 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, builder.factory['Statistics'].files)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_immediate_robots_fail(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--recursive',
+        ])
+        builder = Builder(args)
+
+        with cd_tempdir():
+            engine = builder.build()
+            robots_txt_pool = builder.factory['RobotsTxtPool']
+            robots_txt_pool.load_robots_txt(
+                URLInfo.parse(self.get_url('/')),
+                'User-Agent: *\nDisallow: *\n'
+            )
+            exit_code = yield engine()
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_phantomjs(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -371,6 +393,28 @@ class TestApp(GoodAppTestCase):
 
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_phantomjs_scroll(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/static/DEUUEAUGH.html'),
+            '-4',
+            '--no-robots',
+            '--phantomjs',
+            '--phantomjs-wait', '0.1',
+            '--phantomjs-scroll', '10',
+        ])
+        builder = Builder(args)
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+
+            with open('DEUUEAUGH.html.snapshot.html', 'rb') as in_file:
+                data = in_file.read()
+                self.assertIn(b'Count: 10', data)
+
+        self.assertEqual(0, exit_code)
 
 
 class TestAppBad(BadAppTestCase):
