@@ -6,6 +6,7 @@ What's New
 ==================
 
 * Fixes handling of "204 No Content" responses.
+* Fixes ``AssertionError`` on ``url_item.is_processed`` when robots.txt was enabled.
 * Fixes PhantomJS page scrolling to be consistent.
 * Lengthens PhantomJS viewport to ensure lazy-load images are properly triggered.
 * Lengthens PhantomJS paper size to reduce excessive fragmentation of blocks.

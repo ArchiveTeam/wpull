@@ -219,6 +219,10 @@ class WebProcessorSession(object):
             self._new_initial_request()
         )
 
+        if self._rich_client_session.done:
+            self._url_item.skip()
+            return
+
         while not self._rich_client_session.done:
             if not self._should_fetch(self._next_url_info):
                 self._url_item.skip()

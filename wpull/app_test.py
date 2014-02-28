@@ -1,5 +1,6 @@
 # encoding=utf-8
 import contextlib
+from http import cookiejar
 import logging
 import os
 import sys
@@ -12,7 +13,7 @@ from wpull.errors import ExitStatus
 from wpull.options import AppArgumentParser
 from wpull.testing.badapp import BadAppTestCase
 from wpull.testing.goodapp import GoodAppTestCase
-from http import cookiejar
+from wpull.url import URLInfo
 
 
 try:
@@ -337,6 +338,27 @@ class TestApp(GoodAppTestCase):
         with cd_tempdir():
             engine = builder.build()
             exit_code = yield engine()
+        self.assertEqual(0, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_immediate_robots_fail(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--recursive',
+        ])
+        builder = Builder(args)
+
+        with cd_tempdir():
+            engine = builder.build()
+            robots_txt_pool = builder.factory['RobotsTxtPool']
+            robots_txt_pool.load_robots_txt(
+                URLInfo.parse(self.get_url('/')),
+                'User-Agent: *\nDisallow: *\n'
+            )
+            exit_code = yield engine()
+
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
 
