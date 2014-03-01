@@ -219,10 +219,6 @@ class WebProcessorSession(object):
             self._new_initial_request()
         )
 
-        if self._rich_client_session.done:
-            self._url_item.skip()
-            return
-
         while not self._rich_client_session.done:
             if not self._should_fetch(self._next_url_info):
                 self._url_item.skip()
@@ -241,6 +237,10 @@ class WebProcessorSession(object):
 
         if self._request:
             self._close_instance_body(self._request)
+
+        if not self._url_item.is_processed:
+            _logger.debug('Was not processed. Skipping.')
+            self._url_item.skip()
 
     @tornado.gen.coroutine
     def _process_one(self):

@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.XX (2013-03-DD)
+===================
+
+* Fixes another case of ``AssertionError`` on ``url_item.is_processed`` when robots.txt was enabled.
+
+
 0.22.2 (2014-03-01)
 ===================
 
