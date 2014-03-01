@@ -320,7 +320,10 @@ class Builder(object):
             TriesFilter(args.tries),
             RecursiveFilter(args.recursive, args.page_requisites),
             LevelFilter(args.level),
-            SpanHostsFilter(self._url_infos, enabled=args.span_hosts),
+            SpanHostsFilter(
+                self._url_infos,
+                enabled=not args.recursive or args.span_hosts
+            ),
             RegexFilter(args.accept_regex, args.reject_regex),
             DirectoryFilter(args.include_directories,
                 args.exclude_directories),
