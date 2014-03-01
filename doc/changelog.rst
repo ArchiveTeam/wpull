@@ -6,6 +6,7 @@ What's New
 ===================
 
 * Fixes another case of ``AssertionError`` on ``url_item.is_processed`` when robots.txt was enabled.
+* Fixes crash if a malformed gzip response was received.
 
 
 0.22.2 (2014-03-01)

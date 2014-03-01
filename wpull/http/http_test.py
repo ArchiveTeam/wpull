@@ -212,6 +212,25 @@ class TestConnection(BadAppTestCase):
             self.assertEqual(len(test_data), len(response.body.content))
             self.assertEqual(test_data, response.body.content)
 
+    @unittest.skip('zlib seems to not error on short content')
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_gzip_corrupt_short(self):
+        try:
+            yield self.fetch('/gzip_corrupt_short')
+        except ProtocolError:
+            pass
+        else:
+            self.fail()
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_gzip_corrupt_footer(self):
+        try:
+            yield self.fetch('/gzip_corrupt_footer')
+        except ProtocolError:
+            pass
+        else:
+            self.fail()
+
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_no_content(self):
         yield self.fetch('/no_content')

@@ -39,7 +39,6 @@ class FuzzedHttpServer(HttpServer):
     )
 
     def __init__(self, *args, **kwargs):
-        random.seed(1)
         HttpServer.__init__(self, *args, **kwargs)
         self._config_light = MangleConfig(min_op=0, max_op=50)
         self._config_heavy = MangleConfig(min_op=0, max_op=500)
@@ -182,6 +181,10 @@ class Fuzzer(Application):
         stdout_watcher.ignoreRegex(
             r'WARNING Invalid content length: invalid literal for int'
         )
+        stdout_watcher.ignoreRegex(
+            r'encountered an error: zlib error: '
+        )
 
 if __name__ == "__main__":
+    random.seed(1)
     Fuzzer().main()
