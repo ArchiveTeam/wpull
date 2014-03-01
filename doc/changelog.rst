@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.XX (2014-02-DD)
+=================
+
+* Improves performance on database operations. CPU usage should be less intensive.
+
+
 0.22.1 (2014-02-28)
 ===================
 
