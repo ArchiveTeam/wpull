@@ -65,7 +65,7 @@ class Callbacks(object):
         cases, the original servers may still be online.
 
         Returns:
-            str, Nine: None to use the original behavior or a string containing
+            str, None: None to use the original behavior or a string containing
             an IP address.
         '''
         return None
