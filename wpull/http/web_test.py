@@ -8,6 +8,9 @@ from wpull.http.web import RedirectTracker, RichClient, RichClientResponseType
 from wpull.testing.goodapp import GoodAppTestCase
 
 
+DEFAULT_TIMEOUT = 30
+
+
 class TestWeb(unittest.TestCase):
     def test_redirect_tracker(self):
         tracker = RedirectTracker(5)
@@ -56,7 +59,7 @@ class TestWeb(unittest.TestCase):
 
 
 class TestRichClient(GoodAppTestCase):
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_basic(self):
         http_client = Client()
         client = RichClient(http_client)
@@ -68,7 +71,7 @@ class TestRichClient(GoodAppTestCase):
         self.assertEqual(200, response.status_code)
         self.assertTrue(session.done)
 
-    @tornado.testing.gen_test
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_redirect(self):
         http_client = Client()
         client = RichClient(http_client)
