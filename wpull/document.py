@@ -9,12 +9,6 @@ import wpull.util
 import wpull.http.util
 
 
-try:
-    abstractclassmethod = abc.abstractclassmethod
-except AttributeError:
-    abstractclassmethod = lambda f: f
-
-
 class BaseDocumentReader(object, metaclass=abc.ABCMeta):
     '''Base class for classes that read documents.'''
 
@@ -27,16 +21,16 @@ class BaseDocumentReader(object, metaclass=abc.ABCMeta):
         pass
 
     @classmethod
-    @abstractclassmethod
     def is_supported(cls, file):
         '''Return whether the reader is likely able to read the document.
 
         The arguments will depend on the implementation.
 
         Returns:
-            bool
+            bool: If True, reader should be able to read it.
         '''
-        pass
+        # Python 2.6 doesn't support abc.abstractclassmethod
+        raise NotImplementedError()
 
 
 class HTMLReader(BaseDocumentReader):

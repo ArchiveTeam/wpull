@@ -12,11 +12,10 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.pool import SingletonThreadPool
-from sqlalchemy.sql.expression import select
+from sqlalchemy.sql.expression import select, insert, update
 from sqlalchemy.sql.schema import Column, ForeignKey
 from sqlalchemy.sql.sqltypes import String, Integer, Boolean, Enum
 
-from wpull.cache import Cache
 from wpull.url import URLInfo
 
 
@@ -184,30 +183,24 @@ class URLStrDBRecord(DBBase):
     url = Column(String, nullable=False, unique=True, index=True)
 
     @classmethod
-    def get_url_id(cls, session, url, create=False, cache=None):
-        if cache is not None:
-            if url in cache:
-                return cache[url]
+    def get_map(cls, session, urls):
+        urls = tuple(urls)
+        assert urls
+        result_map = {}
 
-        query = select([URLStrDBRecord.id])\
-            .where(URLStrDBRecord.url == url).limit(1)
-        row = session.execute(query).first()
+        for batch in [urls[i:i + 500] for i in range(0, len(urls), 500)]:
+            query = select([URLStrDBRecord])\
+                .where(URLStrDBRecord.url.in_(batch))
 
-        if row:
-            record_id = row[0]
-        else:
-            record_id = None
+            for row in session.execute(query):
+                result_map[row.url] = row.id
 
-        if create and not record_id:
-            record = URLStrDBRecord(url=url)
-            session.add(record)
-            session.flush()
-            record_id = record.id
+        return result_map
 
-        if record_id:
-            if cache is not None:
-                cache[url] = record_id
-            return record_id
+    @classmethod
+    def add_many(cls, session, urls):
+        query = insert(URLStrDBRecord).prefix_with('OR IGNORE')
+        session.execute(query, [{'url': url} for url in urls])
 
 
 class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
@@ -257,10 +250,6 @@ class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
 
 
 class BaseSQLURLTable(BaseURLTable):
-    def __init__(self):
-        self._url_str_id_cache = Cache(max_items=100, time_to_live=600)
-        self._url_item_added_cache = Cache(max_items=100, time_to_live=600)
-
     @abc.abstractproperty
     def _session_maker(self):
         pass
@@ -275,8 +264,6 @@ class BaseSQLURLTable(BaseURLTable):
             session.commit()
         except:
             session.rollback()
-            self._url_str_id_cache.clear()
-            self._url_item_added_cache.clear()
             raise
         finally:
             session.close()
@@ -297,45 +284,36 @@ class BaseSQLURLTable(BaseURLTable):
     def __len__(self):
         return self.count()
 
-    def add(self, urls, **kwargs):
-        assert not isinstance(urls, (str, bytes))
+    def add(self, new_urls, **kwargs):
+        assert not isinstance(new_urls, (str, bytes))
         referrer = kwargs.pop('referrer', None)
         top_url = kwargs.pop('top_url', None)
+        url_strings = list(new_urls)
+
+        if referrer:
+            url_strings.append(referrer)
+
+        if top_url:
+            url_strings.append(top_url)
 
         with self._session() as session:
-            for url in urls:
-                if url in self._url_item_added_cache:
-                    continue
+            URLStrDBRecord.add_many(session, url_strings)
+            url_id_map = URLStrDBRecord.get_map(session, url_strings)
 
-                url_str_id = URLStrDBRecord.get_url_id(
-                    session, url, create=True, cache=self._url_str_id_cache)
-
-                query = select([URLDBRecord.id])\
-                    .where(URLDBRecord.url_str_id == url_str_id).limit(1)
-                row = session.execute(query).first()
-
-                if row:
-                    continue
-
+            for url in new_urls:
                 values = dict(status=Status.todo)
                 values.update(**kwargs)
-                values['url_str_id'] = url_str_id
+                values['url_str_id'] = url_id_map[url]
 
                 if referrer:
-                    values['referrer_id'] = URLStrDBRecord.get_url_id(
-                        session, referrer, create=True,
-                        cache=self._url_str_id_cache)
+                    values['referrer_id'] = url_id_map[referrer]
                 if top_url:
-                    values['top_url_str_id'] = URLStrDBRecord.get_url_id(
-                        session, top_url, create=True,
-                        cache=self._url_str_id_cache)
+                    values['top_url_str_id'] = url_id_map[top_url]
 
                 session.execute(
-                    URLDBRecord.__table__.insert(),
+                    insert(URLDBRecord).prefix_with('OR IGNORE'),
                     values
                 )
-
-                self._url_item_added_cache[url] = True
 
     def get_and_update(self, status, new_status=None, level=None):
         with self._session() as session:
@@ -361,13 +339,21 @@ class BaseSQLURLTable(BaseURLTable):
         assert isinstance(url, str)
 
         with self._session() as session:
-            url_record = session.query(URLDBRecord).filter_by(url=url).first()
-
-            if increment_try_count:
-                url_record.try_count += 1
+            values = {}
+            url_id_map = URLStrDBRecord.get_map(session, [url])
+            url_str_id = url_id_map[url]
 
             for key, value in kwargs.items():
-                setattr(url_record, key, value)
+                values[getattr(URLDBRecord, key)] = value
+
+            if increment_try_count:
+                values[URLDBRecord.try_count] = URLDBRecord.try_count + 1
+
+            query = update(URLDBRecord)\
+                .values(values)\
+                .where(URLDBRecord.url_str_id == url_str_id)
+
+            session.execute(query)
 
     def count(self):
         with self._session() as session:
@@ -383,14 +369,14 @@ class BaseSQLURLTable(BaseURLTable):
         assert not isinstance(urls, (str, bytes))
 
         with self._session() as session:
-            for url in urls:
-                url_str_id = URLStrDBRecord.get_url_id(
-                    session, url, cache=self._url_str_id_cache)
-                session.query(URLDBRecord).filter_by(
-                    url_str_id=url_str_id).delete()
+            url_id_map = URLStrDBRecord.get_map(session, urls)
 
-                if url in self._url_item_added_cache:
-                    del self._url_item_added_cache[url]
+            for url in urls:
+                if url not in url_id_map:
+                    continue
+
+                session.query(URLDBRecord).filter_by(
+                    url_str_id=url_id_map[url]).delete()
 
 
 class SQLiteURLTable(BaseSQLURLTable):

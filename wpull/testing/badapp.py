@@ -57,6 +57,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/bad_cookie': self.bad_cookie,
             '/header_early_close': self.header_early_close,
             '/no_content': self.no_content,
+            '/many_links': self.many_links,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -328,6 +329,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def no_content(self):
         self.send_response(204)
         self.end_headers()
+
+    def many_links(self):
+        self.send_response(200)
+        self.end_headers()
+
+        self.wfile.write(b'<html><body>')
+
+        for num in range(10000):
+            self.wfile.write(b'<a href="http://somewhere.invalid/')
+            self.wfile.write(str(num).encode('ascii'))
+            self.wfile.write(b'">hi</a><br>')
+
+        self.wfile.write(b'</html>')
+
+        self.close_connection = True
 
 
 class ConcurrentHTTPServer(socketserver.ThreadingMixIn,
