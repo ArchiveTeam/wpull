@@ -332,8 +332,27 @@ class TestApp(GoodAppTestCase):
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_redirect_diff_host(self):
         arg_parser = AppArgumentParser()
-        args = arg_parser.parse_args(
-            [self.get_url('/redirect?where=diff-host')])
+        args = arg_parser.parse_args([
+            self.get_url('/redirect?where=diff-host'),
+            '--waitretry', '0'
+        ])
+        builder = Builder(args)
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+
+        # FIXME: for now, we'll assume the DNS failed to resolve because
+        # it tried to span hosts
+        self.assertEqual(4, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_redirect_diff_host_recursive(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/redirect?where=diff-host'),
+            '--recursive'
+        ])
         builder = Builder(args)
         with cd_tempdir():
             engine = builder.build()
@@ -357,6 +376,22 @@ class TestApp(GoodAppTestCase):
                 URLInfo.parse(self.get_url('/')),
                 'User-Agent: *\nDisallow: *\n'
             )
+            exit_code = yield engine()
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_immediate_robots_forbidden(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/forbidden'),
+            '--recursive',
+        ])
+        builder = Builder(args)
+
+        with cd_tempdir():
+            engine = builder.build()
             exit_code = yield engine()
 
         self.assertEqual(0, exit_code)

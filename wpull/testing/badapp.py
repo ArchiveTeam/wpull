@@ -53,7 +53,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/gzip_http_1_0': self.gzip_http_1_0,
             '/gzip_http_1_1': self.gzip_http_1_1,
             '/gzip_chunked': self.gzip_chunked,
-            '/gzip_corrupt': self.gzip_corrupt,
+            '/gzip_corrupt_short': self.gzip_corrupt_short,
+            '/gzip_corrupt_footer': self.gzip_corrupt_footer,
             '/bad_cookie': self.bad_cookie,
             '/header_early_close': self.header_early_close,
             '/no_content': self.no_content,
@@ -283,8 +284,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         self.close_connection = True
 
-    def gzip_corrupt(self):
-        data = self.gzip_sample()[:-30]
+    def gzip_corrupt_short(self):
+        data = self.gzip_sample()
+        data = data[:len(data) // 2]
+
+        self.send_response(200)
+        self.send_header('Content-encoding', 'gzip')
+        self.send_header('Content-length', str(len(data)))
+        self.end_headers()
+
+        self.wfile.write(data)
+
+    def gzip_corrupt_footer(self):
+        data = base64.b16decode(
+            b'1f8b0800f95a11530003030000000000deadbeef',
+            casefold=True
+        )
 
         self.send_response(200)
         self.send_header('Content-encoding', 'gzip')

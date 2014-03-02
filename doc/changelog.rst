@@ -2,6 +2,14 @@
 What's New
 ==========
 
+0.22.3 (2013-03-02)
+===================
+
+* Fixes another case of ``AssertionError`` on ``url_item.is_processed`` when robots.txt was enabled.
+* Fixes crash if a malformed gzip response was received.
+* Fixes ``--span-hosts`` to be implicitly enabled (as with ``--no-robots``) if ``--recursive`` is not supplied. This behavior unconditionally allows downloading a single file without specifying any options. It is what a user intuitively expects.
+
+
 0.22.2 (2014-03-01)
 ===================
 

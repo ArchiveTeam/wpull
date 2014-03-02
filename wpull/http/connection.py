@@ -14,6 +14,7 @@ import tornado.gen
 from tornado.iostream import StreamClosedError
 import toro
 import traceback
+import zlib
 
 from wpull.actor import Event
 from wpull.errors import (SSLVerficationError, ConnectionRefused, NetworkError,
@@ -314,14 +315,24 @@ class Connection(object):
     def _decompress_data(self, data):
         '''Decompress the given data and return the uncompressed data.'''
         if self._gzip_decompressor:
-            return self._gzip_decompressor.decompress(data)
+            try:
+                return self._gzip_decompressor.decompress(data)
+            except zlib.error as error:
+                raise ProtocolError(
+                    'zlib error: {0}.'.format(error)
+                ) from error
         else:
             return data
 
     def _flush_decompressor(self):
         '''Return any data left in the decompressor.'''
         if self._gzip_decompressor:
-            return self._gzip_decompressor.flush()
+            try:
+                return self._gzip_decompressor.flush()
+            except zlib.error as error:
+                raise ProtocolError(
+                    'zlib flush error: {0}.'.format(error)
+                ) from error
         else:
             return b''
 
