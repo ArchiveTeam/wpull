@@ -73,7 +73,7 @@ class Connection(object):
             self.request_data.clear()
             self.response_data.clear()
 
-    DEFAULT_BUFFER_SIZE = 52428800
+    DEFAULT_BUFFER_SIZE = 10485760
     '''Default buffer size in bytes.'''
     DEFAULT_NO_CONTENT_CODES = frozenset(itertools.chain(
         range(100, 200),
