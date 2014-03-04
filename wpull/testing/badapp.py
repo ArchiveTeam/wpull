@@ -33,6 +33,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/content_length': self.basic_content_length,
             '/chunked': self.basic_chunked,
             '/chunked_trailer': self.basic_chunked_trailer,
+            '/chunked_non_standard_delim': self.chunked_non_standard_delim,
+            '/chunked_with_extension': self.chunked_with_extension,
             '/underrun': self.underrun_response,
             '/overrun': self.overrun_response,
             '/malformed_chunked': self.malformed_chunked,
@@ -109,6 +111,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(
             b'5\r\nhello\r\n0007\r\n world!\r\n0\r\nAnimal: dolphin\r\n\r\n')
+
+    def chunked_non_standard_delim(self):
+        self.send_response(200)
+        self.send_header('transfer-encoding', 'chunked')
+        self.end_headers()
+        self.wfile.write(
+            b'5\nhello\n0007\n world!\n0\n\n')
+
+    def chunked_with_extension(self):
+        self.send_response(200)
+        self.send_header('transfer-encoding', 'chunked')
+        self.end_headers()
+        self.wfile.write(
+            b'5;blah\nhello\r\n7;blah;\r\n world!\r\n0\r\n\r\n')
 
     def underrun_response(self):
         length = 100

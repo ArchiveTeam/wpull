@@ -117,6 +117,20 @@ class TestConnection(BadAppTestCase):
             self.fail()
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_non_standard_delim_chunked(self):
+        response = yield self.fetch('/chunked_non_standard_delim')
+        self.assertEqual(200, response.status_code)
+        self.assertEqual('chunked', response.fields['Transfer-Encoding'])
+        self.assertEqual(b'hello world!', response.body.content)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_chunked_with_extension(self):
+        response = yield self.fetch('/chunked_with_extension')
+        self.assertEqual(200, response.status_code)
+        self.assertEqual('chunked', response.fields['Transfer-Encoding'])
+        self.assertEqual(b'hello world!', response.body.content)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_buffer_overflow(self):
         connection = Connection('localhost', self._port,
             connect_timeout=2.0, read_timeout=5.0, buffer_size=1000)
