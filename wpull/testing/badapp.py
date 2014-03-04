@@ -222,12 +222,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def big(self):
         self.send_response(200)
-        self.send_header('Content-length', '1000000000')
+        self.send_header('Content-length', '50000000')
         self.end_headers()
 
-        for dummy in range(100000):
+        for dummy in range(5000):
             self.wfile.write(b'0' * 10000)
-            time.sleep(0.01)
 
     def infinite(self):
         self.send_response(200)
@@ -238,7 +237,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(b'2710\r\n')
             self.wfile.write(b'0' * 10000)
             self.wfile.write(b'\r\n')
-            time.sleep(0.01)
 
     def gzip_http_1_0(self):
         self.send_response(200)

@@ -242,6 +242,13 @@ class TestConnection(BadAppTestCase):
             DebugPrintRecorder()
         )
 
+    @unittest.skip('Reenable when issue #53 is being fixed')
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_big(self):
+        self.connection.fetch(
+            Request.new(self.get_url('/big')),
+        )
+
 
 class TestClient(BadAppTestCase):
     def setUp(self):
