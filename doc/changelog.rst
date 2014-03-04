@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.XX (2013-03-DD)
+=================
+
+* Bumps the HTTP connection read buffer size from 10MB to 50MB to further accommodate fast connections.
+
+
 0.22.3 (2013-03-02)
 ===================
 
