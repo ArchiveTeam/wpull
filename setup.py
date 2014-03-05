@@ -34,7 +34,7 @@ PROJECT_PACKAGE_DIR = dict(config.items(config_section))
 
 extras = {}
 install_requires = [
-    'tornado', 'toro', 'lxml', 'chardet', 'sqlalchemy',
+    'tornado', 'toro', 'lxml', 'chardet', 'sqlalchemy', 'beautifulsoup4',
 ]
 
 if sys.version_info[0] == 2:
