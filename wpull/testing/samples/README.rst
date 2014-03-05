@@ -9,3 +9,4 @@ The mojibake and krokozyabry files are not UTF-8, so be sure that your editor do
 
 ``xkcd_1.html`` is from http://xkcd.com/1/ .
 
+``kcna.html``  is from http://kcna.co.jp/ it is UTF-16 LE.

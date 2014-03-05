@@ -25,7 +25,7 @@ class TestDocument(unittest.TestCase):
         inline_urls = scrape_info['inline_urls']
         linked_urls = scrape_info['linked_urls']
 
-        self.assertEqual('UTF-8', scrape_info['encoding'])
+        self.assertEqual('ascii', scrape_info['encoding'])
 
         self.assertEqual({
             'http://example.com/style_import_url.css',
@@ -165,6 +165,42 @@ class TestDocument(unittest.TestCase):
             linked_urls
         )
 
+    def test_html_wrong_charset(self):
+        scraper = HTMLScraper()
+        request = Request.new('http://example.com/')
+        response = Response('HTTP/1.0', 200, '')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'kcna.html')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual('utf-16-le', scrape_info['encoding'])
+
+        self.assertEqual(
+            {
+                'http://example.com/utm/__utm.js',
+                'http://example.com/Knewskage.gif',
+                'http://example.com/Lline.gif',
+                'http://example.com/Sline.gif',
+                'http://example.com/korean01.gif',
+                'http://example.com/english01.gif',
+            },
+            inline_urls
+        )
+        self.assertEqual(
+            {
+                'http://example.com/index-k.htm',
+                'http://example.com/index-e.htm'
+            },
+            linked_urls
+        )
+
     def test_html_garbage(self):
         scraper = HTMLScraper()
         request = Request.new('http://example.com/')
@@ -180,7 +216,7 @@ class TestDocument(unittest.TestCase):
 
         scrape_info = scraper.scrape(request, response)
 
-        self.assertIsNone(scrape_info)
+        self.assertTrue(scrape_info)
 
     def test_scrape_css_urls(self):
         text = '''

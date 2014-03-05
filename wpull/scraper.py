@@ -162,7 +162,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             return
 
         content_file = response.body.content_file
-        encoding = get_heading_encoding(response)
+        encoding = get_encoding(response, is_html=True)
 
         tree = self.parse(content_file, encoding, request.url_info.url)
         root = tree.getroot()
@@ -218,7 +218,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             'inline_urls': inline_urls,
             'linked_urls': linked_urls,
             'base_url': to_str(root.base_url),
-            'encoding': to_str(root.getroottree().docinfo.encoding),
+            'encoding': encoding,
         }
 
     @classmethod
