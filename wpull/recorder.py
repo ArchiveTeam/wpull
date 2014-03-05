@@ -245,9 +245,18 @@ class WARCRecorder(BaseRecorder):
         else:
             before_offset = 0
 
-        with open_func(self._filename, mode='ab') as out_file:
-            for data in record:
-                out_file.write(data)
+        try:
+            with open_func(self._filename, mode='ab') as out_file:
+                for data in record:
+                    out_file.write(data)
+        except (OSError, IOError) as error:
+            _logger.info(
+                _('Rolling back file {filename} to length {length}.')\
+                .format(filename=self._filename, length=before_offset)
+            )
+            with open(self._filename, mode='wb') as out_file:
+                out_file.truncate(before_offset)
+            raise error
 
         after_offset = os.path.getsize(self._filename)
 

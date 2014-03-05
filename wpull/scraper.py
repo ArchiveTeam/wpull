@@ -173,7 +173,21 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         linked_urls = set()
         inline_urls = set()
 
-        for scraped_link in self.iter_links(root):
+        link_infos = self.iter_links(root)
+
+        if 'Refresh' in response.fields:
+            link = parse_refresh(response.fields['Refresh'])
+
+            if link:
+                link_info = LinkInfo(
+                    None, '_refresh', None,
+                    to_str(link),
+                    False, True,
+                    None, 'refresh'
+                )
+                link_infos = itertools.chain(link_infos, [link_info])
+
+        for scraped_link in link_infos:
             if self._only_relative:
                 if scraped_link.base_link or '://' in scraped_link.link:
                     continue
@@ -280,11 +294,11 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         '''
         if element.get('http-equiv', '').lower() == 'refresh':
             content_value = element.get('content')
-            match = re.search(r'url=(.+)', content_value, re.IGNORECASE)
-            if match:
+            link = parse_refresh(content_value)
+            if link:
                 yield LinkInfo(
                     element, element.tag, 'http-equiv',
-                    to_str(match.group(1)),
+                    to_str(link),
                     False, True,
                     None,
                     'refresh'
@@ -464,3 +478,22 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
                     yield url
             else:
                 yield url_str_fragment.strip('"\'')
+
+
+def parse_refresh(text):
+    '''Parses text for HTTP Refresh URL.
+
+    Returns:
+        str, None
+    '''
+    match = re.search(r'url=(.+)', text, re.IGNORECASE)
+
+    if match:
+        url = match.group(1)
+
+        if url.startswith('"'):
+            url = url.strip('"')
+        elif url.startswith("'"):
+            url = url.strip("'")
+
+        return url
