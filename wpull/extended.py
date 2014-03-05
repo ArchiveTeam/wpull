@@ -24,6 +24,15 @@ class BaseIOStream(object):
         self._read_timeout = kwargs.pop('read_timeout', None)
         super().__init__(*args, **kwargs)
 
+    def read_from_fd(self):
+        # XXX: Hack to workaround to force backpressure
+        # https://github.com/chfoo/wpull/issues/53
+        # https://github.com/facebook/tornado/issues/772
+        if self._read_buffer_size >= self.max_buffer_size / 2.0:
+            return None
+
+        return super().read_from_fd()
+
 
 class IOStreamMixin(object):
     @property
