@@ -2,6 +2,17 @@
 What's New
 ==========
 
+0.XX (2013-03-DD)
+=================
+
+* Improves handling of document encodings.
+* Requires beautifulsoup4 as a dependency.
+* API:
+
+  * ``util.detect_encoding()`` arguments modified to accept only a single fallback and to accept ``is_html``.
+  * ``document.get_encoding()`` accepts ``is_html`` and ``peek`` arguments.
+
+
 0.22.5 (2013-03-05)
 ===================
 
