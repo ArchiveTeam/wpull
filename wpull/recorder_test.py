@@ -10,6 +10,7 @@ from wpull.http.request import Request, Response
 from wpull.recorder import WARCRecorder
 import wpull.util
 import wpull.version
+from wpull.warc import WARCRecord
 
 
 _logger = logging.getLogger(__name__)
@@ -114,3 +115,47 @@ class RecorderTest(unittest.TestCase):
         self.assertEqual(b'WARC/1.0', data[:8])
 
         self.assertIn(b'KITTEH DOGE', data)
+
+    def test_warc_recorder_rollback(self):
+        temp_file = tempfile.NamedTemporaryFile()
+
+        temp_file.write(b'a' * 10)
+
+        warc_recorder = WARCRecorder(
+            temp_file.name, compress=False,
+        )
+
+        request = Request.new('http://example.com/')
+        request.address = ('0.0.0.0', 80)
+        response = Response('HTTP/1.1', '200', 'OK')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            response.body.content_file.write(b'KITTEH DOGE')
+
+        with warc_recorder.session() as session:
+            session.pre_request(request)
+            session.request_data(request.header())
+
+            class BadRecord(WARCRecord):
+                def __init__(self, original_record):
+                    super().__init__()
+                    self.block_file = original_record.block_file
+                    self.fields = original_record.fields
+
+                def __iter__(self):
+                    for dummy in range(1000):
+                        yield b"where's my elephant?"
+                    raise OSError('Oops')
+
+            session._request_record = BadRecord(session._request_record)
+            original_offset = os.path.getsize(temp_file.name)
+
+            try:
+                session.request(request)
+            except (OSError, IOError):
+                new_offset = os.path.getsize(temp_file.name)
+                self.assertEqual(new_offset, original_offset)
+            else:
+                self.fail()
+
+            _logger.debug('original offset {0}'.format(original_offset))

@@ -6,6 +6,7 @@ What's New
 ===================
 
 * The 'Refresh' HTTP header is now scraped for URLs.
+* When an error occurs during writing WARC files, the WARC file is truncated back to the last good state before crashing.
 
 
 0.22.4 (2013-03-05)
