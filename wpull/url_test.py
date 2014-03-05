@@ -33,6 +33,14 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('https://example.com').port
         )
         self.assertEqual(
+            'example.com',
+            URLInfo.parse('http://example.com').hostname_with_port
+        )
+        self.assertEqual(
+            'example.com',
+            URLInfo.parse('https://example.com').hostname_with_port
+        )
+        self.assertEqual(
             'http://example.com/',
             URLInfo.parse('example.com/').url
         )
@@ -47,6 +55,10 @@ class TestURL(unittest.TestCase):
         self.assertEqual(
             'http://example.com:8080/',
             URLInfo.parse('example.com:8080').url
+        )
+        self.assertEqual(
+            'example.com:8080',
+            URLInfo.parse('example.com:8080').hostname_with_port
         )
         self.assertEqual(
             8080,

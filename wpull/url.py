@@ -188,6 +188,17 @@ class URLInfo(_URLInfoType):
             ))
             for name, value in query_list])
 
+    def is_port_default(self):
+        if self.scheme in self.DEFAULT_PORTS:
+            return self.DEFAULT_PORTS[self.scheme] == self.port
+
+    @property
+    def hostname_with_port(self):
+        if self.is_port_default() or not self.port:
+            return self.hostname
+        else:
+            return '{0}:{1}'.format(self.hostname, self.port)
+
     def to_dict(self):
         '''Return the info as a ``dict``.'''
         return {
