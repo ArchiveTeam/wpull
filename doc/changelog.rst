@@ -7,6 +7,7 @@ What's New
 
 * The 'Refresh' HTTP header is now scraped for URLs.
 * When an error occurs during writing WARC files, the WARC file is truncated back to the last good state before crashing.
+* Works around error "Reached maximum read buffer size" downloading on fast connections. Side effect is intensive CPU usage.
 
 
 0.22.4 (2013-03-05)
