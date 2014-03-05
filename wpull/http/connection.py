@@ -474,7 +474,7 @@ class ChunkedTransferStreamReader(object):
             int: The size of the content in the chunk.
         '''
         _logger.debug('Reading chunk.')
-        chunk_size_hex = yield self._io_stream.read_until_regex(b'[^\n\r]+')
+        chunk_size_hex = yield self._io_stream.read_until(b'\n')
 
         self.data_event.fire(chunk_size_hex)
 
@@ -488,10 +488,6 @@ class ChunkedTransferStreamReader(object):
         if not chunk_size:
             raise tornado.gen.Return(chunk_size)
 
-        newline_data = yield self._io_stream.read_until(b'\n')
-
-        self.data_event.fire(newline_data)
-
         data_queue = self._io_stream.read_bytes_queue(chunk_size)
 
         while True:
@@ -503,6 +499,15 @@ class ChunkedTransferStreamReader(object):
             self.data_event.fire(data)
             self.content_event.fire(data)
 
+        newline_data = yield self._io_stream.read_until(b'\n')
+
+        self.data_event.fire(newline_data)
+
+        if len(newline_data) > 2:
+            # Should be either CRLF or LF
+            # This could our problem or the server's problem
+            raise ProtocolError('Error reading newline after chunk.')
+
         raise tornado.gen.Return(chunk_size)
 
     @tornado.gen.coroutine
@@ -513,11 +518,19 @@ class ChunkedTransferStreamReader(object):
             bytes: The trailer data.
         '''
         _logger.debug('Reading chunked trailer.')
-        trailer_data = yield self._io_stream.read_until_regex(br'\r?\n\r?\n')
 
-        self.data_event.fire(trailer_data)
+        trailer_data_list = []
 
-        raise tornado.gen.Return(trailer_data)
+        while True:
+            trailer_data = yield self._io_stream.read_until(b'\n')
+
+            self.data_event.fire(trailer_data)
+            trailer_data_list.append(trailer_data)
+
+            if not trailer_data.strip():
+                break
+
+        raise tornado.gen.Return(b''.join(trailer_data_list))
 
 
 class HostConnectionPool(collections.Set):

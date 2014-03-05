@@ -108,6 +108,15 @@ class TestConnection(BadAppTestCase):
         self.assertEqual(b'hello world!', response.body.content)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_basic_chunked_trailer_2(self):
+        response = yield self.fetch('/chunked_trailer_2')
+        self.assertEqual(200, response.status_code)
+        self.assertEqual('chunked', response.fields['Transfer-Encoding'])
+        self.assertEqual('dolphin', response.fields['Animal'])
+        self.assertEqual('delicious', response.fields['Cake'])
+        self.assertEqual(b'hello world!', response.body.content)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_malformed_chunked(self):
         try:
             yield self.fetch('/malformed_chunked')

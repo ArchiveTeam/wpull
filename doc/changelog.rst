@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.XX (2013-03-DD)
+==================
+
+* Fixes occasinal error on chunked transfer encoding. Thanks to ivan for reporting.
+
+
 0.22.3 (2013-03-02)
 ===================
 
