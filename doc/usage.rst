@@ -50,6 +50,9 @@ existing database for resuming crawls. This behavior is different than
 partially downloaded files while ``--database`` is intended for resuming
 partial crawls.
 
+Be sure to include the original options from the previous run if you want
+the same behavior as the previous run.
+
 .. note:: When resuming downloads with ``--warc-file``, Wpull will
    overwrite the WARC file by default. You should either rename the existing
    file manually or use the additional option ``--warc-append``.

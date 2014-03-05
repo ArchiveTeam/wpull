@@ -2,6 +2,13 @@
 What's New
 ==========
 
+0.22.4 (2013-03-05)
+===================
+
+* Fixes occasional error on chunked transfer encoding. Thanks to ivan for reporting.
+* Fixes handling links with newlines found in HTML pages. Newlines are now stripped in links when scraping pages to better handle HTML soup.
+
+
 0.22.3 (2013-03-02)
 ===================
 

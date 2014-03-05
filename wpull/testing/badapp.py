@@ -33,6 +33,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/content_length': self.basic_content_length,
             '/chunked': self.basic_chunked,
             '/chunked_trailer': self.basic_chunked_trailer,
+            '/chunked_trailer_2': self.basic_chunked_trailer_2,
+            '/chunked_non_standard_delim': self.chunked_non_standard_delim,
+            '/chunked_with_extension': self.chunked_with_extension,
             '/underrun': self.underrun_response,
             '/overrun': self.overrun_response,
             '/malformed_chunked': self.malformed_chunked,
@@ -109,6 +112,27 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(
             b'5\r\nhello\r\n0007\r\n world!\r\n0\r\nAnimal: dolphin\r\n\r\n')
+
+    def basic_chunked_trailer_2(self):
+        self.send_response(200)
+        self.send_header('transfer-encoding', 'chunked')
+        self.end_headers()
+        self.wfile.write(b'5\r\nhello\r\n0007\r\n world!\r\n0\r\n')
+        self.wfile.write(b'Animal: dolphin\r\nCake: delicious\r\n\r\n')
+
+    def chunked_non_standard_delim(self):
+        self.send_response(200)
+        self.send_header('transfer-encoding', 'chunked')
+        self.end_headers()
+        self.wfile.write(
+            b'5\nhello\n0007\n world!\n0\n\n')
+
+    def chunked_with_extension(self):
+        self.send_response(200)
+        self.send_header('transfer-encoding', 'chunked')
+        self.end_headers()
+        self.wfile.write(
+            b'5;blah\nhello\r\n7;blah;\r\n world!\r\n0\r\n\r\n')
 
     def underrun_response(self):
         length = 100
@@ -222,12 +246,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def big(self):
         self.send_response(200)
-        self.send_header('Content-length', '1000000000')
+        self.send_header('Content-length', '50000000')
         self.end_headers()
 
-        for dummy in range(100000):
+        for dummy in range(5000):
             self.wfile.write(b'0' * 10000)
-            time.sleep(0.01)
 
     def infinite(self):
         self.send_response(200)
@@ -238,7 +261,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(b'2710\r\n')
             self.wfile.write(b'0' * 10000)
             self.wfile.write(b'\r\n')
-            time.sleep(0.01)
 
     def gzip_http_1_0(self):
         self.send_response(200)

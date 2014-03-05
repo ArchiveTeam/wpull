@@ -108,6 +108,15 @@ class TestConnection(BadAppTestCase):
         self.assertEqual(b'hello world!', response.body.content)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_basic_chunked_trailer_2(self):
+        response = yield self.fetch('/chunked_trailer_2')
+        self.assertEqual(200, response.status_code)
+        self.assertEqual('chunked', response.fields['Transfer-Encoding'])
+        self.assertEqual('dolphin', response.fields['Animal'])
+        self.assertEqual('delicious', response.fields['Cake'])
+        self.assertEqual(b'hello world!', response.body.content)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_malformed_chunked(self):
         try:
             yield self.fetch('/malformed_chunked')
@@ -115,6 +124,20 @@ class TestConnection(BadAppTestCase):
             pass
         else:
             self.fail()
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_non_standard_delim_chunked(self):
+        response = yield self.fetch('/chunked_non_standard_delim')
+        self.assertEqual(200, response.status_code)
+        self.assertEqual('chunked', response.fields['Transfer-Encoding'])
+        self.assertEqual(b'hello world!', response.body.content)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_chunked_with_extension(self):
+        response = yield self.fetch('/chunked_with_extension')
+        self.assertEqual(200, response.status_code)
+        self.assertEqual('chunked', response.fields['Transfer-Encoding'])
+        self.assertEqual(b'hello world!', response.body.content)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_buffer_overflow(self):
@@ -240,6 +263,13 @@ class TestConnection(BadAppTestCase):
         yield self.connection.fetch(
             Request.new(self.get_url('/no_content'), method='HEAD'),
             DebugPrintRecorder()
+        )
+
+    @unittest.skip('Reenable when issue #53 is being fixed')
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_big(self):
+        self.connection.fetch(
+            Request.new(self.get_url('/big')),
         )
 
 
