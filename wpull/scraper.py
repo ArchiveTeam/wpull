@@ -189,6 +189,9 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             url = wpull.url.urljoin(base_url, scraped_link.link,
                 allow_fragments=False)
 
+            # Browsers seems to tolerate URLs with newlines
+            url = url.replace('\n', '').replace('\r', '')
+
             if scraped_link.inline:
                 inline_urls.add(url)
             if scraped_link.linked:

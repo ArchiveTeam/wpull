@@ -102,7 +102,10 @@ class TestDocument(unittest.TestCase):
             inline_urls
         )
         self.assertEqual(
-            {'http://example.com/BLOG'},
+            {
+                'http://example.com/BLOG',
+                'http://example.com/web ring/Join.htm',
+            },
             linked_urls
         )
 
