@@ -13,6 +13,7 @@ class TestDocument(unittest.TestCase):
         scraper = HTMLScraper()
         request = Request.new('http://example.com/')
         response = Response('HTTP/1.0', 200, 'OK')
+        response.fields['Refresh'] = '3; url=header_refresh.html'
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
@@ -75,6 +76,7 @@ class TestDocument(unittest.TestCase):
             'ftp://ftp.protocol.invalid/',
             'mailto:user@example.com',
             'http://a-double-slash.example',
+            'http://example.com/header_refresh.html',
             },
             linked_urls
         )

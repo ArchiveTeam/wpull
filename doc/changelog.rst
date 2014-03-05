@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.XX (2013-02-DD)
+===================
+
+* The 'Refresh' HTTP header is now scraped for URLs.
+
+
 0.22.4 (2013-03-05)
 ===================
 
