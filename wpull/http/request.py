@@ -56,7 +56,7 @@ class Request(BaseRequest):
 
         request = Request(method.upper(), resource_path)
         request.url_info = url_info
-        request.fields['Host'] = url_info.hostname
+        request.fields['Host'] = url_info.hostname_with_port
 
         return request
 

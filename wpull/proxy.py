@@ -158,8 +158,9 @@ class HTTPProxyHandler(object):
         if 'Host' not in request.fields:
             request.fields['Host'] = old_host_value
 
-        if self._rewrite and request.fields['Host'] == 'wpull.invalid':
-            request.fields['Host'] = request.url_info.hostname
+        if self._rewrite \
+        and request.fields['Host'].startswith('wpull.invalid'):
+            request.fields['Host'] = request.url_info.hostname_with_port
             assert request.fields['Host']
 
         raise tornado.gen.Return(request)

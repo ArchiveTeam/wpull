@@ -387,6 +387,15 @@ class TestHTTP(unittest.TestCase):
             request.header()
         )
 
+    def test_request_port(self):
+        request = Request.new('https://example.com:4567/robots.txt')
+        self.assertEqual(
+            (b'GET /robots.txt HTTP/1.1\r\n'
+            b'Host: example.com:4567\r\n'
+            b'\r\n'),
+            request.header()
+        )
+
     def test_parse_charset(self):
         self.assertEqual(
             None,
