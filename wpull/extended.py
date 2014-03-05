@@ -197,6 +197,7 @@ class SSLIOStream(BaseIOStream, tornado.iostream.SSLIOStream, IOStreamMixin):
 
 
 class StreamQueue(toro.Queue):
+    ''''Stream queue.'''
     def __init__(self, maxsize=0, io_loop=None, deadline=None):
         toro.Queue.__init__(self, maxsize, io_loop)
         self._deadline = deadline

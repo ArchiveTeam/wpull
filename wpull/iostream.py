@@ -9,15 +9,22 @@ import logging
 import os
 import re
 import socket
+import ssl
+import sys
+from tornado import stack_context
 import tornado.gen
 import tornado.ioloop
+from tornado.log import gen_log
+from tornado.netutil import (ssl_match_hostname, SSLCertificateError,
+    ssl_wrap_socket)
 import toro
 
-from wpull.errors import NetworkError
+from wpull.errors import NetworkError, SSLVerficationError
 from wpull.extended import StreamQueue
+from tornado.iostream import StreamClosedError
 
 
-_logger = logging.getLogger('__name__')
+_logger = logging.getLogger(__name__)
 ERRNO_WOULDBLOCK = (errno.EWOULDBLOCK, errno.EAGAIN)
 ERRNO_CONNRESET = (errno.ECONNRESET, errno.ECONNABORTED, errno.EPIPE)
 
@@ -30,6 +37,18 @@ class State(object):
 
 
 class BaseIOStream(object, metaclass=abc.ABCMeta):
+    """A utility class to write to and read from a non-blocking file or socket.
+
+    We support a non-blocking ``write()`` and a family of ``read_*()`` methods.
+    All of the methods take callbacks (since writing and reading are
+    non-blocking and asynchronous).
+
+    When a stream is closed due to an error, the IOStream's ``error``
+    attribute contains the exception object.
+
+    Subclasses must implement `fileno`, `close_fd`, `write_to_fd`,
+    `read_from_fd`, and optionally `get_fd_error`.
+    """
     def __init__(self, io_loop=None, max_buffer_size=10485760,
     read_chunk_size=4096, connect_timeout=None, read_timeout=None,
     write_timeout=None):
@@ -60,6 +79,8 @@ class BaseIOStream(object, metaclass=abc.ABCMeta):
         self._read_event = toro.Condition(io_loop=self._io_loop)
         self._write_event = toro.Condition(io_loop=self._io_loop)
 #         self._error_event = toro.Condition(io_loop=self._io_loop)
+        self._close_callback = None
+        self.error = None
 
     @property
     def reading(self):
@@ -77,29 +98,55 @@ class BaseIOStream(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def fileno(self):
+        """Returns the file descriptor for this stream."""
         pass
 
     @abc.abstractmethod
     def _close_fd(self):
+        """Closes the file underlying this stream."""
         pass
 
     @abc.abstractmethod
     def _write_to_fd(self, data):
+        """Attempts to write ``data`` to the underlying file.
+
+        Returns the number of bytes written.
+        """
         pass
 
     @abc.abstractmethod
     def _read_from_fd(self):
+        """Attempts to read from the underlying file.
+
+        Returns ``None`` if there was nothing to read (the socket
+        returned `~errno.EWOULDBLOCK` or equivalent), otherwise
+        returns the data.  When possible, should return no more than
+        ``self.read_chunk_size`` bytes at a time.
+        """
         pass
 
     def get_fd_error(self):
+        """Returns information about any error on the underlying file.
+
+        This method is called after the `.IOLoop` has signaled an error on the
+        file descriptor, and should return an Exception (such as `socket.error`
+        with additional information, or None if no such information is
+        available.
+        """
         return None
 
     @tornado.gen.coroutine
     def read_until_regex(self, regex):
+        """Run ``callback`` when we read the given regex pattern.
+
+        The callback will get the data read (including the data that
+        matched the regex and anything that came before it) as an argument.
+        """
         chunk_buffer = collections.deque()
+        buffer_size = 0
 
         while True:
-            data = yield self.read_bytes(4096)
+            data = yield self.read_bytes(self._read_chunk_size)
             match = re.search(regex, data)
 
             if match:
@@ -107,15 +154,26 @@ class BaseIOStream(object, metaclass=abc.ABCMeta):
                 self._local_read_queue.appendleft(data[match.end():])
                 raise tornado.gen.Return(b''.join(chunk_buffer))
 
+            buffer_size += len(data)
+
+            if buffer_size > self._max_buffer_size:
+                raise ValueError('Buffer size exceeded.')
+
             chunk_buffer.append(data)
             double_prefix(chunk_buffer)
 
     @tornado.gen.coroutine
     def read_until(self, delimiter):
+        """Run ``callback`` when we read the given delimiter.
+
+        The callback will get the data read (including the delimiter)
+        as an argument.
+        """
         chunk_buffer = collections.deque()
+        buffer_size = 0
 
         while True:
-            data = yield self.read_bytes(4096)
+            data = yield self.read_bytes(self._read_chunk_size)
             loc = data.find(delimiter)
 
             if loc != -1:
@@ -123,11 +181,23 @@ class BaseIOStream(object, metaclass=abc.ABCMeta):
                 self._local_read_queue.appendleft(data[loc + 1:])
                 raise tornado.gen.Return(b''.join(chunk_buffer))
 
+            buffer_size += len(data)
+
+            if buffer_size > self._max_buffer_size:
+                raise ValueError('Buffer size exceeded.')
+
             chunk_buffer.append(data)
             double_prefix(chunk_buffer)
 
     @tornado.gen.coroutine
     def read_bytes(self, num_bytes, streaming_callback=None):
+        """Run callback when we read the given number of bytes.
+
+        If a ``streaming_callback`` is given, it will be called with chunks
+        of data as they become available, and the argument to the final
+        ``callback`` will be empty.  Otherwise, the ``callback`` gets
+        the data as an argument.
+        """
         assert self._state == State.connected
 
         bulk_data = []
@@ -171,19 +241,38 @@ class BaseIOStream(object, metaclass=abc.ABCMeta):
 
     @tornado.gen.coroutine
     def read_until_close(self, streaming_callback=None):
+        """Reads all data from the socket until it is closed.
+
+        If a ``streaming_callback`` is given, it will be called with chunks
+        of data as they become available, and the argument to the final
+        ``callback`` will be empty.  Otherwise, the ``callback`` gets the
+        data as an argument.
+
+        Subject to ``max_buffer_size`` limit from `IOStream` constructor if
+        a ``streaming_callback`` is not used.
+        """
         raise tornado.gen.Return(
             (yield self.read_bytes(None, streaming_callback))
         )
 
     def read_bytes_queue(self, num_bytes):
+        '''Read with queue.
+
+        Returns:
+            StreamQueue: An instance of `.extended.StreamQueue`.
+        '''
         return self._read_with_queue(self.read_bytes, num_bytes)
 
     def read_until_close_queue(self):
+        '''Read until close with queue.
+
+        Returns:
+            StreamQueue: An instance of `.extended.StreamQueue`.
+        '''
         return self._read_with_queue(self.read_until_close)
 
     def _read_with_queue(self, read_function, *args, **kwargs):
         '''Read with timeout and queue.'''
-
         stream_queue = StreamQueue(deadline=self._read_timeout)
 
         def callback(data):
@@ -203,18 +292,49 @@ class BaseIOStream(object, metaclass=abc.ABCMeta):
 
     @tornado.gen.coroutine
     def write(self, data):
+        """Write the given data to this stream."""
         yield self._write_queue.put(data, deadline=self._write_timeout)
 
-    def close(self):
+    def set_close_callback(self, callback):
+        """Call the given callback when the stream is closed."""
+        self._close_callback = stack_context.wrap(callback)
+
+    def close(self, exc_info=False):
+        """Close this stream."""
         if not self.closed:
             _logger.debug('Closing stream.')
+
+            if exc_info:
+                _logger.debug('Close with exc.')
+                if not isinstance(exc_info, tuple):
+                    exc_info = sys.exc_info()
+                if any(exc_info):
+                    self.error = exc_info[1]
+
             self._io_loop.remove_handler(self.fileno())
             self._close_fd()
             self._read_queue.put(None)
+            self._run_close_callback()
 
         self._state = State.closed
 
+    def _run_close_callback(self):
+        if self._close_callback is None:
+            return
+
+        _logger.debug('Running callback.')
+
+        try:
+            self._close_callback()
+        except Exception:
+            _logger.exception('Error on close callback.')
+            self.close(exc_info=True)
+            raise
+        finally:
+            self._close_callback = None
+
     def _start(self):
+        '''Start event handler and IO loops.'''
         _logger.debug('Starting handler and loops.')
         self._io_loop.add_handler(
             self.fileno(), self._event_handler,
@@ -224,24 +344,30 @@ class BaseIOStream(object, metaclass=abc.ABCMeta):
         self._io_loop.add_future(self._write_loop(), self._loop_end_handler)
 
     def _event_handler(self, fd, events):
+        '''Event handler.'''
         if events & tornado.ioloop.IOLoop.READ:
-            self._read_event.notify()
+            self._read_event.notify_all()
 
         if events & tornado.ioloop.IOLoop.WRITE:
-            self._write_event.notify()
+            self._write_event.notify_all()
 
         if events & tornado.ioloop.IOLoop.ERROR:
+            _logger.debug('FD events {0}'.format(events))
+            self.error = self.get_fd_error()
             self.close()
 
     def _loop_end_handler(self, future):
+        '''Event handler when loop futures end.'''
         try:
             future.result()
         except Exception:
             _logger.exception('Loop ended.')
-            self.close()
+            self.close(exc_info=True)
+            raise
 
     @tornado.gen.coroutine
     def _read_loop(self):
+        '''Loop that reads from FD.'''
         while not self.closed:
             yield self._read_event.wait()
             data = self._read_from_fd()
@@ -249,6 +375,7 @@ class BaseIOStream(object, metaclass=abc.ABCMeta):
 
     @tornado.gen.coroutine
     def _write_loop(self):
+        '''Loop that writes to FD.'''
         iterative_queue = collections.deque()
 
         while not self.closed:
@@ -269,6 +396,18 @@ class BaseIOStream(object, metaclass=abc.ABCMeta):
 
 
 class IOStream(BaseIOStream):
+    """Socket-based `IOStream` implementation.
+
+    This class supports the read and write methods from `BaseIOStream`
+    plus a `connect` method.
+
+    The ``socket`` parameter may either be connected or unconnected.
+    For server operations the socket is the result of calling
+    `socket.accept <socket.socket.accept>`.  For client operations the
+    socket is created with `socket.socket`, and may either be
+    connected before passing it to the `IOStream` or connected with
+    `IOStream.connect`.
+    """
     def __init__(self, socket_, *args, **kwargs):
         self.socket = socket_
         self.socket.setblocking(False)
@@ -302,7 +441,26 @@ class IOStream(BaseIOStream):
         return self.socket.send(data)
 
     @tornado.gen.coroutine
-    def connect(self, address):
+    def connect(self, address, server_hostname=None):
+        """Connects the socket to a remote address without blocking.
+
+        May only be called if the socket passed to the constructor was
+        not previously connected.  The address parameter is in the
+        same format as for `socket.connect <socket.socket.connect>`,
+        i.e. a ``(host, port)`` tuple.  If ``callback`` is specified,
+        it will be called when the connection is completed.
+
+        If specified, the ``server_hostname`` parameter will be used
+        in SSL connections for certificate validation (if requested in
+        the ``ssl_options``) and SNI (if supported; requires
+        Python 3.2+).
+
+        Note that it is safe to call `IOStream.write
+        <BaseIOStream.write>` while the connection is pending, in
+        which case the data will be written as soon as the connection
+        is ready.  Calling `IOStream` read methods before the socket is
+        connected works on some platforms but is non-portable.
+        """
         self._state = State.connecting
 
         try:
@@ -337,6 +495,142 @@ class IOStream(BaseIOStream):
         self._state = State.connected
 
         _logger.debug('Connected.')
+
+
+class SSLIOStream(IOStream):
+    """A utility class to write to and read from a non-blocking SSL socket.
+
+    If the socket passed to the constructor is already connected,
+    it should be wrapped with::
+
+        ssl.wrap_socket(sock, do_handshake_on_connect=False, **kwargs)
+
+    before constructing the `SSLIOStream`.  Unconnected sockets will be
+    wrapped when `IOStream.connect` is finished.
+    """
+    def __init__(self, *args, **kwargs):
+        """The ``ssl_options`` keyword argument may either be a dictionary
+        of keywords arguments for `ssl.wrap_socket`, or an `ssl.SSLContext`
+        object.
+        """
+        self._ssl_options = kwargs.pop('ssl_options', {})
+        super().__init__(*args, **kwargs)
+        self._ssl_accepting = True
+        self._handshake_reading = False
+        self._handshake_writing = False
+        self._ssl_connect_callback = None
+        self._server_hostname = None
+
+        # If the socket is already connected, attempt to start the handshake.
+        try:
+            self.socket.getpeername()
+        except socket.error:
+            pass
+
+    def _do_ssl_handshake(self):
+        # Based on code from test_ssl.py in the python stdlib
+        try:
+            self._handshake_reading = False
+            self._handshake_writing = False
+            self.socket.do_handshake()
+        except ssl.SSLError as err:
+            if err.args[0] == ssl.SSL_ERROR_WANT_READ:
+                self._handshake_reading = True
+                return
+            elif err.args[0] == ssl.SSL_ERROR_WANT_WRITE:
+                self._handshake_writing = True
+                return
+            elif err.args[0] in (ssl.SSL_ERROR_EOF,
+                                 ssl.SSL_ERROR_ZERO_RETURN):
+                return self.close()
+            elif err.args[0] == ssl.SSL_ERROR_SSL:
+                self.socket.getpeername()
+
+            raise
+        except socket.error as err:
+            if err.args[0] in ERRNO_CONNRESET:
+                raise
+        except AttributeError:
+            # On Linux, if the connection was reset before the call to
+            # wrap_socket, do_handshake will fail with an
+            # AttributeError.
+            raise
+        else:
+            self._ssl_accepting = False
+            self._verify_cert(self.socket.getpeercert())
+
+    def _verify_cert(self, peercert):
+        """Returns True if peercert is valid according to the configured
+        validation mode and hostname.
+
+        The ssl handshake already tested the certificate for a valid
+        CA signature; the only thing that remains is to check
+        the hostname.
+        """
+        if isinstance(self._ssl_options, dict):
+            verify_mode = self._ssl_options.get('cert_reqs', ssl.CERT_NONE)
+        elif isinstance(self._ssl_options, ssl.SSLContext):
+            verify_mode = self._ssl_options.verify_mode
+
+        assert verify_mode in (ssl.CERT_NONE, ssl.CERT_REQUIRED,
+            ssl.CERT_OPTIONAL)
+
+        if verify_mode == ssl.CERT_NONE or self._server_hostname is None:
+            return True
+
+        cert = self.socket.getpeercert()
+
+        if cert is None and verify_mode == ssl.CERT_REQUIRED:
+            raise SSLVerficationError("No SSL certificate given")
+
+        try:
+            ssl_match_hostname(peercert, self._server_hostname)
+        except SSLCertificateError as error:
+            raise SSLVerficationError("Hostname could not be verified.") \
+                from error
+
+    @tornado.gen.coroutine
+    def connect(self, address, server_hostname=None):
+        # Save the user's callback and run it after the ssl handshake
+        # has completed.
+        self._server_hostname = server_hostname
+        yield super().connect(address, callback=None)
+
+        self.socket = ssl_wrap_socket(self.socket, self._ssl_options,
+                                      server_hostname=self._server_hostname,
+                                      do_handshake_on_connect=False)
+
+        while self._ssl_accepting:
+            yield [self._write_event, self._read_event]
+
+            try:
+                self._do_ssl_handshake()
+            except:
+                self.close(exc_info=True)
+                raise
+
+    def read_from_fd(self):
+        if self._ssl_accepting:
+            return None
+
+        try:
+            chunk = self.socket.read(self._read_chunk_size)
+        except ssl.SSLError as e:
+            if e.args[0] == ssl.SSL_ERROR_WANT_READ:
+                return None
+            else:
+                raise
+        except socket.error as e:
+            if e.args[0] in ERRNO_WOULDBLOCK:
+                return None
+            else:
+                raise
+
+        if not chunk:
+            self.close()
+            return None
+
+        return chunk
 
 
 @tornado.gen.coroutine

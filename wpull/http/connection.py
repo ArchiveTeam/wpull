@@ -19,7 +19,7 @@ import zlib
 from wpull.actor import Event
 from wpull.errors import (SSLVerficationError, ConnectionRefused, NetworkError,
     ProtocolError)
-from wpull.extended import SSLIOStream, IOStream
+from wpull.iostream import SSLIOStream, IOStream
 from wpull.http.request import Response
 from wpull.network import Resolver
 
