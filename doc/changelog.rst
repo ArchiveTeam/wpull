@@ -9,6 +9,7 @@ What's New
 * Fixes port number not included in the HTTP Host header.
 * Fixes occasional ``RuntimeError`` when pressing CTRL+C.
 * Fixes fetching URL paths containing dot segments. They are now resolved appropriately.
+* Fixes ASCII progress bar not showing 100% when finished download occasionally.
 * Fixes crash and improves handling of unusual document encodings and settings.
 * Requires beautifulsoup4 as a dependency.
 * API:

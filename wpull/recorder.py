@@ -638,6 +638,11 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
 
             self._last_flush_time = time_now
 
+    def response(self, response):
+        self._print_status()
+        self._stream.flush()
+        super().response(response)
+
     def _print_status(self):
         self._clear_line()
 
