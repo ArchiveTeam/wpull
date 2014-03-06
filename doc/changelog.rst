@@ -11,6 +11,7 @@ What's New
 * Fixes fetching URL paths containing dot segments. They are now resolved appropriately.
 * Fixes ASCII progress bar not showing 100% when finished download occasionally.
 * Fixes crash and improves handling of unusual document encodings and settings.
+* Improves handling of links with newlines and whitespace intermixed.
 * Requires beautifulsoup4 as a dependency.
 * API:
 

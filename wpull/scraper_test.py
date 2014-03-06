@@ -3,8 +3,8 @@ import os.path
 import shutil
 
 from wpull.backport.testing import unittest
-from wpull.scraper import HTMLScraper, CSSScraper
 from wpull.http.request import Request, Response
+from wpull.scraper import HTMLScraper, CSSScraper, clean_link_soup
 import wpull.util
 
 
@@ -323,3 +323,25 @@ class TestDocument(unittest.TestCase):
             inline_urls
         )
         self.assertFalse(linked_urls)
+
+    def test_clean_link_soup(self):
+        self.assertEqual(
+            'http://example.com',
+            clean_link_soup('http://example.com  ')
+        )
+        self.assertEqual(
+            'http://example.com/',
+            clean_link_soup('\n\r\thttp://example.com\n\r\r\r\n\t/')
+        )
+        self.assertEqual(
+            'http://example.com/ something',
+            clean_link_soup('http://example.com\n\t / something  \n\r\t')
+        )
+        self.assertEqual(
+            'http://example.com/dog cat/',
+            clean_link_soup('http://example.com/\n dog \tcat\r/\n')
+        )
+        self.assertEqual(
+            'ßðf ¤Jáßðff ßðfœ³²œ¤ œë ßfœ',
+            clean_link_soup('ß\tðf ¤Jáßðf\n f ßðfœ³²œ¤ œë ßfœ ')
+        )
