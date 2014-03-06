@@ -5,7 +5,7 @@ from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     ParentFilter, RecursiveFilter, SpanHostsFilter, RegexFilter, HTTPFilter,
     HostnameFilter, schemes_similar, is_subdir, DirectoryFilter, unquote,
     unquote_plus, quote, quote_plus, split_query, uppercase_percent_encoding,
-    urljoin, BackwardFilenameFilter)
+    urljoin, BackwardFilenameFilter, flatten_path)
 
 
 class MockURLTableRecord(object):
@@ -194,6 +194,23 @@ class TestURL(unittest.TestCase):
             URLInfo.parse(
                 'http://example.com/'
                     '?blah=http://example.com/?fail%3Dtrue').url
+        )
+
+        self.assertEqual(
+            'http://example.com/',
+            URLInfo.parse('http://example.com/../').url
+        )
+        self.assertEqual(
+            'http://example.com/index.html',
+            URLInfo.parse('http://example.com/../index.html').url
+        )
+        self.assertEqual(
+            'http://example.com/b/style.css',
+            URLInfo.parse('http://example.com/a/../../b/style.css').url
+        )
+        self.assertEqual(
+            'http://example.com/a/style.css',
+            URLInfo.parse('http://example.com/a/b/../style.css').url
         )
 
     def test_url_info_to_dict(self):
@@ -563,6 +580,14 @@ class TestURL(unittest.TestCase):
             'http://example.com/',
             urljoin('http://example.com', '//example.com/')
         )
+        self.assertEqual(
+            'http://example.com/a/style.css',
+            urljoin('http://example.com/a/', './style.css')
+        )
+        self.assertEqual(
+            'http://example.com/style.css',
+            urljoin('http://example.com/a/', './../style.css')
+        )
 
     def test_backward_filename_filter(self):
         url_filter = BackwardFilenameFilter(
@@ -593,3 +618,24 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('http://example/image.1003.png.bmp'),
             mock_record
         ))
+
+    def test_flatten_path(self):
+        self.assertEqual('/', flatten_path('/'))
+        self.assertEqual('/', flatten_path('/../../../'))
+        self.assertEqual('/', flatten_path('/.././'))
+        self.assertEqual('/a', flatten_path('/../a/../a'))
+        self.assertEqual('/a/', flatten_path('/../a/../a/'))
+        self.assertEqual('//a/a/', flatten_path('//a//../a/'))
+        self.assertEqual('/index.html', flatten_path('/./index.html'))
+        self.assertEqual('/index.html', flatten_path('/../index.html'))
+        self.assertEqual('/a/index.html', flatten_path('/a/./index.html'))
+        self.assertEqual('/index.html', flatten_path('/a/../index.html'))
+        self.assertEqual('/doc/index.html', flatten_path('/../doc/index.html'))
+        self.assertEqual(
+            '/dog/doc/index.html',
+            flatten_path('/dog/cat/../doc/index.html')
+        )
+        self.assertEqual(
+            '/dog/doc/index.html',
+            flatten_path('/dog/../dog/./cat/../doc/././../doc/index.html')
+        )
