@@ -7,6 +7,7 @@ What's New
 
 * Fixes incorrect logic in fetching robots.txt when it redirects to another URL.
 * Fixes port number not included in the HTTP Host header.
+* Fixes occasional ``RuntimeError`` when pressing CTRL+C.
 * Improves handling of document encodings.
 * Requires beautifulsoup4 as a dependency.
 * API:
