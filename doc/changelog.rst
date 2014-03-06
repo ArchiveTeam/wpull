@@ -5,6 +5,8 @@ What's New
 0.XX (2013-03-DD)
 =================
 
+* Fixes incorrect logic in fetching robots.txt when it redirects to another URL.
+* Fixes port number not included in the HTTP Host header.
 * Improves handling of document encodings.
 * Requires beautifulsoup4 as a dependency.
 * API:
