@@ -131,9 +131,12 @@ class URLDBRecord(DBBase):
     __tablename__ = 'urls'
     id = Column(Integer, primary_key=True, autoincrement=True)
     url_str_id = Column(
-        Integer, ForeignKey('url_strings.id'), nullable=False, index=True)
+        Integer, ForeignKey('url_strings.id'),
+        nullable=False, unique=True, index=True
+    )
     url_str_record = relationship(
-        'URLStrDBRecord', uselist=False, foreign_keys=[url_str_id])
+        'URLStrDBRecord', uselist=False, foreign_keys=[url_str_id]
+    )
     url = association_proxy('url_str_record', 'url')
     status = Column(
         Enum(

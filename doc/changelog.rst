@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2013-03-DD)
+0.XX (2014-03-DD)
 ==================
 
 * ``robots.txt`` is now unconditionally fetched. Use ``--no-strong-robots`` to disable this behavior.
@@ -10,7 +10,13 @@ What's New
 * Scripting: ``should_fetch()`` info dict now contains ``reason`` as a key.
 
 
-0.23 (2013-03-07)
+0.23.1 (2014-03-07)
+===================
+
+* Important: Fixes issue where URLs were downloaded repeatedly.
+
+
+0.23 (2014-03-07)
 =================
 
 * Fixes incorrect logic in fetching robots.txt when it redirects to another URL.
