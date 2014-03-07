@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.XX (2013-03-DD)
+==================
+
+* robots.txt is now unconditionally fetched. Use ``--no-strong-robots`` to disable this behavior.
+
+
 0.23 (2013-03-07)
 =================
 

@@ -14,6 +14,7 @@ from wpull.options import AppArgumentParser
 from wpull.testing.badapp import BadAppTestCase
 from wpull.testing.goodapp import GoodAppTestCase
 from wpull.url import URLInfo
+from wpull.network import Resolver
 
 
 try:
@@ -26,6 +27,17 @@ DEFAULT_TIMEOUT = 30
 
 
 _logger = logging.getLogger(__name__)
+
+
+class MockDNSResolver(Resolver):
+    def __init__(self, *args, **kwargs):
+        Resolver.__init__(self, *args, **kwargs)
+        self.hosts_touched = set()
+
+    @tornado.gen.coroutine
+    def resolve(self, host, port):
+        self.hosts_touched.add(host)
+        raise tornado.gen.Return((Resolver.IPv4, ('127.0.0.1', port)))
 
 
 @contextlib.contextmanager
@@ -120,6 +132,7 @@ class TestApp(GoodAppTestCase):
             '--secure-protocol', 'TLSv1',
             '--convert-links', '--backup-converted',
             '--accept', '*',
+            '--no-strong-robots',
         ])
         with cd_tempdir():
             engine = Builder(args).build()
@@ -333,32 +346,42 @@ class TestApp(GoodAppTestCase):
     def test_redirect_diff_host(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            self.get_url('/redirect?where=diff-host'),
+            self.get_url('/redirect?where=diff-host&port={0}'.format(
+                self.get_http_port())),
             '--waitretry', '0'
         ])
         builder = Builder(args)
+        builder.factory.class_map['Resolver'] = MockDNSResolver
+
         with cd_tempdir():
             engine = builder.build()
             exit_code = yield engine()
 
-        # FIXME: for now, we'll assume the DNS failed to resolve because
-        # it tried to span hosts
-        self.assertEqual(4, exit_code)
-        self.assertEqual(0, builder.factory['Statistics'].files)
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
+        resolver = builder.factory['Resolver']
+        self.assertIn('somewhereelse.invalid', resolver.hosts_touched)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_redirect_diff_host_recursive(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            self.get_url('/redirect?where=diff-host'),
+            self.get_url('/redirect?where=diff-host&port={0}'.format(
+                self.get_http_port())),
             '--recursive'
         ])
         builder = Builder(args)
+        builder.factory.class_map['Resolver'] = MockDNSResolver
+
         with cd_tempdir():
             engine = builder.build()
             exit_code = yield engine()
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
+
+        resolver = builder.factory['Resolver']
+        self.assertIn('somewhereelse.invalid', resolver.hosts_touched)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_immediate_robots_fail(self):

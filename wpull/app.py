@@ -457,6 +457,7 @@ class Builder(object):
             post_data=post_data,
             converter=converter,
             phantomjs_controller=phantomjs_controller,
+            strong_robots=args.strong_robots,
         )
 
         return processor

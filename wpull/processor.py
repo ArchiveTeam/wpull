@@ -76,6 +76,8 @@ class WebProcessor(BaseProcessor):
             query format ("application/x-www-form-urlencoded").
         converter: An instance of :class:`.converter.BatchDocumentConverter`.
         phantomjs_controller: An instance of :class:`PhantomJSController`.
+        strong_robots (bool): If True, robots.txt files are downloaded
+            unconditionally.
 
     :seealso: :class:`WebProcessorSession`,
         :class:`WebProcessorWithRobotsTxtSession`
@@ -90,7 +92,8 @@ class WebProcessor(BaseProcessor):
     url_filter=None, document_scraper=None, file_writer=None,
     waiter=None, statistics=None,
     retry_connrefused=False, retry_dns_error=False, post_data=None,
-    converter=None, phantomjs_controller=None):
+    converter=None, phantomjs_controller=None,
+    strong_robots=True):
         self._rich_client = rich_client
         self._url_filter = url_filter or DemuxURLFilter([])
         self._document_scraper = document_scraper or DemuxDocumentScraper([])
@@ -103,6 +106,7 @@ class WebProcessor(BaseProcessor):
         self._session_class = WebProcessorSession
         self._converter = converter
         self._phantomjs_controller = phantomjs_controller
+        self._strong_robots = strong_robots
 
     @property
     def rich_client(self):
@@ -143,6 +147,10 @@ class WebProcessor(BaseProcessor):
     @property
     def phantomjs_controller(self):
         return self._phantomjs_controller
+
+    @property
+    def strong_robots(self):
+        return self._strong_robots
 
     @tornado.gen.coroutine
     def process(self, url_item):
@@ -304,6 +312,9 @@ class WebProcessorSession(object):
         test_info = self._processor.url_filter.test_info(url_info, url_record)
 
         if test_info['verdict']:
+            return True
+
+        elif url_info.path == '/robots.txt' and self._processor.strong_robots:
             return True
 
         else:
