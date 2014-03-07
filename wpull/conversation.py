@@ -72,7 +72,7 @@ class Body(object, metaclass=abc.ABCMeta):
             max_length (int): The amount to read.
 
         This function is different different from the standard peek where
-        this function is gauranteed to not return more than `max_length` bytes.
+        this function is guaranteed to not return more than `max_length` bytes.
         '''
         with wpull.util.reset_file_offset(self.content_file):
             return self.content_file.read(max_length)

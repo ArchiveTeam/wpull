@@ -325,7 +325,7 @@ class RobotsTxtRichClientSession(RichClientSession):
 
     @property
     def next_request(self):
-        if self._robots_state == RobotsState.unknown:
+        if self._robots_state != RobotsState.in_progress:
             self._check_robots_pool()
 
         if self._robots_state == RobotsState.ok:
@@ -340,8 +340,6 @@ class RobotsTxtRichClientSession(RichClientSession):
             request = self._rich_client.request_factory(
                 self._robots_redirect_url, url_encoding='latin-1'
             )
-
-            self._robots_redirect_url = None
         else:
             url_info = super().next_request.url_info
             url = URLInfo.parse('{0}://{1}:{2}/robots.txt'.format(
@@ -356,7 +354,7 @@ class RobotsTxtRichClientSession(RichClientSession):
 
     @tornado.gen.coroutine
     def fetch(self, **kwargs):
-        if self._robots_state == RobotsState.unknown:
+        if self._robots_state != RobotsState.in_progress:
             self._check_robots_pool()
 
         if self._robots_state == RobotsState.denied:
@@ -370,12 +368,16 @@ class RobotsTxtRichClientSession(RichClientSession):
 
         request = self._next_robots_request()
         response = yield self._rich_client.http_client.fetch(request)
+        self._robots_redirect_url = None
 
         self._handle_robots_response(response)
 
         raise tornado.gen.Return(response)
 
     def _check_robots_pool(self):
+        if not super().next_request:
+            return
+
         url_info = super().next_request.url_info
         user_agent = super().next_request.fields.get('User-agent', '')
 

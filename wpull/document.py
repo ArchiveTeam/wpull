@@ -1,7 +1,6 @@
 # encoding=utf-8
 '''Document readers.'''
 import abc
-import codecs
 import lxml.html
 import re
 
@@ -51,6 +50,10 @@ class HTMLReader(BaseDocumentReader):
         Returns:
             _ElementTree: An instance of :class:`lxml.etree._ElementTree`.
         '''
+        if encoding:
+            # XXX: Workaround lxml not liking utf-16-le
+            encoding = encoding.replace('-', '')
+
         parser = lxml.html.HTMLParser(encoding=encoding)
 
         with wpull.util.reset_file_offset(file):
@@ -100,7 +103,7 @@ class HTMLReader(BaseDocumentReader):
     @classmethod
     def is_html_file(cls, file):
         '''Return whether the file is likely to be HTML.'''
-        peeked_data = wpull.util.peek_file(file).lower()
+        peeked_data = wpull.util.peek_file(file).replace(b'\x00', b'').lower()
 
         if b'<html' in peeked_data \
         or b'<head' in peeked_data \
@@ -179,28 +182,28 @@ def get_heading_encoding(response):
         response.fields.get('content-type', ''))
 
     if encoding:
-        try:
-            codec = codecs.lookup(encoding)
-        except LookupError:
-            return None
-        else:
-            return codec.name
+        return wpull.util.normalize_codec_name(encoding)
     else:
         return None
 
 
-def get_encoding(response):
+def get_encoding(response, is_html=False, peek=10485760):
     '''Return the likely encoding of the document.
 
     Args:
         response (Response): An instance of :class:`.http.Response`.
+        is_html (bool): See :func:`.util.detect_encoding`.
+        peek (int): The number of bytes to read of the document.
 
     Returns:
         ``str``, ``None``: The codec name.
     '''
     encoding = wpull.http.util.parse_charset(
-        response.fields.get('content-type', ''))
+        response.fields.get('content-type', '')
+    )
 
-    encoding = wpull.util.detect_encoding(response.body.content, encoding)
+    encoding = wpull.util.detect_encoding(
+        response.body.content_peek(peek), encoding, is_html
+    )
 
     return encoding

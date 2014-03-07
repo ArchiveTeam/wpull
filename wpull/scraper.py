@@ -162,7 +162,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             return
 
         content_file = response.body.content_file
-        encoding = get_heading_encoding(response)
+        encoding = get_encoding(response, is_html=True)
 
         tree = self.parse(content_file, encoding, request.url_info.url)
         root = tree.getroot()
@@ -195,16 +195,18 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             if not self._is_accepted(scraped_link.tag):
                 continue
 
-            base_url = root.base_url
+            base_url = clean_link_soup(root.base_url)
 
             if scraped_link.base_link:
-                base_url = wpull.url.urljoin(base_url, scraped_link.base_link)
+                base_url = wpull.url.urljoin(
+                    base_url, clean_link_soup(scraped_link.base_link)
+                )
 
-            url = wpull.url.urljoin(base_url, scraped_link.link,
-                allow_fragments=False)
-
-            # Browsers seems to tolerate URLs with newlines
-            url = url.replace('\n', '').replace('\r', '')
+            url = wpull.url.urljoin(
+                base_url,
+                clean_link_soup(scraped_link.link),
+                allow_fragments=False
+            )
 
             if scraped_link.inline:
                 inline_urls.add(url)
@@ -218,7 +220,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             'inline_urls': inline_urls,
             'linked_urls': linked_urls,
             'base_url': to_str(root.base_url),
-            'encoding': to_str(root.getroottree().docinfo.encoding),
+            'encoding': encoding,
         }
 
     @classmethod
@@ -497,3 +499,33 @@ def parse_refresh(text):
             url = url.strip("'")
 
         return url
+
+
+def clean_link_soup(link):
+    '''Strip whitespace from a link in HTML soup.
+
+    Args:
+        link (str): A string containing the link with lots of whitespace.
+
+    The link is split into lines. For each line, leading and trailing
+    whitespace is removed and tabs are removed throughout. The lines are
+    concatenated and returned.
+
+    For example, passing the ``href`` value of::
+
+        <a href=" http://example.com/
+
+                blog/entry/
+
+            how smaug stole all the bitcoins.html
+        ">
+
+    will return
+    ``http://example.com/blog/entry/how smaug stole all the bitcoins.html``.
+
+    Returns:
+        str: The cleaned link.
+    '''
+    return ''.join(
+        [line.strip().replace('\t', '') for line in link.splitlines()]
+    )

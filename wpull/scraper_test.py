@@ -3,8 +3,8 @@ import os.path
 import shutil
 
 from wpull.backport.testing import unittest
-from wpull.scraper import HTMLScraper, CSSScraper
 from wpull.http.request import Request, Response
+from wpull.scraper import HTMLScraper, CSSScraper, clean_link_soup
 import wpull.util
 
 
@@ -25,7 +25,7 @@ class TestDocument(unittest.TestCase):
         inline_urls = scrape_info['inline_urls']
         linked_urls = scrape_info['linked_urls']
 
-        self.assertEqual('UTF-8', scrape_info['encoding'])
+        self.assertEqual('ascii', scrape_info['encoding'])
 
         self.assertEqual({
             'http://example.com/style_import_url.css',
@@ -165,6 +165,42 @@ class TestDocument(unittest.TestCase):
             linked_urls
         )
 
+    def test_html_wrong_charset(self):
+        scraper = HTMLScraper()
+        request = Request.new('http://example.com/')
+        response = Response('HTTP/1.0', 200, '')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'kcna.html')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual('utf-16-le', scrape_info['encoding'])
+
+        self.assertEqual(
+            {
+                'http://example.com/utm/__utm.js',
+                'http://example.com/Knewskage.gif',
+                'http://example.com/Lline.gif',
+                'http://example.com/Sline.gif',
+                'http://example.com/korean01.gif',
+                'http://example.com/english01.gif',
+            },
+            inline_urls
+        )
+        self.assertEqual(
+            {
+                'http://example.com/index-k.htm',
+                'http://example.com/index-e.htm'
+            },
+            linked_urls
+        )
+
     def test_html_garbage(self):
         scraper = HTMLScraper()
         request = Request.new('http://example.com/')
@@ -180,7 +216,7 @@ class TestDocument(unittest.TestCase):
 
         scrape_info = scraper.scrape(request, response)
 
-        self.assertIsNone(scrape_info)
+        self.assertTrue(scrape_info)
 
     def test_scrape_css_urls(self):
         text = '''
@@ -287,3 +323,25 @@ class TestDocument(unittest.TestCase):
             inline_urls
         )
         self.assertFalse(linked_urls)
+
+    def test_clean_link_soup(self):
+        self.assertEqual(
+            'http://example.com',
+            clean_link_soup('http://example.com  ')
+        )
+        self.assertEqual(
+            'http://example.com/',
+            clean_link_soup('\n\r\thttp://example.com\n\r\r\r\n\t/')
+        )
+        self.assertEqual(
+            'http://example.com/ something',
+            clean_link_soup('http://example.com\n\t / something  \n\r\t')
+        )
+        self.assertEqual(
+            'http://example.com/dog cat/',
+            clean_link_soup('http://example.com/\n dog \tcat\r/\n')
+        )
+        self.assertEqual(
+            'ßðf ¤Jáßðff ßðfœ³²œ¤ œë ßfœ',
+            clean_link_soup('ß\tðf ¤Jáßðf\n f ßðfœ³²œ¤ œë ßfœ ')
+        )

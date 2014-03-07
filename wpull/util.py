@@ -1,5 +1,6 @@
 # encoding=utf-8
 '''Miscellaneous functions.'''
+from bs4.dammit import UnicodeDammit, EncodingDetector
 import calendar
 import chardet
 import codecs
@@ -246,24 +247,42 @@ def filter_pem(data):
 
 
 def normalize_codec_name(name):
-    '''Return the Python name of the encoder/decoder'''
-    if name:
+    '''Return the Python name of the encoder/decoder
+
+    Returns:
+        str, None
+    '''
+    name = UnicodeDammit.CHARSET_ALIASES.get(name.lower(), name)
+
+    try:
         return codecs.lookup(name).name
+    except LookupError:
+        pass
 
 
-def detect_encoding(data, encoding=None, fallback=('utf8', 'latin1')):
+def detect_encoding(data, encoding=None, fallback='latin1', is_html=False):
     '''Detect the character encoding of the data.
 
     Returns:
-        The name of the codec
+        str: The name of the codec
 
     Raises:
-        :class:`ValueError` if the codec could not be detected.
+        ValueError: The codec could not be detected. This error can only
+        occur if fallback is not a "lossless" codec.
     '''
-    encoding = normalize_codec_name(encoding)
-    info = chardet.detect(data)
-    detected_encoding = normalize_codec_name(info['encoding'])
-    candidates = itertools.chain((encoding, detected_encoding), fallback)
+    if encoding:
+        encoding = normalize_codec_name(encoding)
+
+    if encoding:
+        override_encodings = [encoding]
+    else:
+        override_encodings = None
+
+    bs4_detector = EncodingDetector(data, override_encodings, is_html)
+    bs_encodings = [
+        normalize_codec_name(name) for name in bs4_detector.encodings
+    ]
+    candidates = itertools.chain(bs_encodings, [fallback])
 
     for candidate in candidates:
         if not candidate:

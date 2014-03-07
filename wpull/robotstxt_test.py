@@ -84,6 +84,7 @@ class TestRobotsTxtRichClient(tornado.testing.AsyncTestCase):
 
         self.assertTrue(session.done)
 
+    @tornado.testing.gen_test
     def test_fetch_allow_redirects(self):
         http_client = MockHTTPClient()
         pool = RobotsTxtPool()
@@ -103,6 +104,7 @@ class TestRobotsTxtRichClient(tornado.testing.AsyncTestCase):
         )
         response = Response('HTTP/1.0', 301, 'Moved')
         response.fields['location'] = 'http://www.example.com/robots.txt'
+        response.url_info = request.url_info
         http_client.response = response
         yield session.fetch()
         self.assertEqual(RobotsState.in_progress, session._robots_state)
@@ -116,6 +118,7 @@ class TestRobotsTxtRichClient(tornado.testing.AsyncTestCase):
         )
         response = Response('HTTP/1.0', 301, 'Moved')
         response.fields['location'] = 'http://www.example.net/robots.txt'
+        response.url_info = request.url_info
         http_client.response = response
         yield session.fetch()
         self.assertEqual(RobotsState.in_progress, session._robots_state)
@@ -129,6 +132,7 @@ class TestRobotsTxtRichClient(tornado.testing.AsyncTestCase):
         )
         response = Response('HTTP/1.0', 200, 'OK')
         response.body.content_file = io.StringIO('User-agent:*\nAllow: /\n')
+        response.url_info = request.url_info
         http_client.response = response
         yield session.fetch()
         self.assertEqual(RobotsState.ok, session._robots_state)
@@ -142,6 +146,7 @@ class TestRobotsTxtRichClient(tornado.testing.AsyncTestCase):
         )
         response = Response('HTTP/1.0', 301, 'Moved')
         response.fields['location'] = 'http://www.example.com/'
+        response.url_info = request.url_info
         http_client.response = response
         yield session.fetch()
         self.assertEqual(RobotsState.ok, session._robots_state)
@@ -155,6 +160,7 @@ class TestRobotsTxtRichClient(tornado.testing.AsyncTestCase):
         )
         response = Response('HTTP/1.0', 301, 'Moved')
         response.fields['location'] = 'http://www.example.net/'
+        response.url_info = request.url_info
         http_client.response = response
         yield session.fetch()
         self.assertEqual(RobotsState.ok, session._robots_state)
@@ -168,6 +174,7 @@ class TestRobotsTxtRichClient(tornado.testing.AsyncTestCase):
         )
         response = Response('HTTP/1.0', 301, 'Moved')
         response.fields['location'] = 'http://lol.example.net/'
+        response.url_info = request.url_info
         http_client.response = response
         yield session.fetch()
         self.assertEqual(RobotsState.ok, session._robots_state)
@@ -181,9 +188,10 @@ class TestRobotsTxtRichClient(tornado.testing.AsyncTestCase):
         )
         response = Response('HTTP/1.0', 200, 'OK')
         response.body.content_file = io.StringIO('User-agent:*\nAllow: /\n')
+        response.url_info = request.url_info
         http_client.response = response
         yield session.fetch()
-        self.assertEqual(RobotsState.in_progress, session._robots_state)
+        self.assertEqual(RobotsState.ok, session._robots_state)
 
         # Try lol.example.net/ (robots.txt already fetched)
         self.assertFalse(session.done)
@@ -193,6 +201,7 @@ class TestRobotsTxtRichClient(tornado.testing.AsyncTestCase):
             request.url_info.url
         )
         response = Response('HTTP/1.0', 200, 'OK')
+        response.url_info = request.url_info
         http_client.response = response
         yield session.fetch()
         self.assertEqual(RobotsState.ok, session._robots_state)

@@ -23,8 +23,14 @@ def main():
     status = {'graceful_called': False}
 
     def graceful_stop_handler(dummy1, dummy2):
+        io_loop.add_callback_from_signal(graceful_stop_callback)
+
+    def forceful_stop_handler(dummy1, dummy2):
+        io_loop.add_callback_from_signal(forceful_stop_callback)
+
+    def graceful_stop_callback():
         if status['graceful_called']:
-            forceful_stop_handler(dummy1, dummy2)
+            forceful_stop_callback()
             return
 
         status['graceful_called'] = True
@@ -33,7 +39,7 @@ def main():
         _logger.info(_('Interrupt again to force stopping immediately.'))
         engine.stop()
 
-    def forceful_stop_handler(dummy1, dummy2):
+    def forceful_stop_callback():
         _logger.info(_('Forcing immediate stop...'))
         engine.stop(force=True)
 

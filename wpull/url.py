@@ -162,9 +162,9 @@ class URLInfo(_URLInfoType):
             return
 
         if is_percent_encoded(path):
-            return quasi_quote(path, encoding='latin-1') or '/'
+            return flatten_path(quasi_quote(path, encoding='latin-1')) or '/'
         else:
-            return quote(path, encoding=encoding) or '/'
+            return flatten_path(quote(path, encoding=encoding)) or '/'
 
     @classmethod
     def normalize_query(cls, query, encoding='utf8'):
@@ -187,6 +187,17 @@ class URLInfo(_URLInfoType):
                 quote_func(value)
             ))
             for name, value in query_list])
+
+    def is_port_default(self):
+        if self.scheme in self.DEFAULT_PORTS:
+            return self.DEFAULT_PORTS[self.scheme] == self.port
+
+    @property
+    def hostname_with_port(self):
+        if self.is_port_default() or not self.port:
+            return self.hostname
+        else:
+            return '{0}:{1}'.format(self.hostname, self.port)
 
     def to_dict(self):
         '''Return the info as a ``dict``.'''
@@ -633,3 +644,25 @@ def urljoin(base_url, url, allow_fragments=True):
     else:
         return urllib.parse.urljoin(
             base_url, url, allow_fragments=allow_fragments)
+
+
+def flatten_path(path, slashes=False):
+    '''Flatten an absolute URL path by removing the dot segments.
+
+    :func:`urllib.parse.urljoin` has some support for removing dot segments,
+    but it is conservative and only removes them as needed.
+    '''
+    # Based on posixpath.normpath
+    parts = path.split('/')
+
+    new_parts = collections.deque()
+
+    for part in parts:
+        if part == '.' or (slashes and not part):
+            continue
+        elif part != '..':
+            new_parts.append(part)
+        elif len(new_parts) > 1:
+            new_parts.pop()
+
+    return '/'.join(new_parts)

@@ -2,7 +2,24 @@
 What's New
 ==========
 
-0.22.5 (2013-02-05)
+0.23 (2013-03-07)
+=================
+
+* Fixes incorrect logic in fetching robots.txt when it redirects to another URL.
+* Fixes port number not included in the HTTP Host header.
+* Fixes occasional ``RuntimeError`` when pressing CTRL+C.
+* Fixes fetching URL paths containing dot segments. They are now resolved appropriately.
+* Fixes ASCII progress bar not showing 100% when finished download occasionally.
+* Fixes crash and improves handling of unusual document encodings and settings.
+* Improves handling of links with newlines and whitespace intermixed.
+* Requires beautifulsoup4 as a dependency.
+* API:
+
+  * ``util.detect_encoding()`` arguments modified to accept only a single fallback and to accept ``is_html``.
+  * ``document.get_encoding()`` accepts ``is_html`` and ``peek`` arguments.
+
+
+0.22.5 (2013-03-05)
 ===================
 
 * The 'Refresh' HTTP header is now scraped for URLs.
