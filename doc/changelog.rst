@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2013-03-DD)
+0.23 (2013-03-07)
 =================
 
 * Fixes incorrect logic in fetching robots.txt when it redirects to another URL.
