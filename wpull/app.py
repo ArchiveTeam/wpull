@@ -458,6 +458,7 @@ class Builder(object):
             converter=converter,
             phantomjs_controller=phantomjs_controller,
             strong_robots=args.strong_robots,
+            strong_redirects=args.strong_redirects,
         )
 
         return processor

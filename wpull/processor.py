@@ -19,7 +19,7 @@ from wpull.http.web import RichClientResponseType
 from wpull.namevalue import NameValueRecord
 from wpull.scraper import HTMLScraper, DemuxDocumentScraper, CSSScraper
 from wpull.stats import Statistics
-from wpull.url import URLInfo, DemuxURLFilter
+from wpull.url import URLInfo, DemuxURLFilter, SpanHostsFilter
 import wpull.util
 from wpull.waiter import LinearWaiter
 from wpull.warc import WARCRecord
@@ -78,6 +78,7 @@ class WebProcessor(BaseProcessor):
         phantomjs_controller: An instance of :class:`PhantomJSController`.
         strong_robots (bool): If True, robots.txt files are downloaded
             unconditionally.
+        strong_redirects (bool): If True, redirects are allowed to span hosts.
 
     :seealso: :class:`WebProcessorSession`,
         :class:`WebProcessorWithRobotsTxtSession`
@@ -93,7 +94,7 @@ class WebProcessor(BaseProcessor):
     waiter=None, statistics=None,
     retry_connrefused=False, retry_dns_error=False, post_data=None,
     converter=None, phantomjs_controller=None,
-    strong_robots=True):
+    strong_robots=True, strong_redirects=True):
         self._rich_client = rich_client
         self._url_filter = url_filter or DemuxURLFilter([])
         self._document_scraper = document_scraper or DemuxDocumentScraper([])
@@ -107,6 +108,7 @@ class WebProcessor(BaseProcessor):
         self._converter = converter
         self._phantomjs_controller = phantomjs_controller
         self._strong_robots = strong_robots
+        self._strong_redirects = strong_redirects
 
     @property
     def rich_client(self):
@@ -151,6 +153,10 @@ class WebProcessor(BaseProcessor):
     @property
     def strong_robots(self):
         return self._strong_robots
+
+    @property
+    def strong_redirects(self):
+        return self._strong_redirects
 
     @tornado.gen.coroutine
     def process(self, url_item):
@@ -219,7 +225,7 @@ class WebProcessorSession(object):
 
     @tornado.gen.coroutine
     def process(self):
-        if not self._should_fetch(self._next_url_info):
+        if not self._should_fetch(self._next_url_info)[0]:
             self._url_item.skip()
             return
 
@@ -228,7 +234,7 @@ class WebProcessorSession(object):
         )
 
         while not self._rich_client_session.done:
-            if not self._should_fetch(self._next_url_info):
+            if not self._should_fetch(self._next_url_info)[0]:
                 self._url_item.skip()
                 break
 
@@ -307,15 +313,30 @@ class WebProcessorSession(object):
         return self._rich_client_session.next_request.url_info
 
     def _should_fetch(self, url_info):
-        '''Return whether the URL should be fetched.'''
+        '''Return whether the URL should be fetched.
+
+        Returns:
+            tuple: A two item tuple:
+
+            1. bool: If True, the URL should be fetched.
+            2. str: A short reason string explaining the verdict.
+        '''
         url_record = self._url_item.url_record
         test_info = self._processor.url_filter.test_info(url_info, url_record)
 
         if test_info['verdict']:
-            return True
+            return True, 'filters'
 
         elif url_info.path == '/robots.txt' and self._processor.strong_robots:
-            return True
+            return True, 'robots'
+
+        elif self._processor.strong_redirects \
+        and self._rich_client_session \
+        and self._rich_client_session.redirect_tracker \
+        and self._rich_client_session.redirect_tracker.is_redirect \
+        and any([isinstance(url_filter, SpanHostsFilter) for url_filter in
+                test_info['failed']]):
+            return True, 'redirect'
 
         else:
             _logger.debug(
@@ -326,7 +347,7 @@ class WebProcessorSession(object):
                     failed=test_info['failed']
             ))
 
-            return False
+            return False, 'filters'
 
     def _add_post_data(self, request):
         if self._url_item.url_record.post_data:

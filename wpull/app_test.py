@@ -369,7 +369,30 @@ class TestApp(GoodAppTestCase):
         args = arg_parser.parse_args([
             self.get_url('/redirect?where=diff-host&port={0}'.format(
                 self.get_http_port())),
-            '--recursive'
+            '--recursive',
+            '--no-robots',
+        ])
+        builder = Builder(args)
+        builder.factory.class_map['Resolver'] = MockDNSResolver
+
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
+        resolver = builder.factory['Resolver']
+        self.assertIn('somewhereelse.invalid', resolver.hosts_touched)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_strong_redirect(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/redirect?where=diff-host&port={0}'.format(
+                self.get_http_port())),
+            '--recursive',
+            '--no-strong-redirects',
+            '--no-robots',
         ])
         builder = Builder(args)
         builder.factory.class_map['Resolver'] = MockDNSResolver
@@ -381,7 +404,7 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, builder.factory['Statistics'].files)
 
         resolver = builder.factory['Resolver']
-        self.assertIn('somewhereelse.invalid', resolver.hosts_touched)
+        self.assertNotIn('somewhereelse.invalid', resolver.hosts_touched)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_immediate_robots_fail(self):

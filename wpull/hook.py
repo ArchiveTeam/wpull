@@ -85,6 +85,8 @@ class Callbacks(object):
 
                 * ``filters`` (dict): A mapping (str to bool) from filter name
                   to whether the filter passed or not.
+                * ``reason`` (str): A short reason string. Current values are:
+                  ``filters``, ``robots``, ``redirect``.
 
         Returns:
             bool: If True, the URL should be downloaded. Otherwise, the URL
@@ -237,7 +239,7 @@ class HookedWebProcessorSessionMixin(object):
         return self.hook_env.to_script_native_type(instance)
 
     def _should_fetch(self, url_info):
-        verdict = super()._should_fetch(url_info)
+        verdict, reason_slug = super()._should_fetch(url_info)
 
         url_info_dict = self._to_script_native_type(url_info.to_dict())
 
@@ -246,6 +248,7 @@ class HookedWebProcessorSessionMixin(object):
 
         reasons = {
             'filters': self._get_filter_info(),
+            'reason': reason_slug,
         }
         reasons = self._to_script_native_type(reasons)
 
@@ -254,7 +257,7 @@ class HookedWebProcessorSessionMixin(object):
 
         _logger.debug('Hooked should fetch returned {0}'.format(verdict))
 
-        return verdict
+        return verdict, reason_slug
 
     def _get_filter_info(self):
         filter_info_dict = {}
