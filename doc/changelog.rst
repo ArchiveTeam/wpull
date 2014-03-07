@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.23.X (2014-03-07)
+0.23.1 (2014-03-07)
 ===================
 
 * Important: Fixes issue where URLs were downloaded repeatedly.
