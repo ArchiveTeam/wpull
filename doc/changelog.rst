@@ -5,6 +5,7 @@ What's New
 0.XX (2014-03-DD)
 ==================
 
+* Fixes crash when document encoding could not be detected. Thanks to DopefishJustin for reporting.
 * ``robots.txt`` is now unconditionally fetched. Use ``--no-strong-robots`` to disable this behavior.
 * Redirects implicitly span hosts. Use ``--no-strong-redirects`` to disable this behavior.
 * Scripting: ``should_fetch()`` info dict now contains ``reason`` as a key.
