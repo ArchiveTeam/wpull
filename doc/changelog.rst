@@ -33,7 +33,7 @@ What's New
   * ``document.get_encoding()`` accepts ``is_html`` and ``peek`` arguments.
 
 
-0.22.5 (2013-03-05)
+0.22.5 (2014-03-05)
 ===================
 
 * The 'Refresh' HTTP header is now scraped for URLs.
@@ -41,14 +41,14 @@ What's New
 * Works around error "Reached maximum read buffer size" downloading on fast connections. Side effect is intensive CPU usage.
 
 
-0.22.4 (2013-03-05)
+0.22.4 (2014-03-05)
 ===================
 
 * Fixes occasional error on chunked transfer encoding. Thanks to ivan for reporting.
 * Fixes handling links with newlines found in HTML pages. Newlines are now stripped in links when scraping pages to better handle HTML soup.
 
 
-0.22.3 (2013-03-02)
+0.22.3 (2014-03-02)
 ===================
 
 * Fixes another case of ``AssertionError`` on ``url_item.is_processed`` when robots.txt was enabled.
