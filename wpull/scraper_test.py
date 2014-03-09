@@ -201,6 +201,30 @@ class TestDocument(unittest.TestCase):
             linked_urls
         )
 
+    def test_html_not_quite_charset(self):
+        scraper = HTMLScraper()
+        request = Request.new('http://example.com/')
+        response = Response('HTTP/1.0', 200, '')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'videogame_top.htm')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertIn(
+            'http://example.com/copyright_2001_2006_rtype.gif',
+            inline_urls
+        )
+        self.assertIn(
+            'http://www.geocities.jp/gamehouse_grindcrusher/',
+            linked_urls
+        )
+
     def test_html_garbage(self):
         scraper = HTMLScraper()
         request = Request.new('http://example.com/')

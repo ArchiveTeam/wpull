@@ -958,6 +958,20 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('don’t follow to parent directories on URL path'),
         )
+        group.add_argument(
+            '--no-strong-robots',
+            dest='strong_robots',
+            action='store_false',
+            default=True,
+            help=_('don’t ignore filters for robots.txt'),
+        )
+        group.add_argument(
+            '--no-strong-redirects',
+            dest='strong_redirects',
+            action='store_false',
+            default=True,
+            help=_('don’t implicitly allow span hosts for redirects'),
+        )
 
     def _add_phantomjs_args(self):
         group = self.add_argument_group(_('PhantomJS'))

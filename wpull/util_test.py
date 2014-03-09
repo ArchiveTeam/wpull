@@ -1,4 +1,5 @@
 # encoding=utf-8
+import itertools
 import sys
 import time
 import tornado.testing
@@ -92,6 +93,13 @@ class TestUtil(unittest.TestCase):
             detect_encoding, b'\xff\xff\xff\x81',
             'utf8', fallback=()
         )
+
+        for length in range(1, 2):
+            iterable = itertools.permutations(
+                [bytes(i) for i in range(256)], length
+            )
+            for data in iterable:
+                detect_encoding(b''.join(data))
 
 
 class TestUtilAsync(tornado.testing.AsyncTestCase):

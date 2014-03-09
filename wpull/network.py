@@ -57,9 +57,12 @@ class Resolver(object):
             port (int): The port number.
 
         Returns:
-            tuple: A tuple containing the address that can be passed to
-            :func:`socket.connect`. Typically, the first item is the IP
-            address and the second item is the port number. Note that
+            tuple: A tuple of length 2 where the first item is the family and
+            the second item is address that can be passed
+            to :func:`socket.connect`.
+
+            Typically in an address, the first item is the IP
+            family and the second item is the IP address. Note that
             IPv6 returns a tuple containing more items than 2.
         '''
         _logger.debug('Lookup address {0} {1}.'.format(host, port))

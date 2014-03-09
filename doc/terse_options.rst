@@ -33,7 +33,8 @@ Brief Option Overview
                      [--regex-type TYPE] [-D LIST] [--exclude-domains LIST]
                      [--hostnames LIST] [--exclude-hostnames LIST]
                      [--follow-tags LIST] [--ignore-tags LIST] [-H] [-L]
-                     [-I LIST] [-X LIST] [-np] [--phantomjs]
+                     [-I LIST] [-X LIST] [-np] [--no-strong-robots]
+                     [--no-strong-redirects] [--phantomjs]
                      [--phantomjs-scroll NUM] [--phantomjs-wait SEC]
                      [--no-phantomjs-snapshot]
                      [URL [URL ...]]
@@ -193,6 +194,9 @@ Brief Option Overview
     -X LIST, --exclude-directories LIST
                           don’t download paths in LIST
     -np, --no-parent      don’t follow to parent directories on URL path
+    --no-strong-robots    don’t ignore filters for robots.txt
+    --no-strong-redirects
+                          don’t implicitly allow span hosts for redirects
 
   PhantomJS:
     --phantomjs           use PhantomJS for loading dynamic pages

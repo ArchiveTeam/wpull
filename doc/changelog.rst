@@ -2,6 +2,17 @@
 What's New
 ==========
 
+0.24 (2014-03-09)
+==================
+
+* Fixes crash when document encoding could not be detected. Thanks to DopefishJustin for reporting.
+* Fixes non-index files incorrectly saved where an extra directory was added as part of their path.
+* URL path escaping is relaxed. This helps with servers that don't handle percent-encoding correctly.
+* ``robots.txt`` is now unconditionally fetched. Use ``--no-strong-robots`` to disable this behavior.
+* Redirects implicitly span hosts. Use ``--no-strong-redirects`` to disable this behavior.
+* Scripting: ``should_fetch()`` info dict now contains ``reason`` as a key.
+
+
 0.23.1 (2014-03-07)
 ===================
 

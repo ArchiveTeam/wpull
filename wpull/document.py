@@ -203,7 +203,7 @@ def get_encoding(response, is_html=False, peek=10485760):
     )
 
     encoding = wpull.util.detect_encoding(
-        response.body.content_peek(peek), encoding, is_html
+        response.body.content_peek(peek), encoding=encoding, is_html=is_html
     )
 
     return encoding
