@@ -212,6 +212,20 @@ class TestURL(unittest.TestCase):
             'http://example.com/a/style.css',
             URLInfo.parse('http://example.com/a/b/../style.css').url
         )
+        self.assertEqual(
+            'http://example.com/@49IMG.DLL/$SESSION$/image.png;large',
+            URLInfo.parse(
+                'http://example.com/@49IMG.DLL/$SESSION$/image.png;large').url
+        )
+        self.assertEqual(
+            'http://example.com/@49IMG.DLL/$SESSION$/imag%C3%A9.png;large',
+            URLInfo.parse(
+                'http://example.com/@49IMG.DLL/$SESSION$/imagé.png;large').url
+        )
+        self.assertEqual(
+            'http://example.com/$c/%25system.exe/',
+            URLInfo.parse('http://example.com/$c/%system.exe/').url
+        )
 
     def test_url_info_to_dict(self):
         url_info = URLInfo.parse('https://example.com/file.jpg')

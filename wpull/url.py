@@ -162,9 +162,13 @@ class URLInfo(_URLInfoType):
             return
 
         if is_percent_encoded(path):
-            return flatten_path(quasi_quote(path, encoding='latin-1')) or '/'
+            return flatten_path(
+                quasi_quote(path, encoding='latin-1', safe=RELAXED_SAFE_CHARS)
+            ) or '/'
         else:
-            return flatten_path(quote(path, encoding=encoding)) or '/'
+            return flatten_path(
+                quote(path, encoding=encoding, safe=RELAXED_SAFE_CHARS)
+            ) or '/'
 
     @classmethod
     def normalize_query(cls, query, encoding='utf8'):
@@ -476,6 +480,10 @@ class BackwardFilenameFilter(BaseURLFilter):
                 return True
 
 
+RELAXED_SAFE_CHARS = '/!$&()*+,:;=@~'
+'''Characters in URL path that should be safe to not escape.'''
+
+
 def schemes_similar(scheme1, scheme2):
     '''Return whether URL schemes are similar.
 
@@ -612,7 +620,7 @@ def uppercase_percent_encoding(string):
 
 PRINTABLE_CHARS = frozenset(string.printable)
 HEX_CHARS = frozenset(string.hexdigits)
-UNESCAPED_CHARS = frozenset(' &=')
+UNESCAPED_CHARS = frozenset(' ')
 
 
 def is_percent_encoded(url):
