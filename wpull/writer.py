@@ -446,6 +446,12 @@ def url_to_dir_path(url, include_protocol=False, include_hostname=False):
         if path_part:
             parts.append(path_part)
 
+    if not url.endswith('/') and parts:
+        parts.pop()
+
+    if not parts:
+        return ''
+
     sanitize_path_parts(parts)
     return os.path.join(*parts)
 

@@ -15,7 +15,41 @@ DEFAULT_TIMEOUT = 30
 
 
 class TestWriter(unittest.TestCase):
+    def test_writer_path_dir(self):
+        self.assertEqual(
+            'blog',
+            url_to_dir_path('http://example.com/blog/')
+        )
+        self.assertEqual(
+            'blog',
+            url_to_dir_path('http://example.com/blog/image.png')
+        )
+        self.assertEqual(
+            'example.com/blog',
+            url_to_dir_path(
+                'http://example.com/blog/image.png', include_hostname=True
+            )
+        )
+        self.assertEqual(
+            '',
+            url_to_dir_path('http://example.com/')
+        )
+
     def test_writer_filename(self):
+        self.assertEqual(
+            'image.png',
+            url_to_filename('http://example.com/blog/image.png')
+        )
+        self.assertEqual(
+            'index.html',
+            url_to_filename('http://example.com/blog/')
+        )
+        self.assertEqual(
+            'index.html',
+            url_to_filename('http://example.com/')
+        )
+
+    def test_writer_filename_escaping(self):
         url = 'http://../sométhing/'
         self.assertEqual(
             'http/%2E%2E/som%C3%A9thing/index.html',

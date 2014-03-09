@@ -6,6 +6,7 @@ What's New
 ==================
 
 * Fixes crash when document encoding could not be detected. Thanks to DopefishJustin for reporting.
+* Fixes non-index files incorrectly saved where an extra directory was added as part of their path.
 * ``robots.txt`` is now unconditionally fetched. Use ``--no-strong-robots`` to disable this behavior.
 * Redirects implicitly span hosts. Use ``--no-strong-redirects`` to disable this behavior.
 * Scripting: ``should_fetch()`` info dict now contains ``reason`` as a key.
