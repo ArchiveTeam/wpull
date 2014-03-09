@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2014-03-DD)
+0.24 (2014-03-09)
 ==================
 
 * Fixes crash when document encoding could not be detected. Thanks to DopefishJustin for reporting.
