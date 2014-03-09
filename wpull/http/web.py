@@ -430,7 +430,7 @@ class RobotsTxtRichClientSession(RichClientSession):
         try:
             self._robots_txt_pool.load_robots_txt(
                 url_info,
-                response.body.content_segment())
+                response.body.content_peek())
         except ValueError:
             _logger.warning(
                 _('Failed to parse {url} for robots exclusion rules. '
