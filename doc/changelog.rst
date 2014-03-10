@@ -2,6 +2,15 @@
 What's New
 ==========
 
+0.XX (2014-03-DD)
+=================
+
+* Supports ``--restrict-file-names``.
+* API: 
+
+  * writer.py: ``sanitize_file_parts()`` was removed in favor of new ``safe_filename()``
+
+
 0.24 (2014-03-09)
 ==================
 

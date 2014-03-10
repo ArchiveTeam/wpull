@@ -2,6 +2,8 @@
 '''Document writers.'''
 # Wpull. Copyright 2013-2014: Christopher Foo. License: GPL v3.
 import abc
+import base64
+import collections
 import email.utils
 import gettext
 import http.client
@@ -363,43 +365,61 @@ class PathNamer(BasePathNamer):
     '''Path namer that creates a directory hierarchy based on the URL.
 
     Args:
-        root: The base path
-        index: The filename to use when the URL path does not indicate one
-        use_dir: Include directories based on the URL path
-        cut: Number of leading directories to cut from the file path.
-        protocol: Include the URL scheme in the directory structure
-        hostname: Include the hostname in the directory structure
+        root (str): The base path.
+        index (str): The filename to use when the URL path does not indicate
+            one.
+        use_dir (bool): Include directories based on the URL path.
+        cut (int): Number of leading directories to cut from the file path.
+        protocol (bool): Include the URL scheme in the directory structure.
+        hostname (bool): Include the hostname in the directory structure.
+
+    See also: :func:`url_to_filename`, :func:`url_to_dir_path`,
+    :func:`safe_filename`.
     '''
     def __init__(self, root, index='index.html', use_dir=False, cut=None,
-    protocol=False, hostname=False):
+    protocol=False, hostname=False, os_type='unix',
+    no_control=True, ascii_only=True, case=None):
         self._root = root
         self._index = index
         self._cut = cut
         self._protocol = protocol
         self._hostname = hostname
         self._use_dir = use_dir
+        self._os_type = os_type
+        self._no_control = no_control
+        self._ascii_only = ascii_only
+        self._case = case
 
     def get_filename(self, url_info):
         url = url_info.url
-        filename = url_to_filename(url, self._index)
+        filename = url_to_filename(
+            url, self._index,
+            os_type=self._os_type, no_control=self._no_control,
+            ascii_only=self._ascii_only, case=self._case
+        )
 
         if self._use_dir:
-            dir_path = url_to_dir_path(url, self._protocol, self._hostname)
+            dir_path = url_to_dir_path(
+                url, self._protocol, self._hostname,
+                os_type=self._os_type, no_control=self._no_control,
+                ascii_only=self._ascii_only, case=self._case
+            )
             filename = os.path.join(dir_path, filename)
 
         return filename
 
 
-def url_to_filename(url, index='index.html'):
+def url_to_filename(url, index='index.html', **safe_kwargs):
     '''Return a safe filename from a URL.
 
     Args:
-        index: If a filename could not be derived from the URL path, use index
-            instead. For example, ``/images/`` will return ``index.html``.
+        url (str): The URL.
+        index (str): If a filename could not be derived from the URL path,
+            use index instead. For example, ``/images/`` will return
+            ``index.html``.
+        safe_kwargs: Additional arguments to :func:`safe_filename`.
 
     This function does not include the directories.
-
-    :seealso: :func:`quote_filename`
     '''
     assert isinstance(url, str)
     url_split_result = urllib.parse.urlsplit(url)
@@ -409,27 +429,34 @@ def url_to_filename(url, index='index.html'):
     if not filename:
         filename = index
 
-    filename = quote_filename(filename)
+    filename = safe_filename(filename, **safe_kwargs)
 
     if url_split_result.query:
-        query_str = urllib.parse.urlencode(
-            urllib.parse.parse_qs(
-                url_split_result.query, keep_blank_values=True),
-            doseq=True)
+        if safe_kwargs.get('os_type') == 'windows':
+            query_delim = '@'
+        else:
+            query_delim = '?'
 
-        filename = '{0}?{1}'.format(filename, query_str)
+        filename = '{0}{1}{2}'.format(
+            filename, query_delim, url_split_result.query
+        )
 
     return filename
 
 
-def url_to_dir_path(url, include_protocol=False, include_hostname=False):
+def url_to_dir_path(url, include_protocol=False, include_hostname=False,
+**safe_kwargs):
     '''Return a safe directory path from a URL.
 
     Args:
-        include_protocol: If True, the scheme from the URL will be included
-        include_hostname: If True, the hostname from the URL will be included
+        url (str): The URL.
+        include_protocol (bool): If True, the scheme from the URL will be
+            included.
+        include_hostname (bool): If True, the hostname from the URL will be
+            included.
+        safe_kwargs: Additional arguments to :func:`safe_filename`.
 
-    :seealso: :func:`sanitize_path_parts`
+    This function does not include the filename.
     '''
     assert isinstance(url, str)
     url_split_result = urllib.parse.urlsplit(url)
@@ -440,7 +467,19 @@ def url_to_dir_path(url, include_protocol=False, include_hostname=False):
         parts.append(url_split_result.scheme)
 
     if include_hostname:
-        parts.append(url_split_result.hostname)
+        hostname = url_split_result.hostname
+
+        if url_split_result.port:
+            if safe_kwargs.get('os_type') == 'windows':
+                port_delim = '+'
+            else:
+                port_delim = ':'
+
+            hostname = '{0}{1}{2}'.format(
+                hostname, port_delim, url_split_result.port
+            )
+
+        parts.append(hostname)
 
     for path_part in url_split_result.path.split('/'):
         if path_part:
@@ -452,26 +491,90 @@ def url_to_dir_path(url, include_protocol=False, include_hostname=False):
     if not parts:
         return ''
 
-    sanitize_path_parts(parts)
+    parts = [safe_filename(part, **safe_kwargs) for part in parts]
     return os.path.join(*parts)
 
 
-def sanitize_path_parts(parts):
-    '''Return a safe list of path directory parts.'''
-    for i in range(len(parts)):
-        part = parts[i]
+class PercentEncoder(collections.defaultdict):
+    '''Percent encoder.'''
+    # The percent-encoder was inspired from urllib.parse
+    def __init__(self, unix=False, control=False, windows=False, ascii_=False):
+        super().__init__()
+        self.unix = unix
+        self.control = control
+        self.windows = windows
+        self.ascii = ascii_
 
-        if part in ('.', os.curdir):
-            parts[i] = '%2E'
-        elif part in ('.', os.pardir):
-            parts[i] = '%2E%2E'
+    def __missing__(self, char):
+        assert isinstance(char, bytes)
+
+        char_num = ord(char)
+
+        if (self.unix and char == b'/')\
+        or (self.control and (0 <= char_num <= 31 or 128 <= char_num <= 159))\
+        or (self.windows and char in br'\|/:?"*<>')\
+        or (self.ascii and char_num > 127):
+            value = b'%' + base64.b16encode(char)
         else:
-            parts[i] = quote_filename(part)
+            value = char
+
+        self[char] = value
+        return value
 
 
-def quote_filename(filename):
-    '''Return a safe filename.'''
-    if wpull.url.is_percent_encoded(filename):
-        return wpull.url.quasi_quote(filename, safe='')
+_encoder_cache = {}
+
+
+def safe_filename(filename, os_type='unix', no_control=True, ascii_only=True,
+case=None, encoding='utf8'):
+    '''Return a safe filename or path part.
+
+    Args:
+        filename (str): The filename or path component.
+        os_type (str): If ``unix``, escape the slash. If ``windows``, escape
+            extra Windows characters.
+        no_control (bool): If True, escape control characters.
+        ascii_only (bool): If True, escape non-ASCII characters.
+        case (str): If ``lower``, lowercase the string. If ``upper``, uppercase
+            the string.
+        encoding (str): The character encoding.
+
+    This function assumes that `filename` has not already been percent-encoded.
+
+    Returns:
+        str
+    '''
+    assert isinstance(filename, str)
+
+    if filename in ('.', os.curdir):
+        new_filename = '%2E'
+    elif filename in ('.', os.pardir):
+        new_filename = '%2E%2E'
     else:
-        return wpull.url.quote(filename, safe='')
+        unix = os_type == 'unix'
+        windows = os_type == 'windows'
+        encoder_args = (unix, no_control, windows, ascii_only)
+
+        if encoder_args not in _encoder_cache:
+            _encoder_cache[encoder_args] = PercentEncoder(
+                unix=unix, control=no_control, windows=windows,
+                ascii_=ascii_only
+            )
+
+        quoter = _encoder_cache[encoder_args].__getitem__
+        new_filename = b''.join(
+            [quoter(bytes([char])) for char in filename.encode(encoding)]
+        ).decode(encoding)
+
+    if os_type == 'windows':
+        if new_filename[-1] in ' .':
+            new_filename = '{0}{1:02X}'.format(
+                new_filename[:-1], new_filename[-1]
+            )
+
+    if case == 'lower':
+        new_filename = new_filename.lower()
+    elif case == 'upper':
+        new_filename = new_filename.upper()
+
+    return new_filename

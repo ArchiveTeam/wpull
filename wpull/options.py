@@ -396,11 +396,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('use different resolved IP addresses on requests'),
         )
-#         self.add_argument(
-#             '--restrict-file-names',
-#             metavar='OS',
-#             help=_('use safe filenames for suitable OS'),
-#         )
+        group.add_argument(
+            '--restrict-file-names',
+            metavar='MODES',
+            type=self.comma_list,
+            default=['windows'] if os.name == 'nt' else ['unix'],
+            help=_('list of safe filename modes to use'),
+        )
 #         self.add_argument(
 #             '--ignore-case',
 #             action='store_true',

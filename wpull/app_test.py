@@ -133,14 +133,20 @@ class TestApp(GoodAppTestCase):
             '--convert-links', '--backup-converted',
             '--accept', '*',
             '--no-strong-robots',
+            '--restrict-file-names', 'windows,lower'
         ])
         with cd_tempdir():
             engine = Builder(args).build()
             exit_code = yield engine()
 
             print(list(os.walk('.')))
-            self.assertTrue(os.path.exists('http/localhost/index.html'))
-            self.assertTrue(os.path.exists('http/localhost/index.html.orig'))
+            self.assertTrue(os.path.exists(
+                'http/localhost+{0}/index.html'.format(self.get_http_port())
+            ))
+            self.assertTrue(os.path.exists(
+                'http/localhost+{0}/index.html.orig'.format(
+                    self.get_http_port())
+            ))
 
         self.assertEqual(0, exit_code)
 

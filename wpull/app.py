@@ -482,6 +482,18 @@ class Builder(object):
         elif args.use_directories == 'no':
             use_dir = False
 
+        os_type = 'windows' if 'windows' in args.restrict_file_names \
+            else 'unix'
+        ascii_only = 'ascii' in args.restrict_file_names
+        no_control = 'nocontrol' not in args.restrict_file_names
+
+        if 'lower' in args.restrict_file_names:
+            case = 'lower'
+        elif 'upper' in args.restrict_file_names:
+            case = 'upper'
+        else:
+            case = None
+
         path_namer = self._factory.new('PathNamer',
             args.directory_prefix,
             index=args.default_page,
@@ -489,6 +501,10 @@ class Builder(object):
             cut=args.cut_dirs,
             protocol=args.protocol_directories,
             hostname=args.host_directories,
+            os_type=os_type,
+            ascii_only=ascii_only,
+            no_control=no_control,
+            case=case,
         )
 
         if args.recursive or args.page_requisites or args.continue_download:
