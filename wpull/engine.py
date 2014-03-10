@@ -306,7 +306,7 @@ class URLItem(object):
 
         self._processed = True
 
-    def set_status(self, status, increment_try_count=True):
+    def set_status(self, status, increment_try_count=True, **kwargs):
         '''Mark the item with the given status.
 
         Args:
@@ -323,7 +323,8 @@ class URLItem(object):
         self._url_table.update(
             self._url,
             increment_try_count=increment_try_count,
-            status=status
+            status=status,
+            **kwargs
         )
 
         self._processed = True

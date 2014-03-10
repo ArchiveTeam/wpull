@@ -5,10 +5,14 @@ What's New
 0.XX (2014-03-DD)
 =================
 
+* Fixes link converter not operating on the correct files when ``.N`` files were written.
 * Supports ``--restrict-file-names``.
-* API: 
+* Database schema change: ``filename`` column was added.
+* API:
 
-  * writer.py: ``sanitize_file_parts()`` was removed in favor of new ``safe_filename()``
+  * converter.py: Converters no longer use PathNamer.
+  * writer.py: ``sanitize_file_parts()`` was removed in favor of new ``safe_filename()``. ``save_documetn()`` returns a filename.
+  * WebProcessor now requires a root path to be specified.
 
 
 0.24 (2014-03-09)

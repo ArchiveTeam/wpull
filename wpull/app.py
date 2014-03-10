@@ -447,6 +447,7 @@ class Builder(object):
         )
         processor = self._factory.new('WebProcessor',
             rich_http_client,
+            args.directory_prefix,
             url_filter=url_filter,
             document_scraper=document_scraper,
             file_writer=file_writer,
@@ -668,7 +669,7 @@ class Builder(object):
 
         converter = self._factory.new(
             'BatchDocumentConverter',
-            self._factory['PathNamer'], self._factory['URLTable'],
+            self._factory['URLTable'],
             backup=self._args.backup_converted
         )
 

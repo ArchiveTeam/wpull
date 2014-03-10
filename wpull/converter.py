@@ -28,16 +28,14 @@ class BatchDocumentConverter(object):
     '''Convert all documents in URL table.
 
     Args:
-        path_namer: An instance of :class:`.writer.PathNamer`.
         url_table: An instance of :class:`.database.URLTable`.
         backup (bool): Whether back up files are created.
     '''
-    def __init__(self, path_namer, url_table, backup=False):
-        self._path_namer = path_namer
+    def __init__(self, url_table, backup=False):
         self._url_table = url_table
         self._backup_enabled = backup
-        self._html_converter = HTMLConverter(path_namer, url_table)
-        self._css_converter = CSSConverter(path_namer, url_table)
+        self._html_converter = HTMLConverter(url_table)
+        self._css_converter = CSSConverter(url_table)
 
     def convert_all(self):
         '''Convert all links in URL table.'''
@@ -49,9 +47,7 @@ class BatchDocumentConverter(object):
 
     def convert_by_record(self, url_record):
         '''Convert using given URL Record.'''
-        filename = self._path_namer.get_filename(
-            URLInfo.parse(url_record.url)
-        )
+        filename = url_record.filename
 
         if not os.path.exists(filename):
             return
@@ -90,11 +86,10 @@ class BatchDocumentConverter(object):
 
 class HTMLConverter(HTMLScraper, BaseDocumentConverter):
     '''HTML converter.'''
-    def __init__(self, path_namer, url_table):
+    def __init__(self, url_table):
         super().__init__()
-        self._path_namer = path_namer
         self._url_table = url_table
-        self._css_converter = CSSConverter(path_namer, url_table)
+        self._css_converter = CSSConverter(url_table)
 
     def convert(self, input_filename, output_filename, base_url=None):
         css_already_done = set()
@@ -159,9 +154,11 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
             css_already_done.add(link_info.element)
 
     def _get_new_url(self, url_info):
-        if url_info.url in self._url_table \
-        and self._url_table[url_info.url].status == Status.done:
-            new_url = self._path_namer.get_filename(url_info)
+        url_record = self._url_table.get(url_info.url)
+
+        if url_record \
+        and url_record.status == Status.done and url_record.filename:
+            new_url = url_record.filename
         else:
             new_url = url_info.url
 
@@ -173,9 +170,8 @@ class CSSConverter(CSSScraper, BaseDocumentConverter):
     ALL_URL_PATTERN = r'{0}|{1}'.format(
         CSSScraper.URL_PATTERN, CSSScraper.IMPORT_URL_PATTERN)
 
-    def __init__(self, path_namer, url_table):
+    def __init__(self, url_table):
         super().__init__()
-        self._path_namer = path_namer
         self._url_table = url_table
 
     def convert(self, input_filename, output_filename, base_url=None):
@@ -196,9 +192,11 @@ class CSSConverter(CSSScraper, BaseDocumentConverter):
             if base_url:
                 url = wpull.url.urljoin(base_url, url)
 
-            if url in self._url_table \
-            and self._url_table[url].status == Status.done:
-                new_url = self._path_namer.get_filename(URLInfo.parse(url))
+            url_record = self._url_table.get(url)
+
+            if url_record \
+            and url_record.status == Status.done and url_record.filename:
+                new_url = url_record.filename
             else:
                 new_url = url
 

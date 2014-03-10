@@ -61,6 +61,7 @@ _URLRecordType = collections.namedtuple(
         'link_type',
         'url_encoding',
         'post_data',
+        'filename',
     ]
 )
 
@@ -91,6 +92,7 @@ class URLRecord(_URLRecordType):
             the URL. See :class:`.url.URLInfo`.
         post_data (str): If given, the URL should be fetched as a
             POST request containing `post_data`.
+        filename (str): The path to where the file was saved.
     '''
     @property
     def url_info(self):
@@ -124,6 +126,7 @@ class URLRecord(_URLRecordType):
             'link_type': self.link_type,
             'url_encoding': self.url_encoding,
             'post_data': self.post_data,
+            'filename': self.filename,
         }
 
 
@@ -163,6 +166,7 @@ class URLDBRecord(DBBase):
     link_type = Column(String)
     url_encoding = Column(String)
     post_data = Column(String)
+    filename = Column(String)
 
     def to_plain(self):
         return URLRecord(
@@ -177,6 +181,7 @@ class URLDBRecord(DBBase):
             self.link_type,
             self.url_encoding,
             self.post_data,
+            self.filename,
         )
 
 

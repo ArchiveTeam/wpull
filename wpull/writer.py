@@ -61,6 +61,9 @@ class BaseWriterSession(object, metaclass=abc.ABCMeta):
 
         This function is called by a Processor once the Processor deemed
         the document should be saved (i.e., a "200 OK" response).
+
+        Returns:
+            str: The filename of the document.
         '''
         pass
 
@@ -245,6 +248,8 @@ class BaseFileWriterSession(BaseWriterSession):
 
             if self._local_timestamping:
                 self.set_timestamp(self._filename, response)
+
+            return self._filename
 
     def discard_document(self, response):
         if self._filename and os.path.exists(self._filename):

@@ -60,6 +60,7 @@ class WebProcessor(BaseProcessor):
 
     Args:
         rich_client (RichClient): An instance of :class:`.http.web.RichClient`.
+        root_path (str): The root directory path.
         url_filter (DemuxURLFilter): An instance of
             :class:`.url.DemuxURLFilter`.
         document_scraper (DemuxDocumentScraper): An instance of
@@ -89,13 +90,14 @@ class WebProcessor(BaseProcessor):
     NO_DOCUMENT_STATUS_CODES = (401, 403, 404, 405, 410,)
     '''Default status codes considered a permanent error.'''
 
-    def __init__(self, rich_client,
+    def __init__(self, rich_client, root_path,
     url_filter=None, document_scraper=None, file_writer=None,
     waiter=None, statistics=None,
     retry_connrefused=False, retry_dns_error=False, post_data=None,
     converter=None, phantomjs_controller=None,
     strong_robots=True, strong_redirects=True):
         self._rich_client = rich_client
+        self._root_path = root_path
         self._url_filter = url_filter or DemuxURLFilter([])
         self._document_scraper = document_scraper or DemuxDocumentScraper([])
         self._file_writer = file_writer or NullWriter()
@@ -113,6 +115,10 @@ class WebProcessor(BaseProcessor):
     @property
     def rich_client(self):
         return self._rich_client
+
+    @property
+    def root_path(self):
+        return self._root_path
 
     @property
     def url_filter(self):
@@ -369,8 +375,8 @@ class WebProcessorSession(object):
         def factory(*args, **kwargs):
             # TODO: Response should be dependency injected
             response = Response(*args, **kwargs)
-            # FIXME: we should be using --directory-prefix instead of CWD.
-            response.body.content_file = Body.new_temp_file(os.getcwd())
+            root = self._processor.root_path
+            response.body.content_file = Body.new_temp_file(root)
 
             if self._file_writer_session:
                 self._file_writer_session.process_response(response)
@@ -396,11 +402,15 @@ class WebProcessorSession(object):
         '''Process a document response.'''
         _logger.debug('Got a document.')
 
-        self._file_writer_session.save_document(response)
+        filename = self._file_writer_session.save_document(response)
+
+        if filename:
+            filename = os.path.relpath(filename, self._processor.root_path)
+
         self._scrape_document(self._request, response)
         self._processor.waiter.reset()
         self._processor.statistics.increment(response.body.content_size)
-        self._url_item.set_status(Status.done)
+        self._url_item.set_status(Status.done, filename=filename)
 
         return True
 

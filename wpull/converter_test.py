@@ -1,10 +1,10 @@
 # encoding=utf-8
 import os.path
 
+from wpull.app_test import cd_tempdir
 from wpull.backport.testing import unittest
 from wpull.converter import CSSConverter, HTMLConverter
 from wpull.database import URLTable, Status
-from wpull.writer import PathNamer
 
 
 try:
@@ -39,9 +39,11 @@ HTML_TEXT = '''
 
 class TestConverter(unittest.TestCase):
     def test_css_converter(self):
-        with TemporaryDirectory() as temp_dir:
-            path_namer = PathNamer(temp_dir)
+        with cd_tempdir() as temp_dir:
             url_table = URLTable()
+            css_filename = os.path.join(temp_dir, 'styles.css')
+            image_filename = os.path.join(temp_dir, 'image.png')
+            new_css_filename = os.path.join(temp_dir, 'styles.css-new')
 
             url_table.add([
                 'http://example.com/styles.css',
@@ -52,20 +54,22 @@ class TestConverter(unittest.TestCase):
             url_table.update(
                 'http://example.com/styles.css',
                 status=Status.done,
-                link_type='css'
+                link_type='css',
+                filename=os.path.relpath(css_filename, temp_dir)
             )
             url_table.update(
                 'http://example.com/image.png',
                 status=Status.done,
+                filename=os.path.relpath(image_filename, temp_dir)
             )
-
-            css_filename = os.path.join(temp_dir, 'styles.css')
-            new_css_filename = os.path.join(temp_dir, 'styles.css-new')
 
             with open(css_filename, 'w') as out_file:
                 out_file.write(CSS_TEXT)
 
-            converter = CSSConverter(path_namer, url_table)
+            with open(image_filename, 'wb'):
+                pass
+
+            converter = CSSConverter(url_table)
 
             converter.convert(
                 css_filename, new_css_filename,
@@ -79,9 +83,12 @@ class TestConverter(unittest.TestCase):
             self.assertIn("url('http://example.com/cat.jpg')", converted_text)
 
     def test_html_converter(self):
-        with TemporaryDirectory() as temp_dir:
-            path_namer = PathNamer(temp_dir)
+        with cd_tempdir() as temp_dir:
             url_table = URLTable()
+
+            image_filename = os.path.join(temp_dir, 'image.png')
+            tubes_filename = os.path.join(temp_dir, 'tubes.html')
+            ferret_filename = os.path.join(temp_dir, 'ferret.jpg')
 
             url_table.add([
                 'http://example.com/styles.css',
@@ -99,14 +106,17 @@ class TestConverter(unittest.TestCase):
             url_table.update(
                 'http://example.com/image.png',
                 status=Status.done,
+                filename=os.path.relpath(image_filename, temp_dir)
             )
             url_table.update(
                 'http://example.com/tubes.html',
                 status=Status.done,
+                filename=os.path.relpath(tubes_filename, temp_dir)
             )
             url_table.update(
                 'http://example.com/ferret.jpg',
                 status=Status.done,
+                filename=os.path.relpath(ferret_filename, temp_dir)
             )
 
             html_filename = os.path.join(temp_dir, 'index.html')
@@ -115,7 +125,11 @@ class TestConverter(unittest.TestCase):
             with open(html_filename, 'w') as out_file:
                 out_file.write(HTML_TEXT)
 
-            converter = HTMLConverter(path_namer, url_table)
+            for filename in [image_filename, tubes_filename, ferret_filename]:
+                with open(filename, 'wb'):
+                    pass
+
+            converter = HTMLConverter(url_table)
 
             converter.convert(
                 html_filename, new_html_filename,
