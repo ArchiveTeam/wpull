@@ -7,7 +7,7 @@ import tornado.gen
 import toro
 
 import wpull.actor
-from wpull.database import Status, NotFound
+from wpull.database import Status, NotFound, URLRecord
 from wpull.errors import (ExitStatus, ServerError, ConnectionRefused, DNSNotFound,
     SSLVerficationError, ProtocolError, NetworkError)
 from wpull.url import URLInfo
@@ -306,7 +306,7 @@ class URLItem(object):
 
         self._processed = True
 
-    def set_status(self, status, increment_try_count=True, **kwargs):
+    def set_status(self, status, increment_try_count=True, filename=None):
         '''Mark the item with the given status.
 
         Args:
@@ -324,7 +324,7 @@ class URLItem(object):
             self._url,
             increment_try_count=increment_try_count,
             status=status,
-            **kwargs
+            filename=filename,
         )
 
         self._processed = True
