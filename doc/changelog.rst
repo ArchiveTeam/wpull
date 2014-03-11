@@ -11,7 +11,7 @@ What's New
 * API:
 
   * converter.py: Converters no longer use PathNamer.
-  * writer.py: ``sanitize_file_parts()`` was removed in favor of new ``safe_filename()``. ``save_documetn()`` returns a filename.
+  * writer.py: ``sanitize_file_parts()`` was removed in favor of new ``safe_filename()``. ``save_document()`` returns a filename.
   * WebProcessor now requires a root path to be specified.
 
 
