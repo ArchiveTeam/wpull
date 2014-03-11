@@ -133,10 +133,12 @@ class TestApp(GoodAppTestCase):
             '--convert-links', '--backup-converted',
             '--accept', '*',
             '--no-strong-robots',
-            '--restrict-file-names', 'windows,lower'
+            '--restrict-file-names', 'windows,lower',
+            '--quota', '10m',
         ])
         with cd_tempdir():
-            engine = Builder(args).build()
+            builder = Builder(args)
+            engine = builder.build()
             exit_code = yield engine()
 
             print(list(os.walk('.')))
@@ -149,6 +151,7 @@ class TestApp(GoodAppTestCase):
             ))
 
         self.assertEqual(0, exit_code)
+        self.assertEqual(builder.factory['Statistics'].files, 2)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_input_file_arg(self):
@@ -163,9 +166,12 @@ class TestApp(GoodAppTestCase):
                 '--input-file', in_file.name
             ])
             with cd_tempdir():
-                engine = Builder(args).build()
+                builder = Builder(args)
+                engine = builder.build()
                 exit_code = yield engine()
+
         self.assertEqual(0, exit_code)
+        self.assertEqual(builder.factory['Statistics'].files, 2)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_args_warc(self):
@@ -448,6 +454,23 @@ class TestApp(GoodAppTestCase):
 
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_quota(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/blog/'),
+            '--recursive',
+            '--quota', '1',
+        ])
+
+        with cd_tempdir():
+            builder = Builder(args)
+            engine = builder.build()
+            exit_code = yield engine()
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_phantomjs(self):

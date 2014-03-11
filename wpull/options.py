@@ -54,7 +54,7 @@ class AppArgumentParser(argparse.ArgumentParser):
     def int_bytes(cls, string):
         '''Convert string describing size to int.'''
         if string[-1] in ('k', 'm'):
-            value = cls.int_0_inf(string)
+            value = cls.int_0_inf(string[:-1])
             unit = string[-1]
             if unit == 'k':
                 value *= 2 ** 10
@@ -366,13 +366,13 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             action='store_true',
 #             help=_('disable proxy support'),
 #         )
-#         self.add_argument(
-#             '-Q',
-#             '--quota',
-#             metavar='NUMBER',
-#             type=self.int_bytes,
-#             help=_('stop after downloading NUMBER bytes'),
-#         )
+        group.add_argument(
+            '-Q',
+            '--quota',
+            metavar='NUMBER',
+            type=self.int_bytes,
+            help=_('stop after downloading NUMBER bytes'),
+        )
         group.add_argument(
             '--bind-address',
             metavar='ADDRESS',

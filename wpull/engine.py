@@ -177,10 +177,16 @@ class Engine(object):
 
             assert url_item.is_processed
 
+            self._statistics.mark_done(url_info)
+
         except Exception as error:
             _logger.exception('Fatal exception.')
             self._update_exit_code_from_error(error)
             self.stop(force=True)
+
+        if self._statistics.is_quota_exceeded:
+            _logger.debug('Stopping due to quota.')
+            self.stop()
 
         self._num_worker_busy -= 1
         self._worker_semaphore.release()
@@ -260,6 +266,10 @@ class Engine(object):
                 preformatted_file_size=file_size
             )
         )
+
+        if stats.is_quota_exceeded:
+            _logger.info(_('Download quota exceeded.'))
+
         _logger.info(_('Exiting with status {0}.').format(self._exit_code))
 
     def _print_ssl_error(self):

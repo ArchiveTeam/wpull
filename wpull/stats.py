@@ -13,11 +13,15 @@ class Statistics(object):
     '''Statistics.
 
     Attributes:
-        start_time: Timestamp when the engine started
-        stop_time: Timestamp when the engine stopped
-        files: Number of files downloaded
-        size: Size of files in bytes
-        errors: a Counter mapping error types to integer
+        start_time (float): Timestamp when the engine started.
+        stop_time (float): Timestamp when the engine stopped.
+        files (int): Number of files downloaded.
+        size (int): Size of files in bytes.
+        errors: a Counter mapping error types to integer.
+        quota (int): Threshold of number of bytes when the download quota is
+            exceeded.
+        required_url_infos (set): A set of :class:`.url.URLInfo` that must
+            be completed before the quota can be exceeded.
     '''
     def __init__(self):
         self.start_time = None
@@ -25,6 +29,8 @@ class Statistics(object):
         self.files = 0
         self.size = 0
         self.errors = Counter()
+        self.quota = None
+        self.required_url_infos = set()
 
     def start(self):
         '''Record the start time.'''
@@ -47,3 +53,17 @@ class Statistics(object):
         '''
         self.files += 1
         self.size += size
+
+    @property
+    def is_quota_exceeded(self):
+        '''Return whether the quota is exceeded.'''
+        if self.required_url_infos:
+            return False
+
+        if self.quota:
+            return self.size >= self.quota
+
+    def mark_done(self, url_info):
+        '''Set the URLInfo as completed.'''
+        if url_info in self.required_url_infos:
+            self.required_url_infos.remove(url_info)

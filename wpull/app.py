@@ -117,7 +117,9 @@ class Builder(object):
         self._install_script_hooks()
         self._warn_unsafe_options()
 
-        statisics = self._factory.new('Statistics')
+        statistics = self._factory.new('Statistics')
+        statistics.quota = self._args.quota
+        statistics.required_url_infos.update(self._url_infos)
 
         url_table = self._build_url_table()
         processor = self._build_processor()
@@ -125,7 +127,7 @@ class Builder(object):
         engine = self._factory.new('Engine',
             url_table,
             processor,
-            statisics,
+            statistics,
             concurrent=self._args.concurrent,
         )
 

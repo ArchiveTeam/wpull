@@ -6,7 +6,8 @@ What's New
 =================
 
 * Fixes link converter not operating on the correct files when ``.N`` files were written.
-* Supports ``--restrict-file-names``.
+* Implements ``--restrict-file-names``.
+* Implements ``--quota``.
 * Database schema change: ``filename`` column was added.
 * API:
 
