@@ -526,6 +526,12 @@ class PercentEncoder(collections.defaultdict):
         self[char] = value
         return value
 
+    def quote(self, bytes_string):
+        quoter = self.__getitem__
+        return b''.join(
+            [quoter(bytes_string[i:i + 1]) for i in range(len(bytes_string))]
+        )
+
 
 _encoder_cache = {}
 
@@ -566,10 +572,9 @@ case=None, encoding='utf8'):
                 ascii_=ascii_only
             )
 
-        quoter = _encoder_cache[encoder_args].__getitem__
-        new_filename = b''.join(
-            [quoter(bytes([char])) for char in filename.encode(encoding)]
-        ).decode(encoding)
+        encoder = _encoder_cache[encoder_args]
+        encoded_filename = filename.encode(encoding)
+        new_filename = encoder.quote(encoded_filename).decode(encoding)
 
     if os_type == 'windows':
         if new_filename[-1] in ' .':
