@@ -373,6 +373,27 @@ class URLItem(object):
             post_data=post_data,
         )
 
+    def child_url_record(self, url_info, inline=False, encoding=None,
+    link_type=None, post_data=None):
+        '''Return a child URLRecord.
+
+        This function is useful for testing filters before adding to table.
+        '''
+        return URLRecord(
+            url_info.url,  # url
+            Status.todo,  # status
+            0,  # try_count
+            self._url_record.level + 1,  # level
+            self._url_record.top_url or self._url_record.url,  # top_url
+            None,  # status_code
+            self._url_record.url,  # referrer
+            inline,  # inline
+            link_type,  # link_type
+            encoding,  # url_encoding
+            post_data,  # post_data
+            None  # filename
+        )
+
     def add_url_item(self, url_info, request):
         # TODO: the request should be serialized into the url_table
         raise NotImplementedError()
