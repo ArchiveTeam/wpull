@@ -238,16 +238,18 @@ class HookedWebProcessorSessionMixin(object):
         '''Convert the instance to script's native types.'''
         return self.hook_env.to_script_native_type(instance)
 
-    def _should_fetch(self, url_info):
-        verdict, reason_slug = super()._should_fetch(url_info)
+    def _should_fetch_reason(self, url_info, url_record):
+        verdict, reason_slug = super()._should_fetch_reason(
+            url_info, url_record
+        )
 
         url_info_dict = self._to_script_native_type(url_info.to_dict())
 
-        record_info_dict = self._url_item.url_record.to_dict()
+        record_info_dict = url_record.to_dict()
         record_info_dict = self._to_script_native_type(record_info_dict)
 
         reasons = {
-            'filters': self._get_filter_info(),
+            'filters': self._get_filter_info(url_info, url_record),
             'reason': reason_slug,
         }
         reasons = self._to_script_native_type(reasons)
@@ -259,11 +261,12 @@ class HookedWebProcessorSessionMixin(object):
 
         return verdict, reason_slug
 
-    def _get_filter_info(self):
+    def _get_filter_info(self, url_info, url_record):
         filter_info_dict = {}
 
         test_info = self._processor.url_filter.test_info(
-            self._next_url_info, self._url_item.url_record)
+            url_info, url_record
+        )
 
         for filter_instance in test_info['passed']:
             name = filter_instance.__class__.__name__
