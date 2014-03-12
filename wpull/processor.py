@@ -231,7 +231,10 @@ class WebProcessorSession(object):
 
     @tornado.gen.coroutine
     def process(self):
-        if not self._should_fetch(self._next_url_info)[0]:
+        verdict = self._should_fetch_reason(
+            self._next_url_info, self._url_item.url_record)[0]
+
+        if not verdict:
             self._url_item.skip()
             return
 
@@ -240,7 +243,10 @@ class WebProcessorSession(object):
         )
 
         while not self._rich_client_session.done:
-            if not self._should_fetch(self._next_url_info)[0]:
+            verdict = self._should_fetch_reason(
+                self._next_url_info, self._url_item.url_record)[0]
+
+            if not verdict:
                 self._url_item.skip()
                 break
 
@@ -318,8 +324,8 @@ class WebProcessorSession(object):
 
         return self._rich_client_session.next_request.url_info
 
-    def _should_fetch(self, url_info):
-        '''Return whether the URL should be fetched.
+    def _should_fetch_reason(self, url_info, url_record):
+        '''Return info about whether the URL should be fetched.
 
         Returns:
             tuple: A two item tuple:
@@ -327,7 +333,6 @@ class WebProcessorSession(object):
             1. bool: If True, the URL should be fetched.
             2. str: A short reason string explaining the verdict.
         '''
-        url_record = self._url_item.url_record
         test_info = self._processor.url_filter.test_info(url_info, url_record)
 
         if test_info['verdict']:
@@ -509,12 +514,20 @@ class WebProcessorSession(object):
         for url in inline_urls:
             url_info = self._parse_url(url, encoding)
             if url_info:
-                inline_url_infos.add(url_info)
+                url_record = self._url_item.child_url_record(
+                    url_info, inline=True, encoding=encoding
+                )
+                if self._should_fetch_reason(url_info, url_record)[0]:
+                    inline_url_infos.add(url_info)
 
         for url in linked_urls:
             url_info = self._parse_url(url, encoding)
             if url_info:
-                linked_url_infos.add(url_info)
+                url_record = self._url_item.child_url_record(
+                    url_info, encoding=encoding, link_type=link_type
+                )
+                if self._should_fetch_reason(url_info, url_record)[0]:
+                    linked_url_infos.add(url_info)
 
         self._url_item.add_inline_url_infos(
             inline_url_infos, encoding=encoding)
