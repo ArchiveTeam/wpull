@@ -6,6 +6,10 @@ What's New
 =================
 
 * Fixes link converter not operating on the correct files when ``.N`` files were written.
+* Fixes apparent hang when Wpull is almost finished on documents with many links.
+
+  * Previously, Wpull adds all URLs to the database causing overhead processing to be done in the database. Now, only requisite URLs are added to the database.
+
 * Implements ``--restrict-file-names``.
 * Implements ``--quota``.
 * Implements ``--warc-max-size``. Like Wget, "max size" is not the maximum size of each WARC file but it is the threshold size to trigger a new file. Unlike Wget, ``request`` and ``response`` records are not split across WARC files.
