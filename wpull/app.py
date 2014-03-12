@@ -24,7 +24,8 @@ from wpull.http.request import Request
 from wpull.http.web import RedirectTracker, RichClient
 from wpull.network import Resolver
 from wpull.phantomjs import PhantomJSClient
-from wpull.processor import WebProcessor, PhantomJSController
+from wpull.processor import (WebProcessor, PhantomJSController,
+    WebProcessorFetchParams, WebProcessorInstances)
 from wpull.proxy import HTTPProxyServer
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
     PrintServerResponseRecorder, ProgressRecorder)
@@ -90,6 +91,8 @@ class Builder(object):
             'Waiter': LinearWaiter,
             'WARCRecorder': WARCRecorder,
             'WebProcessor': WebProcessor,
+            'WebProcessorFetchParams': WebProcessorFetchParams,
+            'WebProcessorInstances': WebProcessorInstances,
         })
         self._url_infos = tuple(self._build_input_urls())
         self._ca_certs_file = None
@@ -438,21 +441,32 @@ class Builder(object):
             random_wait=args.random_wait,
             max_wait=args.waitretry
         )
-        processor = self._factory.new('WebProcessor',
-            rich_http_client,
-            args.directory_prefix,
+
+        web_processor_instances = self._factory.new(
+            'WebProcessorInstances',
             url_filter=url_filter,
             document_scraper=document_scraper,
             file_writer=file_writer,
             waiter=waiter,
-            retry_connrefused=args.retry_connrefused,
-            retry_dns_error=args.retry_dns_error,
             statistics=self._factory['Statistics'],
-            post_data=post_data,
             converter=converter,
             phantomjs_controller=phantomjs_controller,
+        )
+
+        web_processor_fetch_params = self._factory.new(
+            'WebProcessorFetchParams',
+            retry_connrefused=args.retry_connrefused,
+            retry_dns_error=args.retry_dns_error,
+            post_data=post_data,
             strong_robots=args.strong_robots,
             strong_redirects=args.strong_redirects,
+        )
+
+        processor = self._factory.new('WebProcessor',
+            rich_http_client,
+            args.directory_prefix,
+            web_processor_fetch_params,
+            web_processor_instances
         )
 
         return processor

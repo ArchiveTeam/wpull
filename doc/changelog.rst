@@ -19,6 +19,9 @@ What's New
   * converter.py: Converters no longer use PathNamer.
   * writer.py: ``sanitize_file_parts()`` was removed in favor of new ``safe_filename()``. ``save_document()`` returns a filename.
   * WebProcessor now requires a root path to be specified.
+  * WebProcessor initializer now takes "parameter objects".
+
+* Install requires new dependency: ``namedlist``.
 
 
 0.24 (2014-03-09)

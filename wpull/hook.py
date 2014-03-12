@@ -264,7 +264,7 @@ class HookedWebProcessorSessionMixin(object):
     def _get_filter_info(self, url_info, url_record):
         filter_info_dict = {}
 
-        test_info = self._processor.url_filter.test_info(
+        test_info = self._processor.instances.url_filter.test_info(
             url_info, url_record
         )
 
