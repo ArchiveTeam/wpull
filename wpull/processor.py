@@ -64,6 +64,7 @@ WebProcessorFetchParams = namedlist.namedtuple(
         ('post_data', None),
         ('strong_robots', True),
         ('strong_redirects', True),
+        ('content_on_error', False),
     ]
 )
 '''WebProcessorFetchParams
@@ -384,7 +385,8 @@ class WebProcessorSession(object):
 
         if self._rich_client_session.redirect_tracker.is_redirect():
             return self._handle_redirect(response)
-        elif response.status_code in self._document_codes:
+        elif response.status_code in self._document_codes \
+        or self._processor.fetch_params.content_on_error:
             return self._handle_document(response)
         elif response.status_code in self._no_document_codes:
             return self._handle_no_document(response)

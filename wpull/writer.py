@@ -227,7 +227,7 @@ class BaseFileWriterSession(BaseWriterSession):
 
         if self._file_continuing:
             self._process_file_continue_response(response)
-        elif code == http.client.OK:
+        elif 200 <= code <= 299 or 400 <= code:
             self.open_file(self._filename, response)
 
     def _process_file_continue_response(self, response):

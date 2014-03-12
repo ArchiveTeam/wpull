@@ -496,6 +496,25 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(1, builder.factory['Statistics'].files)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_content_on_error(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/always_error'),
+            '--content-on-error',
+        ])
+
+        with cd_tempdir():
+            builder = Builder(args)
+            engine = builder.build()
+            exit_code = yield engine()
+
+            print(list(os.walk('.')))
+            self.assertTrue(os.path.exists('always_error'))
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_phantomjs(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([

@@ -631,9 +631,11 @@ class AppArgumentParser(argparse.ArgumentParser):
 #         self.add_argument(
 #             '--content-disposition'
 #         )
-#         self.add_argument(
-#             '--content-on-error'
-#         )
+        group.add_argument(
+            '--content-on-error',
+            action='store_true',
+            help=_('keep error pages')
+        )
 #         self.add_argument(
 #             '--auth-no-challenge'
 #         )

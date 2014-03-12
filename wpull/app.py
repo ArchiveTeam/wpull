@@ -460,6 +460,7 @@ class Builder(object):
             post_data=post_data,
             strong_robots=args.strong_robots,
             strong_redirects=args.strong_redirects,
+            content_on_error=args.content_on_error,
         )
 
         processor = self._factory.new('WebProcessor',

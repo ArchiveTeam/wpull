@@ -21,12 +21,13 @@ Brief Option Overview
                      [--no-cookies] [--load-cookies FILE] [--save-cookies FILE]
                      [--keep-session-cookies]
                      [--post-data STRING | --post-file FILE]
-                     [--secure-protocol PR] [--no-check-certificate]
-                     [--certificate FILE] [--certificate-type TYPE]
-                     [--private-key FILE] [--private-key-type TYPE]
-                     [--ca-certificate FILE] [--ca-directory DIR]
-                     [--no-use-internal-ca-certs] [--random-file FILE]
-                     [--edg-file FILE] [--warc-file FILENAME] [--warc-append]
+                     [--content-on-error] [--secure-protocol PR]
+                     [--no-check-certificate] [--certificate FILE]
+                     [--certificate-type TYPE] [--private-key FILE]
+                     [--private-key-type TYPE] [--ca-certificate FILE]
+                     [--ca-directory DIR] [--no-use-internal-ca-certs]
+                     [--random-file FILE] [--edg-file FILE]
+                     [--warc-file FILENAME] [--warc-append]
                      [--warc-header STRING] [--warc-max-size NUMBER]
                      [--warc-cdx] [--no-warc-compression] [--no-warc-digests]
                      [--no-warc-keep-log] [--warc-tempdir DIRECTORY] [-r]
@@ -136,6 +137,7 @@ Brief Option Overview
                           include session cookies when saving cookies to file
     --post-data STRING    use POST for all requests with query STRING
     --post-file FILE      use POST for all requests with query in FILE
+    --content-on-error    keep error pages
 
   SSL:
     --secure-protocol PR  specifiy the version of the SSL protocol to use
