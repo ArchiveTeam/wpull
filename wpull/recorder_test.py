@@ -11,18 +11,39 @@ from wpull.recorder import WARCRecorder
 import wpull.util
 import wpull.version
 from wpull.warc import WARCRecord
+from wpull.app_test import cd_tempdir
+
+
+try:
+    from tempfile import TemporaryDirectory
+except ImportError:
+    from wpull.backport.tempfile import TemporaryDirectory
 
 
 _logger = logging.getLogger(__name__)
 
 
 class RecorderTest(unittest.TestCase):
+    def setUp(self):
+        unittest.TestCase.setUp(self)
+        self.original_dir = os.getcwd()
+        self.temp_dir = TemporaryDirectory()
+        os.chdir(self.temp_dir.name)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+        os.chdir(self.original_dir)
+        unittest.TestCase.tearDown(self)
+
     def test_warc_recorder(self):
-        temp_file = tempfile.NamedTemporaryFile()
+        file_prefix = 'asdf'
+        warc_filename = 'asdf.warc'
+        cdx_filename = 'asdf.cdx'
+
         warc_recorder = WARCRecorder(
-            temp_file.name, compress=False,
+            file_prefix, compress=False,
             extra_fields=[('Extra-field', 'my_extra_field')],
-            cdx_filename=temp_file.name + '.cdx',
+            cdx=True,
         )
 
         request = Request.new('http://example.com/')
@@ -45,10 +66,10 @@ class RecorderTest(unittest.TestCase):
 
         warc_recorder.close()
 
-        with open(temp_file.name, 'rb') as in_file:
+        with open(warc_filename, 'rb') as in_file:
             warc_file_content = in_file.read()
 
-        with open(temp_file.name + '.cdx', 'rb') as in_file:
+        with open(cdx_filename, 'rb') as in_file:
             cdx_file_content = in_file.read()
 
         self.assertTrue(warc_file_content.startswith(b'WARC/1.0'))
@@ -72,7 +93,8 @@ class RecorderTest(unittest.TestCase):
             warc_file_content
         )
         self.assertIn(
-            'Python/{0}'.format(wpull.util.python_version()).encode('utf-8'),
+            'Python/{0}'.format(
+                wpull.util.python_version()).encode('utf-8'),
             warc_file_content
         )
         self.assertIn(b'Extra-Field: my_extra_field', warc_file_content)
@@ -101,12 +123,12 @@ class RecorderTest(unittest.TestCase):
         self.assertNotEqual(b'0', cdx_fields[5])
         self.assertNotEqual(b'0', cdx_fields[6])
         self.assertEqual(
-            os.path.basename(temp_file.name), cdx_fields[7].decode('ascii'))
+            os.path.basename(warc_filename), cdx_fields[7].decode('ascii'))
 
         length = int(cdx_fields[5])
         offset = int(cdx_fields[6])
 
-        with open(temp_file.name, 'rb') as in_file:
+        with open(warc_filename, 'rb') as in_file:
             in_file.seek(offset)
             data = in_file.read(length)
 
@@ -116,13 +138,93 @@ class RecorderTest(unittest.TestCase):
 
         self.assertIn(b'KITTEH DOGE', data)
 
-    def test_warc_recorder_rollback(self):
-        temp_file = tempfile.NamedTemporaryFile()
-
-        temp_file.write(b'a' * 10)
+    def test_warc_recorder_max_size(self):
+        file_prefix = 'asdf'
+        cdx_filename = 'asdf.cdx'
 
         warc_recorder = WARCRecorder(
-            temp_file.name, compress=False,
+            file_prefix, compress=False,
+            extra_fields=[('Extra-field', 'my_extra_field')],
+            cdx=True, max_size=1,
+        )
+
+        request = Request.new('http://example.com/1')
+        request.address = ('0.0.0.0', 80)
+        response = Response('HTTP/1.1', '200', 'OK')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            response.body.content_file.write(b'KITTEH DOGE')
+
+        with warc_recorder.session() as session:
+            session.pre_request(request)
+            session.request_data(request.header())
+            session.request(request)
+            session.pre_response(response)
+            session.response_data(response.header())
+            session.response_data(response.body.content)
+            session.response(response)
+
+        request = Request.new('http://example.com/2')
+        request.address = ('0.0.0.0', 80)
+        response = Response('HTTP/1.1', '200', 'OK')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            response.body.content_file.write(b'DOGE KITTEH')
+
+        with warc_recorder.session() as session:
+            session.pre_request(request)
+            session.request_data(request.header())
+            session.request(request)
+            session.pre_response(response)
+            session.response_data(response.header())
+            session.response_data(response.body.content)
+            session.response(response)
+
+        _logger.info('FINISHED')
+
+        warc_recorder.close()
+
+        with open('asdf-00000.warc', 'rb') as in_file:
+            warc_file_content = in_file.read()
+
+        self.assertTrue(warc_file_content.startswith(b'WARC/1.0'))
+        self.assertIn(b'WARC-Type: warcinfo', warc_file_content)
+        self.assertIn(b'KITTEH DOGE', warc_file_content)
+
+        with open('asdf-00001.warc', 'rb') as in_file:
+            warc_file_content = in_file.read()
+
+        self.assertTrue(warc_file_content.startswith(b'WARC/1.0'))
+        self.assertIn(b'WARC-Type: warcinfo', warc_file_content)
+        self.assertIn(b'DOGE KITTEH', warc_file_content)
+
+        with open(cdx_filename, 'rb') as in_file:
+            cdx_file_content = in_file.read()
+
+        cdx_lines = cdx_file_content.split(b'\n')
+        cdx_labels = cdx_lines[0].strip().split(b' ')
+
+        print(cdx_lines)
+
+        self.assertEqual(4, len(cdx_lines))
+        self.assertEqual(10, len(cdx_labels))
+
+        self.assertIn(b'http://example.com/1', cdx_file_content)
+        self.assertIn(b'http://example.com/2', cdx_file_content)
+
+        with open('asdf-meta.warc', 'rb') as in_file:
+            meta_file_content = in_file.read()
+
+        self.assertIn(b'FINISHED', meta_file_content)
+
+    def test_warc_recorder_rollback(self):
+        warc_filename = 'asdf.warc'
+
+        with open(warc_filename, 'wb') as warc_file:
+            warc_file.write(b'a' * 10)
+
+        warc_recorder = WARCRecorder(
+            warc_filename, compress=False,
         )
 
         request = Request.new('http://example.com/')
@@ -148,12 +250,12 @@ class RecorderTest(unittest.TestCase):
                     raise OSError('Oops')
 
             session._request_record = BadRecord(session._request_record)
-            original_offset = os.path.getsize(temp_file.name)
+            original_offset = os.path.getsize(warc_filename)
 
             try:
                 session.request(request)
             except (OSError, IOError):
-                new_offset = os.path.getsize(temp_file.name)
+                new_offset = os.path.getsize(warc_filename)
                 self.assertEqual(new_offset, original_offset)
             else:
                 self.fail()

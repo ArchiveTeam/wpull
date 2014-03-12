@@ -375,16 +375,6 @@ class Builder(object):
         args = self._args
         recorders = []
         if args.warc_file:
-            if args.no_warc_compression:
-                warc_path = args.warc_file + '.warc'
-            else:
-                warc_path = args.warc_file + '.warc.gz'
-
-            if args.warc_cdx:
-                cdx_path = args.warc_file + '.cdx'
-            else:
-                cdx_path = None
-
             extra_fields = [
                 ('robots', 'on' if args.robots else 'off'),
                 ('wpull-arguments', str(args))
@@ -398,14 +388,15 @@ class Builder(object):
 
             recorders.append(
                 self._factory.new('WARCRecorder',
-                    warc_path,
+                    args.warc_file,
                     compress=not args.no_warc_compression,
                     extra_fields=extra_fields,
                     temp_dir=args.warc_tempdir,
                     log=args.warc_log,
                     appending=args.warc_append,
                     digests=args.warc_digests,
-                    cdx_filename=cdx_path,
+                    cdx=args.warc_cdx,
+                    max_size=args.warc_max_size,
                 )
             )
 

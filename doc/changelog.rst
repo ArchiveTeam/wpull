@@ -8,6 +8,7 @@ What's New
 * Fixes link converter not operating on the correct files when ``.N`` files were written.
 * Implements ``--restrict-file-names``.
 * Implements ``--quota``.
+* Implements ``--warc-max-size``. Like Wget, "max size" is not the maximum size of each WARC file but it is the threshold size to trigger a new file. Unlike Wget, ``request`` and ``response`` records are not split across WARC files.
 * Database schema change: ``filename`` column was added.
 * API:
 

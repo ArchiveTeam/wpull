@@ -174,6 +174,29 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(builder.factory['Statistics'].files, 2)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_args_warc_size(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--warc-file', 'test',
+            '-4',
+            '--no-robots',
+            '--warc-max-size', '1k',
+            '--warc-cdx'
+        ])
+        builder = Builder(args)
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+
+            self.assertTrue(os.path.exists('test-00000.warc.gz'))
+            self.assertTrue(os.path.exists('test-meta.warc.gz'))
+            self.assertTrue(os.path.exists('test.cdx'))
+
+        self.assertEqual(0, exit_code)
+        self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_args_warc(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([

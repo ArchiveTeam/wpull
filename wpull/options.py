@@ -762,10 +762,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=[],
             help=_('include STRING in WARC file metadata'),
         )
-#         self.add_argument(
-#             '--warc-max-size',
-#             metavar='NUMBER'
-#         )
+        group.add_argument(
+            '--warc-max-size',
+            type=self.int_bytes,
+            metavar='NUMBER',
+            help=_('write sequential WARC files sized about NUMBER bytes')
+        )
         group.add_argument(
             '--warc-cdx',
             action='store_true',
