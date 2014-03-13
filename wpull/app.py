@@ -24,7 +24,8 @@ from wpull.http.request import Request
 from wpull.http.web import RedirectTracker, RichClient
 from wpull.network import Resolver
 from wpull.phantomjs import PhantomJSClient
-from wpull.processor import WebProcessor, PhantomJSController
+from wpull.processor import (WebProcessor, PhantomJSController,
+    WebProcessorFetchParams, WebProcessorInstances)
 from wpull.proxy import HTTPProxyServer
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
     PrintServerResponseRecorder, ProgressRecorder)
@@ -90,6 +91,8 @@ class Builder(object):
             'Waiter': LinearWaiter,
             'WARCRecorder': WARCRecorder,
             'WebProcessor': WebProcessor,
+            'WebProcessorFetchParams': WebProcessorFetchParams,
+            'WebProcessorInstances': WebProcessorInstances,
         })
         self._url_infos = tuple(self._build_input_urls())
         self._ca_certs_file = None
@@ -117,7 +120,9 @@ class Builder(object):
         self._install_script_hooks()
         self._warn_unsafe_options()
 
-        statisics = self._factory.new('Statistics')
+        statistics = self._factory.new('Statistics')
+        statistics.quota = self._args.quota
+        statistics.required_url_infos.update(self._url_infos)
 
         url_table = self._build_url_table()
         processor = self._build_processor()
@@ -125,7 +130,7 @@ class Builder(object):
         engine = self._factory.new('Engine',
             url_table,
             processor,
-            statisics,
+            statistics,
             concurrent=self._args.concurrent,
         )
 
@@ -373,16 +378,6 @@ class Builder(object):
         args = self._args
         recorders = []
         if args.warc_file:
-            if args.no_warc_compression:
-                warc_path = args.warc_file + '.warc'
-            else:
-                warc_path = args.warc_file + '.warc.gz'
-
-            if args.warc_cdx:
-                cdx_path = args.warc_file + '.cdx'
-            else:
-                cdx_path = None
-
             extra_fields = [
                 ('robots', 'on' if args.robots else 'off'),
                 ('wpull-arguments', str(args))
@@ -396,14 +391,15 @@ class Builder(object):
 
             recorders.append(
                 self._factory.new('WARCRecorder',
-                    warc_path,
+                    args.warc_file,
                     compress=not args.no_warc_compression,
                     extra_fields=extra_fields,
                     temp_dir=args.warc_tempdir,
                     log=args.warc_log,
                     appending=args.warc_append,
                     digests=args.warc_digests,
-                    cdx_filename=cdx_path,
+                    cdx=args.warc_cdx,
+                    max_size=args.warc_max_size,
                 )
             )
 
@@ -445,20 +441,33 @@ class Builder(object):
             random_wait=args.random_wait,
             max_wait=args.waitretry
         )
-        processor = self._factory.new('WebProcessor',
-            rich_http_client,
+
+        web_processor_instances = self._factory.new(
+            'WebProcessorInstances',
             url_filter=url_filter,
             document_scraper=document_scraper,
             file_writer=file_writer,
             waiter=waiter,
-            retry_connrefused=args.retry_connrefused,
-            retry_dns_error=args.retry_dns_error,
             statistics=self._factory['Statistics'],
-            post_data=post_data,
             converter=converter,
             phantomjs_controller=phantomjs_controller,
+        )
+
+        web_processor_fetch_params = self._factory.new(
+            'WebProcessorFetchParams',
+            retry_connrefused=args.retry_connrefused,
+            retry_dns_error=args.retry_dns_error,
+            post_data=post_data,
             strong_robots=args.strong_robots,
             strong_redirects=args.strong_redirects,
+            content_on_error=args.content_on_error,
+        )
+
+        processor = self._factory.new('WebProcessor',
+            rich_http_client,
+            args.directory_prefix,
+            web_processor_fetch_params,
+            web_processor_instances
         )
 
         return processor
@@ -482,6 +491,18 @@ class Builder(object):
         elif args.use_directories == 'no':
             use_dir = False
 
+        os_type = 'windows' if 'windows' in args.restrict_file_names \
+            else 'unix'
+        ascii_only = 'ascii' in args.restrict_file_names
+        no_control = 'nocontrol' not in args.restrict_file_names
+
+        if 'lower' in args.restrict_file_names:
+            case = 'lower'
+        elif 'upper' in args.restrict_file_names:
+            case = 'upper'
+        else:
+            case = None
+
         path_namer = self._factory.new('PathNamer',
             args.directory_prefix,
             index=args.default_page,
@@ -489,6 +510,10 @@ class Builder(object):
             cut=args.cut_dirs,
             protocol=args.protocol_directories,
             hostname=args.host_directories,
+            os_type=os_type,
+            ascii_only=ascii_only,
+            no_control=no_control,
+            case=case,
         )
 
         if args.recursive or args.page_requisites or args.continue_download:
@@ -652,7 +677,7 @@ class Builder(object):
 
         converter = self._factory.new(
             'BatchDocumentConverter',
-            self._factory['PathNamer'], self._factory['URLTable'],
+            self._factory['URLTable'],
             backup=self._args.backup_converted
         )
 

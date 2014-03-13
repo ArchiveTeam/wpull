@@ -316,3 +316,9 @@ def format_size(num, format_str='{num:.1f} {unit}'):
         num /= 1024.0
 
     return format_str.format(num, unit='TiB')
+
+
+def truncate_file(path):
+    '''Truncate the file.'''
+    with open(path, 'wb'):
+        pass

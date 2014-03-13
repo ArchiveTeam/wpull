@@ -8,7 +8,7 @@ from wpull.app import Builder
 from wpull.app_test import cd_tempdir
 from wpull.options import AppArgumentParser
 from wpull.testing.goodapp import GoodAppTestCase
-from wpull.writer import url_to_dir_path, url_to_filename, quote_filename
+from wpull.writer import url_to_dir_path, url_to_filename, safe_filename
 
 
 DEFAULT_TIMEOUT = 30
@@ -34,6 +34,20 @@ class TestWriter(unittest.TestCase):
             '',
             url_to_dir_path('http://example.com/')
         )
+        self.assertEqual(
+            'example.com:123',
+            url_to_dir_path(
+                'http://example.com:123/',
+                include_hostname=True, os_type='unix'
+            )
+        )
+        self.assertEqual(
+            'example.com+123',
+            url_to_dir_path(
+                'http://example.com:123/',
+                include_hostname=True, os_type='windows'
+            )
+        )
 
     def test_writer_filename(self):
         self.assertEqual(
@@ -48,22 +62,45 @@ class TestWriter(unittest.TestCase):
             'index.html',
             url_to_filename('http://example.com/')
         )
-
-    def test_writer_filename_escaping(self):
-        url = 'http://../sométhing/'
         self.assertEqual(
-            'http/%2E%2E/som%C3%A9thing/index.html',
-            os.path.join(
-                url_to_dir_path(
-                    url, include_protocol=True, include_hostname=True),
-                url_to_filename(url)
-            )
+            'index.html?blah=',
+            url_to_filename('http://example.com/?blah=')
+        )
+        self.assertEqual(
+            'index.html@blah=',
+            url_to_filename('http://example.com/?blah=', os_type='windows')
         )
 
-        filename = '%95%B6%8E%9A%89%BB%82%AF.html?'
+    def test_writer_safe_filename(self):
         self.assertEqual(
-            '%95%B6%8E%9A%89%BB%82%AF.html%3F',
-            quote_filename(filename)
+            'asdf',
+            safe_filename(
+                'asdf',
+                os_type='unix', no_control=True, ascii_only=True, case=None
+            )
+        )
+        self.assertEqual(
+            'asdf%00',
+            safe_filename(
+                'asdf\x00',
+                os_type='unix', no_control=True, ascii_only=True, case=None
+            )
+        )
+        self.assertEqual(
+            'asdf%3a',
+            safe_filename(
+                'Asdf:',
+                os_type='windows', no_control=True, ascii_only=True,
+                case='lower'
+            )
+        )
+        self.assertEqual(
+            'A%C3%A9',
+            safe_filename(
+                'aé',
+                os_type='windows', no_control=True, ascii_only=True,
+                case='upper',
+            )
         )
 
 

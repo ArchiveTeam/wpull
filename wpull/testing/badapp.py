@@ -67,7 +67,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         _logger.debug('do_GET here. path={0}'.format(self.path))
-        route = self._routes[self.path]
+        route = self._routes[self.path.split('?', 1)[0]]
         route()
         _logger.debug('do_GET done. path={0}'.format(self.path))
 
@@ -374,7 +374,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(b'<html><body>')
 
         for num in range(10000):
-            self.wfile.write(b'<a href="http://somewhere.invalid/')
+            self.wfile.write(b'<a href="/?')
             self.wfile.write(str(num).encode('ascii'))
             self.wfile.write(b'">hi</a><br>')
 

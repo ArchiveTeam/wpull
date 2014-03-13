@@ -77,12 +77,6 @@ class Body(object, metaclass=abc.ABCMeta):
         with wpull.util.reset_file_offset(self.content_file):
             return self.content_file.read(max_length)
 
-    content_segment = content_peek
-    '''.. deprecated:: 0.12
-
-       Use :func:`content_peek` instead.
-    '''
-
     @classmethod
     def new_temp_file(cls, directory=None):
         '''Return a new temporary file.'''

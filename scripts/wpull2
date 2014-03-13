@@ -1,0 +1,3 @@
+#!/usr/bin/env python2
+import wpull.__main__
+wpull.__main__.main()

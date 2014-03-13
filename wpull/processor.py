@@ -4,9 +4,12 @@ import abc
 import copy
 import gettext
 import io
+import json
 import logging
+import namedlist
 import os
 import tempfile
+import time
 import tornado.gen
 
 from wpull.conversation import Body
@@ -55,30 +58,67 @@ class BaseProcessor(object, metaclass=abc.ABCMeta):
         pass
 
 
+WebProcessorFetchParams = namedlist.namedtuple(
+    'WebProcessorFetchParamsType',
+    [
+        ('retry_connrefused', False),
+        ('retry_dns_error', False),
+        ('post_data', None),
+        ('strong_robots', True),
+        ('strong_redirects', True),
+        ('content_on_error', False),
+    ]
+)
+'''WebProcessorFetchParams
+
+Args:
+    retry_connrefused: If True, don't consider a connection refused error
+        to be a permanent error.
+    retry_dns_error: If True, don't consider a DNS resolution error to be
+        permanent error.
+    post_data (str): If provided, all requests will be POSTed with the
+        given `post_data`. `post_data` must be in percent-encoded
+        query format ("application/x-www-form-urlencoded").
+    strong_robots (bool): If True, robots.txt files are downloaded
+        unconditionally.
+    strong_redirects (bool): If True, redirects are allowed to span hosts.
+'''
+
+WebProcessorInstances = namedlist.namedtuple(
+    'WebProcessorInstancesType',
+    [
+        ('url_filter', DemuxURLFilter([])),
+        ('document_scraper', DemuxDocumentScraper([])),
+        ('file_writer', NullWriter()),
+        ('waiter', LinearWaiter()),
+        ('statistics', Statistics()),
+        ('converter', None),
+        ('phantomjs_controller', None),
+    ]
+)
+'''WebProcessorInstances
+
+Args:
+    url_filter (DemuxURLFilter): An instance of
+        :class:`.url.DemuxURLFilter`.
+    document_scraper (DemuxDocumentScraper): An instance of
+        :class:`.scaper.DemuxDocumentScraper`.
+    file_writer: File writer.
+    waiter: Waiter.
+    statistics: Statistics.
+    converter: An instance of :class:`.converter.BatchDocumentConverter`.
+    phantomjs_controller: An instance of :class:`PhantomJSController`.
+'''
+
+
 class WebProcessor(BaseProcessor):
     '''HTTP processor.
 
     Args:
         rich_client (RichClient): An instance of :class:`.http.web.RichClient`.
-        url_filter (DemuxURLFilter): An instance of
-            :class:`.url.DemuxURLFilter`.
-        document_scraper (DemuxDocumentScraper): An instance of
-            :class:`.scaper.DemuxDocumentScraper`.
-        file_writer: File writer.
-        waiter: Waiter.
-        statistics: Statistics.
-        retry_connrefused: If True, don't consider a connection refused error
-            to be a permanent error.
-        retry_dns_error: If True, don't consider a DNS resolution error to be
-            permanent error.
-        post_data (str): If provided, all requests will be POSTed with the
-            given `post_data`. `post_data` must be in percent-encoded
-            query format ("application/x-www-form-urlencoded").
-        converter: An instance of :class:`.converter.BatchDocumentConverter`.
-        phantomjs_controller: An instance of :class:`PhantomJSController`.
-        strong_robots (bool): If True, robots.txt files are downloaded
-            unconditionally.
-        strong_redirects (bool): If True, redirects are allowed to span hosts.
+        root_path (str): The root directory path.
+        fetch_params: An instance of :class:`WebProcessorFetchParams`.
+        instances: An instance of :class:`WebProcessorInstances`.
 
     :seealso: :class:`WebProcessorSession`,
         :class:`WebProcessorWithRobotsTxtSession`
@@ -89,74 +129,28 @@ class WebProcessor(BaseProcessor):
     NO_DOCUMENT_STATUS_CODES = (401, 403, 404, 405, 410,)
     '''Default status codes considered a permanent error.'''
 
-    def __init__(self, rich_client,
-    url_filter=None, document_scraper=None, file_writer=None,
-    waiter=None, statistics=None,
-    retry_connrefused=False, retry_dns_error=False, post_data=None,
-    converter=None, phantomjs_controller=None,
-    strong_robots=True, strong_redirects=True):
+    def __init__(self, rich_client, root_path, fetch_params, instances):
         self._rich_client = rich_client
-        self._url_filter = url_filter or DemuxURLFilter([])
-        self._document_scraper = document_scraper or DemuxDocumentScraper([])
-        self._file_writer = file_writer or NullWriter()
-        self._waiter = waiter or LinearWaiter()
-        self._statistics = statistics or Statistics()
-        self._retry_connrefused = retry_connrefused
-        self._retry_dns_error = retry_dns_error
-        self._post_data = post_data
+        self._root_path = root_path
+        self._fetch_params = fetch_params
+        self._instances = instances
         self._session_class = WebProcessorSession
-        self._converter = converter
-        self._phantomjs_controller = phantomjs_controller
-        self._strong_robots = strong_robots
-        self._strong_redirects = strong_redirects
 
     @property
     def rich_client(self):
         return self._rich_client
 
     @property
-    def url_filter(self):
-        return self._url_filter
+    def root_path(self):
+        return self._root_path
 
     @property
-    def document_scraper(self):
-        return self._document_scraper
+    def instances(self):
+        return self._instances
 
     @property
-    def file_writer(self):
-        return self._file_writer
-
-    @property
-    def waiter(self):
-        return self._waiter
-
-    @property
-    def statistics(self):
-        return self._statistics
-
-    @property
-    def retry_dns_error(self):
-        return self._retry_dns_error
-
-    @property
-    def retry_connrefused(self):
-        return self._retry_connrefused
-
-    @property
-    def post_data(self):
-        return self._post_data
-
-    @property
-    def phantomjs_controller(self):
-        return self._phantomjs_controller
-
-    @property
-    def strong_robots(self):
-        return self._strong_robots
-
-    @property
-    def strong_redirects(self):
-        return self._strong_redirects
+    def fetch_params(self):
+        return self._fetch_params
 
     @tornado.gen.coroutine
     def process(self, url_item):
@@ -167,8 +161,8 @@ class WebProcessor(BaseProcessor):
         '''Close the client and invoke document converter.'''
         self._rich_client.close()
 
-        if self._converter:
-            self._converter.convert_all()
+        if self._instances.converter:
+            self._instances.converter.convert_all()
 
 
 class WebProcessorSession(object):
@@ -187,7 +181,7 @@ class WebProcessorSession(object):
         super().__init__()
         self._processor = processor
         self._url_item = url_item
-        self._file_writer_session = processor.file_writer.session()
+        self._file_writer_session = processor.instances.file_writer.session()
         self._rich_client_session = None
 
         self._document_codes = WebProcessor.DOCUMENT_STATUS_CODES
@@ -205,7 +199,7 @@ class WebProcessorSession(object):
 
         self._populate_common_request(request)
 
-        if url_record.post_data or self._processor.post_data:
+        if url_record.post_data or self._processor.fetch_params.post_data:
             self._add_post_data(request)
 
         if self._file_writer_session:
@@ -225,7 +219,10 @@ class WebProcessorSession(object):
 
     @tornado.gen.coroutine
     def process(self):
-        if not self._should_fetch(self._next_url_info)[0]:
+        verdict = self._should_fetch_reason(
+            self._next_url_info, self._url_item.url_record)[0]
+
+        if not verdict:
             self._url_item.skip()
             return
 
@@ -234,13 +231,16 @@ class WebProcessorSession(object):
         )
 
         while not self._rich_client_session.done:
-            if not self._should_fetch(self._next_url_info)[0]:
+            verdict = self._should_fetch_reason(
+                self._next_url_info, self._url_item.url_record)[0]
+
+            if not verdict:
                 self._url_item.skip()
                 break
 
             is_done = yield self._process_one()
 
-            wait_time = self._processor.waiter.get()
+            wait_time = self._processor.instances.waiter.get()
 
             if wait_time:
                 _logger.debug('Sleeping {0}.'.format(wait_time))
@@ -312,8 +312,8 @@ class WebProcessorSession(object):
 
         return self._rich_client_session.next_request.url_info
 
-    def _should_fetch(self, url_info):
-        '''Return whether the URL should be fetched.
+    def _should_fetch_reason(self, url_info, url_record):
+        '''Return info about whether the URL should be fetched.
 
         Returns:
             tuple: A two item tuple:
@@ -321,16 +321,18 @@ class WebProcessorSession(object):
             1. bool: If True, the URL should be fetched.
             2. str: A short reason string explaining the verdict.
         '''
-        url_record = self._url_item.url_record
-        test_info = self._processor.url_filter.test_info(url_info, url_record)
+        test_info = self._processor.instances.url_filter.test_info(
+            url_info, url_record
+        )
 
         if test_info['verdict']:
             return True, 'filters'
 
-        elif url_info.path == '/robots.txt' and self._processor.strong_robots:
+        elif url_info.path == '/robots.txt' \
+        and self._processor.fetch_params.strong_robots:
             return True, 'robots'
 
-        elif self._processor.strong_redirects \
+        elif self._processor.fetch_params.strong_redirects \
         and self._rich_client_session \
         and self._rich_client_session.redirect_tracker \
         and self._rich_client_session.redirect_tracker.is_redirect \
@@ -353,7 +355,7 @@ class WebProcessorSession(object):
         if self._url_item.url_record.post_data:
             data = wpull.util.to_bytes(self._url_item.url_record.post_data)
         else:
-            data = wpull.util.to_bytes(self._processor.post_data)
+            data = wpull.util.to_bytes(self._processor.fetch_params.post_data)
 
         request.method = 'POST'
         request.fields['Content-Type'] = 'application/x-www-form-urlencoded'
@@ -369,8 +371,8 @@ class WebProcessorSession(object):
         def factory(*args, **kwargs):
             # TODO: Response should be dependency injected
             response = Response(*args, **kwargs)
-            # FIXME: we should be using --directory-prefix instead of CWD.
-            response.body.content_file = Body.new_temp_file(os.getcwd())
+            root = self._processor.root_path
+            response.body.content_file = Body.new_temp_file(root)
 
             if self._file_writer_session:
                 self._file_writer_session.process_response(response)
@@ -385,7 +387,8 @@ class WebProcessorSession(object):
 
         if self._rich_client_session.redirect_tracker.is_redirect():
             return self._handle_redirect(response)
-        elif response.status_code in self._document_codes:
+        elif response.status_code in self._document_codes \
+        or self._processor.fetch_params.content_on_error:
             return self._handle_document(response)
         elif response.status_code in self._no_document_codes:
             return self._handle_no_document(response)
@@ -396,11 +399,17 @@ class WebProcessorSession(object):
         '''Process a document response.'''
         _logger.debug('Got a document.')
 
-        self._file_writer_session.save_document(response)
+        filename = self._file_writer_session.save_document(response)
+
+        if filename:
+            filename = os.path.relpath(filename, self._processor.root_path)
+
         self._scrape_document(self._request, response)
-        self._processor.waiter.reset()
-        self._processor.statistics.increment(response.body.content_size)
-        self._url_item.set_status(Status.done)
+        self._processor.instances.waiter.reset()
+        self._processor.instances.statistics.increment(
+            response.body.content_size
+        )
+        self._url_item.set_status(Status.done, filename=filename)
 
         return True
 
@@ -421,7 +430,7 @@ class WebProcessorSession(object):
 
     def _handle_no_document(self, response):
         '''Callback for when no useful document is received.'''
-        self._processor.waiter.reset()
+        self._processor.instances.waiter.reset()
         self._file_writer_session.discard_document(response)
         self._url_item.set_status(Status.skipped)
 
@@ -429,23 +438,23 @@ class WebProcessorSession(object):
 
     def _handle_document_error(self, response):
         '''Callback for when the document only describes an server error.'''
-        self._processor.waiter.increment()
+        self._processor.instances.waiter.increment()
         self._file_writer_session.discard_document(response)
-        self._processor.statistics.errors[ServerError] += 1
+        self._processor.instances.statistics.errors[ServerError] += 1
         self._url_item.set_status(Status.error)
 
         return True
 
     def _handle_error(self, error):
         '''Process an error.'''
-        self._processor.statistics.errors[type(error)] += 1
-        self._processor.waiter.increment()
+        self._processor.instances.statistics.errors[type(error)] += 1
+        self._processor.instances.waiter.increment()
 
         if isinstance(error, ConnectionRefused) \
-        and not self._processor.retry_connrefused:
+        and not self._processor.fetch_params.retry_connrefused:
             self._url_item.set_status(Status.skipped)
         elif isinstance(error, DNSNotFound) \
-        and not self._processor.retry_dns_error:
+        and not self._processor.fetch_params.retry_dns_error:
             self._url_item.set_status(Status.skipped)
         else:
             self._url_item.set_status(Status.error)
@@ -454,12 +463,12 @@ class WebProcessorSession(object):
 
     def _handle_redirect(self, response):
         '''Process a redirect.'''
-        self._processor.waiter.reset()
+        self._processor.instances.waiter.reset()
         return False
 
     def _scrape_document(self, request, response):
         '''Scrape the document for URLs.'''
-        demux_info = self._processor.document_scraper.scrape_info(
+        demux_info = self._processor.instances.document_scraper.scrape_info(
             request, response)
         num_inline_urls = 0
         num_linked_urls = 0
@@ -499,12 +508,20 @@ class WebProcessorSession(object):
         for url in inline_urls:
             url_info = self._parse_url(url, encoding)
             if url_info:
-                inline_url_infos.add(url_info)
+                url_record = self._url_item.child_url_record(
+                    url_info, inline=True, encoding=encoding
+                )
+                if self._should_fetch_reason(url_info, url_record)[0]:
+                    inline_url_infos.add(url_info)
 
         for url in linked_urls:
             url_info = self._parse_url(url, encoding)
             if url_info:
-                linked_url_infos.add(url_info)
+                url_record = self._url_item.child_url_record(
+                    url_info, encoding=encoding, link_type=link_type
+                )
+                if self._should_fetch_reason(url_info, url_record)[0]:
+                    linked_url_infos.add(url_info)
 
         self._url_item.add_inline_url_infos(
             inline_url_infos, encoding=encoding)
@@ -527,7 +544,7 @@ class WebProcessorSession(object):
     @tornado.gen.coroutine
     def _process_phantomjs(self, request, response):
         '''Process PhantomJS.'''
-        if not self._processor.phantomjs_controller:
+        if not self._processor.instances.phantomjs_controller:
             return
 
         if response.status_code != 200:
@@ -538,7 +555,7 @@ class WebProcessorSession(object):
 
         _logger.debug('Starting PhantomJS processing.')
 
-        controller = self._processor.phantomjs_controller
+        controller = self._processor.instances.phantomjs_controller
 
         with controller.client.remote() as remote:
             self._hook_phantomjs_logging(remote)
@@ -587,7 +604,9 @@ class WebProcessorSession(object):
 
             response = rpc_info['response']
 
-            self._processor.statistics.increment(response.get('bodySize', 0))
+            self._processor.instances.statistics.increment(
+                response.get('bodySize', 0)
+            )
             _logger.info(
                 _('PhantomJS fetched ‘{url}’: {status_code} {reason}. '
                     'Length: {content_length} [{content_type}].').format(
@@ -659,6 +678,8 @@ class PhantomJSController(object):
         self._warc_recorder = warc_recorder
         self._viewport_size = viewport_size
         self._paper_size = paper_size
+        self._actions = []
+        self._action_warc_record = None
 
     @tornado.gen.coroutine
     def apply_page_size(self, remote):
@@ -679,6 +700,10 @@ class PhantomJSController(object):
     @tornado.gen.coroutine
     def control(self, remote):
         '''Scroll the page.'''
+        url = yield remote.eval('page.url')
+        total_scroll_count = 0
+
+        self._log_action('wait', self._wait_time)
         yield wpull.util.sleep(self._wait_time)
 
         for scroll_count in range(self._num_scrolls):
@@ -687,12 +712,27 @@ class PhantomJSController(object):
             scroll_position = yield remote.eval('page.scrollPosition')
             scroll_position['top'] += self._viewport_size[1]
 
+            self._log_action('set_scroll_top', scroll_position['top'])
             yield remote.set('page.scrollPosition', scroll_position)
             yield remote.call('page.sendEvent', 'keypress', 'PageDown')
             yield remote.call('page.sendEvent', 'keydown', 'PageDown')
             yield remote.call('page.sendEvent', 'keyup', 'PageDown')
 
+            self._log_action('wait', self._wait_time)
             yield wpull.util.sleep(self._wait_time)
+
+            total_scroll_count += 1
+
+        _logger.info(
+            gettext.ngettext(
+                'Scrolled page {num} time.',
+                'Scrolled page {num} times.',
+                total_scroll_count,
+            ).format(num=total_scroll_count)
+        )
+
+        if self._warc_recorder:
+            self._add_warc_action_log(url)
 
     @tornado.gen.coroutine
     def snapshot(self, remote, html_path=None, render_path=None):
@@ -730,8 +770,38 @@ class PhantomJSController(object):
         record.fields['WARC-Target-URI'] = 'urn:X-wpull:snapshot?url={0}'\
             .format(wpull.url.quote(url))
 
+        if self._action_warc_record:
+            record.fields['WARC-Concurrent-To'] = \
+                self._action_warc_record.fields[WARCRecord.WARC_RECORD_ID]
+
         with open(filename, 'rb') as in_file:
             record.block_file = in_file
 
             self._warc_recorder.set_length_and_maybe_checksums(record)
             self._warc_recorder.write_record(record)
+
+    def _log_action(self, name, value):
+        _logger.debug('Action: {0} {1}'.format(name, value))
+
+        self._actions.append({
+            'event': name,
+            'value': value,
+            'timestamp': time.time(),
+        })
+
+    def _add_warc_action_log(self, url):
+        _logger.debug('Adding action log record.')
+
+        log_data = json.dumps(
+            {'actions': self._actions},
+            indent=4,
+        ).encode('utf-8')
+
+        self._action_warc_record = record = WARCRecord()
+        record.set_common_fields('metadata', 'application/json')
+        record.fields['WARC-Target-URI'] = 'urn:X-wpull:snapshot?url={0}'\
+            .format(wpull.url.quote(url))
+        record.block_file = io.BytesIO(log_data)
+
+        self._warc_recorder.set_length_and_maybe_checksums(record)
+        self._warc_recorder.write_record(record)

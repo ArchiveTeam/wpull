@@ -126,7 +126,7 @@ class WARCRecorder(BaseRecorder):
     '''Record to WARC file.
 
     Args:
-        filename (str): The filename (including the extension).
+        filename (str): The filename (without the extension).
         compress (bool): If True, files will be compressed with gzip
         extra_fields (list): A list of key-value pairs containing extra
             metadata fields
@@ -134,44 +134,73 @@ class WARCRecorder(BaseRecorder):
         log (bool): Include the program logging messages in the WARC file
         appending (bool): If True, the file is not overwritten upon opening
         digests (bool): If True, the SHA1 hash digests will be written.
-        cdx_filename (str): If given, a CDX file will be written.
+        cdx (bool): If True, a CDX file will be written.
+        max_size (int): If provided, output files are named like
+            ``name-00000.ext`` and the log file will be in ``name-meta.ext``.
     '''
     CDX_DELIMINATOR = ' '
 
     def __init__(self, filename, compress=True, extra_fields=None,
-    temp_dir=None, log=True, appending=False, digests=True, cdx_filename=None):
-        self._filename = filename
+    temp_dir=None, log=True, appending=False, digests=True, cdx=None,
+    max_size=None):
+        self._prefix_filename = filename
+        self._sequence_num = 0
         self._gzip_enabled = compress
         self._temp_dir = temp_dir
-        self._warcinfo_record = WARCRecord()
+        self._warcinfo_record = None
         self._log_record = None
         self._log_handler = None
         self._digests_enabled = digests
-        self._cdx_filename = cdx_filename
-
-        if not appending:
-            self._truncate_existing_file()
-
-        self._populate_warcinfo(extra_fields)
+        self._cdx = cdx
+        self._appending = appending
+        self._extra_fields = extra_fields
+        self._warc_filename = None
+        self._cdx_filename = None
+        self._max_size = max_size
 
         if log:
             self._log_record = WARCRecord()
             self._setup_log()
 
-        if self._cdx_filename:
-            self._write_cdx_header()
+        self._start_new_warc_file()
 
+        if self._cdx:
+            self._start_new_cdx_file()
+
+    def _start_new_warc_file(self, meta=False):
+        if self._max_size is None:
+            sequence_name = ''
+        elif meta:
+            sequence_name = '-meta'
+        else:
+            sequence_name = '-{0:05d}'.format(self._sequence_num)
+
+        if self._gzip_enabled:
+            extension = 'warc.gz'
+        else:
+            extension = 'warc'
+
+        self._warc_filename = '{0}{1}.{2}'.format(
+            self._prefix_filename, sequence_name, extension
+        )
+
+        _logger.debug('WARC file at {0}'.format(self._warc_filename))
+
+        if not self._appending:
+            wpull.util.truncate_file(self._warc_filename)
+
+        self._warcinfo_record = WARCRecord()
+        self._populate_warcinfo(self._extra_fields)
         self.write_record(self._warcinfo_record)
 
-    def _truncate_existing_file(self):
-        '''Truncate existing WARC and CDX file if it exists.'''
-        if os.path.exists(self._filename):
-            with open(self._filename, 'wb'):
-                pass
+    def _start_new_cdx_file(self):
+        self._cdx_filename = '{0}.cdx'.format(self._prefix_filename)
 
-        if self._cdx_filename and os.path.exists(self._cdx_filename):
-            with open(self._cdx_filename, 'wb'):
-                pass
+        if not self._appending:
+            wpull.util.truncate_file(self._cdx_filename)
+            self._write_cdx_header()
+        elif not os.path.exists(self._cdx_filename):
+            self._write_cdx_header()
 
     def _populate_warcinfo(self, extra_fields=None):
         '''Add the metadata to the Warcinfo record.'''
@@ -218,6 +247,13 @@ class WARCRecorder(BaseRecorder):
         recorder_session = WARCRecorderSession(self, self._temp_dir)
         yield recorder_session
 
+        if self._max_size is not None \
+        and os.path.getsize(self._warc_filename) > self._max_size:
+            self._sequence_num += 1
+
+            _logger.debug('Starting new warc file due to max size.')
+            self._start_new_warc_file()
+
     def set_length_and_maybe_checksums(self, record, payload_offset=None):
         '''Set the content length and possibly the checksums.'''
         if self._digests_enabled:
@@ -240,25 +276,25 @@ class WARCRecorder(BaseRecorder):
         else:
             open_func = open
 
-        if os.path.exists(self._filename):
-            before_offset = os.path.getsize(self._filename)
+        if os.path.exists(self._warc_filename):
+            before_offset = os.path.getsize(self._warc_filename)
         else:
             before_offset = 0
 
         try:
-            with open_func(self._filename, mode='ab') as out_file:
+            with open_func(self._warc_filename, mode='ab') as out_file:
                 for data in record:
                     out_file.write(data)
         except (OSError, IOError) as error:
             _logger.info(
                 _('Rolling back file {filename} to length {length}.')\
-                .format(filename=self._filename, length=before_offset)
+                .format(filename=self._warc_filename, length=before_offset)
             )
-            with open(self._filename, mode='wb') as out_file:
+            with open(self._warc_filename, mode='wb') as out_file:
                 out_file.truncate(before_offset)
             raise error
 
-        after_offset = os.path.getsize(self._filename)
+        after_offset = os.path.getsize(self._warc_filename)
 
         if self._cdx_filename:
             raw_file_offset = before_offset
@@ -283,6 +319,9 @@ class WARCRecorder(BaseRecorder):
 
             self._log_record.fields['WARC-Target-URI'] = \
                 'urn:X-wpull:log'
+
+            if self._max_size is not None:
+                self._start_new_warc_file(meta=True)
 
             self.set_length_and_maybe_checksums(self._log_record)
             self.write_record(self._log_record)
@@ -349,7 +388,7 @@ class WARCRecorder(BaseRecorder):
 
         raw_file_record_size_str = str(raw_file_record_size)
         raw_file_offset_str = str(raw_file_offset)
-        filename = os.path.basename(self._filename)
+        filename = os.path.basename(self._warc_filename)
         record_id = record.fields[WARCRecord.WARC_RECORD_ID]
         fields_strs = (
             url,

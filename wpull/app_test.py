@@ -133,16 +133,25 @@ class TestApp(GoodAppTestCase):
             '--convert-links', '--backup-converted',
             '--accept', '*',
             '--no-strong-robots',
+            '--restrict-file-names', 'windows,lower',
+            '--quota', '10m',
         ])
         with cd_tempdir():
-            engine = Builder(args).build()
+            builder = Builder(args)
+            engine = builder.build()
             exit_code = yield engine()
 
             print(list(os.walk('.')))
-            self.assertTrue(os.path.exists('http/localhost/index.html'))
-            self.assertTrue(os.path.exists('http/localhost/index.html.orig'))
+            self.assertTrue(os.path.exists(
+                'http/localhost+{0}/index.html'.format(self.get_http_port())
+            ))
+            self.assertTrue(os.path.exists(
+                'http/localhost+{0}/index.html.orig'.format(
+                    self.get_http_port())
+            ))
 
         self.assertEqual(0, exit_code)
+        self.assertEqual(builder.factory['Statistics'].files, 2)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_input_file_arg(self):
@@ -157,9 +166,35 @@ class TestApp(GoodAppTestCase):
                 '--input-file', in_file.name
             ])
             with cd_tempdir():
-                engine = Builder(args).build()
+                builder = Builder(args)
+                engine = builder.build()
                 exit_code = yield engine()
+
         self.assertEqual(0, exit_code)
+        self.assertEqual(builder.factory['Statistics'].files, 2)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_args_warc_size(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--warc-file', 'test',
+            '-4',
+            '--no-robots',
+            '--warc-max-size', '1k',
+            '--warc-cdx'
+        ])
+        builder = Builder(args)
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+
+            self.assertTrue(os.path.exists('test-00000.warc.gz'))
+            self.assertTrue(os.path.exists('test-meta.warc.gz'))
+            self.assertTrue(os.path.exists('test.cdx'))
+
+        self.assertEqual(0, exit_code)
+        self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_args_warc(self):
@@ -444,11 +479,48 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, builder.factory['Statistics'].files)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_quota(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/blog/'),
+            '--recursive',
+            '--quota', '1',
+        ])
+
+        with cd_tempdir():
+            builder = Builder(args)
+            engine = builder.build()
+            exit_code = yield engine()
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_content_on_error(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/always_error'),
+            '--content-on-error',
+        ])
+
+        with cd_tempdir():
+            builder = Builder(args)
+            engine = builder.build()
+            exit_code = yield engine()
+
+            print(list(os.walk('.')))
+            self.assertTrue(os.path.exists('always_error'))
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_phantomjs(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
             self.get_url('/static/simple_javascript.html'),
             '--warc-file', 'test',
+            '--no-warc-compression',
             '-4',
             '--no-robots',
             '--phantomjs',
@@ -460,7 +532,7 @@ class TestApp(GoodAppTestCase):
             engine = builder.build()
             exit_code = yield engine()
 
-            self.assertTrue(os.path.exists('test.warc.gz'))
+            self.assertTrue(os.path.exists('test.warc'))
             self.assertTrue(
                 os.path.exists('simple_javascript.html.snapshot.html')
             )
@@ -471,6 +543,15 @@ class TestApp(GoodAppTestCase):
             with open('simple_javascript.html.snapshot.html', 'rb') as in_file:
                 data = in_file.read()
                 self.assertIn(b'Hello world!', data)
+
+            with open('test.warc', 'rb') as in_file:
+                data = in_file.read()
+
+                self.assertIn(b'urn:X-wpull:snapshot?url=', data)
+                self.assertIn(b'text/html', data)
+                self.assertIn(b'application/pdf', data)
+                self.assertIn(b'application/json', data)
+                self.assertIn(b'"set_scroll_top"', data)
 
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)

@@ -54,7 +54,7 @@ class AppArgumentParser(argparse.ArgumentParser):
     def int_bytes(cls, string):
         '''Convert string describing size to int.'''
         if string[-1] in ('k', 'm'):
-            value = cls.int_0_inf(string)
+            value = cls.int_0_inf(string[:-1])
             unit = string[-1]
             if unit == 'k':
                 value *= 2 ** 10
@@ -366,13 +366,13 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             action='store_true',
 #             help=_('disable proxy support'),
 #         )
-#         self.add_argument(
-#             '-Q',
-#             '--quota',
-#             metavar='NUMBER',
-#             type=self.int_bytes,
-#             help=_('stop after downloading NUMBER bytes'),
-#         )
+        group.add_argument(
+            '-Q',
+            '--quota',
+            metavar='NUMBER',
+            type=self.int_bytes,
+            help=_('stop after downloading NUMBER bytes'),
+        )
         group.add_argument(
             '--bind-address',
             metavar='ADDRESS',
@@ -396,11 +396,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('use different resolved IP addresses on requests'),
         )
-#         self.add_argument(
-#             '--restrict-file-names',
-#             metavar='OS',
-#             help=_('use safe filenames for suitable OS'),
-#         )
+        group.add_argument(
+            '--restrict-file-names',
+            metavar='MODES',
+            type=self.comma_list,
+            default=['windows'] if os.name == 'nt' else ['unix'],
+            help=_('list of safe filename modes to use'),
+        )
 #         self.add_argument(
 #             '--ignore-case',
 #             action='store_true',
@@ -629,9 +631,11 @@ class AppArgumentParser(argparse.ArgumentParser):
 #         self.add_argument(
 #             '--content-disposition'
 #         )
-#         self.add_argument(
-#             '--content-on-error'
-#         )
+        group.add_argument(
+            '--content-on-error',
+            action='store_true',
+            help=_('keep error pages')
+        )
 #         self.add_argument(
 #             '--auth-no-challenge'
 #         )
@@ -760,10 +764,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=[],
             help=_('include STRING in WARC file metadata'),
         )
-#         self.add_argument(
-#             '--warc-max-size',
-#             metavar='NUMBER'
-#         )
+        group.add_argument(
+            '--warc-max-size',
+            type=self.int_bytes,
+            metavar='NUMBER',
+            help=_('write sequential WARC files sized about NUMBER bytes')
+        )
         group.add_argument(
             '--warc-cdx',
             action='store_true',

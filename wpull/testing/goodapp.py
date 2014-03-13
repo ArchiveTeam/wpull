@@ -87,6 +87,12 @@ class LastModifiedHandler(tornado.web.RequestHandler):
         self.write('HELLO')
 
 
+class AlwaysErrorHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_status(500, 'Dragon In Data Center')
+        self.write('Error')
+
+
 class GoodApp(tornado.web.Application):
     def __init__(self):
         tornado.web.Application.__init__(self, [
@@ -98,6 +104,7 @@ class GoodApp(tornado.web.Application):
                 (r'/cookie', CookieHandler),
                 (r'/redirect', RedirectHandler),
                 (r'/lastmod', LastModifiedHandler),
+                (r'/always_error', AlwaysErrorHandler),
             ],
             template_path=os.path.join(os.path.dirname(__file__),
                 'templates'),

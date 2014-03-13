@@ -7,7 +7,7 @@ import tornado.gen
 import toro
 
 import wpull.actor
-from wpull.database import Status, NotFound
+from wpull.database import Status, NotFound, URLRecord
 from wpull.errors import (ExitStatus, ServerError, ConnectionRefused, DNSNotFound,
     SSLVerficationError, ProtocolError, NetworkError)
 from wpull.url import URLInfo
@@ -177,10 +177,16 @@ class Engine(object):
 
             assert url_item.is_processed
 
+            self._statistics.mark_done(url_info)
+
         except Exception as error:
             _logger.exception('Fatal exception.')
             self._update_exit_code_from_error(error)
             self.stop(force=True)
+
+        if self._statistics.is_quota_exceeded:
+            _logger.debug('Stopping due to quota.')
+            self.stop()
 
         self._num_worker_busy -= 1
         self._worker_semaphore.release()
@@ -260,6 +266,10 @@ class Engine(object):
                 preformatted_file_size=file_size
             )
         )
+
+        if stats.is_quota_exceeded:
+            _logger.info(_('Download quota exceeded.'))
+
         _logger.info(_('Exiting with status {0}.').format(self._exit_code))
 
     def _print_ssl_error(self):
@@ -306,7 +316,7 @@ class URLItem(object):
 
         self._processed = True
 
-    def set_status(self, status, increment_try_count=True):
+    def set_status(self, status, increment_try_count=True, filename=None):
         '''Mark the item with the given status.
 
         Args:
@@ -323,7 +333,8 @@ class URLItem(object):
         self._url_table.update(
             self._url,
             increment_try_count=increment_try_count,
-            status=status
+            status=status,
+            filename=filename,
         )
 
         self._processed = True
@@ -370,6 +381,27 @@ class URLItem(object):
             link_type=link_type,
             url_encoding=encoding,
             post_data=post_data,
+        )
+
+    def child_url_record(self, url_info, inline=False, encoding=None,
+    link_type=None, post_data=None):
+        '''Return a child URLRecord.
+
+        This function is useful for testing filters before adding to table.
+        '''
+        return URLRecord(
+            url_info.url,  # url
+            Status.todo,  # status
+            0,  # try_count
+            self._url_record.level + 1,  # level
+            self._url_record.top_url or self._url_record.url,  # top_url
+            None,  # status_code
+            self._url_record.url,  # referrer
+            inline,  # inline
+            link_type,  # link_type
+            encoding,  # url_encoding
+            post_data,  # post_data
+            None  # filename
         )
 
     def add_url_item(self, url_info, request):

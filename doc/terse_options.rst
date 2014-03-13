@@ -10,26 +10,29 @@ Brief Option Overview
                      [--progress TYPE] [-N] [--no-use-server-timestamps] [-S]
                      [-T SECONDS] [--dns-timeout SECS] [--connect-timeout SECS]
                      [--read-timeout SECS] [-w SECONDS] [--waitretry SECONDS]
-                     [--random-wait] [--bind-address ADDRESS] [--no-dns-cache]
-                     [--rotate-dns] [-4 | -6 | --prefer-family FAMILY]
-                     [-nd | -x] [-nH] [--protocol-directories] [-P PREFIX]
-                     [--cut-dirs NUMBER] [--default-page NAME] [--header STRING]
+                     [--random-wait] [-Q NUMBER] [--bind-address ADDRESS]
+                     [--no-dns-cache] [--rotate-dns]
+                     [--restrict-file-names MODES]
+                     [-4 | -6 | --prefer-family FAMILY] [-nd | -x] [-nH]
+                     [--protocol-directories] [-P PREFIX] [--cut-dirs NUMBER]
+                     [--default-page NAME] [--header STRING]
                      [--max-redirect NUMBER] [--referer URL] [--save-headers]
                      [-U AGENT] [--no-robots] [--no-http-keep-alive]
                      [--no-cookies] [--load-cookies FILE] [--save-cookies FILE]
                      [--keep-session-cookies]
                      [--post-data STRING | --post-file FILE]
-                     [--secure-protocol PR] [--no-check-certificate]
-                     [--certificate FILE] [--certificate-type TYPE]
-                     [--private-key FILE] [--private-key-type TYPE]
-                     [--ca-certificate FILE] [--ca-directory DIR]
-                     [--no-use-internal-ca-certs] [--random-file FILE]
-                     [--edg-file FILE] [--warc-file FILENAME] [--warc-append]
-                     [--warc-header STRING] [--warc-cdx] [--no-warc-compression]
-                     [--no-warc-digests] [--no-warc-keep-log]
-                     [--warc-tempdir DIRECTORY] [-r] [-l NUMBER]
-                     [--delete-after] [-k] [-K] [-p] [-A LIST] [-R LIST]
-                     [--accept-regex REGEX] [--reject-regex REGEX]
+                     [--content-on-error] [--secure-protocol PR]
+                     [--no-check-certificate] [--certificate FILE]
+                     [--certificate-type TYPE] [--private-key FILE]
+                     [--private-key-type TYPE] [--ca-certificate FILE]
+                     [--ca-directory DIR] [--no-use-internal-ca-certs]
+                     [--random-file FILE] [--edg-file FILE]
+                     [--warc-file FILENAME] [--warc-append]
+                     [--warc-header STRING] [--warc-max-size NUMBER]
+                     [--warc-cdx] [--no-warc-compression] [--no-warc-digests]
+                     [--no-warc-keep-log] [--warc-tempdir DIRECTORY] [-r]
+                     [-l NUMBER] [--delete-after] [-k] [-K] [-p] [-A LIST]
+                     [-R LIST] [--accept-regex REGEX] [--reject-regex REGEX]
                      [--regex-type TYPE] [-D LIST] [--exclude-domains LIST]
                      [--hostnames LIST] [--exclude-hostnames LIST]
                      [--follow-tags LIST] [--ignore-tags LIST] [-H] [-L]
@@ -90,10 +93,14 @@ Brief Option Overview
                           wait SECONDS seconds between requests
     --waitretry SECONDS   wait up to SECONDS seconds on retries
     --random-wait         randomly perturb the time between requests
+    -Q NUMBER, --quota NUMBER
+                          stop after downloading NUMBER bytes
     --bind-address ADDRESS
                           bind to ADDRESS on the local host
     --no-dns-cache        disable caching of DNS lookups
     --rotate-dns          use different resolved IP addresses on requests
+    --restrict-file-names MODES
+                          list of safe filename modes to use
     -4, --inet4-only      connect to IPv4 addresses only
     -6, --inet6-only      connect to IPv6 addresses only
     --prefer-family FAMILY
@@ -130,6 +137,7 @@ Brief Option Overview
                           include session cookies when saving cookies to file
     --post-data STRING    use POST for all requests with query STRING
     --post-file FILE      use POST for all requests with query in FILE
+    --content-on-error    keep error pages
 
   SSL:
     --secure-protocol PR  specifiy the version of the SSL protocol to use
@@ -151,6 +159,8 @@ Brief Option Overview
     --warc-file FILENAME  save WARC file to filename prefixed with FILENAME
     --warc-append         append instead of overwrite the output WARC file
     --warc-header STRING  include STRING in WARC file metadata
+    --warc-max-size NUMBER
+                          write sequential WARC files sized about NUMBER bytes
     --warc-cdx            write CDX file along with the WARC file
     --no-warc-compression
                           do not compress the WARC file

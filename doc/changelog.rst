@@ -2,6 +2,31 @@
 What's New
 ==========
 
+0.25 (2014-03-13)
+=================
+
+* Fixes link converter not operating on the correct files when ``.N`` files were written.
+* Fixes apparent hang when Wpull is almost finished on documents with many links.
+
+  * Previously, Wpull adds all URLs to the database causing overhead processing to be done in the database. Now, only requisite URLs are added to the database.
+
+* Implements ``--restrict-file-names``.
+* Implements ``--quota``.
+* Implements ``--warc-max-size``. Like Wget, "max size" is not the maximum size of each WARC file but it is the threshold size to trigger a new file. Unlike Wget, ``request`` and ``response`` records are not split across WARC files.
+* Implements ``--content-on-error``.
+* Supports recording scrolling actions in WARC file when PhantomJS is enabled.
+* Adds the ``wpull`` command to ``bin/``.
+* Database schema change: ``filename`` column was added.
+* API:
+
+  * converter.py: Converters no longer use PathNamer.
+  * writer.py: ``sanitize_file_parts()`` was removed in favor of new ``safe_filename()``. ``save_document()`` returns a filename.
+  * WebProcessor now requires a root path to be specified.
+  * WebProcessor initializer now takes "parameter objects".
+
+* Install requires new dependency: ``namedlist``.
+
+
 0.24 (2014-03-09)
 ==================
 
