@@ -44,6 +44,9 @@ if sys.version_info[0] == 2:
     # Also it might cause confusion by downloading from PyPI which
     # we do not want.
     # install_requires.append('3to2')
+    scripts = ['scripts/wpull', 'scripts/wpull2']
+else:
+    scripts = ['scripts/wpull', 'scripts/wpull3']
 
 
 if __name__ == '__main__':
@@ -79,5 +82,6 @@ if __name__ == '__main__':
             'Topic :: System :: Archiving',
         ],
         packages=PROJECT_PACKAGES,
-        package_dir=PROJECT_PACKAGE_DIR
+        package_dir=PROJECT_PACKAGE_DIR,
+        scripts=scripts,
 )

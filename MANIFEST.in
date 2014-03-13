@@ -4,3 +4,4 @@ include test/fuzz_fusil/runner.py
 include README.rst requirements*.txt LICENSE.txt 3to2runner.py backport.py backport.conf
 recursive-include doc *.rst
 include doc/make.bat doc/conf.py doc/Makefile doc/api/template.py
+include scripts/wpull scripts/wpull[23]

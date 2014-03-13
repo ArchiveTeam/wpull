@@ -15,6 +15,7 @@ What's New
 * Implements ``--warc-max-size``. Like Wget, "max size" is not the maximum size of each WARC file but it is the threshold size to trigger a new file. Unlike Wget, ``request`` and ``response`` records are not split across WARC files.
 * Implements ``--content-on-error``.
 * Supports recording scrolling actions in WARC file when PhantomJS is enabled.
+* Adds the ``wpull`` command to ``bin/``.
 * Database schema change: ``filename`` column was added.
 * API:
 
