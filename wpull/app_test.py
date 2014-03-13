@@ -520,6 +520,7 @@ class TestApp(GoodAppTestCase):
         args = arg_parser.parse_args([
             self.get_url('/static/simple_javascript.html'),
             '--warc-file', 'test',
+            '--no-warc-compression',
             '-4',
             '--no-robots',
             '--phantomjs',
@@ -531,7 +532,7 @@ class TestApp(GoodAppTestCase):
             engine = builder.build()
             exit_code = yield engine()
 
-            self.assertTrue(os.path.exists('test.warc.gz'))
+            self.assertTrue(os.path.exists('test.warc'))
             self.assertTrue(
                 os.path.exists('simple_javascript.html.snapshot.html')
             )
@@ -542,6 +543,15 @@ class TestApp(GoodAppTestCase):
             with open('simple_javascript.html.snapshot.html', 'rb') as in_file:
                 data = in_file.read()
                 self.assertIn(b'Hello world!', data)
+
+            with open('test.warc', 'rb') as in_file:
+                data = in_file.read()
+
+                self.assertIn(b'urn:X-wpull:snapshot?url=', data)
+                self.assertIn(b'text/html', data)
+                self.assertIn(b'application/pdf', data)
+                self.assertIn(b'application/json', data)
+                self.assertIn(b'"set_scroll_top"', data)
 
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)

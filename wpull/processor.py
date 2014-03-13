@@ -4,10 +4,12 @@ import abc
 import copy
 import gettext
 import io
+import json
 import logging
 import namedlist
 import os
 import tempfile
+import time
 import tornado.gen
 
 from wpull.conversation import Body
@@ -676,6 +678,8 @@ class PhantomJSController(object):
         self._warc_recorder = warc_recorder
         self._viewport_size = viewport_size
         self._paper_size = paper_size
+        self._actions = []
+        self._action_warc_record = None
 
     @tornado.gen.coroutine
     def apply_page_size(self, remote):
@@ -696,6 +700,10 @@ class PhantomJSController(object):
     @tornado.gen.coroutine
     def control(self, remote):
         '''Scroll the page.'''
+        url = yield remote.eval('page.url')
+        total_scroll_count = 0
+
+        self._log_action('wait', self._wait_time)
         yield wpull.util.sleep(self._wait_time)
 
         for scroll_count in range(self._num_scrolls):
@@ -704,12 +712,27 @@ class PhantomJSController(object):
             scroll_position = yield remote.eval('page.scrollPosition')
             scroll_position['top'] += self._viewport_size[1]
 
+            self._log_action('set_scroll_top', scroll_position['top'])
             yield remote.set('page.scrollPosition', scroll_position)
             yield remote.call('page.sendEvent', 'keypress', 'PageDown')
             yield remote.call('page.sendEvent', 'keydown', 'PageDown')
             yield remote.call('page.sendEvent', 'keyup', 'PageDown')
 
+            self._log_action('wait', self._wait_time)
             yield wpull.util.sleep(self._wait_time)
+
+            total_scroll_count += 1
+
+        _logger.info(
+            gettext.ngettext(
+                'Scrolled page {num} time.',
+                'Scrolled page {num} times.',
+                total_scroll_count,
+            ).format(num=total_scroll_count)
+        )
+
+        if self._warc_recorder:
+            self._add_warc_action_log(url)
 
     @tornado.gen.coroutine
     def snapshot(self, remote, html_path=None, render_path=None):
@@ -747,8 +770,38 @@ class PhantomJSController(object):
         record.fields['WARC-Target-URI'] = 'urn:X-wpull:snapshot?url={0}'\
             .format(wpull.url.quote(url))
 
+        if self._action_warc_record:
+            record.fields['WARC-Concurrent-To'] = \
+                self._action_warc_record.fields[WARCRecord.WARC_RECORD_ID]
+
         with open(filename, 'rb') as in_file:
             record.block_file = in_file
 
             self._warc_recorder.set_length_and_maybe_checksums(record)
             self._warc_recorder.write_record(record)
+
+    def _log_action(self, name, value):
+        _logger.debug('Action: {0} {1}'.format(name, value))
+
+        self._actions.append({
+            'event': name,
+            'value': value,
+            'timestamp': time.time(),
+        })
+
+    def _add_warc_action_log(self, url):
+        _logger.debug('Adding action log record.')
+
+        log_data = json.dumps(
+            {'actions': self._actions},
+            indent=4,
+        ).encode('utf-8')
+
+        self._action_warc_record = record = WARCRecord()
+        record.set_common_fields('metadata', 'application/json')
+        record.fields['WARC-Target-URI'] = 'urn:X-wpull:snapshot?url={0}'\
+            .format(wpull.url.quote(url))
+        record.block_file = io.BytesIO(log_data)
+
+        self._warc_recorder.set_length_and_maybe_checksums(record)
+        self._warc_recorder.write_record(record)
