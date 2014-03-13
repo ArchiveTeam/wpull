@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2014-03-DD)
+0.25 (2014-03-13)
 =================
 
 * Fixes link converter not operating on the correct files when ``.N`` files were written.
