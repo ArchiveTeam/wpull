@@ -105,9 +105,11 @@ class HTMLReader(BaseDocumentReader):
         '''Return whether the file is likely to be HTML.'''
         peeked_data = wpull.util.peek_file(file).replace(b'\x00', b'').lower()
 
-        if b'<html' in peeked_data \
+        if b'<!doctype html' in peeked_data \
         or b'<head' in peeked_data \
         or b'<title' in peeked_data \
+        or b'<html' in peeked_data \
+        or b'<script' in peeked_data \
         or b'<table' in peeked_data \
         or b'<a href' in peeked_data:
             return True
