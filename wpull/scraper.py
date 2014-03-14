@@ -206,22 +206,17 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             base_url = clean_link_soup(root.base_url)
 
             if scraped_link.base_link:
-                try:
-                    base_url = urljoin(
-                        base_url, clean_link_soup(scraped_link.base_link)
-                    )
-                except ValueError:
-                    pass
+                base_url = urljoin_safe(
+                    base_url, clean_link_soup(scraped_link.base_link)
+                ) or base_url
 
-            try:
-                url = urljoin(
-                    base_url,
-                    clean_link_soup(scraped_link.link),
-                    allow_fragments=False
-                )
-            except ValueError:
-                pass
-            else:
+            url = urljoin_safe(
+                base_url,
+                clean_link_soup(scraped_link.link),
+                allow_fragments=False
+            )
+
+            if url:
                 if scraped_link.inline:
                     inline_urls.add(url)
                 if scraped_link.linked:
@@ -469,11 +464,9 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
             self.scrape_imports(text))
 
         for link in iterable:
-            try:
-                url = urljoin(base_url, link, allow_fragments=False)
-            except ValueError:
-                pass
-            else:
+            url = urljoin_safe(base_url, link, allow_fragments=False)
+
+            if url:
                 inline_urls.add(url)
 
         return {
@@ -520,22 +513,25 @@ class SitemapScraper(SitemapReader, BaseDocumentScraper):
             )
             return
 
+        links = set()
+
         if isinstance(
             document, robotexclusionrulesparser.RobotExclusionRulesParser
         ):
-            links = frozenset(
-                [wpull.url.urljoin(base_url, link)
-                    for link in document.sitemaps]
-            )
-        else:
-            links = set()
+            for link in document.sitemaps:
+                link = urljoin_safe(base_url, link)
 
+                if link:
+                    links.add(link)
+        else:
             for element in document.iter('{*}loc'):
-                link = wpull.url.urljoin(
+                link = urljoin_safe(
                     base_url,
                     clean_link_soup(to_str(element.text))
                 )
-                links.add(link)
+
+                if link:
+                    links.add(link)
 
         return {
             'inline_urls': (),
@@ -593,15 +589,17 @@ def clean_link_soup(link):
     )
 
 
-def urljoin(base_url, url, allow_fragments=True):
-    '''urljoin with warning log on error.'''
+def urljoin_safe(base_url, url, allow_fragments=True):
+    '''urljoin with warning log on error.
+
+    Returns:
+        str, None'''
     try:
         return wpull.url.urljoin(
             base_url, url, allow_fragments=allow_fragments
         )
-    except Exception as error:
+    except ValueError as error:
         _logger.warning(
             _('Discarding malformed URL ‘{url}’: {error}.')\
             .format(url=url, error=error)
         )
-        raise
