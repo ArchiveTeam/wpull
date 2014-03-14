@@ -2,7 +2,10 @@
 '''Document scrapers.'''
 import abc
 import collections
+import gettext
 import itertools
+import logging
+import lxml.etree
 import re
 
 from wpull.document import (BaseDocumentReader, HTMLReader, get_encoding,
@@ -10,6 +13,10 @@ from wpull.document import (BaseDocumentReader, HTMLReader, get_encoding,
 from wpull.thirdparty import robotexclusionrulesparser
 import wpull.url
 from wpull.util import to_str
+
+
+_ = gettext.gettext
+_logger = logging.getLogger(__name__)
 
 
 class BaseDocumentScraper(BaseDocumentReader):
@@ -491,7 +498,17 @@ class SitemapScraper(SitemapReader, BaseDocumentScraper):
 
         base_url = request.url_info.url
         encoding = get_encoding(response)
-        document = self.parse(response.body.content_file, encoding=encoding)
+
+        try:
+            document = self.parse(
+                response.body.content_file, encoding=encoding
+            )
+        except lxml.etree.ParseError as error:
+            _logger.warning(
+                _('Failed to parse document at ‘{url}’: {error}')\
+                .format(url=request.url_info.url, error=error)
+            )
+            return
 
         if isinstance(
             document, robotexclusionrulesparser.RobotExclusionRulesParser

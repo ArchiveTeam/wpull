@@ -370,6 +370,23 @@ class TestDocument(unittest.TestCase):
         )
         self.assertFalse(inline_urls)
 
+    def test_sitemap_scraper_invalid_robots(self):
+        scraper = SitemapScraper()
+        request = Request.new('http://example.com/robots.txt')
+        response = Response('HTTP/1.0', 200, 'OK')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            response.body.content_file.write(
+                b'dsfju3wrji kjasSItemapsdmjfkl wekie;er :Ads fkj3m /Dk'
+            )
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertFalse(linked_urls)
+        self.assertFalse(inline_urls)
+
     def test_sitemap_scraper_xml_index(self):
         scraper = SitemapScraper()
         request = Request.new('http://example.com/sitemap.xml')
@@ -428,6 +445,23 @@ class TestDocument(unittest.TestCase):
             linked_urls
         )
         self.assertFalse(inline_urls)
+
+    def test_sitemap_scraper_invalid_xml(self):
+        scraper = SitemapScraper()
+        request = Request.new('http://example.com/sitemap.xml')
+        response = Response('HTTP/1.0', 200, 'OK')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            response.body.content_file.write(
+                b'''<?xml version="1.0" encoding="UTF-8"?>
+                <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+                   <url>
+                      <loc>http://www.example.com/</loc>
+            '''
+            )
+
+        scrape_info = scraper.scrape(request, response)
+        self.assertFalse(scrape_info)
 
     def test_clean_link_soup(self):
         self.assertEqual(
