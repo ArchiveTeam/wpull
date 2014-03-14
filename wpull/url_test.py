@@ -227,6 +227,27 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('http://example.com/$c/%system.exe/').url
         )
 
+        self.assertEqual(
+            'http://example.com/?a',
+            URLInfo.parse('http://example.com?a').url
+        )
+        self.assertEqual(
+            'http://example.com/?a=',
+            URLInfo.parse('http://example.com?a=').url
+        )
+        self.assertEqual(
+            'http://example.com/?a=1',
+            URLInfo.parse('http://example.com?a=1').url
+        )
+        self.assertEqual(
+            'http://example.com/?a=1&b',
+            URLInfo.parse('http://example.com?a=1&b').url
+        )
+        self.assertEqual(
+            'http://example.com/?a=1&b=',
+            URLInfo.parse('http://example.com?a=1&b=').url
+        )
+
     @unittest.skip('TODO: implement these')
     def test_ip_address_normalization(self):
         self.assertEqual(
