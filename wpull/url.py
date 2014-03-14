@@ -171,13 +171,24 @@ class URLInfo(_URLInfoType):
             ) or '/'
 
     @classmethod
-    def normalize_query(cls, query, encoding='utf8'):
-        '''Normalize the query.'''
+    def normalize_query(cls, query, encoding='utf8',
+    sort=False, always_delim=False):
+        '''Normalize the query.
+
+        Args:
+            query (str): The query string.
+            encoding (str): IRI encoding.
+            sort (bool): If True, the items will be sorted.
+            always_delim (bool): If True, the equal sign ``=`` will always be
+                present for each item.
+        '''
         if not query:
             return
 
         query_list = split_query(query, keep_blank_values=True)
-        query_test_str = ''.join(itertools.chain(*query_list))
+        query_test_str = ''.join(
+            itertools.chain(*[(key, value or '') for key, value in query_list])
+        )
 
         if is_percent_encoded(query_test_str):
             quote_func = functools.partial(
@@ -185,11 +196,16 @@ class URLInfo(_URLInfoType):
         else:
             quote_func = functools.partial(quote_plus, encoding=encoding)
 
+        if sort:
+            query_list.sort()
+
         return '&'.join([
             '='.join((
                 quote_func(name),
-                quote_func(value)
+                quote_func(value or '')
             ))
+            if value is not None or always_delim else
+            quote_func(name)
             for name, value in query_list])
 
     def is_port_default(self):
@@ -589,7 +605,15 @@ def quasi_quote_plus(string, safe='', encoding='latin-1', errors='strict'):
 
 
 def split_query(qs, keep_blank_values=False):
-    '''Split the query string.'''
+    '''Split the query string.
+
+    Note for empty values: If an equal sign (``=``) is present, the value
+    will be an empty string (``''``). Otherwise, the value will be ``None``::
+
+        >>> split_query('a=&b', keep_blank_values=True)
+        [('a', ''), ('b', None)]
+
+    '''
     new_list = []
 
     for pair in qs.split('&'):
@@ -600,7 +624,7 @@ def split_query(qs, keep_blank_values=False):
 
         if len(items) == 1:
             name = items[0]
-            value = ''
+            value = None
         else:
             name, value = items
 
