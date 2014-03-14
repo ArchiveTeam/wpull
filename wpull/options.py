@@ -878,6 +878,11 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             action='store_true',
 #             help=_('use strict SGML comment parsing')
 #         )
+        group.add_argument(
+            '--sitemaps',
+            action='store_true',
+            help=_('download Sitemaps to discover more links')
+        )
 
     def _add_accept_args(self):
         group = self.add_argument_group(_('filters'))
