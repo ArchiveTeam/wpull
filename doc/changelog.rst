@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.XX (2014-03-DD)
+==================
+
+* Fixes crash when URLs like ``http://example.com]`` were encountered.
+
+
 0.25 (2014-03-13)
 =================
 

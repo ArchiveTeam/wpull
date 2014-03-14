@@ -2,13 +2,19 @@
 '''Document scrapers.'''
 import abc
 import collections
+import gettext
 import itertools
+import logging
 import re
 
 from wpull.document import (BaseDocumentReader, HTMLReader, get_heading_encoding,
     get_encoding, CSSReader)
 import wpull.url
 from wpull.util import to_str
+
+
+_ = gettext.gettext
+_logger = logging.getLogger(__name__)
 
 
 class BaseDocumentScraper(BaseDocumentReader):
@@ -198,20 +204,26 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             base_url = clean_link_soup(root.base_url)
 
             if scraped_link.base_link:
-                base_url = wpull.url.urljoin(
-                    base_url, clean_link_soup(scraped_link.base_link)
+                try:
+                    base_url = urljoin(
+                        base_url, clean_link_soup(scraped_link.base_link)
+                    )
+                except ValueError:
+                    pass
+
+            try:
+                url = urljoin(
+                    base_url,
+                    clean_link_soup(scraped_link.link),
+                    allow_fragments=False
                 )
-
-            url = wpull.url.urljoin(
-                base_url,
-                clean_link_soup(scraped_link.link),
-                allow_fragments=False
-            )
-
-            if scraped_link.inline:
-                inline_urls.add(url)
-            if scraped_link.linked:
-                linked_urls.add(url)
+            except ValueError:
+                pass
+            else:
+                if scraped_link.inline:
+                    inline_urls.add(url)
+                if scraped_link.linked:
+                    linked_urls.add(url)
 
         if self._robots and self._robots_cannot_follow(root):
             linked_urls.clear()
@@ -455,8 +467,12 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
             self.scrape_imports(text))
 
         for link in iterable:
-            inline_urls.add(wpull.url.urljoin(base_url, link,
-                allow_fragments=False))
+            try:
+                url = urljoin(base_url, link, allow_fragments=False)
+            except ValueError:
+                pass
+            else:
+                inline_urls.add(url)
 
         return {
             'inline_urls': inline_urls,
@@ -529,3 +545,17 @@ def clean_link_soup(link):
     return ''.join(
         [line.strip().replace('\t', '') for line in link.splitlines()]
     )
+
+
+def urljoin(base_url, url, allow_fragments=True):
+    '''urljoin with warning log on error.'''
+    try:
+        return wpull.url.urljoin(
+            base_url, url, allow_fragments=allow_fragments
+        )
+    except Exception as error:
+        _logger.warning(
+            _('Discarding malformed URL ‘{url}’: {error}.')\
+            .format(url=url, error=error)
+        )
+        raise
