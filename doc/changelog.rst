@@ -6,6 +6,11 @@ What's New
 ==================
 
 * Fixes crash when URLs like ``http://example.com]`` were encountered.
+* Query strings items like ``?a&b`` are now preserved and no longer normalized to ``?a=&b=``.
+* API:
+
+  * url.URLInfo.normalize() was removed since it was mainly used internally.
+  * Added url.normalize() convenience function.
 
 
 0.25 (2014-03-13)
