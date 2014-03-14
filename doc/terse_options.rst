@@ -31,13 +31,13 @@ Brief Option Overview
                      [--warc-header STRING] [--warc-max-size NUMBER]
                      [--warc-cdx] [--no-warc-compression] [--no-warc-digests]
                      [--no-warc-keep-log] [--warc-tempdir DIRECTORY] [-r]
-                     [-l NUMBER] [--delete-after] [-k] [-K] [-p] [-A LIST]
-                     [-R LIST] [--accept-regex REGEX] [--reject-regex REGEX]
-                     [--regex-type TYPE] [-D LIST] [--exclude-domains LIST]
-                     [--hostnames LIST] [--exclude-hostnames LIST]
-                     [--follow-tags LIST] [--ignore-tags LIST] [-H] [-L]
-                     [-I LIST] [-X LIST] [-np] [--no-strong-robots]
-                     [--no-strong-redirects] [--phantomjs]
+                     [-l NUMBER] [--delete-after] [-k] [-K] [-p] [--sitemaps]
+                     [-A LIST] [-R LIST] [--accept-regex REGEX]
+                     [--reject-regex REGEX] [--regex-type TYPE] [-D LIST]
+                     [--exclude-domains LIST] [--hostnames LIST]
+                     [--exclude-hostnames LIST] [--follow-tags LIST]
+                     [--ignore-tags LIST] [-H] [-L] [-I LIST] [-X LIST] [-np]
+                     [--no-strong-robots] [--no-strong-redirects] [--phantomjs]
                      [--phantomjs-scroll NUM] [--phantomjs-wait SEC]
                      [--no-phantomjs-snapshot]
                      [URL [URL ...]]
@@ -179,6 +179,7 @@ Brief Option Overview
                           save original files before converting their links
     -p, --page-requisites
                           download objects embedded in pages
+    --sitemaps            download Sitemaps to discover more links
 
   filters:
     -A LIST, --accept LIST

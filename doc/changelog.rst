@@ -6,6 +6,7 @@ What's New
 ==================
 
 * Fixes crash when URLs like ``http://example.com]`` were encountered.
+* Implements ``--sitemaps``.
 
 
 0.25 (2014-03-13)
