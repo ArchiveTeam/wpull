@@ -1,11 +1,14 @@
 # encoding=utf-8
 '''Document readers.'''
 import abc
+import gzip
 import lxml.html
 import re
+import zlib
 
-import wpull.util
 import wpull.http.util
+from wpull.thirdparty import robotexclusionrulesparser
+import wpull.util
 
 
 class BaseDocumentReader(object, metaclass=abc.ABCMeta):
@@ -171,6 +174,87 @@ class CSSReader(BaseDocumentReader):
             return True
 
 
+class SitemapReader(BaseDocumentReader):
+    def parse(self, file, encoding=None):
+        '''Parse Sitemap.
+
+        Returns:
+            RobotExclusionRulesParser, ElementTree
+        '''
+        peeked_data = wpull.util.peek_file(file)
+
+        if wpull.document.is_gzip(peeked_data):
+            file = gzip.GzipFile(mode='rb', fileobj=file)
+
+        if self.is_sitemap_file(file):
+            if encoding:
+                # XXX: Workaround lxml not liking utf-16-le
+                encoding = encoding.replace('-', '')
+
+            parser = lxml.etree.XMLParser(encoding=encoding)
+
+            with wpull.util.reset_file_offset(file):
+                tree = lxml.etree.parse(
+                    file,
+                    parser=parser,
+                )
+                return tree
+        else:
+            parser = robotexclusionrulesparser.RobotExclusionRulesParser()
+            parser.parse(file.read())
+
+            return parser
+
+    @classmethod
+    def is_supported(cls, file, request=None, url_info=None):
+        if request and cls.is_sitemap_request(request) \
+        or url_info and cls.is_sitemap_url_info(url_info):
+            return True
+
+        return cls.is_sitemap_file(file)
+
+    @classmethod
+    def is_sitemap(cls, request, response):
+        '''Return whether the document is likely to be a Sitemap.'''
+        if cls.is_sitemap_request(request):
+            return True
+
+        if response.body:
+            if cls.is_sitemap_file(response.body.content_file):
+                return True
+
+    @classmethod
+    def is_sitemap_url_info(cls, url_info):
+        '''Return whether the document is likely to be a Sitemap.'''
+        path = url_info.path.lower()
+        if path == '/robots.txt':
+            return True
+        if 'sitemap' in path and '.xml' in path:
+            return True
+
+    @classmethod
+    def is_sitemap_request(cls, request):
+        '''Return whether the document is likely to be a Sitemap.'''
+        return cls.is_sitemap_url_info(request.url_info)
+
+    @classmethod
+    def is_sitemap_file(cls, file):
+        '''Return whether the file is likely a Sitemap.'''
+        peeked_data = wpull.util.peek_file(file).lower()
+
+        if is_gzip(peeked_data):
+            try:
+                peeked_data = wpull.util.gzip_uncompress(peeked_data)
+            except zlib.error:
+                pass
+
+        peeked_data = peeked_data.replace(b'\x00', b'')
+
+        if b'<?xml' in peeked_data \
+        and (b'<sitemapindex' in peeked_data or b'<urlset' in peeked_data):
+            return True
+
+
 def get_heading_encoding(response):
     '''Return the document encoding from a HTTP header.
 
@@ -209,3 +293,8 @@ def get_encoding(response, is_html=False, peek=10485760):
     )
 
     return encoding
+
+
+def is_gzip(data):
+    '''Return whether the data is likely to be gzip.'''
+    return data.startswith(b'\x1f\x8b')

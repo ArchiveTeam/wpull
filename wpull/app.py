@@ -30,7 +30,8 @@ from wpull.proxy import HTTPProxyServer
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
     PrintServerResponseRecorder, ProgressRecorder)
 from wpull.robotstxt import RobotsTxtPool
-from wpull.scraper import HTMLScraper, CSSScraper, DemuxDocumentScraper
+from wpull.scraper import (HTMLScraper, CSSScraper, DemuxDocumentScraper,
+    SitemapScraper)
 from wpull.stats import Statistics
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     RecursiveFilter, SpanHostsFilter, ParentFilter, RegexFilter, HTTPFilter,
@@ -85,6 +86,7 @@ class Builder(object):
             'Resolver': Resolver,
             'RichClient': RichClient,
             'RobotsTxtPool': RobotsTxtPool,
+            'SitemapScraper': SitemapScraper,
             'Statistics': Statistics,
             'URLInfo': URLInfo,
             'URLTable': URLTable,
@@ -304,10 +306,27 @@ class Builder(object):
         else:
             url_string_iter = self._args.urls
 
+        sitemap_url_infos = set()
+
         for url_string in url_string_iter:
             url_info = self._factory.class_map['URLInfo'].parse(
                 url_string, default_scheme=default_scheme)
             _logger.debug('Parsed URL {0}'.format(url_info))
+            yield url_info
+
+            if self._args.sitemaps:
+                sitemap_url_infos.update((
+                     URLInfo.parse(
+                         '{0}://{1}/robots.txt'.format(url_info.scheme,
+                             url_info.hostname_with_port)
+                     ),
+                     URLInfo.parse(
+                         '{0}://{1}/sitemap.xml'.format(url_info.scheme,
+                             url_info.hostname_with_port)
+                     )
+                ))
+
+        for url_info in sitemap_url_infos:
             yield url_info
 
     def _build_url_filters(self):
@@ -356,6 +375,9 @@ class Builder(object):
             ),
             self._factory.new('CSSScraper'),
         ]
+
+        if self._args.sitemaps:
+            scrapers.append(self._factory.new('SitemapScraper'))
 
         return scrapers
 

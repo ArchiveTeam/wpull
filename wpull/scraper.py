@@ -5,8 +5,9 @@ import collections
 import itertools
 import re
 
-from wpull.document import (BaseDocumentReader, HTMLReader, get_heading_encoding,
-    get_encoding, CSSReader)
+from wpull.document import (BaseDocumentReader, HTMLReader, get_encoding,
+    CSSReader, SitemapReader)
+from wpull.thirdparty import robotexclusionrulesparser
 import wpull.url
 from wpull.util import to_str
 
@@ -480,6 +481,40 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
                     yield url
             else:
                 yield url_str_fragment.strip('"\'')
+
+
+class SitemapScraper(SitemapReader, BaseDocumentScraper):
+    '''Scrape Sitemaps'''
+    def scrape(self, request, response):
+        if not self.is_sitemap(request, response):
+            return
+
+        base_url = request.url_info.url
+        encoding = get_encoding(response)
+        document = self.parse(response.body.content_file, encoding=encoding)
+
+        if isinstance(
+            document, robotexclusionrulesparser.RobotExclusionRulesParser
+        ):
+            links = frozenset(
+                [wpull.url.urljoin(base_url, link)
+                    for link in document.sitemaps]
+            )
+        else:
+            links = set()
+
+            for element in document.iter('{*}loc'):
+                link = wpull.url.urljoin(
+                    base_url,
+                    clean_link_soup(to_str(element.text))
+                )
+                links.add(link)
+
+        return {
+            'inline_urls': (),
+            'linked_urls': links,
+            'encoding': encoding
+        }
 
 
 def parse_refresh(text):

@@ -578,6 +578,30 @@ class TestApp(GoodAppTestCase):
 
         self.assertEqual(0, exit_code)
 
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_sitemaps(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--no-robots',
+            '--sitemaps',
+            '--recursive',
+        ])
+
+        with cd_tempdir():
+            builder = Builder(args)
+            engine = builder.build()
+            exit_code = yield engine()
+
+            print(list(os.walk('.')))
+            self.assertTrue(os.path.exists(
+                'localhost:{0}/static/my_file.txt'.format(
+                    self.get_http_port())
+            ))
+
+        self.assertEqual(0, exit_code)
+        self.assertGreaterEqual(4, builder.factory['Statistics'].files)
+
 
 class TestAppBad(BadAppTestCase):
     def setUp(self):

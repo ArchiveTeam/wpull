@@ -4,7 +4,8 @@ import shutil
 
 from wpull.backport.testing import unittest
 from wpull.http.request import Request, Response
-from wpull.scraper import HTMLScraper, CSSScraper, clean_link_soup
+from wpull.scraper import (HTMLScraper, CSSScraper, clean_link_soup,
+    SitemapScraper)
 import wpull.util
 
 
@@ -347,6 +348,86 @@ class TestDocument(unittest.TestCase):
             inline_urls
         )
         self.assertFalse(linked_urls)
+
+    def test_sitemap_scraper_robots(self):
+        scraper = SitemapScraper()
+        request = Request.new('http://example.com/robots.txt')
+        response = Response('HTTP/1.0', 200, 'OK')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            response.body.content_file.write(
+                b'Sitemap: http://example.com/sitemap00.xml'
+            )
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual({
+            'http://example.com/sitemap00.xml',
+            },
+            linked_urls
+        )
+        self.assertFalse(inline_urls)
+
+    def test_sitemap_scraper_xml_index(self):
+        scraper = SitemapScraper()
+        request = Request.new('http://example.com/sitemap.xml')
+        response = Response('HTTP/1.0', 200, 'OK')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            response.body.content_file.write(
+                b'''<?xml version="1.0" encoding="UTF-8"?>
+                <sitemapindex
+                xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+                   <sitemap>
+                      <loc>http://www.example.com/sitemap1.xml.gz</loc>
+                      <lastmod>2004-10-01T18:23:17+00:00</lastmod>
+                   </sitemap>
+                </sitemapindex>
+            '''
+            )
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual({
+            'http://www.example.com/sitemap1.xml.gz',
+            },
+            linked_urls
+        )
+        self.assertFalse(inline_urls)
+
+    def test_sitemap_scraper_xml(self):
+        scraper = SitemapScraper()
+        request = Request.new('http://example.com/sitemap.xml')
+        response = Response('HTTP/1.0', 200, 'OK')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            response.body.content_file.write(
+                b'''<?xml version="1.0" encoding="UTF-8"?>
+                <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+                   <url>
+                      <loc>http://www.example.com/</loc>
+                      <lastmod>2005-01-01</lastmod>
+                      <changefreq>monthly</changefreq>
+                      <priority>0.8</priority>
+                   </url>
+                </urlset>
+            '''
+            )
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual({
+            'http://www.example.com/',
+            },
+            linked_urls
+        )
+        self.assertFalse(inline_urls)
 
     def test_clean_link_soup(self):
         self.assertEqual(
