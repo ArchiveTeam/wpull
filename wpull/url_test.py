@@ -227,6 +227,43 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('http://example.com/$c/%system.exe/').url
         )
 
+    @unittest.skip('TODO: implement these')
+    def test_ip_address_normalization(self):
+        self.assertEqual(
+            'http://192.0.2.235/',
+            URLInfo.parse('https://0xC0.0x00.0x02.0xEB').url
+        )
+        self.assertEqual(
+            'http://192.0.2.235/',
+            URLInfo.parse('https://0301.1680.0002.0353').url
+        )
+        self.assertEqual(
+            'http://192.0.2.235/',
+            URLInfo.parse('https://0xC00002EB/').url
+        )
+        self.assertEqual(
+            'http://192.0.2.235/',
+            URLInfo.parse('https://3221226219/').url
+        )
+        self.assertEqual(
+            'http://192.0.2.235/',
+            URLInfo.parse('https://030000001353/').url
+        )
+        self.assertEqual(
+            'https://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080/ipv6',
+            URLInfo.parse(
+                'https://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080/ipv6'
+            ).url
+        )
+        self.assertEqual(
+            'https://[::1]/',
+            URLInfo.parse('https://[0:0:0:0:0:0:0:1]').url
+        )
+        self.assertEqual(
+            'https://[::ffff:192.0.2.128]/',
+            URLInfo.parse('https://[::ffff:c000:0280]').url
+        )
+
     def test_url_info_to_dict(self):
         url_info = URLInfo.parse('https://example.com/file.jpg')
         url_info_dict = url_info.to_dict()

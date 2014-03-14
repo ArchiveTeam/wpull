@@ -77,6 +77,7 @@ class TestDocument(unittest.TestCase):
             'mailto:user@example.com',
             'http://a-double-slash.example',
             'http://example.com/header_refresh.html',
+            'https://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080/ipv6',
             },
             linked_urls
         )
