@@ -135,6 +135,7 @@ class TestApp(GoodAppTestCase):
             '--no-strong-robots',
             '--restrict-file-names', 'windows,lower',
             '--quota', '10m',
+            '--max-filename-length', '100',
         ])
         with cd_tempdir():
             builder = Builder(args)

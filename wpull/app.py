@@ -536,6 +536,7 @@ class Builder(object):
             ascii_only=ascii_only,
             no_control=no_control,
             case=case,
+            max_filename_length=args.max_filename_length,
         )
 
         if args.recursive or args.page_requisites or args.continue_download:

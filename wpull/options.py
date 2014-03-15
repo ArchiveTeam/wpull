@@ -481,6 +481,13 @@ class AppArgumentParser(argparse.ArgumentParser):
 #         self.add_argument(
 #             '--unlink'
 #         )
+        group.add_argument(
+            '--max-filename-length',
+            metavar='NUMBER',
+            default=160,
+            type=int,
+            help=_('limit filename length to NUMBER characters'),
+        )
 
     def _add_directories_args(self):
         group = self.add_argument_group(_('directories'))

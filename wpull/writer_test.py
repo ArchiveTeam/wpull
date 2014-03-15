@@ -102,6 +102,13 @@ class TestWriter(unittest.TestCase):
                 case='upper',
             )
         )
+        self.assertEqual(
+            '%C3%A1bcdefgf29053e2',
+            safe_filename(
+                'ábcdefghij123456789012345678901234567890',
+                max_length=20,
+            )
+        )
 
 
 class TestWriterApp(GoodAppTestCase):

@@ -6,6 +6,7 @@ import base64
 import collections
 import email.utils
 import gettext
+import hashlib
 import http.client
 import itertools
 import logging
@@ -384,7 +385,7 @@ class PathNamer(BasePathNamer):
     '''
     def __init__(self, root, index='index.html', use_dir=False, cut=None,
     protocol=False, hostname=False, os_type='unix',
-    no_control=True, ascii_only=True, case=None):
+    no_control=True, ascii_only=True, case=None, max_filename_length=None):
         self._root = root
         self._index = index
         self._cut = cut
@@ -395,6 +396,7 @@ class PathNamer(BasePathNamer):
         self._no_control = no_control
         self._ascii_only = ascii_only
         self._case = case
+        self._max_filename_length = max_filename_length
 
     def get_filename(self, url_info):
         url = url_info.url
@@ -419,6 +421,7 @@ class PathNamer(BasePathNamer):
                 part,
                 os_type=self._os_type, no_control=self._no_control,
                 ascii_only=self._ascii_only, case=self._case,
+                max_length=self._max_filename_length,
             )
             for part in parts
         ]
@@ -553,7 +556,7 @@ _encoder_cache = {}
 
 
 def safe_filename(filename, os_type='unix', no_control=True, ascii_only=True,
-case=None, encoding='utf8'):
+case=None, encoding='utf8', max_length=None):
     '''Return a safe filename or path part.
 
     Args:
@@ -565,6 +568,7 @@ case=None, encoding='utf8'):
         case (str): If ``lower``, lowercase the string. If ``upper``, uppercase
             the string.
         encoding (str): The character encoding.
+        max_length (int): The maximum length of the filename.
 
     This function assumes that `filename` has not already been percent-encoded.
 
@@ -597,6 +601,13 @@ case=None, encoding='utf8'):
             new_filename = '{0}{1:02X}'.format(
                 new_filename[:-1], new_filename[-1]
             )
+
+    if max_length and len(new_filename) > max_length:
+        hash_obj = hashlib.sha1(new_filename.encode(encoding))
+        new_length = max(0, max_length - 8)
+        new_filename = '{0}{1}'.format(
+            new_filename[:new_length], hash_obj.hexdigest()[:8]
+        )
 
     if case == 'lower':
         new_filename = new_filename.lower()

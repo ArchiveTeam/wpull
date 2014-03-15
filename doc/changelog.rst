@@ -7,6 +7,7 @@ What's New
 
 * Fixes crash when URLs like ``http://example.com]`` were encountered.
 * Implements ``--sitemaps``.
+* Implements ``--max-filename-length``.
 * Query strings items like ``?a&b`` are now preserved and no longer normalized to ``?a=&b=``.
 * API:
 
