@@ -342,7 +342,9 @@ class Builder(object):
             BackwardDomainFilter(args.domains, args.exclude_domains),
             HostnameFilter(args.hostnames, args.exclude_hostnames),
             TriesFilter(args.tries),
-            RecursiveFilter(args.recursive, args.page_requisites),
+            RecursiveFilter(
+                enabled=args.recursive, page_requisites=args.page_requisites
+            ),
             LevelFilter(args.level),
             SpanHostsFilter(
                 self._url_infos,

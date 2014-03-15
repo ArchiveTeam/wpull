@@ -380,7 +380,7 @@ class TestURL(unittest.TestCase):
     def test_recursive_filter_off(self):
         mock_record = MockURLTableRecord()
         mock_record.level = 0
-        url_filter = RecursiveFilter(False, False)
+        url_filter = RecursiveFilter()
 
         self.assertTrue(url_filter.test(None, mock_record))
 
@@ -390,7 +390,7 @@ class TestURL(unittest.TestCase):
     def test_recursive_filter_on(self):
         mock_record = MockURLTableRecord()
         mock_record.level = 0
-        url_filter = RecursiveFilter(True, False)
+        url_filter = RecursiveFilter(enabled=True)
 
         self.assertTrue(url_filter.test(None, mock_record))
 
@@ -401,7 +401,7 @@ class TestURL(unittest.TestCase):
         mock_record = MockURLTableRecord()
         mock_record.level = 0
         mock_record.inline = True
-        url_filter = RecursiveFilter(False, True)
+        url_filter = RecursiveFilter(page_requisites=True)
 
         self.assertTrue(url_filter.test(None, mock_record))
 

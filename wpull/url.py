@@ -364,7 +364,7 @@ class HostnameFilter(BaseURLFilter):
 
 class RecursiveFilter(BaseURLFilter):
     '''Return ``True`` if recursion is used.'''
-    def __init__(self, enabled, page_requisites):
+    def __init__(self, enabled=False, page_requisites=False):
         self._enabled = enabled
         self._page_requisites = page_requisites
 
