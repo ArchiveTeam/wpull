@@ -12,6 +12,7 @@ What's New
 
   * url.URLInfo.normalize() was removed since it was mainly used internally.
   * Added url.normalize() convenience function.
+  * writer: safe_filename(), url_to_filename(), url_to_dir_path() were modified.
 
 
 0.25 (2014-03-13)

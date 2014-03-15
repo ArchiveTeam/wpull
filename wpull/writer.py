@@ -377,6 +377,7 @@ class PathNamer(BasePathNamer):
         cut (int): Number of leading directories to cut from the file path.
         protocol (bool): Include the URL scheme in the directory structure.
         hostname (bool): Include the hostname in the directory structure.
+        safe_filename_args (dict): Keyword arguments for `safe_filename`.
 
     See also: :func:`url_to_filename`, :func:`url_to_dir_path`,
     :func:`safe_filename`.
@@ -397,34 +398,50 @@ class PathNamer(BasePathNamer):
 
     def get_filename(self, url_info):
         url = url_info.url
-        filename = url_to_filename(
-            url, self._index,
-            os_type=self._os_type, no_control=self._no_control,
-            ascii_only=self._ascii_only, case=self._case
-        )
+        alt_char = self._os_type == 'windows'
+        parts = []
 
         if self._use_dir:
-            dir_path = url_to_dir_path(
-                url, self._protocol, self._hostname,
-                os_type=self._os_type, no_control=self._no_control,
-                ascii_only=self._ascii_only, case=self._case
+            dir_parts = url_to_dir_parts(
+                url, self._protocol, self._hostname, alt_char=alt_char
             )
-            filename = os.path.join(dir_path, filename)
 
-        return filename
+            for dummy in range(self._cut or 0):
+                if dir_parts:
+                    del dir_parts[0]
+
+            parts.extend(dir_parts)
+
+        parts.append(url_to_filename(url, self._index, alt_char=alt_char))
+
+        parts = [
+            safe_filename(
+                part,
+                os_type=self._os_type, no_control=self._no_control,
+                ascii_only=self._ascii_only, case=self._case,
+            )
+            for part in parts
+        ]
+
+        return os.path.join(*parts)
 
 
-def url_to_filename(url, index='index.html', **safe_kwargs):
-    '''Return a safe filename from a URL.
+def url_to_filename(url, index='index.html', alt_char=False):
+    '''Return a filename from a URL.
 
     Args:
         url (str): The URL.
         index (str): If a filename could not be derived from the URL path,
             use index instead. For example, ``/images/`` will return
             ``index.html``.
-        safe_kwargs: Additional arguments to :func:`safe_filename`.
+        alt_char (bool): If True, the character for the query deliminator
+            will be ``@`` intead of ``?``.
 
-    This function does not include the directories.
+    This function does not include the directories and does not sanitize
+    the filename.
+
+    Returns:
+        str
     '''
     assert isinstance(url, str)
     url_split_result = urllib.parse.urlsplit(url)
@@ -434,10 +451,8 @@ def url_to_filename(url, index='index.html', **safe_kwargs):
     if not filename:
         filename = index
 
-    filename = safe_filename(filename, **safe_kwargs)
-
     if url_split_result.query:
-        if safe_kwargs.get('os_type') == 'windows':
+        if alt_char:
             query_delim = '@'
         else:
             query_delim = '?'
@@ -449,9 +464,9 @@ def url_to_filename(url, index='index.html', **safe_kwargs):
     return filename
 
 
-def url_to_dir_path(url, include_protocol=False, include_hostname=False,
-**safe_kwargs):
-    '''Return a safe directory path from a URL.
+def url_to_dir_parts(url, include_protocol=False, include_hostname=False,
+alt_char=False):
+    '''Return a list of directory parts from a URL.
 
     Args:
         url (str): The URL.
@@ -459,9 +474,14 @@ def url_to_dir_path(url, include_protocol=False, include_hostname=False,
             included.
         include_hostname (bool): If True, the hostname from the URL will be
             included.
-        safe_kwargs: Additional arguments to :func:`safe_filename`.
+        alt_char (bool): If True, the character for the port deliminator
+            will be ``+`` intead of ``:``.
 
-    This function does not include the filename.
+    This function does not include the filename and the paths are not
+    sanitized.
+
+    Returns:
+        list
     '''
     assert isinstance(url, str)
     url_split_result = urllib.parse.urlsplit(url)
@@ -475,7 +495,7 @@ def url_to_dir_path(url, include_protocol=False, include_hostname=False,
         hostname = url_split_result.hostname
 
         if url_split_result.port:
-            if safe_kwargs.get('os_type') == 'windows':
+            if alt_char:
                 port_delim = '+'
             else:
                 port_delim = ':'
@@ -493,11 +513,7 @@ def url_to_dir_path(url, include_protocol=False, include_hostname=False,
     if not url.endswith('/') and parts:
         parts.pop()
 
-    if not parts:
-        return ''
-
-    parts = [safe_filename(part, **safe_kwargs) for part in parts]
-    return os.path.join(*parts)
+    return parts
 
 
 class PercentEncoder(collections.defaultdict):

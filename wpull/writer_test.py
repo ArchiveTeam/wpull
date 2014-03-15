@@ -8,7 +8,7 @@ from wpull.app import Builder
 from wpull.app_test import cd_tempdir
 from wpull.options import AppArgumentParser
 from wpull.testing.goodapp import GoodAppTestCase
-from wpull.writer import url_to_dir_path, url_to_filename, safe_filename
+from wpull.writer import url_to_dir_parts, url_to_filename, safe_filename
 
 
 DEFAULT_TIMEOUT = 30
@@ -17,35 +17,35 @@ DEFAULT_TIMEOUT = 30
 class TestWriter(unittest.TestCase):
     def test_writer_path_dir(self):
         self.assertEqual(
-            'blog',
-            url_to_dir_path('http://example.com/blog/')
+            ['blog'],
+            url_to_dir_parts('http://example.com/blog/')
         )
         self.assertEqual(
-            'blog',
-            url_to_dir_path('http://example.com/blog/image.png')
+            ['blog'],
+            url_to_dir_parts('http://example.com/blog/image.png')
         )
         self.assertEqual(
-            'example.com/blog',
-            url_to_dir_path(
+            ['example.com', 'blog'],
+            url_to_dir_parts(
                 'http://example.com/blog/image.png', include_hostname=True
             )
         )
         self.assertEqual(
-            '',
-            url_to_dir_path('http://example.com/')
+            [],
+            url_to_dir_parts('http://example.com/')
         )
         self.assertEqual(
-            'example.com:123',
-            url_to_dir_path(
+            ['example.com:123'],
+            url_to_dir_parts(
                 'http://example.com:123/',
-                include_hostname=True, os_type='unix'
+                include_hostname=True, alt_char=False,
             )
         )
         self.assertEqual(
-            'example.com+123',
-            url_to_dir_path(
+            ['example.com+123'],
+            url_to_dir_parts(
                 'http://example.com:123/',
-                include_hostname=True, os_type='windows'
+                include_hostname=True, alt_char=True,
             )
         )
 
@@ -68,7 +68,7 @@ class TestWriter(unittest.TestCase):
         )
         self.assertEqual(
             'index.html@blah=',
-            url_to_filename('http://example.com/?blah=', os_type='windows')
+            url_to_filename('http://example.com/?blah=', alt_char=True)
         )
 
     def test_writer_safe_filename(self):
