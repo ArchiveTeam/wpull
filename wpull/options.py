@@ -18,6 +18,21 @@ else:
 _ = gettext.gettext
 
 
+class CommaChoiceListArgs(frozenset):
+    '''Specialized frozenset.
+
+    This class overrides the ``__contains__`` function to allow the use of
+    the ``in`` operator for ArgumentParser's ``choices`` checking for
+    comma separated lists. The function behaves differently only when
+    the objects compared are `CommaChoiceListArgs`.
+    '''
+    def __contains__(self, item):
+        if isinstance(item, CommaChoiceListArgs):
+            return item <= self
+        else:
+            return frozenset.__contains__(self, item)
+
+
 class AppArgumentParser(argparse.ArgumentParser):
     '''An Argument Parser that builds up the application options.'''
     # TODO: implement all sane options
@@ -66,9 +81,16 @@ class AppArgumentParser(argparse.ArgumentParser):
 
     @classmethod
     def comma_list(cls, string):
-        '''Convert a comma seperated string to list.'''
+        '''Convert a comma separated string to list.'''
         items = string.split(',')
         items = list([item.strip() for item in items])
+        return items
+
+    @classmethod
+    def comma_choice_list(cls, string):
+        '''Convert a comma separated string to `CommaChoiceListArgs`.'''
+        items = string.split(',')
+        items = CommaChoiceListArgs([item.strip() for item in items])
         return items
 
     def parse_args(self, args=None, namespace=None):
@@ -399,7 +421,10 @@ class AppArgumentParser(argparse.ArgumentParser):
         group.add_argument(
             '--restrict-file-names',
             metavar='MODES',
-            type=self.comma_list,
+            type=self.comma_choice_list,
+            choices=CommaChoiceListArgs(
+                ['windows', 'unix', 'lower', 'upper', 'ascii', 'nocontrol']
+            ),
             default=['windows'] if os.name == 'nt' else ['unix'],
             help=_('list of safe filename modes to use'),
         )
@@ -456,6 +481,13 @@ class AppArgumentParser(argparse.ArgumentParser):
 #         self.add_argument(
 #             '--unlink'
 #         )
+        group.add_argument(
+            '--max-filename-length',
+            metavar='NUMBER',
+            default=160,
+            type=int,
+            help=_('limit filename length to NUMBER characters'),
+        )
 
     def _add_directories_args(self):
         group = self.add_argument_group(_('directories'))
@@ -853,6 +885,11 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             action='store_true',
 #             help=_('use strict SGML comment parsing')
 #         )
+        group.add_argument(
+            '--sitemaps',
+            action='store_true',
+            help=_('download Sitemaps to discover more links')
+        )
 
     def _add_accept_args(self):
         group = self.add_argument_group(_('filters'))
@@ -927,11 +964,20 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=self.comma_list,
             help=_('don’t follow links contained in LIST of HTML tags'),
         )
-        group.add_argument(
+        span_hosts_group = group.add_mutually_exclusive_group()
+        span_hosts_group.add_argument(
             '-H',
             '--span-hosts',
             action='store_true',
-            help=_('follow links to other hostnames')
+            help=_('follow links and page requisites to other hostnames')
+        )
+        span_hosts_group.add_argument(
+            '--span-hosts-allow',
+            metavar='LIST',
+            choices=CommaChoiceListArgs(['page-requisites', 'linked-pages']),
+            type=self.comma_choice_list,
+            default=[],
+            help=_('selectively span hosts for resource types in LIST')
         )
         group.add_argument(
             '-L',

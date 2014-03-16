@@ -2,6 +2,21 @@
 What's New
 ==========
 
+0.26 (2014-03-16)
+==================
+
+* Fixes crash when URLs like ``http://example.com]`` were encountered.
+* Implements ``--sitemaps``.
+* Implements ``--max-filename-length``.
+* Implements ``--span-hosts-allow`` (experimental, see issues #61, #66).
+* Query strings items like ``?a&b`` are now preserved and no longer normalized to ``?a=&b=``.
+* API:
+
+  * url.URLInfo.normalize() was removed since it was mainly used internally.
+  * Added url.normalize() convenience function.
+  * writer: safe_filename(), url_to_filename(), url_to_dir_path() were modified.
+
+
 0.25 (2014-03-13)
 =================
 

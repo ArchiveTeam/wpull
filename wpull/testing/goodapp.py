@@ -93,6 +93,11 @@ class AlwaysErrorHandler(tornado.web.RequestHandler):
         self.write('Error')
 
 
+class SpanHostsHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render('span_hosts.html', port=self.get_argument('port'))
+
+
 class GoodApp(tornado.web.Application):
     def __init__(self):
         tornado.web.Application.__init__(self, [
@@ -105,6 +110,7 @@ class GoodApp(tornado.web.Application):
                 (r'/redirect', RedirectHandler),
                 (r'/lastmod', LastModifiedHandler),
                 (r'/always_error', AlwaysErrorHandler),
+                (r'/span_hosts', SpanHostsHandler),
             ],
             template_path=os.path.join(os.path.dirname(__file__),
                 'templates'),

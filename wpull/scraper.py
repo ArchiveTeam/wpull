@@ -2,13 +2,21 @@
 '''Document scrapers.'''
 import abc
 import collections
+import gettext
 import itertools
+import logging
+import lxml.etree
 import re
 
-from wpull.document import (BaseDocumentReader, HTMLReader, get_heading_encoding,
-    get_encoding, CSSReader)
+from wpull.document import (BaseDocumentReader, HTMLReader, get_encoding,
+    CSSReader, SitemapReader)
+from wpull.thirdparty import robotexclusionrulesparser
 import wpull.url
 from wpull.util import to_str
+
+
+_ = gettext.gettext
+_logger = logging.getLogger(__name__)
 
 
 class BaseDocumentScraper(BaseDocumentReader):
@@ -198,20 +206,21 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             base_url = clean_link_soup(root.base_url)
 
             if scraped_link.base_link:
-                base_url = wpull.url.urljoin(
+                base_url = urljoin_safe(
                     base_url, clean_link_soup(scraped_link.base_link)
-                )
+                ) or base_url
 
-            url = wpull.url.urljoin(
+            url = urljoin_safe(
                 base_url,
                 clean_link_soup(scraped_link.link),
                 allow_fragments=False
             )
 
-            if scraped_link.inline:
-                inline_urls.add(url)
-            if scraped_link.linked:
-                linked_urls.add(url)
+            if url:
+                if scraped_link.inline:
+                    inline_urls.add(url)
+                if scraped_link.linked:
+                    linked_urls.add(url)
 
         if self._robots and self._robots_cannot_follow(root):
             linked_urls.clear()
@@ -455,8 +464,10 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
             self.scrape_imports(text))
 
         for link in iterable:
-            inline_urls.add(wpull.url.urljoin(base_url, link,
-                allow_fragments=False))
+            url = urljoin_safe(base_url, link, allow_fragments=False)
+
+            if url:
+                inline_urls.add(url)
 
         return {
             'inline_urls': inline_urls,
@@ -480,6 +491,53 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
                     yield url
             else:
                 yield url_str_fragment.strip('"\'')
+
+
+class SitemapScraper(SitemapReader, BaseDocumentScraper):
+    '''Scrape Sitemaps'''
+    def scrape(self, request, response):
+        if not self.is_sitemap(request, response):
+            return
+
+        base_url = request.url_info.url
+        encoding = get_encoding(response)
+
+        try:
+            document = self.parse(
+                response.body.content_file, encoding=encoding
+            )
+        except lxml.etree.ParseError as error:
+            _logger.warning(
+                _('Failed to parse document at ‘{url}’: {error}')\
+                .format(url=request.url_info.url, error=error)
+            )
+            return
+
+        links = set()
+
+        if isinstance(
+            document, robotexclusionrulesparser.RobotExclusionRulesParser
+        ):
+            for link in document.sitemaps:
+                link = urljoin_safe(base_url, link)
+
+                if link:
+                    links.add(link)
+        else:
+            for element in document.iter('{*}loc'):
+                link = urljoin_safe(
+                    base_url,
+                    clean_link_soup(to_str(element.text))
+                )
+
+                if link:
+                    links.add(link)
+
+        return {
+            'inline_urls': (),
+            'linked_urls': links,
+            'encoding': encoding
+        }
 
 
 def parse_refresh(text):
@@ -529,3 +587,19 @@ def clean_link_soup(link):
     return ''.join(
         [line.strip().replace('\t', '') for line in link.splitlines()]
     )
+
+
+def urljoin_safe(base_url, url, allow_fragments=True):
+    '''urljoin with warning log on error.
+
+    Returns:
+        str, None'''
+    try:
+        return wpull.url.urljoin(
+            base_url, url, allow_fragments=allow_fragments
+        )
+    except ValueError as error:
+        _logger.warning(
+            _('Discarding malformed URL ‘{url}’: {error}.')\
+            .format(url=url, error=error)
+        )

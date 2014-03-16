@@ -2,7 +2,6 @@
 '''Miscellaneous functions.'''
 from bs4.dammit import UnicodeDammit, EncodingDetector
 import calendar
-import chardet
 import codecs
 import collections
 import contextlib
@@ -14,6 +13,7 @@ import sys
 import time
 import tornado.gen
 import tornado.ioloop
+import tornado.util
 import toro
 
 
@@ -322,3 +322,25 @@ def truncate_file(path):
     '''Truncate the file.'''
     with open(path, 'wb'):
         pass
+
+
+def gzip_uncompress(data, truncated=False):
+    '''Uncompress gzip data.
+
+    Args:
+        data (bytes): The gzip data.
+        truncated (bool): If True, the decompressor is not flushed.
+
+    Returns:
+        bytes: The inflated data.
+
+    Raises:
+        zlib.error
+    '''
+    decompressor = tornado.util.GzipDecompressor()
+    inflated_data = decompressor.decompress(data)
+
+    if not truncated:
+        inflated_data += decompressor.flush()
+
+    return inflated_data

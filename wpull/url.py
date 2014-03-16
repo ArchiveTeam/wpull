@@ -5,6 +5,7 @@ import collections
 import fnmatch
 import functools
 import itertools
+import namedlist
 import re
 import string
 import sys
@@ -30,10 +31,25 @@ _URLInfoType = collections.namedtuple(
         'hostname',
         'port',
         'raw',
-        'url',
         'encoding',
     ]
 )
+
+
+NormalizationParams = namedlist.namedtuple(
+    'NormalizationParamsType',
+    [
+        ('sort_query', False),
+        ('always_delim_query', False)
+    ]
+)
+'''Parameters for URL normalization.
+
+Args:
+    sort_query (bool): Whether to sort the query string items.
+    always_delim_query: Whether to always deliminate the key-value items where
+        value is empty.
+'''
 
 
 class URLInfo(_URLInfoType):
@@ -70,8 +86,17 @@ class URLInfo(_URLInfoType):
     }
 
     @classmethod
-    def parse(cls, string, default_scheme='http', encoding='utf8'):
+    def parse(cls, string, default_scheme='http', encoding='utf8',
+    normalization_params=None):
         '''Parse and return a new info from the given URL.
+
+        Args:
+            string (str): The URL.
+            default_scheme (str): The default scheme if not specified.
+            encoding (str): The name of the encoding to be used for IRI
+                support.
+            normalization_params: Instance of :class:`NormalizationParams`
+                describing further normalization settings.
 
         Returns:
             :class:`URLInfo`
@@ -83,6 +108,9 @@ class URLInfo(_URLInfoType):
             raise ValueError('Empty URL')
 
         assert isinstance(string, str)
+
+        if normalization_params is None:
+            normalization_params = NormalizationParams()
 
         url_split_result = urllib.parse.urlsplit(string)
 
@@ -109,43 +137,19 @@ class URLInfo(_URLInfoType):
             url_split_result.scheme,
             url_split_result.netloc,
             cls.normalize_path(url_split_result.path, encoding=encoding),
-            cls.normalize_query(url_split_result.query, encoding=encoding),
+            cls.normalize_query(
+                url_split_result.query, encoding=encoding,
+                sort=normalization_params.sort_query,
+                always_delim=normalization_params.always_delim_query,
+            ),
             url_split_result.fragment,
             url_split_result.username,
             url_split_result.password,
             cls.normalize_hostname(url_split_result.hostname),
             port,
             string,
-            cls.normalize(url_split_result, encoding=encoding),
             wpull.util.normalize_codec_name(encoding),
         )
-
-    @classmethod
-    def normalize(cls, url_split_result, encoding='utf8'):
-        '''Return a normalized URL string.'''
-        if url_split_result.scheme not in ('http', 'https'):
-            return url_split_result.geturl()
-
-        default_port = cls.DEFAULT_PORTS.get(url_split_result.scheme)
-
-        if default_port == url_split_result.port:
-            host_with_port = cls.normalize_hostname(url_split_result.hostname)
-        else:
-            host_with_port = url_split_result.netloc.split('@', 1)[-1]
-            if ':' in host_with_port:
-                host, port = host_with_port.rsplit(':', 1)
-                host_with_port = '{0}:{1}'.format(
-                    cls.normalize_hostname(host), port)
-            else:
-                host_with_port = cls.normalize_hostname(host_with_port)
-
-        return urllib.parse.urlunsplit([
-            url_split_result.scheme,
-            host_with_port,
-            cls.normalize_path(url_split_result.path, encoding=encoding),
-            cls.normalize_query(url_split_result.query, encoding=encoding),
-            ''
-        ])
 
     @classmethod
     def normalize_hostname(cls, hostname):
@@ -171,13 +175,24 @@ class URLInfo(_URLInfoType):
             ) or '/'
 
     @classmethod
-    def normalize_query(cls, query, encoding='utf8'):
-        '''Normalize the query.'''
+    def normalize_query(cls, query, encoding='utf8',
+    sort=False, always_delim=False):
+        '''Normalize the query.
+
+        Args:
+            query (str): The query string.
+            encoding (str): IRI encoding.
+            sort (bool): If True, the items will be sorted.
+            always_delim (bool): If True, the equal sign ``=`` deliminator
+                will always be present for each key-value item.
+        '''
         if not query:
             return
 
         query_list = split_query(query, keep_blank_values=True)
-        query_test_str = ''.join(itertools.chain(*query_list))
+        query_test_str = ''.join(
+            itertools.chain(*[(key, value or '') for key, value in query_list])
+        )
 
         if is_percent_encoded(query_test_str):
             quote_func = functools.partial(
@@ -185,12 +200,32 @@ class URLInfo(_URLInfoType):
         else:
             quote_func = functools.partial(quote_plus, encoding=encoding)
 
+        if sort:
+            query_list.sort()
+
         return '&'.join([
             '='.join((
                 quote_func(name),
-                quote_func(value)
+                quote_func(value or '')
             ))
+            if value is not None or always_delim else
+            quote_func(name)
             for name, value in query_list])
+
+    @property
+    def url(self):
+        '''Return a normalized URL string.'''
+        if self.scheme not in ('http', 'https'):
+            url_split_result = urllib.parse.urlsplit(self.raw)
+            return url_split_result.geturl()
+
+        return urllib.parse.urlunsplit([
+            self.scheme,
+            self.hostname_with_port,
+            self.path,
+            self.query,
+            ''
+        ])
 
     def is_port_default(self):
         if self.scheme in self.DEFAULT_PORTS:
@@ -329,7 +364,7 @@ class HostnameFilter(BaseURLFilter):
 
 class RecursiveFilter(BaseURLFilter):
     '''Return ``True`` if recursion is used.'''
-    def __init__(self, enabled, page_requisites):
+    def __init__(self, enabled=False, page_requisites=False):
         self._enabled = enabled
         self._page_requisites = page_requisites
 
@@ -390,16 +425,27 @@ class ParentFilter(BaseURLFilter):
 
 class SpanHostsFilter(BaseURLFilter):
     '''Filter URLs that go to other hostnames.'''
-    def __init__(self, input_url_infos, enabled=False):
+    def __init__(self, input_url_infos, enabled=False,
+    page_requisites=False, linked_pages=False):
         self._enabled = enabled
-        self._base_urls = list(
-            [url_info.hostname for url_info in input_url_infos])
+        self._page_requisites = page_requisites
+        self._linked_pages = linked_pages
+        self._base_urls = frozenset(
+            [url_info.hostname for url_info in input_url_infos]
+        )
 
     def test(self, url_info, url_table_record):
         if self._enabled:
             return True
 
         if url_info.hostname in self._base_urls:
+            return True
+
+        if self._page_requisites and url_table_record.inline:
+            return True
+
+        if self._linked_pages and url_table_record.referrer \
+        and url_table_record.referrer_info.hostname in self._base_urls:
             return True
 
 
@@ -478,6 +524,19 @@ class BackwardFilenameFilter(BaseURLFilter):
             match = re.search(fnmatch.translate(suffix), test_filename)
             if match:
                 return True
+
+
+def normalize(url, **kwargs):
+    '''Normalize a URL.
+
+    This function is a convenience function that is equivalent to::
+
+        >>> URLInfo.parse('http://example.com').url
+        'http://example.com'
+
+    :seealso: :func:`URLInfo.parse`.
+    '''
+    return URLInfo.parse(url, **kwargs).url
 
 
 RELAXED_SAFE_CHARS = '/!$&()*+,:;=@~'
@@ -589,7 +648,15 @@ def quasi_quote_plus(string, safe='', encoding='latin-1', errors='strict'):
 
 
 def split_query(qs, keep_blank_values=False):
-    '''Split the query string.'''
+    '''Split the query string.
+
+    Note for empty values: If an equal sign (``=``) is present, the value
+    will be an empty string (``''``). Otherwise, the value will be ``None``::
+
+        >>> split_query('a=&b', keep_blank_values=True)
+        [('a', ''), ('b', None)]
+
+    '''
     new_list = []
 
     for pair in qs.split('&'):
@@ -600,7 +667,7 @@ def split_query(qs, keep_blank_values=False):
 
         if len(items) == 1:
             name = items[0]
-            value = ''
+            value = None
         else:
             name, value = items
 

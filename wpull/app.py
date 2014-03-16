@@ -30,7 +30,8 @@ from wpull.proxy import HTTPProxyServer
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
     PrintServerResponseRecorder, ProgressRecorder)
 from wpull.robotstxt import RobotsTxtPool
-from wpull.scraper import HTMLScraper, CSSScraper, DemuxDocumentScraper
+from wpull.scraper import (HTMLScraper, CSSScraper, DemuxDocumentScraper,
+    SitemapScraper)
 from wpull.stats import Statistics
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     RecursiveFilter, SpanHostsFilter, ParentFilter, RegexFilter, HTTPFilter,
@@ -85,6 +86,7 @@ class Builder(object):
             'Resolver': Resolver,
             'RichClient': RichClient,
             'RobotsTxtPool': RobotsTxtPool,
+            'SitemapScraper': SitemapScraper,
             'Statistics': Statistics,
             'URLInfo': URLInfo,
             'URLTable': URLTable,
@@ -119,6 +121,7 @@ class Builder(object):
         self._setup_file_logger()
         self._install_script_hooks()
         self._warn_unsafe_options()
+        self._warn_silly_options()
 
         statistics = self._factory.new('Statistics')
         statistics.quota = self._args.quota
@@ -304,10 +307,27 @@ class Builder(object):
         else:
             url_string_iter = self._args.urls
 
+        sitemap_url_infos = set()
+
         for url_string in url_string_iter:
             url_info = self._factory.class_map['URLInfo'].parse(
                 url_string, default_scheme=default_scheme)
             _logger.debug('Parsed URL {0}'.format(url_info))
+            yield url_info
+
+            if self._args.sitemaps:
+                sitemap_url_infos.update((
+                     URLInfo.parse(
+                         '{0}://{1}/robots.txt'.format(url_info.scheme,
+                             url_info.hostname_with_port)
+                     ),
+                     URLInfo.parse(
+                         '{0}://{1}/sitemap.xml'.format(url_info.scheme,
+                             url_info.hostname_with_port)
+                     )
+                ))
+
+        for url_info in sitemap_url_infos:
             yield url_info
 
     def _build_url_filters(self):
@@ -323,11 +343,15 @@ class Builder(object):
             BackwardDomainFilter(args.domains, args.exclude_domains),
             HostnameFilter(args.hostnames, args.exclude_hostnames),
             TriesFilter(args.tries),
-            RecursiveFilter(args.recursive, args.page_requisites),
+            RecursiveFilter(
+                enabled=args.recursive, page_requisites=args.page_requisites
+            ),
             LevelFilter(args.level),
             SpanHostsFilter(
                 self._url_infos,
-                enabled=not args.recursive or args.span_hosts
+                enabled=not args.recursive or args.span_hosts,
+                page_requisites='page-requisites' in args.span_hosts_allow,
+                linked_pages='linked-pages' in args.span_hosts_allow,
             ),
             RegexFilter(args.accept_regex, args.reject_regex),
             DirectoryFilter(args.include_directories,
@@ -356,6 +380,9 @@ class Builder(object):
             ),
             self._factory.new('CSSScraper'),
         ]
+
+        if self._args.sitemaps:
+            scrapers.append(self._factory.new('SitemapScraper'))
 
         return scrapers
 
@@ -514,6 +541,7 @@ class Builder(object):
             ascii_only=ascii_only,
             no_control=no_control,
             case=case,
+            max_filename_length=args.max_filename_length,
         )
 
         if args.recursive or args.page_requisites or args.continue_download:
@@ -805,6 +833,22 @@ class Builder(object):
 
         with open(filename, 'rb') as in_file:
             return wpull.util.filter_pem(in_file.read())
+
+    def _warn_silly_options(self):
+        '''Print warnings about any options that may be silly.'''
+        if 'page-requisites' in self._args.span_hosts_allow \
+        and not self._args.page_requisites:
+            _logger.warning(
+                _('Spanning hosts is allowed for page requisites, '
+                'but the page requisites option is not on.')
+            )
+
+        if 'linked-pages' in self._args.span_hosts_allow \
+        and not self._args.recursive:
+            _logger.warning(
+                _('Spanning hosts is allowed for linked pages, '
+                'but the recursive option is not on.')
+            )
 
     def _warn_unsafe_options(self):
         '''Print warnings about any enabled hazardous options.

@@ -17,6 +17,10 @@ class MockURLTableRecord(object):
         self.inline = None
         self.top_url = None
 
+    @property
+    def referrer_info(self):
+        return URLInfo.parse(self.referrer)
+
 
 class TestURL(unittest.TestCase):
     def test_url_info(self):
@@ -227,6 +231,64 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('http://example.com/$c/%system.exe/').url
         )
 
+        self.assertEqual(
+            'http://example.com/?a',
+            URLInfo.parse('http://example.com?a').url
+        )
+        self.assertEqual(
+            'http://example.com/?a=',
+            URLInfo.parse('http://example.com?a=').url
+        )
+        self.assertEqual(
+            'http://example.com/?a=1',
+            URLInfo.parse('http://example.com?a=1').url
+        )
+        self.assertEqual(
+            'http://example.com/?a=1&b',
+            URLInfo.parse('http://example.com?a=1&b').url
+        )
+        self.assertEqual(
+            'http://example.com/?a=1&b=',
+            URLInfo.parse('http://example.com?a=1&b=').url
+        )
+
+    @unittest.skip('TODO: implement these')
+    def test_ip_address_normalization(self):
+        self.assertEqual(
+            'http://192.0.2.235/',
+            URLInfo.parse('https://0xC0.0x00.0x02.0xEB').url
+        )
+        self.assertEqual(
+            'http://192.0.2.235/',
+            URLInfo.parse('https://0301.1680.0002.0353').url
+        )
+        self.assertEqual(
+            'http://192.0.2.235/',
+            URLInfo.parse('https://0xC00002EB/').url
+        )
+        self.assertEqual(
+            'http://192.0.2.235/',
+            URLInfo.parse('https://3221226219/').url
+        )
+        self.assertEqual(
+            'http://192.0.2.235/',
+            URLInfo.parse('https://030000001353/').url
+        )
+        self.assertEqual(
+            'https://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080/ipv6',
+            URLInfo.parse(
+                'https://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080/ipv6'
+            ).url
+        )
+        self.assertEqual(
+            'https://[::1]/',
+            URLInfo.parse('https://[0:0:0:0:0:0:0:1]').url
+        )
+        self.assertEqual(
+            'https://[::ffff:192.0.2.128]/',
+            URLInfo.parse('https://[::ffff:c000:0280]').url
+        )
+
     def test_url_info_to_dict(self):
         url_info = URLInfo.parse('https://example.com/file.jpg')
         url_info_dict = url_info.to_dict()
@@ -322,7 +384,7 @@ class TestURL(unittest.TestCase):
     def test_recursive_filter_off(self):
         mock_record = MockURLTableRecord()
         mock_record.level = 0
-        url_filter = RecursiveFilter(False, False)
+        url_filter = RecursiveFilter()
 
         self.assertTrue(url_filter.test(None, mock_record))
 
@@ -332,7 +394,7 @@ class TestURL(unittest.TestCase):
     def test_recursive_filter_on(self):
         mock_record = MockURLTableRecord()
         mock_record.level = 0
-        url_filter = RecursiveFilter(True, False)
+        url_filter = RecursiveFilter(enabled=True)
 
         self.assertTrue(url_filter.test(None, mock_record))
 
@@ -343,7 +405,7 @@ class TestURL(unittest.TestCase):
         mock_record = MockURLTableRecord()
         mock_record.level = 0
         mock_record.inline = True
-        url_filter = RecursiveFilter(False, True)
+        url_filter = RecursiveFilter(page_requisites=True)
 
         self.assertTrue(url_filter.test(None, mock_record))
 
@@ -427,6 +489,43 @@ class TestURL(unittest.TestCase):
         ))
         self.assertTrue(url_filter.test(
             URLInfo.parse('http://hotdog.example/blog/topic1/blah.html'),
+            mock_record
+        ))
+
+        url_filter = SpanHostsFilter([
+                URLInfo.parse('http://example.com/blog/'),
+            ],
+            page_requisites=True
+        )
+        mock_record = MockURLTableRecord()
+        mock_record.url = 'http://1.example.com/'
+        mock_record.inline = True
+
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://1.example.com/'),
+            mock_record
+        ))
+
+        url_filter = SpanHostsFilter([
+                URLInfo.parse('http://example.com/blog/'),
+            ],
+            linked_pages=True,
+        )
+        mock_record = MockURLTableRecord()
+        mock_record.url = 'http://1.example.com/'
+        mock_record.referrer = 'http://example.com/blog/'
+
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://1.example.com/'),
+            mock_record
+        ))
+
+        mock_record = MockURLTableRecord()
+        mock_record.url = 'http://1.example.com/blah.html'
+        mock_record.referrer = 'http://1.example.com/'
+
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('http://1.example.com/blah.html'),
             mock_record
         ))
 
