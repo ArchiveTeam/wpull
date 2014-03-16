@@ -424,7 +424,9 @@ class TestApp(GoodAppTestCase):
     def test_redirect_span_hosts_allow_linked(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            self.get_url('/static/span_hosts.html'),
+            self.get_url(
+                '/span_hosts?port={0}'.format(self.get_http_port())
+            ),
             '--span-hosts-allow', 'linked-pages',
             '--no-robots',
             '--recursive',
@@ -445,7 +447,9 @@ class TestApp(GoodAppTestCase):
     def test_redirect_span_hosts_page_requisites(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            self.get_url('/static/span_hosts.html'),
+            self.get_url(
+                '/span_hosts?port={0}'.format(self.get_http_port())
+            ),
             '--span-hosts-allow', 'page-requisites',
             '--no-robots',
             '--page-requisites',
