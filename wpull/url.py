@@ -425,16 +425,27 @@ class ParentFilter(BaseURLFilter):
 
 class SpanHostsFilter(BaseURLFilter):
     '''Filter URLs that go to other hostnames.'''
-    def __init__(self, input_url_infos, enabled=False):
+    def __init__(self, input_url_infos, enabled=False,
+    page_requisites=False, linked_pages=False):
         self._enabled = enabled
-        self._base_urls = list(
-            [url_info.hostname for url_info in input_url_infos])
+        self._page_requisites = page_requisites
+        self._linked_pages = linked_pages
+        self._base_urls = frozenset(
+            [url_info.hostname for url_info in input_url_infos]
+        )
 
     def test(self, url_info, url_table_record):
         if self._enabled:
             return True
 
         if url_info.hostname in self._base_urls:
+            return True
+
+        if self._page_requisites and url_table_record.inline:
+            return True
+
+        if self._linked_pages and url_table_record.referrer \
+        and url_table_record.referrer_info.hostname in self._base_urls:
             return True
 
 

@@ -421,6 +421,48 @@ class TestApp(GoodAppTestCase):
         self.assertIn('somewhereelse.invalid', resolver.hosts_touched)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_redirect_span_hosts_allow_linked(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/static/span_hosts.html'),
+            '--span-hosts-allow', 'linked-pages',
+            '--no-robots',
+            '--recursive',
+        ])
+        builder = Builder(args)
+        builder.factory.class_map['Resolver'] = MockDNSResolver
+
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+        self.assertEqual(0, exit_code)
+        self.assertEqual(2, builder.factory['Statistics'].files)
+
+        resolver = builder.factory['Resolver']
+        self.assertIn('linked.test', resolver.hosts_touched)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_redirect_span_hosts_page_requisites(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/static/span_hosts.html'),
+            '--span-hosts-allow', 'page-requisites',
+            '--no-robots',
+            '--page-requisites',
+        ])
+        builder = Builder(args)
+        builder.factory.class_map['Resolver'] = MockDNSResolver
+
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+        self.assertEqual(0, exit_code)
+        self.assertEqual(2, builder.factory['Statistics'].files)
+
+        resolver = builder.factory['Resolver']
+        self.assertIn('pagereq.test', resolver.hosts_touched)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_strong_redirect(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([

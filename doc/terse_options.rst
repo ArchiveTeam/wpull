@@ -13,7 +13,8 @@ Brief Option Overview
                      [--random-wait] [-Q NUMBER] [--bind-address ADDRESS]
                      [--no-dns-cache] [--rotate-dns]
                      [--restrict-file-names MODES]
-                     [-4 | -6 | --prefer-family FAMILY] [-nd | -x] [-nH]
+                     [-4 | -6 | --prefer-family FAMILY]
+                     [--max-filename-length NUMBER] [-nd | -x] [-nH]
                      [--protocol-directories] [-P PREFIX] [--cut-dirs NUMBER]
                      [--default-page NAME] [--header STRING]
                      [--max-redirect NUMBER] [--referer URL] [--save-headers]
@@ -36,8 +37,9 @@ Brief Option Overview
                      [--reject-regex REGEX] [--regex-type TYPE] [-D LIST]
                      [--exclude-domains LIST] [--hostnames LIST]
                      [--exclude-hostnames LIST] [--follow-tags LIST]
-                     [--ignore-tags LIST] [-H] [-L] [-I LIST] [-X LIST] [-np]
-                     [--no-strong-robots] [--no-strong-redirects] [--phantomjs]
+                     [--ignore-tags LIST] [-H | --span-hosts-allow LIST] [-L]
+                     [-I LIST] [-X LIST] [-np] [--no-strong-robots]
+                     [--no-strong-redirects] [--phantomjs]
                      [--phantomjs-scroll NUM] [--phantomjs-wait SEC]
                      [--no-phantomjs-snapshot]
                      [URL [URL ...]]
@@ -105,6 +107,8 @@ Brief Option Overview
     -6, --inet6-only      connect to IPv6 addresses only
     --prefer-family FAMILY
                           prefer to connect to FAMILY IP addresses
+    --max-filename-length NUMBER
+                          limit filename length to NUMBER characters
 
   directories:
     -nd, --no-directories
@@ -198,7 +202,9 @@ Brief Option Overview
                           don’t download from LIST of hostnames
     --follow-tags LIST    follow only links contained in LIST of HTML tags
     --ignore-tags LIST    don’t follow links contained in LIST of HTML tags
-    -H, --span-hosts      follow links to other hostnames
+    -H, --span-hosts      follow links and page requisites to other hostnames
+    --span-hosts-allow LIST
+                          selectively span hosts for resource types in LIST
     -L, --relative        follow only relative links
     -I LIST, --include-directories LIST
                           download only paths in LIST

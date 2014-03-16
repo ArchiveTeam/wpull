@@ -964,11 +964,20 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=self.comma_list,
             help=_('don’t follow links contained in LIST of HTML tags'),
         )
-        group.add_argument(
+        span_hosts_group = group.add_mutually_exclusive_group()
+        span_hosts_group.add_argument(
             '-H',
             '--span-hosts',
             action='store_true',
-            help=_('follow links to other hostnames')
+            help=_('follow links and page requisites to other hostnames')
+        )
+        span_hosts_group.add_argument(
+            '--span-hosts-allow',
+            metavar='LIST',
+            choices=CommaChoiceListArgs(['page-requisites', 'linked-pages']),
+            type=self.comma_choice_list,
+            default=[],
+            help=_('selectively span hosts for resource types in LIST')
         )
         group.add_argument(
             '-L',

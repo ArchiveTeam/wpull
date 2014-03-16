@@ -17,6 +17,10 @@ class MockURLTableRecord(object):
         self.inline = None
         self.top_url = None
 
+    @property
+    def referrer_info(self):
+        return URLInfo.parse(self.referrer)
+
 
 class TestURL(unittest.TestCase):
     def test_url_info(self):
@@ -485,6 +489,43 @@ class TestURL(unittest.TestCase):
         ))
         self.assertTrue(url_filter.test(
             URLInfo.parse('http://hotdog.example/blog/topic1/blah.html'),
+            mock_record
+        ))
+
+        url_filter = SpanHostsFilter([
+                URLInfo.parse('http://example.com/blog/'),
+            ],
+            page_requisites=True
+        )
+        mock_record = MockURLTableRecord()
+        mock_record.url = 'http://1.example.com/'
+        mock_record.inline = True
+
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://1.example.com/'),
+            mock_record
+        ))
+
+        url_filter = SpanHostsFilter([
+                URLInfo.parse('http://example.com/blog/'),
+            ],
+            linked_pages=True,
+        )
+        mock_record = MockURLTableRecord()
+        mock_record.url = 'http://1.example.com/'
+        mock_record.referrer = 'http://example.com/blog/'
+
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://1.example.com/'),
+            mock_record
+        ))
+
+        mock_record = MockURLTableRecord()
+        mock_record.url = 'http://1.example.com/blah.html'
+        mock_record.referrer = 'http://1.example.com/'
+
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('http://1.example.com/blah.html'),
             mock_record
         ))
 
