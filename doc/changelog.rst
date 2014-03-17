@@ -2,6 +2,15 @@
 What's New
 ==========
 
+0.XX (2014-03-DD)
+==================
+
+* PhantomJS:
+
+  * Implements "smart scrolling" that avoids unnecessary scrolling.
+  * Adds ``--no-phantomjs-smart-scroll
+
+
 0.26 (2014-03-16)
 ==================
 

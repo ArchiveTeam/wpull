@@ -1037,7 +1037,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=int,
             default=5,
             metavar='NUM',
-            help=_('scroll the page NUM times'),
+            help=_('scroll the page up to NUM times'),
         )
         group.add_argument(
             '--phantomjs-wait',
@@ -1052,6 +1052,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             dest='phantomjs_snapshot',
             default=True,
             help=_('don’t take dynamic page snapshots'),
+        )
+        group.add_argument(
+            '--no-phantomjs-smart-scroll',
+            action='store_false',
+            dest='phantomjs_smart_scroll',
+            default=True,
+            help=_('always scroll the page to maximum scroll count option'),
         )
 
     def _post_parse_args(self, args):

@@ -670,7 +670,8 @@ class WebProcessorSession(object):
 class PhantomJSController(object):
     '''PhantomJS Page Controller.'''
     def __init__(self, client, wait_time=1, num_scrolls=5, snapshot=True,
-    warc_recorder=None, viewport_size=(1024, 3072), paper_size=(2048, 6144)):
+    warc_recorder=None, viewport_size=(1024, 3072), paper_size=(2048, 6144),
+    smart_scroll=True):
         self.client = client
         self._wait_time = wait_time
         self._num_scrolls = num_scrolls
@@ -678,6 +679,7 @@ class PhantomJSController(object):
         self._warc_recorder = warc_recorder
         self._viewport_size = viewport_size
         self._paper_size = paper_size
+        self._smart_scroll = smart_scroll
         self._actions = []
         self._action_warc_record = None
 
@@ -703,12 +705,10 @@ class PhantomJSController(object):
         url = yield remote.eval('page.url')
         total_scroll_count = 0
 
-        self._log_action('wait', self._wait_time)
-        yield wpull.util.sleep(self._wait_time)
-
         for scroll_count in range(self._num_scrolls):
             _logger.debug('Scrolling page. Count={0}.'.format(scroll_count))
 
+            pre_scroll_counter_values = remote.resource_counter.values()
             scroll_position = yield remote.eval('page.scrollPosition')
             scroll_position['top'] += self._viewport_size[1]
 
@@ -718,10 +718,21 @@ class PhantomJSController(object):
             yield remote.call('page.sendEvent', 'keydown', 'PageDown')
             yield remote.call('page.sendEvent', 'keyup', 'PageDown')
 
+            total_scroll_count += 1
+
             self._log_action('wait', self._wait_time)
             yield wpull.util.sleep(self._wait_time)
 
-            total_scroll_count += 1
+            if remote.resource_counter.values() == pre_scroll_counter_values \
+            and self._smart_scroll:
+                break
+
+        for dummy in range(remote.resource_counter.pending):
+            if remote.resource_counter.pending:
+                self._log_action('wait', self._wait_time)
+                yield wpull.util.sleep(self._wait_time)
+            else:
+                break
 
         _logger.info(
             gettext.ngettext(

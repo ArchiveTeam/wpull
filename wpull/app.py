@@ -736,6 +736,7 @@ class Builder(object):
         phantomjs_client = self._factory.new(
             'PhantomJSClient',
             'localhost:{0}'.format(proxy_port),
+            extra_args=['--disk-cache=true'],
             page_settings=page_settings,
             default_headers=default_headers,
         )
@@ -747,6 +748,7 @@ class Builder(object):
             wait_time=self._args.phantomjs_wait,
             num_scrolls=self._args.phantomjs_scroll,
             warc_recorder=self.factory.get('WARCRecorder'),
+            smart_scroll=self._args.phantomjs_smart_scroll,
         )
 
         return phantomjs_controller
