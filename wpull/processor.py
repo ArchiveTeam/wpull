@@ -702,10 +702,18 @@ class PhantomJSController(object):
     @tornado.gen.coroutine
     def control(self, remote):
         '''Scroll the page.'''
+        num_scrolls = self._num_scrolls
+
+        if self._smart_scroll:
+            is_page_dynamic = yield remote.call('isPageDynamic')
+
+            if not is_page_dynamic:
+                num_scrolls = 0
+
         url = yield remote.eval('page.url')
         total_scroll_count = 0
 
-        for scroll_count in range(self._num_scrolls):
+        for scroll_count in range(num_scrolls):
             _logger.debug('Scrolling page. Count={0}.'.format(scroll_count))
 
             pre_scroll_counter_values = remote.resource_counter.values()

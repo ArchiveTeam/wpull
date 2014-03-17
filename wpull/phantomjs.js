@@ -238,3 +238,21 @@ function resetPage() {
 	applyDefaultPageSettings();
 	page.customHeaders = defaultPageHeaders;
 }
+
+var EVENT_SELECTORS = [ '[onload]', '[onunload]', '[onabortonclick]',
+		'[ondblclick]', '[onmousedown]', '[onmousemove]', '[onmouseout]',
+		'[onmouseover]', '[onmouseup]', '[onkeydown]', '[onkeypress]',
+		'[onkeyup]' ].join(' ');
+
+// Return whether the page has script elements or HTML event attributes
+function isPageDynamic() {
+	var result = page.evaluate(function() {
+		return document.getElementsByTagName('script').length
+				|| document.querySelector(EVENT_SELECTORS);
+	});
+
+	if (result) {
+		return true;
+	}
+
+}
