@@ -16,6 +16,7 @@ else:
 
 
 _ = gettext.gettext
+_logger = logging.getLogger(__name__)
 
 
 class CommaChoiceListArgs(frozenset):
@@ -97,11 +98,34 @@ class AppArgumentParser(argparse.ArgumentParser):
         if args is None:
             args = sys.argv[1:]
 
+        encoding = self.get_argv_encoding(args)
+
+        _logger.debug('Encoding: {0}'.format(encoding))
+
         args = super().parse_args(
-            args=wpull.util.to_str(args), namespace=namespace)
+            args=wpull.util.to_str(args, encoding=encoding),
+            namespace=namespace
+        )
 
         self._post_parse_args(args)
         return args
+
+    @classmethod
+    def get_argv_encoding(cls, argv):
+        encoding = 'utf-8'
+        stripped_argv = [
+            wpull.util.printable_bytes(arg) for arg in
+            wpull.util.to_bytes(argv, encoding='latin1')
+        ]
+
+        try:
+            index = stripped_argv.index(b'--local-encoding')
+        except ValueError:
+            pass
+        else:
+            encoding = stripped_argv[index + 1]
+
+        return wpull.util.to_str(encoding)
 
     def exit(self, status=0, message=None):
         if self._real_exit:
@@ -236,7 +260,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             '-i',
             '--input-file',
             metavar='FILE',
-            type=argparse.FileType('rU'),
+            type=argparse.FileType('rb'),
             help=_('download URLs listen from FILE'),
         )
 #         self.add_argument(
@@ -470,10 +494,12 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--no-iri',
 #             action='store_true',
 #         )
-#         self.add_argument(
-#             '--local-encoding',
-#             metavar='ENC'
-#         )
+        group.add_argument(
+            '--local-encoding',
+            metavar='ENC',
+            default='utf-8',
+            help=_('use ENC as the encoding of input files and options')
+        )
 #         self.add_argument(
 #             '--remote-encoding',
 #             metavar='ENC'

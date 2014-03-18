@@ -160,7 +160,7 @@ class TestApp(GoodAppTestCase):
         with tempfile.NamedTemporaryFile() as in_file:
             in_file.write(self.get_url('/').encode('utf-8'))
             in_file.write(b'\n')
-            in_file.write(self.get_url('/blog/').encode('utf-8'))
+            in_file.write(self.get_url('/blog/?ðfßðfëéå').encode('utf-8'))
             in_file.flush()
 
             args = arg_parser.parse_args([
@@ -648,6 +648,33 @@ class TestApp(GoodAppTestCase):
 
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(4, builder.factory['Statistics'].files)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_local_encoding(self):
+        arg_parser = AppArgumentParser()
+
+        with tempfile.NamedTemporaryFile() as in_file:
+            in_file.write(self.get_url('/?qwerty').encode('utf-32-le'))
+            in_file.write('\n'.encode('utf-32-le'))
+            in_file.flush()
+
+            opts = [
+                self.get_url('/?asdf'),
+                '--local-encoding', 'utf-32-le',
+                '--input-file', in_file.name
+            ]
+
+            opts = [string.encode('utf-32-le') for string in opts]
+
+            args = arg_parser.parse_args(opts)
+            builder = Builder(args)
+
+            with cd_tempdir():
+                engine = builder.build()
+                exit_code = yield engine()
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(2, builder.factory['Statistics'].files)
 
 
 class TestAppBad(BadAppTestCase):

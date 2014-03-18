@@ -5,6 +5,8 @@ What's New
 0.XX (2014-03-DD)
 ==================
 
+* Fixes URLs ignored (if any) on command line when ``--input-file`` is specified.
+* Implements ``--local-encoding``.
 * PhantomJS:
 
   * Implements "smart scrolling" that avoids unnecessary scrolling.

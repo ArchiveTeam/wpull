@@ -1,6 +1,7 @@
 # encoding=utf-8
 '''Application support.'''
 import atexit
+import codecs
 import functools
 import gettext
 from http.cookiejar import CookieJar, MozillaCookieJar
@@ -292,20 +293,19 @@ class Builder(object):
 
     def _build_input_urls(self, default_scheme='http'):
         '''Read the URLs provided by the user.'''
+
+        url_string_iter = self._args.urls or ()
+
         if self._args.input_file:
-            urls = wpull.util.to_str(tuple([
-                line.strip()
-                for line in self._args.input_file if line.strip()
-            ]))
+            input_file = codecs.getreader(
+                self._args.local_encoding)(self._args.input_file)
+
+            urls = [line.strip() for line in input_file if line.strip()]
 
             if not urls:
                 raise ValueError(_('No URLs found in input file.'))
 
-            url_string_iter = itertools.chain(
-                urls,
-                self._args.input_file)
-        else:
-            url_string_iter = self._args.urls
+            url_string_iter = itertools.chain(url_string_iter, urls)
 
         sitemap_url_infos = set()
 
