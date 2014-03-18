@@ -100,13 +100,15 @@ class HTMLReader(BaseDocumentReader):
     @classmethod
     def is_html_url_info(cls, url_info):
         '''Return whether the URLInfo is likely to be a HTML.'''
-        if '.htm' in url_info.path.lower():
+        path = url_info.path.lower()
+        if '.htm' in path or '.dhtm' in path:
             return True
 
     @classmethod
     def is_html_file(cls, file):
         '''Return whether the file is likely to be HTML.'''
-        peeked_data = wpull.util.peek_file(file).replace(b'\x00', b'').lower()
+        peeked_data = wpull.util.printable_bytes(
+            wpull.util.peek_file(file)).lower()
 
         if b'<!doctype html' in peeked_data \
         or b'<head' in peeked_data \
