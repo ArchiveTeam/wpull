@@ -344,3 +344,17 @@ def gzip_uncompress(data, truncated=False):
         inflated_data += decompressor.flush()
 
     return inflated_data
+
+
+PRINTABLE_BYTES_TABLE = bytes.maketrans(b'', b'')
+BYTES_CONTROLS = b''.join(
+    [
+        bytes([item]) for item in
+        itertools.chain(range(0, 32), range(127, 256))
+    ]
+)
+
+
+def printable_bytes(data):
+    '''Remove any bytes that is not printable ASCII.'''
+    return data.translate(PRINTABLE_BYTES_TABLE, BYTES_CONTROLS)
