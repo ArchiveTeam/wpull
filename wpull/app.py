@@ -56,7 +56,7 @@ class Builder(object):
     Args:
         args: Options from :class:`argparse.ArgumentParser`
     '''
-    UNSAFE_OPTIONS = frozenset(['save_headers'])
+    UNSAFE_OPTIONS = frozenset(['save_headers', 'no_iri'])
 
     def __init__(self, args):
         self.default_user_agent = 'Mozilla/5.0 (compatible) Wpull/{0}'.format(
@@ -864,6 +864,7 @@ class Builder(object):
         This function will print messages complaining about:
 
         * ``--save-headers``
+        * ``--no-iri``
         '''
         # TODO: Add output-document once implemented
         enabled_options = []
