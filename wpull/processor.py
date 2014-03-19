@@ -336,8 +336,11 @@ class WebProcessorSession(object):
         and self._rich_client_session \
         and self._rich_client_session.redirect_tracker \
         and self._rich_client_session.redirect_tracker.is_redirect \
-        and any([isinstance(url_filter, SpanHostsFilter) for url_filter in
-                test_info['failed']]):
+        and len(test_info['failed']) == 1 \
+        and all([
+            isinstance(url_filter, SpanHostsFilter)
+            for url_filter in test_info['failed']
+        ]):
             return True, 'redirect'
 
         else:

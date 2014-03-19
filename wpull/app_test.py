@@ -719,3 +719,20 @@ class TestAppBad(BadAppTestCase):
         cookies = list(builder.factory['CookieJar'])
         _logger.debug('{0}'.format(cookies))
         self.assertEqual(2, len(cookies))
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_non_http_redirect(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/non_http_redirect'),
+            '--recursive',
+            '--no-robots'
+        ])
+        builder = Builder(args)
+
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)

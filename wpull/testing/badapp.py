@@ -62,6 +62,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/header_early_close': self.header_early_close,
             '/no_content': self.no_content,
             '/many_links': self.many_links,
+            '/non_http_redirect': self.non_http_redirect,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -381,6 +382,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(b'</html>')
 
         self.close_connection = True
+
+    def non_http_redirect(self):
+        self.send_response(302)
+        self.send_header('Location', 'mailto:user@example.com')
+        self.send_header('Content-Length', 0)
+        self.end_headers()
 
 
 class ConcurrentHTTPServer(socketserver.ThreadingMixIn,

@@ -6,6 +6,7 @@ What's New
 ==================
 
 * Fixes URLs ignored (if any) on command line when ``--input-file`` is specified.
+* Fixes crash when redirected to a URL that is not HTTP.
 * Implements ``--local-encoding``, ``--remote-encoding``, ``--no-iri``.
 * PhantomJS:
 
