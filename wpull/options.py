@@ -490,14 +490,14 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--ask-password',
 #             action='store_true',
 #         )
-#         self.add_argument(
-#             '--no-iri',
-#             action='store_true',
-#         )
+        group.add_argument(
+            '--no-iri',
+            action='store_true',
+            help=_('use ASCII encoding only')
+        )
         group.add_argument(
             '--local-encoding',
             metavar='ENC',
-            default='utf-8',
             help=_('use ENC as the encoding of input files and options')
         )
         group.add_argument(
@@ -1091,11 +1091,20 @@ class AppArgumentParser(argparse.ArgumentParser):
     def _post_parse_args(self, args):
         if args.warc_file:
             self._post_warc_args(args)
+
         if not args.input_file and not args.urls:
             self.error(_('no URL provided'))
+
         self._post_ssl_args(args)
+
         if not args.recursive:
             args.robots = False
+
+        if args.no_iri and (args.local_encoding or args.remote_encoding):
+            self.error(_('disabling IRI support forces use of ASCII encoding'))
+        elif args.no_iri:
+            args.local_encoding = 'ascii'
+            args.remote_encoding = 'ascii'
 
     def _post_warc_args(self, args):
         option_names = ('clobber_method', 'timestamping', 'continue_download')

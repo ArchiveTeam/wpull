@@ -298,7 +298,7 @@ class Builder(object):
 
         if self._args.input_file:
             input_file = codecs.getreader(
-                self._args.local_encoding)(self._args.input_file)
+                self._args.local_encoding or 'utf-8')(self._args.input_file)
 
             urls = [line.strip() for line in input_file if line.strip()]
 

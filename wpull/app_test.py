@@ -262,6 +262,8 @@ class TestApp(GoodAppTestCase):
             ('--warc-file=test', '--timestamping'),
             ('--warc-file=test', '--continue'),
             ('--lua-script=blah.lua', '--python-script=blah.py'),
+            ('--no-iri', '--local-encoding=shiftjis'),
+            ('--no-iri', '--remote-encoding=shiftjis'),
         ]
 
         for arg_item in arg_items:
@@ -677,6 +679,23 @@ class TestApp(GoodAppTestCase):
 
         self.assertEqual(0, exit_code)
         self.assertEqual(2, builder.factory['Statistics'].files)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_no_iri(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--no-iri',
+            '--no-robots'
+        ])
+        builder = Builder(args)
+
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
 
 
 class TestAppBad(BadAppTestCase):
