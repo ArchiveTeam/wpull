@@ -111,19 +111,19 @@ def peek_file(file):
         return file.read(4096)
 
 
-def to_bytes(instance, encoding='utf-8'):
+def to_bytes(instance, encoding='utf-8', error='strict'):
     '''Convert an instance recursively to bytes.'''
     if isinstance(instance, bytes):
         return instance
     elif hasattr(instance, 'encode'):
-        return instance.encode(encoding)
+        return instance.encode(encoding, error)
     elif isinstance(instance, list):
-        return list([to_bytes(item, encoding) for item in instance])
+        return list([to_bytes(item, encoding, error) for item in instance])
     elif isinstance(instance, tuple):
-        return tuple([to_bytes(item, encoding) for item in instance])
+        return tuple([to_bytes(item, encoding, error) for item in instance])
     elif isinstance(instance, dict):
         return dict(
-            [(to_bytes(key, encoding), to_bytes(value, encoding))
+            [(to_bytes(key, encoding, error), to_bytes(value, encoding, error))
                 for key, value in instance.items()])
     return instance
 

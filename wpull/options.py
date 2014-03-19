@@ -115,7 +115,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         encoding = 'utf-8'
         stripped_argv = [
             wpull.util.printable_bytes(arg) for arg in
-            wpull.util.to_bytes(argv, encoding='latin1')
+            wpull.util.to_bytes(argv, encoding='ascii', error='replace')
         ]
 
         try:
