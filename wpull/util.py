@@ -149,11 +149,10 @@ def to_str(instance, encoding='utf-8'):
 def sleep(seconds):
     '''Sleep asynchronously.'''
     assert seconds >= 0.0
-    io_loop = tornado.ioloop.IOLoop.current()
-    try:
-        yield toro.AsyncResult().get(io_loop.time() + seconds)
-    except toro.Timeout:
-        pass
+    yield tornado.gen.Task(
+        tornado.ioloop.IOLoop.current().add_timeout,
+        datetime.timedelta(seconds=seconds)
+    )
 
 
 def datetime_str():
