@@ -148,10 +148,11 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
     '''Mapping of element tag names to attributes containing links.'''
 
     def __init__(self, followed_tags=None, ignored_tags=None, robots=False,
-    only_relative=False):
+    only_relative=False, encoding_override=None):
         super().__init__()
         self._robots = robots
         self._only_relative = only_relative
+        self._encoding_override = encoding_override
 
         if followed_tags is not None:
             self._followed_tags = frozenset(
@@ -170,7 +171,8 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             return
 
         content_file = response.body.content_file
-        encoding = get_encoding(response, is_html=True)
+        encoding = self._encoding_override \
+            or get_encoding(response, is_html=True)
 
         tree = self.parse(content_file, encoding, request.url_info.url)
         root = tree.getroot()
@@ -452,13 +454,17 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
     URL_PATTERN = r'''url\(\s*['"]?(.*?)['"]?\s*\)'''
     IMPORT_URL_PATTERN = r'''@import\s*([^\s]+).*?;'''
 
+    def __init__(self, encoding_override=None):
+        super().__init__()
+        self._encoding_override = encoding_override
+
     def scrape(self, request, response):
         if not self.is_css(request, response):
             return
 
         base_url = request.url_info.url
         inline_urls = set()
-        encoding = get_encoding(response)
+        encoding = self._encoding_override or get_encoding(response)
         text = response.body.content.decode(encoding)
         iterable = itertools.chain(self.scrape_urls(text),
             self.scrape_imports(text))
@@ -495,12 +501,16 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
 
 class SitemapScraper(SitemapReader, BaseDocumentScraper):
     '''Scrape Sitemaps'''
+    def __init__(self, encoding_override=None):
+        super().__init__()
+        self._encoding_override = encoding_override
+
     def scrape(self, request, response):
         if not self.is_sitemap(request, response):
             return
 
         base_url = request.url_info.url
-        encoding = get_encoding(response)
+        encoding = self._encoding_override or get_encoding(response)
 
         try:
             document = self.parse(

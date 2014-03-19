@@ -500,10 +500,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             default='utf-8',
             help=_('use ENC as the encoding of input files and options')
         )
-#         self.add_argument(
-#             '--remote-encoding',
-#             metavar='ENC'
-#         )
+        group.add_argument(
+            '--remote-encoding',
+            metavar='ENC',
+            help=_('force decoding documents using codec ENC'),
+        )
 #         self.add_argument(
 #             '--unlink'
 #         )

@@ -377,12 +377,18 @@ class Builder(object):
                 ignored_tags=self._args.ignore_tags,
                 only_relative=self._args.relative,
                 robots=self._args.robots,
+                encoding_override=self._args.remote_encoding,
             ),
-            self._factory.new('CSSScraper'),
+            self._factory.new(
+                'CSSScraper',
+                encoding_override=self._args.remote_encoding,
+            ),
         ]
 
         if self._args.sitemaps:
-            scrapers.append(self._factory.new('SitemapScraper'))
+            scrapers.append(self._factory.new(
+                'SitemapScraper', encoding_override=self._args.remote_encoding,
+            ))
 
         return scrapers
 
