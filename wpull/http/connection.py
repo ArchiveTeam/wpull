@@ -98,7 +98,7 @@ class Connection(object):
         self._read_timeout = read_timeout
         self._keep_alive = keep_alive
         self._active = False
-        self._ssl_options = ssl_options
+        self._ssl_options = ssl_options or {}
         self._buffer_size = buffer_size
         self._gzip_decompressor = None
         self._no_content_codes = no_content_codes
