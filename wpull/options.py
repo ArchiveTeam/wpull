@@ -715,7 +715,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='PR',
             default='auto',
             choices=sorted(self._ssl_version_map),
-            help=_('specifiy the version of the SSL protocol to use'),
+            help=_('specify the version of the SSL protocol to use'),
+        )
+        group.add_argument(
+            '--https-only',
+            action='store_true',
+            help=_('download only HTTPS URLs')
         )
         group.add_argument(
             '--no-check-certificate',

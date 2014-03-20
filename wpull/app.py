@@ -36,7 +36,8 @@ from wpull.scraper import (HTMLScraper, CSSScraper, DemuxDocumentScraper,
 from wpull.stats import Statistics
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     RecursiveFilter, SpanHostsFilter, ParentFilter, RegexFilter, HTTPFilter,
-    DirectoryFilter, HostnameFilter, DemuxURLFilter, BackwardFilenameFilter)
+    DirectoryFilter, HostnameFilter, DemuxURLFilter, BackwardFilenameFilter,
+    HTTPSOnlyFilter)
 from wpull.util import ASCIIStreamWriter
 import wpull.version
 from wpull.waiter import LinearWaiter
@@ -339,7 +340,7 @@ class Builder(object):
         args = self._args
 
         filters = [
-            HTTPFilter(),
+            HTTPSOnlyFilter() if args.https_only else HTTPFilter(),
             BackwardDomainFilter(args.domains, args.exclude_domains),
             HostnameFilter(args.hostnames, args.exclude_hostnames),
             TriesFilter(args.tries),

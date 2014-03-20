@@ -698,6 +698,37 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(1, builder.factory['Statistics'].files)
 
 
+class SimpleHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.write(b'OK')
+
+
+class TestAppHTTPS(tornado.testing.AsyncHTTPSTestCase):
+    def get_app(self):
+        return tornado.web.Application([
+            (r'/', SimpleHandler)
+        ])
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_https_only(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/?1'),
+            self.get_url('/?2').replace('https://', 'http://'),
+            '--https-only',
+            '--no-robots',
+            '--no-check-certificate',
+        ])
+        builder = Builder(args)
+
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
+
 class TestAppBad(BadAppTestCase):
     def setUp(self):
         super().setUp()

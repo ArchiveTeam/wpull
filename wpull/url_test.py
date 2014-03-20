@@ -5,7 +5,7 @@ from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     ParentFilter, RecursiveFilter, SpanHostsFilter, RegexFilter, HTTPFilter,
     HostnameFilter, schemes_similar, is_subdir, DirectoryFilter, unquote,
     unquote_plus, quote, quote_plus, split_query, uppercase_percent_encoding,
-    urljoin, BackwardFilenameFilter, flatten_path)
+    urljoin, BackwardFilenameFilter, flatten_path, HTTPSOnlyFilter)
 
 
 class MockURLTableRecord(object):
@@ -304,6 +304,31 @@ class TestURL(unittest.TestCase):
         url_filter = HTTPFilter()
         self.assertTrue(url_filter.test(
             URLInfo.parse('http://example.net'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('https://example.net'),
+            mock_record
+        ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('mailto:user@example.com'),
+            mock_record
+        ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse("javascript:alert('hello!')"),
+            mock_record
+        ))
+
+    def test_https_filter(self):
+        mock_record = MockURLTableRecord()
+
+        url_filter = HTTPSOnlyFilter()
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('http://example.net'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('https://example.net'),
             mock_record
         ))
         self.assertFalse(url_filter.test(

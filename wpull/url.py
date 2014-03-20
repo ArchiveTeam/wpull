@@ -319,6 +319,12 @@ class HTTPFilter(BaseURLFilter):
         return url_info.scheme in ('http', 'https')
 
 
+class HTTPSOnlyFilter(BaseURLFilter):
+    '''Allow URL if the URL is HTTPS.'''
+    def test(self, url_info, url_table_record):
+        return url_info.scheme == 'https'
+
+
 class BackwardDomainFilter(BaseURLFilter):
     '''Return whether the hostname matches a list of hostname suffixes.'''
     def __init__(self, accepted=None, rejected=None):
