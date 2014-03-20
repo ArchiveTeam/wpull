@@ -550,7 +550,11 @@ class HostConnectionPool(collections.Set):
         self._running = True
         self._cleaner_timer = tornado.ioloop.PeriodicCallback(
             self.clean, 300000)
-        self._run()
+
+        tornado.ioloop.IOLoop.current().add_future(
+            self._run_loop(),
+            lambda future: future.result()
+        )
         self._cleaner_timer.start()
 
     @property
@@ -570,7 +574,7 @@ class HostConnectionPool(collections.Set):
         yield self._request_queue.put((request, kwargs, async_result))
 
     @tornado.gen.coroutine
-    def _run(self):
+    def _run_loop(self):
         while self._running or self._request_queue.qsize():
             _logger.debug('Host pool running ({0}:{1} SSL={2}).'.format(
                 self._host, self._port, self._ssl))
