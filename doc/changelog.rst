@@ -7,6 +7,7 @@ What's New
 
 * Fixes URLs ignored (if any) on command line when ``--input-file`` is specified.
 * Fixes crash when redirected to a URL that is not HTTP.
+* Fixes crash if lxml does not recognize the document encoding name. Falls back to Latin1 if lxml does not support the encoding after massaging the encoding name.
 * Implements ``--local-encoding``, ``--remote-encoding``, ``--no-iri``.
 * Implements ``--https-only``.
 * PhantomJS:

@@ -2,6 +2,7 @@
 '''Document readers.'''
 import abc
 import gzip
+import io
 import lxml.html
 import re
 import zlib
@@ -54,10 +55,25 @@ class HTMLReader(BaseDocumentReader):
             _ElementTree: An instance of :class:`lxml.etree._ElementTree`.
         '''
         if encoding:
-            # XXX: Workaround lxml not liking utf-16-le
-            encoding = encoding.replace('-', '')
+            lxml_encoding = to_lxml_encoding(encoding) or 'latin1'
 
-        parser = lxml.html.HTMLParser(encoding=encoding)
+# FIXME: this needs more testing
+#             if not lxml_encoding:
+#                 parser = lxml.html.HTMLParser()
+#
+#                 with wpull.util.reset_file_offset(file):
+#                     decoded_file = io.StringIO(file.read().decode(encoding))
+#                     tree = lxml.html.parse(
+#                         decoded_file,
+#                         base_url=base_url,
+#                         parser=parser,
+#                     )
+#
+#                 return tree
+        else:
+            lxml_encoding = encoding
+
+        parser = lxml.html.HTMLParser(encoding=lxml_encoding)
 
         with wpull.util.reset_file_offset(file):
             tree = lxml.html.parse(
@@ -166,7 +182,8 @@ class CSSReader(BaseDocumentReader):
     @classmethod
     def is_css_file(cls, file):
         '''Return whether the file is likely CSS.'''
-        peeked_data = wpull.util.peek_file(file).lower()
+        peeked_data = wpull.util.printable_bytes(
+            wpull.util.peek_file(file)).lower()
 
         if b'<html' in peeked_data:
             return False
@@ -190,10 +207,22 @@ class SitemapReader(BaseDocumentReader):
 
         if self.is_sitemap_file(file):
             if encoding:
-                # XXX: Workaround lxml not liking utf-16-le
-                encoding = encoding.replace('-', '')
+                lxml_encoding = to_lxml_encoding(encoding) or 'latin1'
 
-            parser = lxml.etree.XMLParser(encoding=encoding)
+# FIXME: this needs better testing
+#                 if not lxml_encoding:
+#                     parser = lxml.etree.XMLParser()
+#
+#                     with wpull.util.reset_file_offset(file):
+#                         decoded_file = io.StringIO(file.read().decode(encoding))
+#
+#                     tree = lxml.etree.parse(decoded_file, parser=parser)
+#                     return tree
+
+            else:
+                lxml_encoding = encoding
+
+            parser = lxml.etree.XMLParser(encoding=lxml_encoding)
 
             with wpull.util.reset_file_offset(file):
                 tree = lxml.etree.parse(
@@ -242,7 +271,8 @@ class SitemapReader(BaseDocumentReader):
     @classmethod
     def is_sitemap_file(cls, file):
         '''Return whether the file is likely a Sitemap.'''
-        peeked_data = wpull.util.peek_file(file).lower()
+        peeked_data = wpull.util.printable_bytes(
+            wpull.util.peek_file(file)).lower()
 
         if is_gzip(peeked_data):
             try:
@@ -300,3 +330,31 @@ def get_encoding(response, is_html=False, peek=10485760):
 def is_gzip(data):
     '''Return whether the data is likely to be gzip.'''
     return data.startswith(b'\x1f\x8b')
+
+
+def to_lxml_encoding(encoding):
+    '''Check if lxml supports the specified encoding.
+
+    Returns:
+        str, None
+    '''
+    # XXX: Workaround lxml not liking utf-16-le
+    try:
+        lxml.html.HTMLParser(encoding=encoding)
+    except LookupError:
+        encoding = encoding.replace('-', '')
+    else:
+        return encoding
+    try:
+        lxml.html.HTMLParser(encoding=encoding)
+    except LookupError:
+        encoding = encoding.replace('_', '')
+    else:
+        return encoding
+
+    try:
+        lxml.html.HTMLParser(encoding=encoding)
+    except LookupError:
+        pass
+    else:
+        return encoding
