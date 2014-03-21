@@ -1,10 +1,8 @@
 # encoding=utf-8
-
-
 import io
 
 from wpull.backport.testing import unittest
-from wpull.document import HTMLReader, to_lxml_encoding, SitemapReader
+from wpull.document import HTMLReader, SitemapReader
 
 
 CODEC_NAMES = (
@@ -15,7 +13,7 @@ CODEC_NAMES = (
     'cp424',
     'cp437',
     'cp500',
-    'cp720',
+    # 'cp720',  # not in py 2.6
     'cp737',
     'cp775',
     'cp850',
@@ -23,7 +21,7 @@ CODEC_NAMES = (
     'cp855',
     'cp856',
     'cp857',
-    'cp858',
+    # 'cp858',  # not in py 2.6
     'cp860',
     'cp861',
     'cp862',
@@ -49,7 +47,7 @@ CODEC_NAMES = (
     'cp1256',
     'cp1257',
     'cp1258',
-    # 'cp65001',
+    # 'cp65001',  # windows only
     'euc_jp',
     'euc_jis_2004',
     'euc_jisx0213',
