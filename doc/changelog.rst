@@ -14,6 +14,10 @@ What's New
   * Implements "smart scrolling" that avoids unnecessary scrolling.
   * Adds ``--no-phantomjs-smart-scroll
 
+* API:
+
+  * ``WebProcessorSession._parse_url()`` renamed to ``WebProcessorSession.parse_url()``
+
 
 0.26 (2014-03-16)
 ==================

@@ -417,7 +417,7 @@ class WebProcessorSession(object):
         return True
 
     @classmethod
-    def _parse_url(cls, url, encoding):
+    def parse_url(cls, url, encoding):
         '''Parse and return a URLInfo.
 
         This function logs a warning if the URL cannot be parsed and returns
@@ -509,7 +509,7 @@ class WebProcessorSession(object):
         linked_url_infos = set()
 
         for url in inline_urls:
-            url_info = self._parse_url(url, encoding)
+            url_info = self.parse_url(url, encoding)
             if url_info:
                 url_record = self._url_item.child_url_record(
                     url_info, inline=True, encoding=encoding
@@ -518,7 +518,7 @@ class WebProcessorSession(object):
                     inline_url_infos.add(url_info)
 
         for url in linked_urls:
-            url_info = self._parse_url(url, encoding)
+            url_info = self.parse_url(url, encoding)
             if url_info:
                 url_record = self._url_item.child_url_record(
                     url_info, encoding=encoding, link_type=link_type

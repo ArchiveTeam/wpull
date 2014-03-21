@@ -144,6 +144,10 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('www.ð.com/asdf').hostname
         )
         self.assertEqual(
+            'www.xn--hda.com',
+            URLInfo.parse('www.xn--hda.com/asdf').hostname
+        )
+        self.assertEqual(
             'http://example.com/?blah=%C3%B0',
             URLInfo.parse('example.com?blah=ð').url
         )

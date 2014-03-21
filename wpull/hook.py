@@ -364,7 +364,7 @@ class HookedWebProcessorSessionMixin(object):
 
         assert url
 
-        url_info = self._parse_url(url, 'utf-8')
+        url_info = self.parse_url(url, 'utf-8')
 
         if not url_info:
             return
