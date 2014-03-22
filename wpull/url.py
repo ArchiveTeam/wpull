@@ -235,7 +235,7 @@ class URLInfo(_URLInfoType):
     @property
     def hostname_with_port(self):
         '''Return the hostname with port.'''
-        hostname = self.hostname
+        hostname = self.hostname or ''
 
         if ':' in hostname:
             hostname = '[{0}]'.format(hostname)
