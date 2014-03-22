@@ -255,6 +255,29 @@ class TestURL(unittest.TestCase):
             'http://example.com/?a=1&b=',
             URLInfo.parse('http://example.com?a=1&b=').url
         )
+        self.assertEqual(
+            'https://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080/ipv6',
+            URLInfo.parse(
+                'https://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080/ipv6'
+            ).url
+        )
+        self.assertEqual(
+            'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6',
+            URLInfo.parse(
+                'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6'
+            ).url
+        )
+
+    def test_url_info_round_trip(self):
+        urls = [
+            'http://example.com/blah%20blah/',
+            'example.com:81?blah=%c3%B0',
+            'http://example.com/a/../../b/style.css',
+            'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6',
+        ]
+
+        for url in urls:
+            URLInfo.parse(URLInfo.parse(url).url)
 
     @unittest.skip('TODO: implement these')
     def test_ip_address_normalization(self):
