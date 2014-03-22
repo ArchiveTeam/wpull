@@ -426,7 +426,13 @@ class WebProcessorSession(object):
         try:
             url_info = URLInfo.parse(url, encoding=encoding)
             # FIXME: Kludge to check for round-trip parsing. See issue #82.
-            URLInfo.parse(url_info.url, encoding=encoding)
+            try:
+                URLInfo.parse(url_info.url, encoding=encoding)
+            except ValueError:
+                _logger.exception(_('Bad URLInfo round-trip: ‘{url}’.')\
+                    .format(url=url)
+                )
+                raise
         except ValueError as error:
             _logger.warning(_('Discarding malformed URL ‘{url}’: {error}.')\
                 .format(url=url, error=error))
