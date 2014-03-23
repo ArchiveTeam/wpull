@@ -13,7 +13,8 @@ Brief Option Overview
                      [--random-wait] [-Q NUMBER] [--bind-address ADDRESS]
                      [--no-dns-cache] [--rotate-dns]
                      [--restrict-file-names MODES]
-                     [-4 | -6 | --prefer-family FAMILY]
+                     [-4 | -6 | --prefer-family FAMILY] [--no-iri]
+                     [--local-encoding ENC] [--remote-encoding ENC]
                      [--max-filename-length NUMBER] [-nd | -x] [-nH]
                      [--protocol-directories] [-P PREFIX] [--cut-dirs NUMBER]
                      [--default-page NAME] [--header STRING]
@@ -22,7 +23,7 @@ Brief Option Overview
                      [--no-cookies] [--load-cookies FILE] [--save-cookies FILE]
                      [--keep-session-cookies]
                      [--post-data STRING | --post-file FILE]
-                     [--content-on-error] [--secure-protocol PR]
+                     [--content-on-error] [--secure-protocol PR] [--https-only]
                      [--no-check-certificate] [--certificate FILE]
                      [--certificate-type TYPE] [--private-key FILE]
                      [--private-key-type TYPE] [--ca-certificate FILE]
@@ -41,7 +42,7 @@ Brief Option Overview
                      [-I LIST] [-X LIST] [-np] [--no-strong-robots]
                      [--no-strong-redirects] [--phantomjs]
                      [--phantomjs-scroll NUM] [--phantomjs-wait SEC]
-                     [--no-phantomjs-snapshot]
+                     [--no-phantomjs-snapshot] [--no-phantomjs-smart-scroll]
                      [URL [URL ...]]
 
   Wget-compatible web downloader.
@@ -107,6 +108,10 @@ Brief Option Overview
     -6, --inet6-only      connect to IPv6 addresses only
     --prefer-family FAMILY
                           prefer to connect to FAMILY IP addresses
+    --no-iri              use ASCII encoding only
+    --local-encoding ENC  use ENC as the encoding of input files and options
+    --remote-encoding ENC
+                          force decoding documents using codec ENC
     --max-filename-length NUMBER
                           limit filename length to NUMBER characters
 
@@ -144,7 +149,8 @@ Brief Option Overview
     --content-on-error    keep error pages
 
   SSL:
-    --secure-protocol PR  specifiy the version of the SSL protocol to use
+    --secure-protocol PR  specify the version of the SSL protocol to use
+    --https-only          download only HTTPS URLs
     --no-check-certificate
                           don’t validate SSL server certificates
     --certificate FILE    use FILE containing the local client certificate
@@ -218,8 +224,10 @@ Brief Option Overview
   PhantomJS:
     --phantomjs           use PhantomJS for loading dynamic pages
     --phantomjs-scroll NUM
-                          scroll the page NUM times
+                          scroll the page up to NUM times
     --phantomjs-wait SEC  wait SEC seconds between page interactions
     --no-phantomjs-snapshot
                           don’t take dynamic page snapshots
+    --no-phantomjs-smart-scroll
+                          always scroll the page to maximum scroll count option
 

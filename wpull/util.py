@@ -111,19 +111,19 @@ def peek_file(file):
         return file.read(4096)
 
 
-def to_bytes(instance, encoding='utf-8'):
+def to_bytes(instance, encoding='utf-8', error='strict'):
     '''Convert an instance recursively to bytes.'''
     if isinstance(instance, bytes):
         return instance
     elif hasattr(instance, 'encode'):
-        return instance.encode(encoding)
+        return instance.encode(encoding, error)
     elif isinstance(instance, list):
-        return list([to_bytes(item, encoding) for item in instance])
+        return list([to_bytes(item, encoding, error) for item in instance])
     elif isinstance(instance, tuple):
-        return tuple([to_bytes(item, encoding) for item in instance])
+        return tuple([to_bytes(item, encoding, error) for item in instance])
     elif isinstance(instance, dict):
         return dict(
-            [(to_bytes(key, encoding), to_bytes(value, encoding))
+            [(to_bytes(key, encoding, error), to_bytes(value, encoding, error))
                 for key, value in instance.items()])
     return instance
 
@@ -149,11 +149,10 @@ def to_str(instance, encoding='utf-8'):
 def sleep(seconds):
     '''Sleep asynchronously.'''
     assert seconds >= 0.0
-    io_loop = tornado.ioloop.IOLoop.current()
-    try:
-        yield toro.AsyncResult().get(io_loop.time() + seconds)
-    except toro.Timeout:
-        pass
+    yield tornado.gen.Task(
+        tornado.ioloop.IOLoop.current().add_timeout,
+        datetime.timedelta(seconds=seconds)
+    )
 
 
 def datetime_str():
@@ -344,3 +343,14 @@ def gzip_uncompress(data, truncated=False):
         inflated_data += decompressor.flush()
 
     return inflated_data
+
+
+ALL_BYTES = bytes(bytearray(range(256)))
+CONTROL_BYTES = bytes(bytearray(
+    itertools.chain(range(0, 32), range(127, 256))
+))
+
+
+def printable_bytes(data):
+    '''Remove any bytes that is not printable ASCII.'''
+    return data.translate(ALL_BYTES, CONTROL_BYTES)

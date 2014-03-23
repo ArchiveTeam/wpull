@@ -7,7 +7,7 @@ import tornado.testing
 from wpull.backport.testing import unittest
 from wpull.util import (to_bytes, sleep, to_str, datetime_str, OrderedDefaultDict,
     wait_future, TimedOut, python_version, filter_pem, detect_encoding,
-    parse_iso8601_str)
+    parse_iso8601_str, printable_bytes)
 
 
 class TestUtil(unittest.TestCase):
@@ -100,6 +100,12 @@ class TestUtil(unittest.TestCase):
             )
             for data in iterable:
                 detect_encoding(b''.join(data))
+
+    def test_printable_bytes(self):
+        self.assertEqual(
+            b' 1234abc XYZ~',
+            printable_bytes(b' 1234\x00abc XYZ\xff~')
+        )
 
 
 class TestUtilAsync(tornado.testing.AsyncTestCase):

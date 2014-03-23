@@ -98,7 +98,7 @@ class Connection(object):
         self._read_timeout = read_timeout
         self._keep_alive = keep_alive
         self._active = False
-        self._ssl_options = ssl_options
+        self._ssl_options = ssl_options or {}
         self._buffer_size = buffer_size
         self._gzip_decompressor = None
         self._no_content_codes = no_content_codes
@@ -550,7 +550,11 @@ class HostConnectionPool(collections.Set):
         self._running = True
         self._cleaner_timer = tornado.ioloop.PeriodicCallback(
             self.clean, 300000)
-        self._run()
+
+        tornado.ioloop.IOLoop.current().add_future(
+            self._run_loop(),
+            lambda future: future.result()
+        )
         self._cleaner_timer.start()
 
     @property
@@ -570,7 +574,7 @@ class HostConnectionPool(collections.Set):
         yield self._request_queue.put((request, kwargs, async_result))
 
     @tornado.gen.coroutine
-    def _run(self):
+    def _run_loop(self):
         while self._running or self._request_queue.qsize():
             _logger.debug('Host pool running ({0}:{1} SSL={2}).'.format(
                 self._host, self._port, self._ssl))

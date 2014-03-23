@@ -5,7 +5,7 @@ from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     ParentFilter, RecursiveFilter, SpanHostsFilter, RegexFilter, HTTPFilter,
     HostnameFilter, schemes_similar, is_subdir, DirectoryFilter, unquote,
     unquote_plus, quote, quote_plus, split_query, uppercase_percent_encoding,
-    urljoin, BackwardFilenameFilter, flatten_path)
+    urljoin, BackwardFilenameFilter, flatten_path, HTTPSOnlyFilter)
 
 
 class MockURLTableRecord(object):
@@ -144,6 +144,10 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('www.ð.com/asdf').hostname
         )
         self.assertEqual(
+            'www.xn--hda.com',
+            URLInfo.parse('www.xn--hda.com/asdf').hostname
+        )
+        self.assertEqual(
             'http://example.com/?blah=%C3%B0',
             URLInfo.parse('example.com?blah=ð').url
         )
@@ -251,6 +255,29 @@ class TestURL(unittest.TestCase):
             'http://example.com/?a=1&b=',
             URLInfo.parse('http://example.com?a=1&b=').url
         )
+        self.assertEqual(
+            'https://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080/ipv6',
+            URLInfo.parse(
+                'https://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080/ipv6'
+            ).url
+        )
+        self.assertEqual(
+            'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6',
+            URLInfo.parse(
+                'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6'
+            ).url
+        )
+
+    def test_url_info_round_trip(self):
+        urls = [
+            'http://example.com/blah%20blah/',
+            'example.com:81?blah=%c3%B0',
+            'http://example.com/a/../../b/style.css',
+            'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6',
+        ]
+
+        for url in urls:
+            URLInfo.parse(URLInfo.parse(url).url)
 
     @unittest.skip('TODO: implement these')
     def test_ip_address_normalization(self):
@@ -304,6 +331,31 @@ class TestURL(unittest.TestCase):
         url_filter = HTTPFilter()
         self.assertTrue(url_filter.test(
             URLInfo.parse('http://example.net'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('https://example.net'),
+            mock_record
+        ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('mailto:user@example.com'),
+            mock_record
+        ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse("javascript:alert('hello!')"),
+            mock_record
+        ))
+
+    def test_https_filter(self):
+        mock_record = MockURLTableRecord()
+
+        url_filter = HTTPSOnlyFilter()
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('http://example.net'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('https://example.net'),
             mock_record
         ))
         self.assertFalse(url_filter.test(

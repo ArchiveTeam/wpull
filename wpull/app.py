@@ -1,6 +1,7 @@
 # encoding=utf-8
 '''Application support.'''
 import atexit
+import codecs
 import functools
 import gettext
 from http.cookiejar import CookieJar, MozillaCookieJar
@@ -35,7 +36,8 @@ from wpull.scraper import (HTMLScraper, CSSScraper, DemuxDocumentScraper,
 from wpull.stats import Statistics
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     RecursiveFilter, SpanHostsFilter, ParentFilter, RegexFilter, HTTPFilter,
-    DirectoryFilter, HostnameFilter, DemuxURLFilter, BackwardFilenameFilter)
+    DirectoryFilter, HostnameFilter, DemuxURLFilter, BackwardFilenameFilter,
+    HTTPSOnlyFilter)
 from wpull.util import ASCIIStreamWriter
 import wpull.version
 from wpull.waiter import LinearWaiter
@@ -55,7 +57,7 @@ class Builder(object):
     Args:
         args: Options from :class:`argparse.ArgumentParser`
     '''
-    UNSAFE_OPTIONS = frozenset(['save_headers'])
+    UNSAFE_OPTIONS = frozenset(['save_headers', 'no_iri'])
 
     def __init__(self, args):
         self.default_user_agent = 'Mozilla/5.0 (compatible) Wpull/{0}'.format(
@@ -292,20 +294,19 @@ class Builder(object):
 
     def _build_input_urls(self, default_scheme='http'):
         '''Read the URLs provided by the user.'''
+
+        url_string_iter = self._args.urls or ()
+
         if self._args.input_file:
-            urls = wpull.util.to_str(tuple([
-                line.strip()
-                for line in self._args.input_file if line.strip()
-            ]))
+            input_file = codecs.getreader(
+                self._args.local_encoding or 'utf-8')(self._args.input_file)
+
+            urls = [line.strip() for line in input_file if line.strip()]
 
             if not urls:
                 raise ValueError(_('No URLs found in input file.'))
 
-            url_string_iter = itertools.chain(
-                urls,
-                self._args.input_file)
-        else:
-            url_string_iter = self._args.urls
+            url_string_iter = itertools.chain(url_string_iter, urls)
 
         sitemap_url_infos = set()
 
@@ -339,7 +340,7 @@ class Builder(object):
         args = self._args
 
         filters = [
-            HTTPFilter(),
+            HTTPSOnlyFilter() if args.https_only else HTTPFilter(),
             BackwardDomainFilter(args.domains, args.exclude_domains),
             HostnameFilter(args.hostnames, args.exclude_hostnames),
             TriesFilter(args.tries),
@@ -377,12 +378,18 @@ class Builder(object):
                 ignored_tags=self._args.ignore_tags,
                 only_relative=self._args.relative,
                 robots=self._args.robots,
+                encoding_override=self._args.remote_encoding,
             ),
-            self._factory.new('CSSScraper'),
+            self._factory.new(
+                'CSSScraper',
+                encoding_override=self._args.remote_encoding,
+            ),
         ]
 
         if self._args.sitemaps:
-            scrapers.append(self._factory.new('SitemapScraper'))
+            scrapers.append(self._factory.new(
+                'SitemapScraper', encoding_override=self._args.remote_encoding,
+            ))
 
         return scrapers
 
@@ -736,6 +743,7 @@ class Builder(object):
         phantomjs_client = self._factory.new(
             'PhantomJSClient',
             'localhost:{0}'.format(proxy_port),
+            extra_args=['--disk-cache=true'],
             page_settings=page_settings,
             default_headers=default_headers,
         )
@@ -747,6 +755,7 @@ class Builder(object):
             wait_time=self._args.phantomjs_wait,
             num_scrolls=self._args.phantomjs_scroll,
             warc_recorder=self.factory.get('WARCRecorder'),
+            smart_scroll=self._args.phantomjs_smart_scroll,
         )
 
         return phantomjs_controller
@@ -856,6 +865,7 @@ class Builder(object):
         This function will print messages complaining about:
 
         * ``--save-headers``
+        * ``--no-iri``
         '''
         # TODO: Add output-document once implemented
         enabled_options = []

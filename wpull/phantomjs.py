@@ -44,6 +44,7 @@ class PhantomJSRemote(object):
         page_event: An instance of :class:`.actor.Event` that is fired whenever
             a page event occurs. The argument passed to the listener is a
             RPC Info ``dict``.
+        resource_counter: An instance of :class:`ResourceCounter()`.
 
     The messages passed are in the JSON format.
     '''
@@ -53,6 +54,7 @@ class PhantomJSRemote(object):
         self._in_queue = toro.Queue()
         self._out_queue = toro.Queue()
         self.page_event = wpull.actor.Event()
+        self.resource_counter = ResourceCounter()
         self._rpc_app = RPCApplication(self._out_queue, self._in_queue)
         self._http_server = tornado.httpserver.HTTPServer(self._rpc_app)
         http_socket, port = tornado.testing.bind_unused_port()
@@ -148,6 +150,7 @@ class PhantomJSRemote(object):
                 _logger.exception('Error decoding message.')
             else:
                 if 'event' in rpc_info:
+                    self._process_resource_counter(rpc_info)
                     self.page_event.fire(rpc_info)
                 else:
                     self._process_rpc_result(rpc_info)
@@ -278,6 +281,20 @@ class PhantomJSRemote(object):
         async_result = self._rpc_reply_map[answer_id]
         async_result.set(rpc_info)
 
+    def _process_resource_counter(self, rpc_info):
+        '''Check event type and increment counter as needed.'''
+        event_name = rpc_info['event']
+
+        if event_name == 'resource_requested':
+            self.resource_counter.pending += 1
+        elif event_name == 'resource_received' \
+        and rpc_info['response']['stage'] == 'end':
+            self.resource_counter.pending -= 1
+            self.resource_counter.loaded += 1
+        elif event_name == 'resource_error':
+            self.resource_counter.pending -= 1
+            self.resource_counter.error += 1
+
 
 class RPCApplication(tornado.web.Application):
     '''RPC HTTP Application for PhantomJS.
@@ -404,6 +421,7 @@ class PhantomJSClient(object):
             yield remote
         finally:
             remote.page_event.clear()
+            remote.resource_counter.reset()
 
             def put_back_remote(future):
                 future.result()
@@ -414,6 +432,34 @@ class PhantomJSClient(object):
                 remote.call('resetPage'),
                 put_back_remote
             )
+
+
+class ResourceCounter(object):
+    '''Resource counter.
+
+    Attributes:
+        pending (int): Number of resources that are downloading.
+        loaded (int): Number of resources that have downloaded.
+        error (int): Number of resources that have failed to download.
+    '''
+    def __init__(self):
+        self.pending = 0
+        self.loaded = 0
+        self.error = 0
+
+    def reset(self):
+        '''Reset the counter to 0.'''
+        self.pending = 0
+        self.loaded = 0
+        self.error = 0
+
+    def values(self):
+        '''Return the counter as an tuple.
+
+        Returns:
+            tuple: (pending, loaded, error)
+        '''
+        return (self.pending, self.loaded, self.error)
 
 
 if __name__ == '__main__':

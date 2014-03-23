@@ -739,10 +739,14 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
         self._print(datetime.timedelta(seconds=duration))
 
     def _print_speed(self):
-        speed = self._bandwidth_meter.speed()
-        speed_str = _('{preformatted_file_size}/s').format(
-            preformatted_file_size=wpull.util.format_size(speed)
-        )
+        if self._bandwidth_meter.num_samples:
+            speed = self._bandwidth_meter.speed()
+            speed_str = _('{preformatted_file_size}/s').format(
+                preformatted_file_size=wpull.util.format_size(speed)
+            )
+        else:
+            speed_str = _('-- B/s')
+
         self._print(speed_str)
 
     def _print_percent(self):

@@ -228,15 +228,22 @@ class URLInfo(_URLInfoType):
         ])
 
     def is_port_default(self):
+        '''Return whether the URL is using the default port.'''
         if self.scheme in self.DEFAULT_PORTS:
             return self.DEFAULT_PORTS[self.scheme] == self.port
 
     @property
     def hostname_with_port(self):
+        '''Return the hostname with port.'''
+        hostname = self.hostname or ''
+
+        if ':' in hostname:
+            hostname = '[{0}]'.format(hostname)
+
         if self.is_port_default() or not self.port:
-            return self.hostname
+            return hostname
         else:
-            return '{0}:{1}'.format(self.hostname, self.port)
+            return '{0}:{1}'.format(hostname, self.port)
 
     def to_dict(self):
         '''Return the info as a ``dict``.'''
@@ -317,6 +324,12 @@ class HTTPFilter(BaseURLFilter):
     '''Allow URL if the URL is HTTP or HTTPS.'''
     def test(self, url_info, url_table_record):
         return url_info.scheme in ('http', 'https')
+
+
+class HTTPSOnlyFilter(BaseURLFilter):
+    '''Allow URL if the URL is HTTPS.'''
+    def test(self, url_info, url_table_record):
+        return url_info.scheme == 'https'
 
 
 class BackwardDomainFilter(BaseURLFilter):

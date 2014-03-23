@@ -2,6 +2,27 @@
 What's New
 ==========
 
+0.27 (2014-03-23)
+==================
+
+* Fixes URLs ignored (if any) on command line when ``--input-file`` is specified.
+* Fixes crash when redirected to a URL that is not HTTP.
+* Fixes crash if lxml does not recognize the document encoding name. Falls back to Latin1 if lxml does not support the encoding after massaging the encoding name.
+* Fixes crash on IPv6 addresses when using scripting or external API calls.
+* Fixes speed shown as "0.0 B/s" instead of "-- B/s" when speed can not be calculated.
+* Implements ``--local-encoding``, ``--remote-encoding``, ``--no-iri``.
+* Implements ``--https-only``.
+* Prints bandwidth speed statistics when exiting.
+* PhantomJS:
+
+  * Implements "smart scrolling" that avoids unnecessary scrolling.
+  * Adds ``--no-phantomjs-smart-scroll
+
+* API:
+
+  * ``WebProcessorSession._parse_url()`` renamed to ``WebProcessorSession.parse_url()``
+
+
 0.26 (2014-03-16)
 ==================
 

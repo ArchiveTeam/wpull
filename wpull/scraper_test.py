@@ -244,6 +244,23 @@ class TestDocument(unittest.TestCase):
 
         self.assertTrue(scrape_info)
 
+    def test_html_encoding_lxml_name_mismatch(self):
+        '''It should accept encoding names with underscore.'''
+        scraper = HTMLScraper()
+        request = Request.new('http://example.com/')
+        response = Response('HTTP/1.0', 200, '')
+        response.fields['content-type'] = 'text/html; charset=EUC_KR'
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            response.body.content_file.write(
+                '힖'.encode('euc_kr')
+            )
+
+        scrape_info = scraper.scrape(request, response)
+
+        self.assertTrue(scrape_info)
+        self.assertEqual('euc_kr', scrape_info['encoding'])
+
     def test_scrape_css_urls(self):
         text = '''
         @import url("fineprint.css") print;

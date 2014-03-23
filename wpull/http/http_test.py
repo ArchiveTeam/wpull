@@ -1,6 +1,7 @@
 # encoding=utf-8
 import functools
 import os.path
+import ssl
 import tornado.testing
 import tornado.web
 
@@ -471,15 +472,33 @@ class TestHTTP(unittest.TestCase):
         self.assertEqual(b'N\x99t \x0eounz'.decode('latin-1'), msg)
 
 
+class SimpleHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.write(b'OK')
+
+
 class TestSSL(tornado.testing.AsyncHTTPSTestCase):
     def get_app(self):
-        return tornado.web.Application()
+        return tornado.web.Application([
+            (r'/', SimpleHandler)
+        ])
 
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_ssl_fail(self):
-        connection = Connection('localhost', self.get_http_port())
+        connection = Connection('localhost', self.get_http_port(), ssl=True,
+            ssl_options=dict(
+                cert_reqs=ssl.CERT_REQUIRED,
+                ca_certs=self.get_ssl_options()['certfile']
+            )
+        )
         try:
             yield connection.fetch(Request.new(self.get_url('/')))
         except SSLVerficationError:
             pass
         else:
             self.fail()
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_ssl_no_check(self):
+        connection = Connection('localhost', self.get_http_port(), ssl=True)
+        yield connection.fetch(Request.new(self.get_url('/')))

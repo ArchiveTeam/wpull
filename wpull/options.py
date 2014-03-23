@@ -16,6 +16,7 @@ else:
 
 
 _ = gettext.gettext
+_logger = logging.getLogger(__name__)
 
 
 class CommaChoiceListArgs(frozenset):
@@ -97,11 +98,34 @@ class AppArgumentParser(argparse.ArgumentParser):
         if args is None:
             args = sys.argv[1:]
 
+        encoding = self.get_argv_encoding(args)
+
+        _logger.debug('Encoding: {0}'.format(encoding))
+
         args = super().parse_args(
-            args=wpull.util.to_str(args), namespace=namespace)
+            args=wpull.util.to_str(args, encoding=encoding),
+            namespace=namespace
+        )
 
         self._post_parse_args(args)
         return args
+
+    @classmethod
+    def get_argv_encoding(cls, argv):
+        encoding = 'utf-8'
+        stripped_argv = [
+            wpull.util.printable_bytes(arg) for arg in
+            wpull.util.to_bytes(argv, encoding='ascii', error='replace')
+        ]
+
+        try:
+            index = stripped_argv.index(b'--local-encoding')
+        except ValueError:
+            pass
+        else:
+            encoding = stripped_argv[index + 1]
+
+        return wpull.util.to_str(encoding)
 
     def exit(self, status=0, message=None):
         if self._real_exit:
@@ -236,7 +260,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             '-i',
             '--input-file',
             metavar='FILE',
-            type=argparse.FileType('rU'),
+            type=argparse.FileType('rb'),
             help=_('download URLs listen from FILE'),
         )
 #         self.add_argument(
@@ -466,18 +490,21 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--ask-password',
 #             action='store_true',
 #         )
-#         self.add_argument(
-#             '--no-iri',
-#             action='store_true',
-#         )
-#         self.add_argument(
-#             '--local-encoding',
-#             metavar='ENC'
-#         )
-#         self.add_argument(
-#             '--remote-encoding',
-#             metavar='ENC'
-#         )
+        group.add_argument(
+            '--no-iri',
+            action='store_true',
+            help=_('use ASCII encoding only')
+        )
+        group.add_argument(
+            '--local-encoding',
+            metavar='ENC',
+            help=_('use ENC as the encoding of input files and options')
+        )
+        group.add_argument(
+            '--remote-encoding',
+            metavar='ENC',
+            help=_('force decoding documents using codec ENC'),
+        )
 #         self.add_argument(
 #             '--unlink'
 #         )
@@ -688,7 +715,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='PR',
             default='auto',
             choices=sorted(self._ssl_version_map),
-            help=_('specifiy the version of the SSL protocol to use'),
+            help=_('specify the version of the SSL protocol to use'),
+        )
+        group.add_argument(
+            '--https-only',
+            action='store_true',
+            help=_('download only HTTPS URLs')
         )
         group.add_argument(
             '--no-check-certificate',
@@ -1037,7 +1069,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=int,
             default=5,
             metavar='NUM',
-            help=_('scroll the page NUM times'),
+            help=_('scroll the page up to NUM times'),
         )
         group.add_argument(
             '--phantomjs-wait',
@@ -1053,15 +1085,31 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=True,
             help=_('don’t take dynamic page snapshots'),
         )
+        group.add_argument(
+            '--no-phantomjs-smart-scroll',
+            action='store_false',
+            dest='phantomjs_smart_scroll',
+            default=True,
+            help=_('always scroll the page to maximum scroll count option'),
+        )
 
     def _post_parse_args(self, args):
         if args.warc_file:
             self._post_warc_args(args)
+
         if not args.input_file and not args.urls:
             self.error(_('no URL provided'))
+
         self._post_ssl_args(args)
+
         if not args.recursive:
             args.robots = False
+
+        if args.no_iri and (args.local_encoding or args.remote_encoding):
+            self.error(_('disabling IRI support forces use of ASCII encoding'))
+        elif args.no_iri:
+            args.local_encoding = 'ascii'
+            args.remote_encoding = 'ascii'
 
     def _post_warc_args(self, args):
         option_names = ('clobber_method', 'timestamping', 'continue_download')
