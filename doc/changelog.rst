@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2014-03-DD)
+0.27 (2014-03-23)
 ==================
 
 * Fixes URLs ignored (if any) on command line when ``--input-file`` is specified.
