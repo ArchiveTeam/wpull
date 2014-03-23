@@ -173,6 +173,11 @@ class BandwidthMeter(object):
         '''
         return self._stalled
 
+    @property
+    def num_samples(self):
+        '''Return the number of samples collected.'''
+        return len(self._samples)
+
     def feed(self, data_len):
         '''Update the bandwidth meter.
 

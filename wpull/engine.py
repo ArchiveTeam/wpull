@@ -252,10 +252,23 @@ class Engine(object):
         )
         file_size = wpull.util.format_size(stats.size)
 
+        if stats.bandwidth_meter.num_samples:
+            speed_size_str = wpull.util.format_size(
+                stats.bandwidth_meter.speed()
+            )
+        else:
+            speed_size_str = _('-- B')
+
         _logger.info(_('FINISHED.'))
         _logger.info(
-            _('Time length: {preformatted_timedelta}.')\
-                .format(preformatted_timedelta=time_length))
+            _(
+                'Duration: {preformatted_timedelta}. '
+                'Speed: {preformatted_speed_size}/s.'
+            ).format(
+                preformatted_timedelta=time_length,
+                preformatted_speed_size=speed_size_str,
+            )
+        )
         _logger.info(
             gettext.ngettext(
                 'Downloaded: {num_files} file, {preformatted_file_size}.',

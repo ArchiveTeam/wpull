@@ -2,6 +2,8 @@
 '''Statistics.'''
 import time
 
+from wpull.network import BandwidthMeter
+
 
 try:
     from collections import Counter
@@ -22,6 +24,7 @@ class Statistics(object):
             exceeded.
         required_url_infos (set): A set of :class:`.url.URLInfo` that must
             be completed before the quota can be exceeded.
+        bandwidth_meter: An instance of :class:`.network.BandwidthMeter`.
     '''
     def __init__(self):
         self.start_time = None
@@ -31,10 +34,12 @@ class Statistics(object):
         self.errors = Counter()
         self.quota = None
         self.required_url_infos = set()
+        self.bandwidth_meter = BandwidthMeter()
 
     def start(self):
         '''Record the start time.'''
         self.start_time = time.time()
+        self.bandwidth_meter.feed(1)
 
     def stop(self):
         '''Record the stop time.'''
@@ -53,6 +58,7 @@ class Statistics(object):
         '''
         self.files += 1
         self.size += size
+        self.bandwidth_meter.feed(size)
 
     @property
     def is_quota_exceeded(self):
