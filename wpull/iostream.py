@@ -6,11 +6,13 @@ import errno
 import os
 import re
 import socket
+import ssl
 import tornado.gen
 import tornado.ioloop
+import tornado.netutil
 import toro
 
-from wpull.errors import NetworkError
+from wpull.errors import NetworkError, SSLVerficationError
 from wpull.util import TimedOut
 
 
@@ -400,13 +402,86 @@ class IOStream(object):
             raise tornado.gen.Return(b''.join(data_list))
 
 
+class SSLIOStream(IOStream):
+    '''Socket stream with SSL.
+
+    Args:
+        server_hostname (str): The server hostname.
+        ssl_options (dict): Optional options for `ssl_wrap`.
+    '''
+    def __init__(self, *args, **kwargs):
+        self._server_hostname = kwargs.pop('server_hostname')
+        self._ssl_options = kwargs.pop('ssl_options', {})
+        super().__init__(*args, **kwargs)
+
+    @tornado.gen.coroutine
+    def connect(self, address, timeout=None):
+        yield super().connect(address, timeout=timeout)
+
+        self._socket = tornado.netutil.ssl_wrap_socket(
+            self._socket,
+            self._ssl_options,
+            server_hostname=self._server_hostname,
+            do_handshake_on_connect=False
+        )
+
+        yield self._do_handshake(timeout)
+
+        if self._ssl_options \
+        and self._ssl_options.get('cert_reqs', None) != ssl.CERT_NONE:
+            self._verify_certificates()
+
+    @tornado.gen.coroutine
+    def _do_handshake(self, timeout):
+        '''Do the SSL handshake and return when finished.'''
+        while True:
+            try:
+                self._socket.do_handshake()
+                break
+            except ssl.SSLError as err:
+                if err.args[0] == ssl.SSL_ERROR_WANT_READ:
+                    events = yield self._wait_event(
+                        READ | ERROR, timeout=timeout
+                    )
+                elif err.args[0] == ssl.SSL_ERROR_WANT_WRITE:
+                    events = yield self._wait_event(
+                        WRITE | ERROR, timeout=timeout
+                    )
+                else:
+                    raise
+
+                if events & ERROR:
+                    self._raise_socket_error()
+
+    def _verify_certificates(self):
+        '''Verify the certificates.
+
+        Raises:
+            SSLVerficationError
+        '''
+        peer_certificate = self._socket.getpeercert()
+
+        if not peer_certificate:
+            raise SSLVerficationError('Server did not provide a certificate.')
+
+        try:
+            # XXX: Note the ssl_match_hostname function isn't documented in
+            # the API docs.
+            tornado.netutil.ssl_match_hostname(
+                peer_certificate,
+                self._server_hostname
+            )
+        except tornado.netutil.SSLCertificateError as error:
+            raise SSLVerficationError('Invalid SSL certificate') from error
+
+
 if __name__ == '__main__':
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-    io_stream = IOStream(sock)
+    io_stream = SSLIOStream(sock, server_hostname='google.com')
 
     @tornado.gen.coroutine
     def blah():
-        yield io_stream.connect(('google.com', 80), 5)
+        yield io_stream.connect(('google.com', 443), 5)
         print('connected')
         yield io_stream.write(b'HEAD / HTTP/1.0\r\n\r\n', 5)
         print('written!')
