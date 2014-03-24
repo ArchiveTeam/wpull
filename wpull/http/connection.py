@@ -19,7 +19,7 @@ import zlib
 from wpull.actor import Event
 from wpull.errors import (SSLVerficationError, ConnectionRefused, NetworkError,
     ProtocolError)
-from wpull.extended import SSLIOStream, IOStream
+from wpull.iostream import SSLIOStream, IOStream
 from wpull.http.request import Response
 from wpull.network import Resolver
 
@@ -73,7 +73,7 @@ class Connection(object):
             self.request_data.clear()
             self.response_data.clear()
 
-    DEFAULT_BUFFER_SIZE = 10485760
+    DEFAULT_BUFFER_SIZE = 1048576
     '''Default buffer size in bytes.'''
     DEFAULT_NO_CONTENT_CODES = frozenset(itertools.chain(
         range(100, 200),
@@ -120,16 +120,15 @@ class Connection(object):
             self._io_stream = SSLIOStream(
                 self._socket,
                 max_buffer_size=self._buffer_size,
-                connect_timeout=self._connect_timeout,
-                read_timeout=self._read_timeout,
+                rw_timeout=self._read_timeout,
                 ssl_options=self._ssl_options,
+                server_hostname=self._host,
             )
         else:
             self._io_stream = IOStream(
                 self._socket,
+                rw_timeout=self._read_timeout,
                 max_buffer_size=self._buffer_size,
-                connect_timeout=self._connect_timeout,
-                read_timeout=self._read_timeout,
             )
 
         self._io_stream.set_close_callback(self._stream_closed_callback)
@@ -146,7 +145,9 @@ class Connection(object):
 
         _logger.debug('Connecting to {0}.'.format(self._address))
         try:
-            yield self._io_stream.connect(self._address, self._host)
+            yield self._io_stream.connect(
+                self._address, timeout=self._connect_timeout
+            )
         except (ssl.SSLError, tornado.netutil.SSLCertificateError,
         SSLVerficationError) as error:
             raise SSLVerficationError('SSLError: {error}'.format(
@@ -266,8 +267,10 @@ class Connection(object):
     def _read_response_header(self, response_factory):
         '''Read the response's HTTP status line and header fields.'''
         _logger.debug('Reading header.')
+
         response_header_data = yield self._io_stream.read_until_regex(
-            br'\r?\n\r?\n')
+            br'\r?\n\r?\n'
+        )
 
         self._events.response_data.fire(response_header_data)
 
@@ -355,16 +358,13 @@ class Connection(object):
             yield self._read_response_until_close(response)
             return
 
-        data_queue = self._io_stream.read_bytes_queue(body_size)
-
-        while True:
-            data = yield data_queue.get()
-
-            if data is None:
-                break
-
+        def callback(data):
             self._events.response_data.fire(data)
             response.body.content_file.write(self._decompress_data(data))
+
+        yield self._io_stream.read_bytes(
+            body_size, streaming_callback=callback,
+        )
 
         response.body.content_file.write(self._flush_decompressor())
 
@@ -394,16 +394,11 @@ class Connection(object):
         '''Read the response until the connection closes.'''
         _logger.debug('Reading body until close.')
 
-        data_queue = self._io_stream.read_until_close_queue()
-
-        while True:
-            data = yield data_queue.get()
-
-            if data is None:
-                break
-
+        def callback(data):
             self._events.response_data.fire(data)
             response.body.content_file.write(self._decompress_data(data))
+
+        yield self._io_stream.read_until_close(streaming_callback=callback)
 
         response.body.content_file.write(self._flush_decompressor())
 
@@ -424,29 +419,13 @@ class Connection(object):
             self._io_stream.close()
 
     def _stream_closed_callback(self):
-        _logger.debug('Stream closed. '
-            'active={0} connected={1} ' \
-            'closed={2} reading={3} writing={3}'.format(
+        _logger.debug(
+            'Stream closed. active={0} connected={1} closed={2}'.format(
                 self._active,
                 self.connected,
                 self._io_stream.closed(),
-                self._io_stream.reading(),
-                self._io_stream.writing())
+            )
         )
-
-        if not self._active:
-            # We are likely in a context that's already dead
-            _logger.debug('Ignoring stream closed error={0}.'\
-                .format(self._io_stream.error))
-            return
-
-        if self._io_stream.error:
-            _logger.debug('Throwing error {0}.'.format(self._io_stream.error))
-            raise self._io_stream.error
-
-        if self._io_stream.buffer_full:
-            _logger.debug('Buffer full.')
-            raise ProtocolError('Buffer full.')
 
 
 class ChunkedTransferStreamReader(object):
@@ -488,16 +467,13 @@ class ChunkedTransferStreamReader(object):
         if not chunk_size:
             raise tornado.gen.Return(chunk_size)
 
-        data_queue = self._io_stream.read_bytes_queue(chunk_size)
-
-        while True:
-            data = yield data_queue.get()
-
-            if data is None:
-                break
-
+        def callback(data):
             self.data_event.fire(data)
             self.content_event.fire(data)
+
+        yield self._io_stream.read_bytes(
+            chunk_size, streaming_callback=callback
+        )
 
         newline_data = yield self._io_stream.read_until(b'\n')
 

@@ -3,13 +3,17 @@
 import collections
 import datetime
 import errno
+import gettext
+import logging
 import os
 import re
 import socket
 import ssl
 import tornado.gen
 import tornado.ioloop
+from tornado.iostream import StreamClosedError
 import tornado.netutil
+import tornado.stack_context
 import toro
 
 from wpull.errors import NetworkError, SSLVerficationError
@@ -19,6 +23,8 @@ from wpull.util import TimedOut
 WRITE = tornado.ioloop.IOLoop.WRITE
 READ = tornado.ioloop.IOLoop.READ
 ERROR = tornado.ioloop.IOLoop.ERROR
+_ = gettext.gettext
+_logger = logging.getLogger(__name__)
 
 
 class State(object):
@@ -35,10 +41,6 @@ class State(object):
 
 class BufferFullError(ValueError):
     '''Exception for Data Buffer when the buffer is full.'''
-
-
-class StreamClosed(IOError):
-    '''Stream is closed.'''
 
 
 class DataBuffer(object):
@@ -169,16 +171,20 @@ class IOStream(object):
         socket_obj: A socket object.
         ioloop: IOLoop.
         chunk_size (int): The number of bytes read per receive call.
+        max_buffer_size (int): Maximum size of the buffer in bytes.
+        rw_timeout (float): Timeout in seconds for reads and writes.
     '''
-    def __init__(self, socket_obj, ioloop=None, chunk_size=4096):
+    def __init__(self, socket_obj, ioloop=None, chunk_size=4096,
+    max_buffer_size=1048576, rw_timeout=None):
         self._socket = socket_obj
-        self._state = State.not_yet_connected
         self._ioloop = ioloop or tornado.ioloop.IOLoop.current()
-        self._event_result = None
         self._chunk_size = chunk_size
-        self._data_buffer = DataBuffer()
+        self._rw_timeout = rw_timeout
 
-        self._ioloop.add_handler(socket_obj.fileno(), self._event_handler, 0)
+        self._state = State.not_yet_connected
+        self._event_result = None
+        self._data_buffer = DataBuffer(max_size=max_buffer_size)
+        self._stream_closed_callback = None
 
     @property
     def socket(self):
@@ -190,15 +196,28 @@ class IOStream(object):
         '''Return the current state.'''
         return self._state
 
-    @property
     def closed(self):
         '''Return whether the stream is closed.'''
         return self._state == State.closed
 
+    def _handle_socket(self):
+        '''Add the socket to the IO loop handler.'''
+        self._ioloop.add_handler(self._socket.fileno(), self._event_handler, 0)
+
+    def _remove_handler(self):
+        '''Remove the socket from the IO loop handler.'''
+        self._ioloop.remove_handler(self._socket.fileno())
+
     def _event_handler(self, fd, events):
         '''Handle and set the async result and clear the event listener.'''
-        self._event_result.set(events)
         self._update_handler(0)
+
+        if self._event_result:
+            self._event_result.set(events)
+        else:
+            _logger.warning(
+                _('Spurious events: FD={0} Events={1}').format(fd, events)
+            )
 
     @tornado.gen.coroutine
     def _wait_event(self, events, timeout=None):
@@ -212,8 +231,6 @@ class IOStream(object):
             events = yield self._event_result.get(deadline)
         except toro.Timeout as error:
             raise TimedOut('Timed out.') from error
-
-        self._update_handler(0)
 
         raise tornado.gen.Return(events)
 
@@ -232,9 +249,18 @@ class IOStream(object):
 
     def close(self):
         '''Close the socket.'''
+        if self._state == State.closed:
+            return
+
+        _logger.debug('Stream closing.')
+
         self._state = State.closed
+        self._remove_handler()
         self._socket.close()
-        self._ioloop.remove_handler(self._socket.fileno())
+
+        if self._stream_closed_callback:
+            self._stream_closed_callback()
+            self._stream_closed_callback = None
 
     @tornado.gen.coroutine
     def connect(self, address, timeout=None):
@@ -249,6 +275,8 @@ class IOStream(object):
             raise IOError('Stream already connected or closed.')
 
         self._socket.setblocking(0)
+        self._handle_socket()
+
         self._state = State.connected
 
         try:
@@ -271,9 +299,11 @@ class IOStream(object):
             self._raise_socket_error()
 
     @tornado.gen.coroutine
-    def write(self, data, timeout=None):
+    def write(self, data):
         '''Write to socket.'''
-        events = yield self._wait_event(WRITE | ERROR, timeout=timeout)
+        events = yield self._wait_event(
+            WRITE | ERROR, timeout=self._rw_timeout
+        )
 
         if events & ERROR:
             self._raise_socket_error()
@@ -281,12 +311,12 @@ class IOStream(object):
         self._socket.send(data)
 
     @tornado.gen.coroutine
-    def read(self, length, timeout=None):
+    def read(self, length):
         '''Read from socket.'''
         if self._data_buffer.has_data():
             raise tornado.gen.Return(self._data_buffer.get_bytes(length))
 
-        events = yield self._wait_event(READ | ERROR, timeout=timeout)
+        events = yield self._wait_event(READ | ERROR, timeout=self._rw_timeout)
 
         if events & ERROR:
             self._raise_socket_error()
@@ -295,18 +325,17 @@ class IOStream(object):
 
         if not data:
             self.close()
-            raise StreamClosed('Stream is closed.')
+            raise StreamClosedError('Stream is closed.')
 
         raise tornado.gen.Return(data)
 
     @tornado.gen.coroutine
-    def read_bytes(self, length, streaming_callback=None, timeout=None):
+    def read_bytes(self, length, streaming_callback=None):
         '''Read exactly `length` bytes from the socket.
 
         Args:
             length (int): Number of bytes to read.
             streaming_callback: A callback function that receives data.
-            timeout (float): A timeout in seconds.
 
         Returns:
             bytes,None
@@ -317,7 +346,8 @@ class IOStream(object):
             data_list = []
 
         while bytes_left > 0:
-            data = yield self.read(self._chunk_size, timeout=timeout)
+            data = yield self.read(min(bytes_left, self._chunk_size))
+
             bytes_left -= len(data)
 
             if streaming_callback:
@@ -325,13 +355,15 @@ class IOStream(object):
             else:
                 data_list.append(data)
 
+        assert bytes_left == 0
+
         if streaming_callback:
             raise tornado.gen.Return(None)
         else:
             raise tornado.gen.Return(b''.join(data_list))
 
     @tornado.gen.coroutine
-    def read_until(self, delimiter, timeout=None):
+    def read_until(self, delimiter):
         '''Read until a delimiter.
 
         Returns:
@@ -343,7 +375,7 @@ class IOStream(object):
             raise tornado.gen.Return(data)
 
         while True:
-            data = yield self.read(self._chunk_size, timeout=timeout)
+            data = yield self.read(self._chunk_size)
 
             self._data_buffer.put(data)
 
@@ -353,7 +385,7 @@ class IOStream(object):
                 raise tornado.gen.Return(data)
 
     @tornado.gen.coroutine
-    def read_until_regex(self, pattern, timeout=None):
+    def read_until_regex(self, pattern):
         '''Read until a regular expression.
 
         Returns:
@@ -365,7 +397,7 @@ class IOStream(object):
             raise tornado.gen.Return(data)
 
         while True:
-            data = yield self.read(self._chunk_size, timeout=timeout)
+            data = yield self.read(self._chunk_size)
 
             self._data_buffer.put(data)
 
@@ -375,7 +407,7 @@ class IOStream(object):
                 raise tornado.gen.Return(data)
 
     @tornado.gen.coroutine
-    def read_until_close(self, streaming_callback=None, timeout=None):
+    def read_until_close(self, streaming_callback=None):
         '''Read until the socket closes.
 
         Returns:
@@ -387,8 +419,8 @@ class IOStream(object):
 
         while True:
             try:
-                data = yield self.read(self._chunk_size, timeout=timeout)
-            except StreamClosed:
+                data = yield self.read(self._chunk_size)
+            except StreamClosedError:
                 break
 
             if streaming_callback:
@@ -400,6 +432,10 @@ class IOStream(object):
             raise tornado.gen.Return(None)
         else:
             raise tornado.gen.Return(b''.join(data_list))
+
+    def set_close_callback(self, callback):
+        '''Set the callback that will invoked when the stream is closed.'''
+        self._stream_closed_callback = tornado.stack_context.wrap(callback)
 
 
 class SSLIOStream(IOStream):
@@ -417,6 +453,7 @@ class SSLIOStream(IOStream):
     @tornado.gen.coroutine
     def connect(self, address, timeout=None):
         yield super().connect(address, timeout=timeout)
+        self._remove_handler()
 
         self._socket = tornado.netutil.ssl_wrap_socket(
             self._socket,
@@ -424,6 +461,8 @@ class SSLIOStream(IOStream):
             server_hostname=self._server_hostname,
             do_handshake_on_connect=False
         )
+
+        self._handle_socket()
 
         yield self._do_handshake(timeout)
 
@@ -477,15 +516,15 @@ class SSLIOStream(IOStream):
 
 if __name__ == '__main__':
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-    io_stream = SSLIOStream(sock, server_hostname='google.com')
+    io_stream = SSLIOStream(sock, server_hostname='google.com', rw_timeout=5)
 
     @tornado.gen.coroutine
     def blah():
         yield io_stream.connect(('google.com', 443), 5)
         print('connected')
-        yield io_stream.write(b'HEAD / HTTP/1.0\r\n\r\n', 5)
+        yield io_stream.write(b'HEAD / HTTP/1.0\r\n\r\n')
         print('written!')
-        data = yield io_stream.read(4096, 5)
+        data = yield io_stream.read(4096)
         print('got', data, len(data))
         io_stream.close()
 
