@@ -273,7 +273,10 @@ class RichClientSession(object):
         if not url:
             raise ProtocolError('Redirect location missing.')
 
-        request = self._rich_client.request_factory(url)
+        try:
+            request = self._rich_client.request_factory(url)
+        except ValueError as error:
+            raise ProtocolError('Invalid redirect location.') from error
 
         if self._redirect_tracker.is_repeat():
             _logger.debug('Got redirect is repeat.')
