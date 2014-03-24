@@ -216,8 +216,8 @@ class IOStream(object):
         if self._event_result and not self._event_result.ready():
             self._event_result.set(events)
         else:
-            _logger.warning(
-                _('Spurious events: FD={0} Events={1}').format(fd, events)
+            _logger.debug(
+                'Spurious events: FD={0} Events=0x{1:x}.'.format(fd, events)
             )
 
     @tornado.gen.coroutine
