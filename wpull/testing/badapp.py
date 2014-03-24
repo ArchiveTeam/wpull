@@ -362,7 +362,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         _logger.debug('Bad socket reset set.')
 
         self.wfile.write(b'HTTP/1.0 200 OK')
-        self.connection.close()
+        self.close_connection = True
 
     def no_content(self):
         self.send_response(204)
@@ -432,7 +432,7 @@ class BadAppTestCase(AsyncTestCase):
         self.http_server.started_event.wait(timeout=5.0)
         self._port = self.http_server.port
         self.connection = Connection('localhost', self._port,
-            connect_timeout=2.0, read_timeout=5.0)
+            connect_timeout=2.0, read_timeout=60.0)
 
     @tornado.gen.coroutine
     def fetch(self, path):
