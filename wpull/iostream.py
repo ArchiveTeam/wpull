@@ -16,8 +16,8 @@ import tornado.netutil
 import tornado.stack_context
 import toro
 
-from wpull.errors import NetworkError, SSLVerficationError
-from wpull.util import TimedOut
+from wpull.errors import (NetworkError, SSLVerficationError, NetworkTimedOut,
+    ConnectionRefused)
 
 
 WRITE = tornado.ioloop.IOLoop.WRITE
@@ -185,6 +185,7 @@ class IOStream(object):
         self._event_result = None
         self._data_buffer = DataBuffer(max_size=max_buffer_size)
         self._stream_closed_callback = None
+        self._blocking_counter = 0
 
     @property
     def socket(self):
@@ -212,7 +213,7 @@ class IOStream(object):
         '''Handle and set the async result and clear the event listener.'''
         self._update_handler(0)
 
-        if self._event_result:
+        if self._event_result and not self._event_result.ready():
             self._event_result.set(events)
         else:
             _logger.warning(
@@ -230,7 +231,9 @@ class IOStream(object):
         try:
             events = yield self._event_result.get(deadline)
         except toro.Timeout as error:
-            raise TimedOut('Timed out.') from error
+            raise NetworkTimedOut(
+                'Connection event 0x{0:x} timed out.'.format(events)
+            ) from error
 
         raise tornado.gen.Return(events)
 
@@ -245,7 +248,11 @@ class IOStream(object):
             )
 
         self.close()
-        raise NetworkError(error_code, os.strerror(error_code))
+
+        if error_code == errno.ECONNREFUSED:
+            raise ConnectionRefused(error_code, os.strerror(error_code))
+        else:
+            raise NetworkError(error_code, os.strerror(error_code))
 
     def close(self):
         '''Close the socket.'''
@@ -281,40 +288,93 @@ class IOStream(object):
 
         try:
             self._socket.connect(address)
-        except BlockingIOError as error:
-            code = error.args[0]
-
-            if code not in (errno.EWOULDBLOCK, errno.EINPROGRESS):
+        except IOError as error:
+            if error.errno not in (errno.EWOULDBLOCK, errno.EINPROGRESS):
                 raise
 
         try:
             events = yield self._wait_event(
                 READ | WRITE | ERROR, timeout=timeout
             )
-        except TimedOut as error:
+        except NetworkTimedOut:
             self.close()
-            raise TimedOut('Socket connect timed out.') from error
+            raise
 
         if events & ERROR:
             self._raise_socket_error()
 
     @tornado.gen.coroutine
     def write(self, data):
-        '''Write to socket.'''
-        events = yield self._wait_event(
-            WRITE | ERROR, timeout=self._rw_timeout
-        )
+        '''Write all data to socket.
 
-        if events & ERROR:
-            self._raise_socket_error()
+        This function uses a blocking fast path consecutively for
+        every 100 writes.
+        '''
+        total_bytes_sent = 0
 
-        self._socket.send(data)
+        while total_bytes_sent < len(data):
+            if self._blocking_counter < 100:
+                try:
+                    bytes_sent = self._socket.send(data[total_bytes_sent:])
+                except ssl.SSLError as error:
+                    if error.errno != ssl.SSL_ERROR_WANT_WRITE:
+                        raise
+                except IOError as error:
+                    if error.errno not in (
+                    errno.EWOULDBLOCK, errno.EINPROGRESS):
+                        raise
+                else:
+                    if not bytes_sent:
+                        self.close()
+                        raise StreamClosedError('Stream is closed.')
+                    else:
+                        total_bytes_sent += bytes_sent
+                        continue
+            else:
+                self._blocking_counter = 0
+
+            events = yield self._wait_event(
+                WRITE | ERROR, timeout=self._rw_timeout
+            )
+
+            if events & ERROR:
+                self._raise_socket_error()
+
+            bytes_sent = self._socket.send(data[total_bytes_sent:])
+
+            if not bytes_sent:
+                self.close()
+                raise StreamClosedError('Stream is closed.')
+
+            total_bytes_sent += bytes_sent
 
     @tornado.gen.coroutine
     def read(self, length):
-        '''Read from socket.'''
-        if self._data_buffer.has_data():
-            raise tornado.gen.Return(self._data_buffer.get_bytes(length))
+        '''Read from socket.
+
+        This function reads only from the socket and not the buffer.
+
+        This function uses a blocking fast path consecutively for
+        every 100 reads.
+        '''
+        if self._blocking_counter < 100:
+            try:
+                data = self._socket.recv(length)
+            except ssl.SSLError as error:
+                if error.errno != ssl.SSL_ERROR_WANT_READ:
+                    raise
+            except IOError as error:
+                if error.errno not in (errno.EWOULDBLOCK, errno.EINPROGRESS):
+                    raise
+            else:
+                if data:
+                    self._blocking_counter += 1
+                    raise tornado.gen.Return(data)
+                else:
+                    self.close()
+                    raise StreamClosedError('Stream is closed.')
+        else:
+            self._blocking_counter = 0
 
         events = yield self._wait_event(READ | ERROR, timeout=self._rw_timeout)
 
@@ -331,7 +391,7 @@ class IOStream(object):
 
     @tornado.gen.coroutine
     def read_bytes(self, length, streaming_callback=None):
-        '''Read exactly `length` bytes from the socket.
+        '''Read exactly `length` bytes from the socket or buffer.
 
         Args:
             length (int): Number of bytes to read.
@@ -346,7 +406,10 @@ class IOStream(object):
             data_list = []
 
         while bytes_left > 0:
-            data = yield self.read(min(bytes_left, self._chunk_size))
+            if self._data_buffer.has_data():
+                data = self._data_buffer.get_bytes(length)
+            else:
+                data = yield self.read(min(bytes_left, self._chunk_size))
 
             bytes_left -= len(data)
 
@@ -364,7 +427,7 @@ class IOStream(object):
 
     @tornado.gen.coroutine
     def read_until(self, delimiter):
-        '''Read until a delimiter.
+        '''Read until a delimiter from socket or buffer.
 
         Returns:
             bytes: The data including the delimiter.
@@ -386,7 +449,7 @@ class IOStream(object):
 
     @tornado.gen.coroutine
     def read_until_regex(self, pattern):
-        '''Read until a regular expression.
+        '''Read until a regular expression from socket or buffer.
 
         Returns:
             bytes: The data including the match.
@@ -408,7 +471,7 @@ class IOStream(object):
 
     @tornado.gen.coroutine
     def read_until_close(self, streaming_callback=None):
-        '''Read until the socket closes.
+        '''Read from the buffer and until the socket closes.
 
         Returns:
             bytes,None
@@ -418,10 +481,13 @@ class IOStream(object):
             data_list = []
 
         while True:
-            try:
-                data = yield self.read(self._chunk_size)
-            except StreamClosedError:
-                break
+            if self._data_buffer.has_data():
+                data = self._data_buffer.get_bytes(self._chunk_size)
+            else:
+                try:
+                    data = yield self.read(self._chunk_size)
+                except StreamClosedError:
+                    break
 
             if streaming_callback:
                 streaming_callback(data)
@@ -477,12 +543,12 @@ class SSLIOStream(IOStream):
             try:
                 self._socket.do_handshake()
                 break
-            except ssl.SSLError as err:
-                if err.args[0] == ssl.SSL_ERROR_WANT_READ:
+            except ssl.SSLError as error:
+                if error.errno == ssl.SSL_ERROR_WANT_READ:
                     events = yield self._wait_event(
                         READ | ERROR, timeout=timeout
                     )
-                elif err.args[0] == ssl.SSL_ERROR_WANT_WRITE:
+                elif error.errno == ssl.SSL_ERROR_WANT_WRITE:
                     events = yield self._wait_event(
                         WRITE | ERROR, timeout=timeout
                     )

@@ -19,7 +19,7 @@ import zlib
 from wpull.actor import Event
 from wpull.errors import (SSLVerficationError, ConnectionRefused, NetworkError,
     ProtocolError)
-from wpull.iostream import SSLIOStream, IOStream
+from wpull.iostream import SSLIOStream, IOStream, BufferFullError
 from wpull.http.request import Response
 from wpull.network import Resolver
 
@@ -161,7 +161,6 @@ class Connection(object):
                     error=error)) from error
         else:
             _logger.debug('Connected.')
-            self._connected = True
 
     @tornado.gen.coroutine
     def fetch(self, request, recorder=None, response_factory=Response):
@@ -227,9 +226,9 @@ class Connection(object):
         self._events.pre_request(request)
 
         if sys.version_info < (3, 3):
-            error_class = (socket.error, StreamClosedError)
+            error_class = (socket.error, StreamClosedError, ssl.SSLError)
         else:
-            error_class = (ConnectionError, StreamClosedError)
+            error_class = (ConnectionError, StreamClosedError, ssl.SSLError)
 
         try:
             yield self._send_request_header(request)
@@ -242,6 +241,8 @@ class Connection(object):
             yield self._read_response_body(request, response)
         except error_class as error:
             raise NetworkError('Network error: {0}'.format(error)) from error
+        except BufferFullError as error:
+            raise ProtocolError(*error.args) from error
 
         self._events.response.fire(response)
 

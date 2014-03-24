@@ -32,6 +32,11 @@ class DNSNotFound(NetworkError):
     pass
 
 
+class NetworkTimedOut(NetworkError):
+    '''Connection read/write timed out.'''
+    pass
+
+
 class ExitStatus(object):
     '''Program exit status codes.'''
     generic_error = 1
