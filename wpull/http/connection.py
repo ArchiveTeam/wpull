@@ -682,11 +682,13 @@ class ConnectionPool(collections.Mapping):
 
         if request.address:
             address = request.address
+            host, port = address
         else:
             host = request.url_info.hostname
             port = request.url_info.port
             address = (host, port)
-            ssl = (request.url_info.scheme == 'https')
+
+        ssl = (request.url_info.scheme == 'https')
 
         if address not in self._pools:
             _logger.debug('New host pool.')
