@@ -231,9 +231,14 @@ class IOStream(object):
         try:
             events = yield self._event_result.get(deadline)
         except toro.Timeout as error:
-            raise NetworkTimedOut(
-                'Connection event 0x{0:x} timed out.'.format(events)
-            ) from error
+            msg = 'Connection timed out (Events: 0x{events_code:x}).'
+
+            if events & READ and not events & WRITE:
+                msg = 'Read timed out (Events: 0x{events_code:x}).'
+            elif events & WRITE and not events & READ:
+                msg = 'Write timed out (Events: 0x{events_code:x}).'
+
+            raise NetworkTimedOut(msg.format(events_code=events)) from error
 
         raise tornado.gen.Return(events)
 
