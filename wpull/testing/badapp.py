@@ -119,6 +119,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b'a' * length)
         self.close_connection = True
+        time.sleep(0.3)
 
     def basic_chunked(self):
         self.send_response(200)

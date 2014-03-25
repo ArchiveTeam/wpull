@@ -246,13 +246,23 @@ class Connection(object):
 
         self._events.response.fire(response)
 
-        if response.fields.get('Connection') == 'close':
+        if self.should_close(
+        request.version, response.fields.get('Connection')):
             _logger.debug('HTTP connection close.')
             self.close()
         else:
             self._io_stream.monitor_for_close()
 
         raise tornado.gen.Return(response)
+
+    @classmethod
+    def should_close(cls, http_version, connection_field):
+        connection_field = (connection_field or '').lower()
+
+        if http_version == 'HTTP/1.0':
+            return connection_field.replace('-', '') != 'keepalive'
+        else:
+            return connection_field == 'close'
 
     @tornado.gen.coroutine
     def _send_request_header(self, request):
