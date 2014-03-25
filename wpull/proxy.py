@@ -5,6 +5,7 @@ import contextlib
 import datetime
 import functools
 import logging
+import re
 import time
 from tornado.iostream import StreamClosedError
 import tornado.tcpserver
@@ -144,8 +145,15 @@ class HTTPProxyHandler(object):
             self._io_stream.close()
             return
 
-        if self._rewrite and url.startswith('http://wpull.invalid__'):
-            url = 'https://' + url.replace('http://wpull.invalid__', '', 1)
+        if self._rewrite and url.startswith('http://wpull.invalid'):
+            match = re.match(r'http://wpull\.invalid__([a-zA-Z]+)__(.*)', url)
+            scheme = match.group(1)
+            munged_url = match.group(2)
+
+            if munged_url.startswith('wpull.invalid'):
+                munged_url = munged_url.split('__', 2)[-1]
+
+            url = '{0}://{1}'.format(scheme, munged_url)
 
         request = Request.new(url, method, url_encoding='latin-1')
         request.version = version
