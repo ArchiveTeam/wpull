@@ -181,8 +181,8 @@ function setupEvents() {
 
 		if (rewriteEnabled && requestData['url'].indexOf('https://') === 0) {
 			// Oh yeah!
-			networkRequest.changeUrl('http://wpull.invalid/'
-					+ requestData['url']);
+			networkRequest.changeUrl('http://wpull.invalid__'
+					+ requestData['url'].replace('https://', ''));
 		}
 	};
 

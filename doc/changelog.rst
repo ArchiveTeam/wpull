@@ -11,6 +11,7 @@ What's New
 * PhantomJS:
 
   * Fixes things not appearing in WARC files. This regression was introduced in 0.26 where PhantomJS's disk cache was enabled. It is now disabled again.
+  * Fixes HTTPS URL rewriting where relative URLs were not properly rewritten.
 
 * API:
 

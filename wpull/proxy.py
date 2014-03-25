@@ -3,14 +3,15 @@
 import concurrent.futures
 import contextlib
 import datetime
+import functools
 import logging
 import time
 from tornado.iostream import StreamClosedError
 import tornado.tcpserver
 import toro
 
-import wpull.extended
 from wpull.http.request import Request
+import wpull.iostream
 from wpull.recorder import BaseRecorder, BaseRecorderSession, ProgressRecorder
 
 
@@ -23,7 +24,7 @@ class HTTPProxyServer(tornado.tcpserver.TCPServer):
     Args:
         http_client (:class:`.http.client.Client`): The HTTP client.
         rewrite (bool): If True, strip off URLs starting
-            ``http://wpull.invalid/``.
+            ``http://wpull.invalid``.
     '''
     def __init__(self, http_client, rewrite=True, **kwargs):
         super().__init__(**kwargs)
@@ -34,11 +35,13 @@ class HTTPProxyServer(tornado.tcpserver.TCPServer):
         _logger.debug('Handling stream from {0}.'.format(address))
         # Re-wrap the socket
         if isinstance(stream, tornado.iostream.SSLIOStream):
-            wpull_io_stream_class = wpull.extended.SSLIOStream
+            wpull_io_stream_class = functools.partial(
+                wpull.iostream.SSLIOStream, server_hostname=address[0]
+            )
         else:
-            wpull_io_stream_class = wpull.extended.IOStream
+            wpull_io_stream_class = wpull.iostream.IOStream
 
-        wpull_stream = wpull_io_stream_class(stream.socket, read_timeout=900)
+        wpull_stream = wpull_io_stream_class(stream.socket, rw_timeout=900)
 
         handler = HTTPProxyHandler(
             self._http_client, wpull_stream, self._rewrite
@@ -141,8 +144,8 @@ class HTTPProxyHandler(object):
             self._io_stream.close()
             return
 
-        if self._rewrite and url.startswith('http://wpull.invalid/'):
-            url = url.replace('http://wpull.invalid/', '', 1)
+        if self._rewrite and url.startswith('http://wpull.invalid__'):
+            url = 'https://' + url.replace('http://wpull.invalid__', '', 1)
 
         request = Request.new(url, method, url_encoding='latin-1')
         request.version = version
