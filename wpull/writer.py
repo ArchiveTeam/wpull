@@ -426,7 +426,7 @@ class PathNamer(BasePathNamer):
             for part in parts
         ]
 
-        return os.path.join(*parts)
+        return os.path.join(self._root, *parts)
 
 
 def url_to_filename(url, index='index.html', alt_char=False):

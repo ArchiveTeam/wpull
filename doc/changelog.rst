@@ -6,6 +6,7 @@ What's New
 ==================
 
 * Fixes crash when redirected to malformed URL.
+* Fixes ``--directory-prefix`` not being honored.
 
 
 0.27 (2014-03-23)
@@ -22,7 +23,7 @@ What's New
 * PhantomJS:
 
   * Implements "smart scrolling" that avoids unnecessary scrolling.
-  * Adds ``--no-phantomjs-smart-scroll
+  * Adds ``--no-phantomjs-smart-scroll``
 
 * API:
 
