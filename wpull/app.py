@@ -743,7 +743,6 @@ class Builder(object):
         phantomjs_client = self._factory.new(
             'PhantomJSClient',
             'localhost:{0}'.format(proxy_port),
-            extra_args=['--disk-cache=true'],
             page_settings=page_settings,
             default_headers=default_headers,
         )

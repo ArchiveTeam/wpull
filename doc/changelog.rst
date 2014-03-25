@@ -8,6 +8,10 @@ What's New
 * Fixes crash when redirected to malformed URL.
 * Fixes ``--directory-prefix`` not being honored.
 * Uses new internal socket connection stream system.
+* PhantomJS:
+
+  * Fixes things not appearing in WARC files. This regression was introduced in 0.26 where PhantomJS's disk cache was enabled. It is now disabled again.
+
 * API:
 
   * New ``iostream`` module.
