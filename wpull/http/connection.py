@@ -249,6 +249,8 @@ class Connection(object):
         if response.fields.get('Connection') == 'close':
             _logger.debug('HTTP connection close.')
             self.close()
+        else:
+            self._io_stream.monitor_for_close()
 
         raise tornado.gen.Return(response)
 

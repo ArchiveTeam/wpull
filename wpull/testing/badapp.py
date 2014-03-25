@@ -32,6 +32,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/': self.basic,
             '/content_length': self.basic_content_length,
             '/content_length_with_close': self.basic_content_length_with_close,
+            '/content_length_without_close':
+                self.basic_content_length_without_close,
             '/chunked': self.basic_chunked,
             '/chunked_trailer': self.basic_chunked_trailer,
             '/chunked_trailer_2': self.basic_chunked_trailer_2,
@@ -106,6 +108,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-length', length)
         self.send_header('Connection', 'close')
+        self.end_headers()
+        self.wfile.write(b'a' * length)
+        self.close_connection = True
+
+    def basic_content_length_without_close(self):
+        length = 100
+        self.send_response(200)
+        self.send_header('Content-length', length)
         self.end_headers()
         self.wfile.write(b'a' * length)
         self.close_connection = True
