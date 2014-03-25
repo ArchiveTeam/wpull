@@ -389,12 +389,23 @@ class IOStream(object):
         else:
             self._blocking_counter = 0
 
-        events = yield self._wait_event(READ | ERROR, timeout=self._rw_timeout)
+        while True:
+            events = yield self._wait_event(
+                READ | ERROR, timeout=self._rw_timeout
+            )
 
-        if events & ERROR:
-            self._raise_socket_error()
+            if events & ERROR:
+                self._raise_socket_error()
 
-        data = self._socket.recv(length)
+            try:
+                data = self._socket.recv(length)
+            except ssl.SSLError as error:
+                if error.errno == ssl.SSL_ERROR_WANT_READ:
+                    continue
+                else:
+                    raise
+            else:
+                break
 
         if not data:
             self.close()
