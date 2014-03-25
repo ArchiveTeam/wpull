@@ -33,6 +33,7 @@ wpull Package
    api/http.request
    api/http.util
    api/http.web
+   api/iostream
    api/namevalue
    api/network
    api/options

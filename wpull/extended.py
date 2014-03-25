@@ -1,5 +1,11 @@
 # encoding=utf-8
-'''Extended subclasses.'''
+'''Extended subclasses.
+
+.. deprecated:: 0.28
+
+    This module contains unreliable kludged subclasses. It should not be
+    used and will be removed in the future.
+'''
 import datetime
 import logging
 import tornado.iostream
