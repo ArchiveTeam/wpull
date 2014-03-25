@@ -7,6 +7,11 @@ What's New
 
 * Fixes crash when redirected to malformed URL.
 * Fixes ``--directory-prefix`` not being honored.
+* Uses new internal socket connection stream system.
+* API:
+
+  * New ``iostream`` module.
+  * ``extended`` module is deprecated.
 
 
 0.27 (2014-03-23)

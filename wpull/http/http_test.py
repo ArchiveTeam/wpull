@@ -68,6 +68,25 @@ class TestConnection(BadAppTestCase):
         self.assertEqual(200, response.status_code)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_connection_reuse_with_http_close(self):
+        for dummy in range(5):
+            response = yield self.fetch('/content_length_with_close')
+            self.assertEqual(200, response.status_code)
+            self.assertEqual('100', response.fields['Content-Length'])
+            self.assertEqual(b'a' * 100, response.body.content)
+            self.assertEqual(100, response.body.content_size)
+
+    @unittest.skip("This case is too difficult to solve.")
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_connection_reuse_without_http_close(self):
+        for dummy in range(5):
+            response = yield self.fetch('/content_length_without_close')
+            self.assertEqual(200, response.status_code)
+            self.assertEqual('100', response.fields['Content-Length'])
+            self.assertEqual(b'a' * 100, response.body.content)
+            self.assertEqual(100, response.body.content_size)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_read_timeout(self):
         connection = Connection('localhost', self._port, read_timeout=0.1)
         request = Request.new(self.get_url('/sleep_long'))
@@ -470,6 +489,19 @@ class TestHTTP(unittest.TestCase):
         self.assertEqual('HTTP/1.0', version)
         self.assertEqual(404, code)
         self.assertEqual(b'N\x99t \x0eounz'.decode('latin-1'), msg)
+
+    def test_connection_should_close(self):
+        self.assertTrue(Connection.should_close('HTTP/1.0', None))
+        self.assertTrue(Connection.should_close('HTTP/1.0', 'wolf'))
+        self.assertTrue(Connection.should_close('HTTP/1.0', 'close'))
+        self.assertTrue(Connection.should_close('HTTP/1.0', 'ClOse'))
+        self.assertFalse(Connection.should_close('HTTP/1.0', 'keep-Alive'))
+        self.assertFalse(Connection.should_close('HTTP/1.0', 'keepalive'))
+        self.assertTrue(Connection.should_close('HTTP/1.1', 'close'))
+        self.assertTrue(Connection.should_close('HTTP/1.1', 'ClOse'))
+        self.assertFalse(Connection.should_close('HTTP/1.1', 'dragons'))
+        self.assertFalse(Connection.should_close('HTTP/1.1', 'keep-alive'))
+        self.assertTrue(Connection.should_close('HTTP/1.2', 'close'))
 
 
 class SimpleHandler(tornado.web.RequestHandler):
