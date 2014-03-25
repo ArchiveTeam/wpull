@@ -44,6 +44,7 @@ from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
     IgnoreFileWriter, TimestampingFileWriter, AntiClobberFileWriter)
+from wpull.namevalue import NameValueRecord
 
 
 # Module lua is imported later on demand.
@@ -732,7 +733,18 @@ class Builder(object):
         proxy_server.add_socket(proxy_socket)
 
         page_settings = {}
-        default_headers = {'Accept-Encoding': 'identity'}
+        default_headers = NameValueRecord()
+
+        for header_string in self._args.header:
+            default_headers.parse(header_string)
+
+        # Since we can only pass a one-to-one mapping to PhantomJS,
+        # we put these last since NameValueRecord.items() will use only the
+        # first value added for each key.
+        default_headers.add('Accept-Encoding', 'identity')
+        default_headers.add('Accept-Language', '*')
+
+        default_headers = dict(default_headers.items())
 
         if self._args.read_timeout:
             page_settings['resourceTimeout'] = self._args.read_timeout * 1000

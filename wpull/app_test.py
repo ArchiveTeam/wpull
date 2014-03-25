@@ -612,6 +612,7 @@ class TestApp(GoodAppTestCase):
             '--phantomjs',
             '--phantomjs-wait', '0.1',
             '--phantomjs-scroll', '2',
+            '--header', 'accept-language: dragon',
         ])
         builder = Builder(args)
         with cd_tempdir():
@@ -638,6 +639,8 @@ class TestApp(GoodAppTestCase):
                 self.assertIn(b'application/pdf', data)
                 self.assertIn(b'application/json', data)
                 self.assertIn(b'"set_scroll_top"', data)
+                self.assertIn(b'Accept-Encoding: identity', data)
+                self.assertIn(b'Accept-Language: dragon', data)
 
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
