@@ -2,7 +2,8 @@
 
 
 from wpull.backport.testing import unittest
-from wpull.database import SQLiteURLTable, Status
+from wpull.database import SQLiteURLTable
+from wpull.item import Status
 
 
 class TestDatabase(unittest.TestCase):

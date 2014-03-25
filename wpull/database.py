@@ -16,7 +16,7 @@ from sqlalchemy.sql.expression import select, insert, update
 from sqlalchemy.sql.schema import Column, ForeignKey
 from sqlalchemy.sql.sqltypes import String, Integer, Boolean, Enum
 
-from wpull.url import URLInfo
+from wpull.item import Status, URLRecord
 
 
 _logger = logging.getLogger(__name__)
@@ -31,103 +31,6 @@ class DatabaseError(Exception):
 class NotFound(DatabaseError):
     '''Item not found in the table.'''
     pass
-
-
-class Status(object):
-    '''URL status.'''
-    todo = 'todo'
-    '''The item has not yet been processed.'''
-    in_progress = 'in_progress'
-    '''The item is in progress of being processed.'''
-    done = 'done'
-    '''The item has been processed successfully.'''
-    error = 'error'
-    '''The item encountered an error during processing.'''
-    skipped = 'skipped'
-    '''The item was excluded from processing due to some rejection filters.'''
-
-
-_URLRecordType = collections.namedtuple(
-    'URLRecordType',
-    [
-        'url',
-        'status',
-        'try_count',
-        'level',
-        'top_url',
-        'status_code',
-        'referrer',
-        'inline',
-        'link_type',
-        'url_encoding',
-        'post_data',
-        'filename',
-    ]
-)
-
-
-class URLRecord(_URLRecordType):
-    '''An entry in the URL table describing a URL to be downloaded.
-
-    Attributes:
-        url (str): The URL.
-        status (str): The status as specified from :class:`Status`.
-        try_count (int): The number of attempts on this URL.
-        level (int): The recursive depth of this URL. A level of ``0``
-            indicates the URL was initially supplied to the program (the
-            top URL).
-            Level ``1`` means the URL was linked from the top URL.
-        top_url (str): The earliest ancestor URL of this URL. The `top_url`
-            is typically the URL supplied at the start of the program.
-        status_code (int): The HTTP status code.
-        referrer (str): The parent URL that linked to this URL.
-        inline (bool): Whether this URL was an embedded object (such as an
-            image or a stylesheet) of the parent URL.
-        link_type (str): Describes the document type. Values are:
-
-            * ``html``: HTML document
-            * ``css``: CSS document
-
-        url_encoding (str): The name of the codec used to encode/decode
-            the URL. See :class:`.url.URLInfo`.
-        post_data (str): If given, the URL should be fetched as a
-            POST request containing `post_data`.
-        filename (str): The path to where the file was saved.
-    '''
-    @property
-    def url_info(self):
-        '''Return an :class:`.url.URLInfo` for the ``url``.'''
-        return URLInfo.parse(self.url, encoding=self.url_encoding or 'utf8')
-
-    @property
-    def referrer_info(self):
-        '''Return an :class:`.url.URLInfo` for the ``referrer``.'''
-        return URLInfo.parse(
-            self.referrer, encoding=self.url_encoding or 'utf8')
-
-    def to_dict(self):
-        '''Return the values as a ``dict``.
-
-        In addition to the attributes, it also includes the ``url_info`` and
-        ``referrer_info`` properties converted to ``dict`` as well.
-        '''
-        return {
-            'url': self.url,
-            'status': self.status,
-            'url_info': self.url_info.to_dict(),
-            'try_count': self.try_count,
-            'level': self.level,
-            'top_url': self.top_url,
-            'status_code': self.status_code,
-            'referrer': self.referrer,
-            'referrer_info':
-                self.referrer_info.to_dict() if self.referrer else None,
-            'inline': self.inline,
-            'link_type': self.link_type,
-            'url_encoding': self.url_encoding,
-            'post_data': self.post_data,
-            'filename': self.filename,
-        }
 
 
 class URLDBRecord(DBBase):

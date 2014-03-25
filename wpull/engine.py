@@ -7,9 +7,10 @@ import tornado.gen
 import toro
 
 import wpull.actor
-from wpull.database import Status, NotFound, URLRecord
+from wpull.database import NotFound
 from wpull.errors import (ExitStatus, ServerError, ConnectionRefused, DNSNotFound,
     SSLVerficationError, ProtocolError, NetworkError)
+from wpull.item import Status, URLItem
 from wpull.url import URLInfo
 import wpull.util
 
@@ -290,133 +291,3 @@ class Engine(object):
         _logger.info(_('A SSL certificate could not be verified.'))
         _logger.info(_('To ignore and proceed insecurely, '
             'use ‘--no-check-certificate’.'))
-
-
-class URLItem(object):
-    '''Item for a URL that needs to processed.'''
-    def __init__(self, url_table, url_info, url_record):
-        self._url_table = url_table
-        self._url_info = url_info
-        self._url_record = url_record
-        self._url = self._url_record.url
-        self._processed = False
-        self._try_count_incremented = False
-
-    @property
-    def url_info(self):
-        '''Return the :class:`.url.URLInfo`.'''
-        return self._url_info
-
-    @property
-    def url_record(self):
-        '''Return the :class:`.database.URLRecord`.'''
-        return self._url_record
-
-    @property
-    def url_table(self):
-        '''Return the :class:`.database.URLTable`.'''
-        return self._url_table
-
-    @property
-    def is_processed(self):
-        '''Return whether the item has been processed.'''
-        return self._processed
-
-    def skip(self):
-        '''Mark the item as processed without download.'''
-        _logger.debug(_('Skipping ‘{url}’.').format(url=self._url))
-        self._url_table.update(self._url, status=Status.skipped)
-
-        self._processed = True
-
-    def set_status(self, status, increment_try_count=True, filename=None):
-        '''Mark the item with the given status.
-
-        Args:
-            status (Status): a value from :class:`.database.Status`
-            increment_try_count (bool): if True, increment the ``try_count``
-                value
-        '''
-        assert not self._try_count_incremented
-
-        if increment_try_count:
-            self._try_count_incremented = True
-
-        _logger.debug('Marking URL {0} status {1}.'.format(self._url, status))
-        self._url_table.update(
-            self._url,
-            increment_try_count=increment_try_count,
-            status=status,
-            filename=filename,
-        )
-
-        self._processed = True
-
-    def set_value(self, **kwargs):
-        '''Set values for the URL in table.'''
-        self._url_table.update(self._url, **kwargs)
-
-    def add_inline_url_infos(self, url_infos, encoding=None, link_type=None,
-    post_data=None):
-        '''Add inline links scraped from the document.
-
-        Args:
-            url_infos (iterable): A list of :class:`.url.URLInfo`
-            encoding (str): The encoding of the document.
-        '''
-        inline_urls = tuple([info.url for info in url_infos])
-        _logger.debug('Adding inline URLs {0}'.format(inline_urls))
-        self._url_table.add(
-            inline_urls,
-            inline=True,
-            level=self._url_record.level + 1,
-            referrer=self._url_record.url,
-            top_url=self._url_record.top_url or self._url_record.url,
-            url_encoding=encoding,
-            post_data=post_data,
-        )
-
-    def add_linked_url_infos(self, url_infos, encoding=None, link_type=None,
-    post_data=None):
-        '''Add linked links scraped from the document.
-
-        Args:
-            url_infos (iterable): A list of :class:`.url.URLInfo`
-            encoding (str): The encoding of the document.
-        '''
-        linked_urls = tuple([info.url for info in url_infos])
-        _logger.debug('Adding linked URLs {0}'.format(linked_urls))
-        self._url_table.add(
-            linked_urls,
-            level=self._url_record.level + 1,
-            referrer=self._url_record.url,
-            top_url=self._url_record.top_url or self._url_record.url,
-            link_type=link_type,
-            url_encoding=encoding,
-            post_data=post_data,
-        )
-
-    def child_url_record(self, url_info, inline=False, encoding=None,
-    link_type=None, post_data=None):
-        '''Return a child URLRecord.
-
-        This function is useful for testing filters before adding to table.
-        '''
-        return URLRecord(
-            url_info.url,  # url
-            Status.todo,  # status
-            0,  # try_count
-            self._url_record.level + 1,  # level
-            self._url_record.top_url or self._url_record.url,  # top_url
-            None,  # status_code
-            self._url_record.url,  # referrer
-            inline,  # inline
-            link_type,  # link_type
-            encoding,  # url_encoding
-            post_data,  # post_data
-            None  # filename
-        )
-
-    def add_url_item(self, url_info, request):
-        # TODO: the request should be serialized into the url_table
-        raise NotImplementedError()
