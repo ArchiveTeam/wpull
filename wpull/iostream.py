@@ -37,6 +37,8 @@ class State(object):
     '''Connected.'''
     closed = 4
     '''Closed.'''
+    wait_for_close = 5
+    '''Waiting for remote to close.'''
 
 
 class BufferFullError(ValueError):
@@ -213,7 +215,9 @@ class IOStream(object):
         '''Handle and set the async result and clear the event listener.'''
         self._update_handler(0)
 
-        if self._event_result and not self._event_result.ready():
+        if self._state == State.wait_for_close:
+            self.check_socket_closed()
+        elif self._event_result and not self._event_result.ready():
             self._event_result.set(events)
         else:
             _logger.debug(
@@ -315,6 +319,8 @@ class IOStream(object):
         This function uses a blocking fast path consecutively for
         every 100 writes.
         '''
+        self.stop_monitor_for_close()
+
         total_bytes_sent = 0
 
         while total_bytes_sent < len(data):
@@ -362,6 +368,8 @@ class IOStream(object):
         This function uses a blocking fast path consecutively for
         every 100 reads.
         '''
+        self.stop_monitor_for_close()
+
         if self._blocking_counter < 100:
             try:
                 data = self._socket.recv(length)
@@ -507,6 +515,48 @@ class IOStream(object):
     def set_close_callback(self, callback):
         '''Set the callback that will invoked when the stream is closed.'''
         self._stream_closed_callback = tornado.stack_context.wrap(callback)
+
+    def monitor_for_close(self):
+        '''Wait for the stream to close.
+
+        This function is used to keep the socket around until closed. Any
+        data received is discarded. Any read or write functions will cause
+        the wait to be cancelled.
+        '''
+        if self._state == State.connected:
+            self._state = State.wait_for_close
+
+            _logger.debug('Monitoring for close.')
+            self._update_handler(READ | ERROR)
+
+    def stop_monitor_for_close(self):
+        '''Stop waiting for the socket to close.'''
+        if self._state == State.wait_for_close:
+            self._state = State.connected
+            self._update_handler(0)
+
+    def check_socket_closed(self):
+        '''Check whether the socket was closed.
+
+        Any data received is discarded. If any error occurs, the stream
+        will be closed.
+        '''
+        _logger.debug('Check socket closed.')
+
+        try:
+            data = self._socket.recv(self._chunk_size)
+        except ssl.SSLError as error:
+            if error.errno != ssl.SSL_ERROR_WANT_READ:
+                self.close()
+        except IOError as error:
+            if error.errno not in (errno.EWOULDBLOCK, errno.EINPROGRESS):
+                self.close()
+        else:
+            if not data:
+                self.close()
+
+        _logger.debug('Check socket closed={0}'.format(self.closed()))
+        return self.closed()
 
 
 class SSLIOStream(IOStream):
