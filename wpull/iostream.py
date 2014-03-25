@@ -28,27 +28,33 @@ _logger = logging.getLogger(__name__)
 
 
 class State(object):
-    '''Connection states.'''
+    '''Connection states.
+
+    Attributes:
+        not_yet_connected (1): Not yet connected.
+        connecting (2): Connecting.
+        connected (3): Connected.
+        closed (4): Closed.
+        wait_for_close (5): Waiting for remote to close.
+    '''
     not_yet_connected = 1
-    '''Not yet connected.'''
     connecting = 2
-    '''Connecting.'''
     connected = 3
-    '''Connected.'''
     closed = 4
-    '''Closed.'''
     wait_for_close = 5
-    '''Waiting for remote to close.'''
 
 
 class BufferFullError(ValueError):
-    '''Exception for Data Buffer when the buffer is full.'''
+    '''Exception for :class:`DataBuffer` when the buffer is full.'''
 
 
 class DataBuffer(object):
     '''A growing data buffer.
 
-    This buffer uses algorithms similar to :class:`tornado.iostream`.
+    Args:
+        max_size (int): The maximum number of bytes to store.
+
+    This buffer uses algorithms similar to :module:`tornado.iostream`.
     '''
     def __init__(self, max_size=1048576):
         self._data = collections.deque()
@@ -57,7 +63,7 @@ class DataBuffer(object):
 
     @property
     def num_bytes(self):
-        '''Return the number of bytes in the buffer.'''
+        '''The number of bytes in the buffer.'''
         return self._num_bytes
 
     def get_bytes(self, length):
@@ -76,7 +82,11 @@ class DataBuffer(object):
         return data
 
     def get_until_delim(self, delim):
-        '''Return the data up to and including the delimiter.'''
+        '''Return the data up to and including the delimiter.
+
+        Args:
+            delim (bytes): The delimiter.
+        '''
         while self._data:
             first_item = self._data[0]
 
@@ -101,7 +111,11 @@ class DataBuffer(object):
         return b''
 
     def get_until_regex(self, pattern):
-        '''Return the data up to and including the match.'''
+        '''Return the data up to and including the match.
+
+        Args:
+            pattern (bytes, compiled regex object): The pattern.
+        '''
         while self._data:
             first_item = self._data[0]
             match = re.search(pattern, first_item)
@@ -126,7 +140,11 @@ class DataBuffer(object):
         return b''
 
     def put(self, data):
-        '''Put data into the buffer.'''
+        '''Put data into the buffer.
+
+        Args:
+            data (bytes): The data. Must not be empty.
+        '''
         assert data
 
         self._num_bytes += len(data)
@@ -191,12 +209,12 @@ class IOStream(object):
 
     @property
     def socket(self):
-        '''Return the socket.'''
+        '''The socket.'''
         return self._socket
 
     @property
     def state(self):
-        '''Return the current state.'''
+        '''The current state defined in :class:`State`.'''
         return self._state
 
     def closed(self):
@@ -498,7 +516,8 @@ class IOStream(object):
         '''Read from the buffer and until the socket closes.
 
         Returns:
-            bytes,None
+            bytes, None: Returns ``bytes`` if `streaming_callback` is not
+            specified.
         '''
 
         if not streaming_callback:
@@ -628,7 +647,7 @@ class SSLIOStream(IOStream):
         '''Verify the certificates.
 
         Raises:
-            SSLVerficationError
+            .errors.SSLVerficationError
         '''
         peer_certificate = self._socket.getpeercert()
 

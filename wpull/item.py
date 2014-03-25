@@ -125,7 +125,7 @@ class URLItem(object):
 
     @property
     def url_record(self):
-        '''Return the :class:`.database.URLRecord`.'''
+        '''Return the :class:`URLRecord`.'''
         return self._url_record
 
     @property
@@ -149,7 +149,7 @@ class URLItem(object):
         '''Mark the item with the given status.
 
         Args:
-            status (Status): a value from :class:`.database.Status`
+            status (int): a value from :class:`Status`.
             increment_try_count (bool): if True, increment the ``try_count``
                 value
         '''

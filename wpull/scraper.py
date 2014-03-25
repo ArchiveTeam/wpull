@@ -26,8 +26,8 @@ class BaseDocumentScraper(BaseDocumentReader):
         '''Extract the URLs from the document.
 
         Args:
-            request: :class:`.http.request.Request`
-            response: :class:`http.request.Response`
+            request (:class:`.http.request.Request`): The request.
+            response (:class:`http.request.Response`): The response.
 
         Returns:
             dict, None: Returns a dict or None.
@@ -239,7 +239,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         '''Iterate the document root for links.
 
         Returns:
-            LinkInfo: A iterator of :class:`LinkedInfo`.
+            iterable: A iterator of :class:`LinkedInfo`.
         '''
         for element in root.iter():
             for scraped_link in cls.iter_links_element(element):

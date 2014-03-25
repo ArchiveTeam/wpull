@@ -21,7 +21,7 @@ class HTTPProxyServer(tornado.tcpserver.TCPServer):
     '''HTTP proxy server for use with man-in-the-middle recording.
 
     Args:
-        http_client: An instance of :class:`.http.client.Client`.
+        http_client (:class:`.http.client.Client`): The HTTP client.
         rewrite (bool): If True, strip off URLs starting
             ``http://wpull.invalid/``.
     '''
@@ -52,7 +52,7 @@ class HTTPProxyHandler(object):
     '''Handler class for HTTP Proxy Server.
 
     Args:
-        http_client: An instance of :class:`.http.client.Client`.
+        http_client (:class:`.http.client.Client`): The HTTP client.
         stream: An instance of class:`.extended.IOStream`.
         rewrite (bool): See :class:`HTTPProxyServer`.
     '''

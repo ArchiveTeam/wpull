@@ -6,7 +6,7 @@ import collections
 class Factory(collections.Mapping, object):
     '''Allows selection of classes and keeps track of instances.
 
-    This class behaves like a mapping. Keys are class names and values are
+    This class behaves like a mapping. Keys are names of classes and values are
     instances.
     '''
     def __init__(self, class_map=None):
@@ -16,10 +16,12 @@ class Factory(collections.Mapping, object):
 
     @property
     def class_map(self):
+        '''A mapping of names to class types.'''
         return self._class_map
 
     @property
     def instance_map(self):
+        '''A mapping of names to instances.'''
         return self._instance_map
 
     def set(self, name, class_):
@@ -56,6 +58,10 @@ class Factory(collections.Mapping, object):
         return instance
 
     def is_all_initialized(self):
-        '''Return whether all the instances have been initialized.'''
+        '''Return whether all the instances have been initialized.
+
+        Returns:
+            bool
+        '''
         return frozenset(self._class_map.keys()) == \
             frozenset(self._instance_map.keys())

@@ -34,6 +34,7 @@ wpull Package
    api/http.util
    api/http.web
    api/iostream
+   api/item
    api/namevalue
    api/network
    api/options

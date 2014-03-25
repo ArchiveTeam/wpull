@@ -22,6 +22,7 @@ MODULES = [
     'http.util',
     'http.web',
     'iostream',
+    'item',
     'namevalue',
     'network',
     'options',

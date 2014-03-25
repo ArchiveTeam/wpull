@@ -106,9 +106,10 @@ def reset_file_offset(file):
     file.seek(offset)
 
 
-def peek_file(file):
+def peek_file(file, length=4096):
+    '''Peek the file by calling ``read`` on it.'''
     with reset_file_offset(file):
-        return file.read(4096)
+        return file.read(length)
 
 
 def to_bytes(instance, encoding='utf-8', error='strict'):
