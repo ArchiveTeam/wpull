@@ -68,6 +68,15 @@ class TestConnection(BadAppTestCase):
         self.assertEqual(200, response.status_code)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_connection_reuse_with_http_close(self):
+        for dummy in range(5):
+            response = yield self.fetch('/content_length_with_close')
+            self.assertEqual(200, response.status_code)
+            self.assertEqual('100', response.fields['Content-Length'])
+            self.assertEqual(b'a' * 100, response.body.content)
+            self.assertEqual(100, response.body.content_size)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_read_timeout(self):
         connection = Connection('localhost', self._port, read_timeout=0.1)
         request = Request.new(self.get_url('/sleep_long'))

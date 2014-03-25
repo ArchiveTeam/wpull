@@ -205,8 +205,8 @@ class Connection(object):
             self._events.clear()
             self._active = False
 
-        if not self._keep_alive:
-            _logger.debug('Closing connection.')
+        if not self._keep_alive and self.connected:
+            _logger.debug('Not keep-alive. Closing connection.')
             self.close()
 
         _logger.debug('Fetching done.')
@@ -245,6 +245,10 @@ class Connection(object):
             raise ProtocolError(*error.args) from error
 
         self._events.response.fire(response)
+
+        if response.fields.get('Connection') == 'close':
+            _logger.debug('HTTP connection close.')
+            self.close()
 
         raise tornado.gen.Return(response)
 
