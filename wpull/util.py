@@ -273,20 +273,18 @@ def detect_encoding(data, encoding=None, fallback='latin1', is_html=False):
     if encoding:
         encoding = normalize_codec_name(encoding)
 
-    if encoding:
-        override_encodings = [encoding]
-    else:
-        override_encodings = None
-
-    bs4_detector = EncodingDetector(data, override_encodings, is_html)
-    bs_encodings = [
-        normalize_codec_name(name) for name in bs4_detector.encodings
-    ]
-    candidates = itertools.chain(bs_encodings, [fallback])
+    bs4_detector = EncodingDetector(
+        data,
+        override_encodings=(encoding,) if encoding else (),
+        is_html=is_html
+    )
+    candidates = itertools.chain(bs4_detector.encodings, (fallback,))
 
     for candidate in candidates:
         if not candidate:
             continue
+
+        candidate = normalize_codec_name(candidate)
 
         if try_decoding(data, candidate):
             return candidate
