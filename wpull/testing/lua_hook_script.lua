@@ -82,7 +82,13 @@ wpull_hook.callbacks.get_urls = function(filename, url_info, document_info)
       ['inline'] = true,
       ['post_data'] = 'text=hello',
       ['replace'] = true,
-    })
+    }
+    )
+    table.insert(url_table,
+    {
+      ['url'] = '..malformed/',
+    }
+    )
     return url_table
   end
 

@@ -78,7 +78,11 @@ def get_urls(filename, url_info, document_info):
             'inline': True,
             'post_data': 'text=hello',
             'replace': True,
-        }]
+        },
+        {
+            'url': '..malformed',
+        }
+        ]
 
     return None
 
