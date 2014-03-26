@@ -261,6 +261,22 @@ class TestDocument(unittest.TestCase):
         self.assertTrue(scrape_info)
         self.assertEqual('euc_kr', scrape_info['encoding'])
 
+    def test_html_serious_bad_encoding(self):
+        scraper = HTMLScraper(encoding_override='utf8')
+        request = Request.new('http://example.com/')
+        response = Response('HTTP/1.0', 200, '')
+        response.fields['content-type'] = 'text/html; charset=utf8'
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'xkcd_1_evil.html')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+
+        self.assertFalse(scrape_info)
+
     def test_scrape_css_urls(self):
         text = '''
         @import url("fineprint.css") print;

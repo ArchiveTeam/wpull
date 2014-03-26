@@ -3,6 +3,7 @@
 import abc
 import gzip
 import io
+import logging
 import lxml.html
 import re
 import zlib
@@ -10,6 +11,9 @@ import zlib
 import wpull.http.util
 from wpull.thirdparty import robotexclusionrulesparser
 import wpull.util
+
+
+_logger = logging.getLogger(__name__)
 
 
 class BaseDocumentReader(object, metaclass=abc.ABCMeta):
@@ -305,7 +309,7 @@ def get_heading_encoding(response):
         return None
 
 
-def get_encoding(response, is_html=False, peek=10485760):
+def get_encoding(response, is_html=False, peek=1048576):
     '''Return the likely encoding of the document.
 
     Args:
@@ -323,6 +327,8 @@ def get_encoding(response, is_html=False, peek=10485760):
     encoding = wpull.util.detect_encoding(
         response.body.content_peek(peek), encoding=encoding, is_html=is_html
     )
+
+    _logger.debug('Got encoding: {0}'.format(encoding))
 
     return encoding
 
