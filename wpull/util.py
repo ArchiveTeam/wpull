@@ -355,3 +355,11 @@ CONTROL_BYTES = bytes(bytearray(
 def printable_bytes(data):
     '''Remove any bytes that is not printable ASCII.'''
     return data.translate(ALL_BYTES, CONTROL_BYTES)
+
+
+def coerce_str_to_ascii(string):
+    '''Force the contents of the string to be ASCII.
+
+    Anything not ASCII will be replaced with with a replacement character.
+    '''
+    return string.encode('ascii', 'replace').decode('ascii')

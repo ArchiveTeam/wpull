@@ -88,8 +88,8 @@ class Resolver(object):
 
         if not addresses:
             raise DNSNotFound(
-                'DNS resolution for ‘{0}’ did not return any results.'\
-                .format(host)
+                "DNS resolution for '{0}' did not return any results."\
+                .format(wpull.util.coerce_str_to_ascii(host))
             )
 
         _logger.debug('Resolved addresses: {0}.'.format(addresses))
