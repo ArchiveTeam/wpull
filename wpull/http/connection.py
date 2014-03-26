@@ -584,7 +584,7 @@ class HostConnectionPool(collections.Set):
             yield self._process_request()
             self._max_count_semaphore.release()
             _logger.debug('Host pool semaphore released.')
-        except:
+        except Exception:
             _logger.exception('Fatal error processing request.')
             sys.exit('Fatal error.')
 

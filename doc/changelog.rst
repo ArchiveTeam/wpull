@@ -8,6 +8,7 @@ What's New
 * Fixes crash when redirected to malformed URL.
 * Fixes ``--directory-prefix`` not being honored.
 * Fixes unnecessary high CPU usage when determining encoding of document.
+* Fixes crash (GeneratorExit exception) when exiting on Python 3.4.
 * Uses new internal socket connection stream system.
 * PhantomJS:
 
