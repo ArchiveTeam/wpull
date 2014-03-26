@@ -7,7 +7,7 @@ import tornado.web
 
 from wpull.backport.testing import unittest
 from wpull.errors import (ConnectionRefused, SSLVerficationError, NetworkError,
-    ProtocolError)
+    ProtocolError, NetworkTimedOut)
 from wpull.http.client import Client
 from wpull.http.connection import Connection, ConnectionPool, HostConnectionPool
 from wpull.http.request import Request, Response
@@ -287,9 +287,36 @@ class TestConnection(BadAppTestCase):
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_big(self):
-        self.connection.fetch(
+        yield self.connection.fetch(
             Request.new(self.get_url('/big')),
         )
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_underrun(self):
+        self.connection = Connection('localhost', self._port,
+            connect_timeout=2.0, read_timeout=1.0)
+
+        for counter in range(3):
+            print(counter)
+            try:
+                yield self.connection.fetch(
+                    Request.new(self.get_url('/underrun'))
+                )
+            except NetworkTimedOut:
+                pass
+            else:
+                self.fail()
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_overrun(self):
+        for dummy in range(3):
+            try:
+                yield self.fetch('/overrun')
+            except ProtocolError:
+                pass
+
+        self.connection.close()
+        yield self.fetch('/')
 
 
 class TestClient(BadAppTestCase):

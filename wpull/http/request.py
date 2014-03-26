@@ -136,7 +136,7 @@ class Response(BaseResponse):
                     encoding='latin-1',
                 )
 
-        raise ProtocolError('Error parsing status line ‘{0}’'.format(string))
+        raise ProtocolError("Error parsing status line '{0}'".format(string))
 
     def header(self):
         '''Return the HTTP header as bytes.'''

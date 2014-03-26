@@ -580,7 +580,7 @@ class IOStream(object):
         _logger.debug('Check socket closed.')
 
         try:
-            data = self._socket.recv(self._chunk_size)
+            data = self._socket.recv(1)
         except ssl.SSLError as error:
             if error.errno != ssl.SSL_ERROR_WANT_READ:
                 self.close()
@@ -588,8 +588,12 @@ class IOStream(object):
             if error.errno not in (errno.EWOULDBLOCK, errno.EINPROGRESS):
                 self.close()
         else:
-            if not data:
-                self.close()
+            if data:
+                _logger.warning(
+                    _('Server sent unwanted data after request finished.')
+                )
+
+            self.close()
 
         _logger.debug('Check socket closed={0}'.format(self.closed()))
         return self.closed()
