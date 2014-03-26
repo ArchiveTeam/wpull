@@ -266,7 +266,13 @@ class IOStream(object):
 
     def _update_handler(self, events):
         '''Update the IOLoop events to listen for.'''
-        self._ioloop.update_handler(self._socket.fileno(), events)
+        try:
+            self._ioloop.update_handler(self._socket.fileno(), events)
+        except (OSError, IOError) as error:
+            self.close()
+            raise NetworkError(
+                'Failed to update handler: {error}'.format(error=error)
+                ) from error
 
     def _raise_socket_error(self):
         '''Get the error from the socket and raise an error.'''
