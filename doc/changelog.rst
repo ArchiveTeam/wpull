@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2014-03-DD)
+0.28 (2014-03-27)
 ==================
 
 * Fixes crash when redirected to malformed URL.
