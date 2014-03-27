@@ -7,6 +7,7 @@ import time
 from tornado.testing import AsyncHTTPTestCase
 from tornado.web import HTTPError
 import tornado.web
+import hashlib
 
 
 _logger = logging.getLogger(__name__)
@@ -98,6 +99,23 @@ class SpanHostsHandler(tornado.web.RequestHandler):
         self.render('span_hosts.html', port=self.get_argument('port'))
 
 
+class BigPayloadHandler(tornado.web.RequestHandler):
+    def get(self):
+        hash_obj = hashlib.sha1(b'foxfoxfox')
+
+        for counter in range(10000):
+            data = hash_obj.digest()
+            self.write(data)
+            hash_obj.update(data)
+
+            if counter % 133 == 0:
+                self.flush()
+
+        data = hash_obj.digest()
+        self.write(data)
+        self.flush()
+
+
 class GoodApp(tornado.web.Application):
     def __init__(self):
         tornado.web.Application.__init__(self, [
@@ -111,6 +129,7 @@ class GoodApp(tornado.web.Application):
                 (r'/lastmod', LastModifiedHandler),
                 (r'/always_error', AlwaysErrorHandler),
                 (r'/span_hosts', SpanHostsHandler),
+                (r'/big_payload', BigPayloadHandler),
             ],
             template_path=os.path.join(os.path.dirname(__file__),
                 'templates'),

@@ -87,7 +87,10 @@ class Resolver(object):
             self._put_cache(host, port, family, results)
 
         if not addresses:
-            raise DNSNotFound('DNS resolution did not return any results.')
+            raise DNSNotFound(
+                "DNS resolution for '{0}' did not return any results."\
+                .format(wpull.util.coerce_str_to_ascii(host))
+            )
 
         _logger.debug('Resolved addresses: {0}.'.format(addresses))
 

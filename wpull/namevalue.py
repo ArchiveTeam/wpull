@@ -15,7 +15,7 @@ class NameValueRecord(collections.MutableMapping):
 
     Duplicated names are accepted.
 
-    :seealso: http://tools.ietf.org/search/draft-kunze-anvl-02
+    .. seealso:: http://tools.ietf.org/search/draft-kunze-anvl-02
     '''
     def __init__(self, normalize_overrides=None):
         self._map = OrderedDefaultDict(list)
@@ -145,7 +145,7 @@ def normalize_name(name, overrides=None):
 
 
 def guess_line_ending(string):
-    '''Return the most likely line deliminator from the string.'''
+    '''Return the most likely line delimiter from the string.'''
     assert isinstance(string, str)
     crlf_count = string.count('\r\n')
     lf_count = string.count('\n')

@@ -1,5 +1,6 @@
 # encoding=utf-8
 import contextlib
+import hashlib
 from http import cookiejar
 import logging
 import os
@@ -10,11 +11,11 @@ import tornado.testing
 from wpull.app import Builder
 from wpull.backport.testing import unittest
 from wpull.errors import ExitStatus
+from wpull.network import Resolver
 from wpull.options import AppArgumentParser
 from wpull.testing.badapp import BadAppTestCase
 from wpull.testing.goodapp import GoodAppTestCase
 from wpull.url import URLInfo
-from wpull.network import Resolver
 
 
 try:
@@ -77,6 +78,11 @@ class TestApp(GoodAppTestCase):
             exit_code = yield engine()
             self.assertTrue(os.path.exists('index.html'))
 
+            response = self.fetch('/')
+
+            with open('index.html', 'rb') as in_file:
+                self.assertEqual(response.body, in_file.read())
+
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
@@ -85,6 +91,35 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(1, len(cookies))
         self.assertEqual('hi', cookies[0].name)
         self.assertEqual('hello', cookies[0].value)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_big_payload(self):
+        hash_obj = hashlib.sha1(b'foxfoxfox')
+        payload_list = []
+
+        for dummy in range(10000):
+            data = hash_obj.digest()
+            hash_obj.update(data)
+            payload_list.append(data)
+
+        data = hash_obj.digest()
+        payload_list.append(data)
+        expected_payload = b''.join(payload_list)
+
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([self.get_url('/big_payload')])
+        builder = Builder(args)
+
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+            self.assertTrue(os.path.exists('big_payload'))
+
+            with open('big_payload', 'rb') as in_file:
+                self.assertEqual(expected_payload, in_file.read())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_many_page_with_some_fail(self):
@@ -577,6 +612,7 @@ class TestApp(GoodAppTestCase):
             '--phantomjs',
             '--phantomjs-wait', '0.1',
             '--phantomjs-scroll', '2',
+            '--header', 'accept-language: dragon',
         ])
         builder = Builder(args)
         with cd_tempdir():
@@ -603,6 +639,8 @@ class TestApp(GoodAppTestCase):
                 self.assertIn(b'application/pdf', data)
                 self.assertIn(b'application/json', data)
                 self.assertIn(b'"set_scroll_top"', data)
+                self.assertIn(b'Accept-Encoding: identity', data)
+                self.assertIn(b'Accept-Language: dragon', data)
 
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
@@ -766,4 +804,22 @@ class TestAppBad(BadAppTestCase):
             exit_code = yield engine()
 
         self.assertEqual(0, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_bad_redirect(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/bad_redirect'),
+            '--recursive',
+            '--no-robots',
+            '--waitretry', '0.1',
+        ])
+        builder = Builder(args)
+
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+
+        self.assertEqual(7, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)

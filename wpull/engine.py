@@ -1,5 +1,5 @@
 # encoding=utf-8
-'''Item processing and management.'''
+'''Item queue management and processing.'''
 import datetime
 import gettext
 import logging
@@ -7,9 +7,10 @@ import tornado.gen
 import toro
 
 import wpull.actor
-from wpull.database import Status, NotFound, URLRecord
+from wpull.database import NotFound
 from wpull.errors import (ExitStatus, ServerError, ConnectionRefused, DNSNotFound,
     SSLVerficationError, ProtocolError, NetworkError)
+from wpull.item import Status, URLItem
 from wpull.url import URLInfo
 import wpull.util
 
@@ -24,24 +25,28 @@ _ = gettext.gettext
 
 
 class Engine(object):
-    '''Manages and processes items.
+    '''Manages and processes item.
 
     Args:
-        url_table (BaseURLTable): An instance of
-            :class:`.database.BaseURLTable` which contains the URLs to process.
-        processor (BaseProcessor): An instance of
-            :class:`.processor.BaseProcessor` that will decide what to do with
-            the items.
-        statistics (Statistics): An instance of :class:`.stats.Statistics`
-            which contains information needed to compute the exit status.
+        url_table (:class:`.database.BaseURLTable`): A table of URLs to
+            be processed.
+        processor (:class:`.processor.BaseProcessor`): A processor that
+            will do things to finish an item.
+        statistics (:class:`.stats.Statistics`): Information needed to
+            compute the exit status.
         concurrent (int): The number of items to process at once.
 
     The engine is described like the following:
 
-    1. Get an item from the table. In the context of Wpull, URLs are the
-       central part of items. If there are no items, stop.
+    1. Get an "todo" item from the table. If none, skip to step 4.
     2. Ask the processor to process the item.
     3. Go to step 1.
+    4. Get an "error" item from the table. If none, skip to step 7.
+    5. Ask the processor to process the item.
+    6. Go to step 4.
+    7. Stop.
+
+    In the context of Wpull, URLs are the central part of items.
     '''
     ERROR_CODE_MAP = OrderedDict([
         (ServerError, ExitStatus.server_error),
@@ -79,7 +84,7 @@ class Engine(object):
         Returns:
             int: An integer describing the exit status.
 
-            :seealso: :class:`.errors.ExitStatus`
+            .. seealso:: :class:`.errors.ExitStatus`
         '''
         self._statistics.start()
         self._release_in_progress()
@@ -124,7 +129,7 @@ class Engine(object):
         be done last.
 
         Returns:
-            URLRecord: An instance of :class:`.database.URLRecord`.
+            :class:`.item.URLRecord`.
         '''
         _logger.debug('Get next URL todo.')
 
@@ -150,7 +155,7 @@ class Engine(object):
     def _process_input(self):
         '''Loop and process until there are no more items to process.
 
-        If processing an item encounters an error :func:`stop` is called.
+        If processing an item encounters an error, :func:`stop` is called.
         '''
         try:
             while True:
@@ -193,9 +198,12 @@ class Engine(object):
 
     @tornado.gen.coroutine
     def _process_url_item(self, url_item):
-        '''Process a :class:`URLItem`.
+        '''Process an item.
 
-        This function calls :func:`.processor.BaseProcessor.process`.
+        Args:
+            url_item (:class:`.item.URLItem`): The item to process.
+
+        This function calls :meth:`.processor.BaseProcessor.process`.
         '''
         _logger.debug('Begin session for {0} {1}.'.format(
             url_item.url_record, url_item.url_info))
@@ -221,7 +229,11 @@ class Engine(object):
             self._done_event.set()
 
     def _update_exit_code_from_error(self, error):
-        '''Set the exit code based on the error type.'''
+        '''Set the exit code based on the error type.
+
+        Args:
+            error (:class:`Exception`): An exception instance.
+        '''
         for error_type, exit_code in self.ERROR_CODE_MAP.items():
             if isinstance(error, error_type):
                 self._update_exit_code(exit_code)
@@ -230,7 +242,11 @@ class Engine(object):
             self._update_exit_code(ExitStatus.generic_error)
 
     def _update_exit_code(self, code):
-        '''Set the exit code if it is serious than before.'''
+        '''Set the exit code if it is serious than before.
+
+        Args:
+            code (int): The exit code.
+        '''
         if code:
             if self._exit_code:
                 self._exit_code = min(self._exit_code, code)
@@ -238,7 +254,7 @@ class Engine(object):
                 self._exit_code = code
 
     def _compute_exit_code_from_stats(self):
-        '''Set the exit code based on the statistics.'''
+        '''Set the current exit code based on the Statistics.'''
         for error_type in self._statistics.errors:
             exit_code = self.ERROR_CODE_MAP.get(error_type)
             if exit_code:
@@ -290,133 +306,3 @@ class Engine(object):
         _logger.info(_('A SSL certificate could not be verified.'))
         _logger.info(_('To ignore and proceed insecurely, '
             'use ‘--no-check-certificate’.'))
-
-
-class URLItem(object):
-    '''Item for a URL that needs to processed.'''
-    def __init__(self, url_table, url_info, url_record):
-        self._url_table = url_table
-        self._url_info = url_info
-        self._url_record = url_record
-        self._url = self._url_record.url
-        self._processed = False
-        self._try_count_incremented = False
-
-    @property
-    def url_info(self):
-        '''Return the :class:`.url.URLInfo`.'''
-        return self._url_info
-
-    @property
-    def url_record(self):
-        '''Return the :class:`.database.URLRecord`.'''
-        return self._url_record
-
-    @property
-    def url_table(self):
-        '''Return the :class:`.database.URLTable`.'''
-        return self._url_table
-
-    @property
-    def is_processed(self):
-        '''Return whether the item has been processed.'''
-        return self._processed
-
-    def skip(self):
-        '''Mark the item as processed without download.'''
-        _logger.debug(_('Skipping ‘{url}’.').format(url=self._url))
-        self._url_table.update(self._url, status=Status.skipped)
-
-        self._processed = True
-
-    def set_status(self, status, increment_try_count=True, filename=None):
-        '''Mark the item with the given status.
-
-        Args:
-            status (Status): a value from :class:`.database.Status`
-            increment_try_count (bool): if True, increment the ``try_count``
-                value
-        '''
-        assert not self._try_count_incremented
-
-        if increment_try_count:
-            self._try_count_incremented = True
-
-        _logger.debug('Marking URL {0} status {1}.'.format(self._url, status))
-        self._url_table.update(
-            self._url,
-            increment_try_count=increment_try_count,
-            status=status,
-            filename=filename,
-        )
-
-        self._processed = True
-
-    def set_value(self, **kwargs):
-        '''Set values for the URL in table.'''
-        self._url_table.update(self._url, **kwargs)
-
-    def add_inline_url_infos(self, url_infos, encoding=None, link_type=None,
-    post_data=None):
-        '''Add inline links scraped from the document.
-
-        Args:
-            url_infos (iterable): A list of :class:`.url.URLInfo`
-            encoding (str): The encoding of the document.
-        '''
-        inline_urls = tuple([info.url for info in url_infos])
-        _logger.debug('Adding inline URLs {0}'.format(inline_urls))
-        self._url_table.add(
-            inline_urls,
-            inline=True,
-            level=self._url_record.level + 1,
-            referrer=self._url_record.url,
-            top_url=self._url_record.top_url or self._url_record.url,
-            url_encoding=encoding,
-            post_data=post_data,
-        )
-
-    def add_linked_url_infos(self, url_infos, encoding=None, link_type=None,
-    post_data=None):
-        '''Add linked links scraped from the document.
-
-        Args:
-            url_infos (iterable): A list of :class:`.url.URLInfo`
-            encoding (str): The encoding of the document.
-        '''
-        linked_urls = tuple([info.url for info in url_infos])
-        _logger.debug('Adding linked URLs {0}'.format(linked_urls))
-        self._url_table.add(
-            linked_urls,
-            level=self._url_record.level + 1,
-            referrer=self._url_record.url,
-            top_url=self._url_record.top_url or self._url_record.url,
-            link_type=link_type,
-            url_encoding=encoding,
-            post_data=post_data,
-        )
-
-    def child_url_record(self, url_info, inline=False, encoding=None,
-    link_type=None, post_data=None):
-        '''Return a child URLRecord.
-
-        This function is useful for testing filters before adding to table.
-        '''
-        return URLRecord(
-            url_info.url,  # url
-            Status.todo,  # status
-            0,  # try_count
-            self._url_record.level + 1,  # level
-            self._url_record.top_url or self._url_record.url,  # top_url
-            None,  # status_code
-            self._url_record.url,  # referrer
-            inline,  # inline
-            link_type,  # link_type
-            encoding,  # url_encoding
-            post_data,  # post_data
-            None  # filename
-        )
-
-    def add_url_item(self, url_info, request):
-        # TODO: the request should be serialized into the url_table
-        raise NotImplementedError()

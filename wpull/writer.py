@@ -91,8 +91,8 @@ class BaseFileWriter(BaseWriter):
     '''Base class for saving documents to disk.
 
     Args:
-        path_name: :class:`PathNamer`
-        file_continuing: If True, the writer will modifiy requests to fetch
+        path_namer (:class:`PathNamer`): The path namer.
+        file_continuing: If True, the writer will modify requests to fetch
             the remaining portion of the file
         headers_included: If True, the writer will include the HTTP header
             responses on top of the document
@@ -426,7 +426,7 @@ class PathNamer(BasePathNamer):
             for part in parts
         ]
 
-        return os.path.join(*parts)
+        return os.path.join(self._root, *parts)
 
 
 def url_to_filename(url, index='index.html', alt_char=False):

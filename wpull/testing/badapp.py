@@ -31,6 +31,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._routes = {
             '/': self.basic,
             '/content_length': self.basic_content_length,
+            '/content_length_with_close': self.basic_content_length_with_close,
+            '/content_length_without_close':
+                self.basic_content_length_without_close,
             '/chunked': self.basic_chunked,
             '/chunked_trailer': self.basic_chunked_trailer,
             '/chunked_trailer_2': self.basic_chunked_trailer_2,
@@ -63,6 +66,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/no_content': self.no_content,
             '/many_links': self.many_links,
             '/non_http_redirect': self.non_http_redirect,
+            '/bad_redirect': self.bad_redirect,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -99,6 +103,24 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header('Content-length', length)
         self.end_headers()
         self.wfile.write(b'a' * length)
+
+    def basic_content_length_with_close(self):
+        length = 100
+        self.send_response(200)
+        self.send_header('Content-length', length)
+        self.send_header('Connection', 'close')
+        self.end_headers()
+        self.wfile.write(b'a' * length)
+        self.close_connection = True
+
+    def basic_content_length_without_close(self):
+        length = 100
+        self.send_response(200)
+        self.send_header('Content-length', length)
+        self.end_headers()
+        self.wfile.write(b'a' * length)
+        self.close_connection = True
+        time.sleep(0.3)
 
     def basic_chunked(self):
         self.send_response(200)
@@ -362,7 +384,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         _logger.debug('Bad socket reset set.')
 
         self.wfile.write(b'HTTP/1.0 200 OK')
-        self.connection.close()
+        self.close_connection = True
 
     def no_content(self):
         self.send_response(204)
@@ -386,6 +408,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def non_http_redirect(self):
         self.send_response(302)
         self.send_header('Location', 'mailto:user@example.com')
+        self.send_header('Content-Length', 0)
+        self.end_headers()
+
+    def bad_redirect(self):
+        self.send_response(303)
+        self.send_header(
+            'Location',
+            'http://Yes, some websites do this - '
+            'I have no idea why - Please do not ask - '
+            'Perhaps a wolf programmed the site'
+        )
         self.send_header('Content-Length', 0)
         self.end_headers()
 
@@ -432,7 +465,7 @@ class BadAppTestCase(AsyncTestCase):
         self.http_server.started_event.wait(timeout=5.0)
         self._port = self.http_server.port
         self.connection = Connection('localhost', self._port,
-            connect_timeout=2.0, read_timeout=5.0)
+            connect_timeout=2.0, read_timeout=60.0)
 
     @tornado.gen.coroutine
     def fetch(self, path):

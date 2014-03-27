@@ -34,6 +34,48 @@ class CommaChoiceListArgs(frozenset):
             return frozenset.__contains__(self, item)
 
 
+class AppHelpFormatter(argparse.HelpFormatter):
+    def _metavar_formatter(self, action, default_metavar):
+        # Modified from argparse
+        if action.choices is not None:
+            if action.metavar is not None:
+                result = action.metavar + '='
+            else:
+                result = ''
+
+            choice_strs = [str(choice) for choice in action.choices]
+
+            if isinstance(action.choices, CommaChoiceListArgs):
+                result += '<%s>' % ','.join(choice_strs)
+            else:
+                result += '{%s}' % ','.join(choice_strs)
+
+        elif action.metavar is not None:
+            result = action.metavar
+        else:
+            result = default_metavar
+
+        def format(tuple_size):
+            if isinstance(result, tuple):
+                return result
+            else:
+                return (result,) * tuple_size
+
+        return format
+
+    def _get_help_string(self, action):
+        # Modified from argparse
+        help = action.help
+
+        if '%(default)' not in action.help:
+            if action.default and not isinstance(action.default, bool) \
+            and action.default is not argparse.SUPPRESS:
+                defaulting_nargs = [argparse.OPTIONAL, argparse.ZERO_OR_MORE]
+                if action.option_strings or action.nargs in defaulting_nargs:
+                    help += _(' (default: %(default)s)')
+        return help
+
+
 class AppArgumentParser(argparse.ArgumentParser):
     '''An Argument Parser that builds up the application options.'''
     # TODO: implement all sane options
@@ -41,6 +83,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         super().__init__(
             *args,
             description=_('Wget-compatible web downloader.'),
+            formatter_class=AppHelpFormatter,
             **kwargs
         )
         self._real_exit = real_exit

@@ -179,11 +179,21 @@ function setupEvents() {
 			'network_request' : networkRequest
 		});
 
-		if (rewriteEnabled && requestData['url'].indexOf('https://') === 0) {
-			// Oh yeah!
-			networkRequest.changeUrl('http://wpull.invalid/'
-					+ requestData['url']);
+		if (!rewriteEnabled) {
+			return;
 		}
+
+		var url = requestData['url'];
+		var chopRegex = /^([a-zA-Z]+):\/\//g;
+		var match = chopRegex.exec(url);
+
+		if (!match) {
+			return;
+		}
+
+		// Oh yeah!
+		networkRequest.changeUrl('http://wpull.invalid__' + match[1] + '__'
+				+ requestData['url'].slice(chopRegex.lastIndex));
 	};
 
 	page.onUrlChanged = function(targetUrl) {

@@ -84,7 +84,7 @@ class TestUtil(unittest.TestCase):
         )
 
         self.assertEqual(
-            'latin1',
+            'iso8859-1',
             detect_encoding(b'\xff\xff\xff\x81')
         )
 

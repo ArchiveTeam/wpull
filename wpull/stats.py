@@ -24,7 +24,8 @@ class Statistics(object):
             exceeded.
         required_url_infos (set): A set of :class:`.url.URLInfo` that must
             be completed before the quota can be exceeded.
-        bandwidth_meter: An instance of :class:`.network.BandwidthMeter`.
+        bandwidth_meter (:class:`.network.BandwidthMeter`): The bandwidth
+            meter.
     '''
     def __init__(self):
         self.start_time = None

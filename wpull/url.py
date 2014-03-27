@@ -102,7 +102,7 @@ class URLInfo(_URLInfoType):
             :class:`URLInfo`
 
         Raises:
-            :class:`ValueError` if the URL is seriously malformed
+            `ValueError`: The URL is seriously malformed.
         '''
         if not string:
             raise ValueError('Empty URL')

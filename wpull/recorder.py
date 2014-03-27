@@ -27,7 +27,10 @@ _ = gettext.gettext
 
 
 class BaseRecorder(object, metaclass=abc.ABCMeta):
-    '''Base class for recorders.'''
+    '''Base class for recorders.
+
+    Recorders are designed to be passed to a :class:`.http.client.Client`.
+    '''
     @abc.abstractmethod
     @contextlib.contextmanager
     def session(self):
@@ -83,6 +86,7 @@ class DemuxRecorder(BaseRecorder):
 
 
 class DemuxRecorderSession(BaseRecorderSession):
+    '''Demux recorder session.'''
     def __init__(self, recorders):
         super().__init__()
         self._recorders = recorders

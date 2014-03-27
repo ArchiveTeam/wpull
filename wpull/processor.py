@@ -43,13 +43,13 @@ class BaseProcessor(object, metaclass=abc.ABCMeta):
         '''Process an URL Item.
 
         Args:
-            url_item (URLItem): An instance of :class:`.engine.URLItem`.
+            url_item (:class:`.item.URLItem`): The URL item.
 
         This function handles the logic for processing a single
         URL item.
 
-        It must call one of :func:`.engine.URLItem.set_status` or
-        :func:`.engine.URLItem.skip`.
+        It must call one of :meth:`.engine.URLItem.set_status` or
+        :meth:`.engine.URLItem.skip`.
         '''
         pass
 
@@ -99,15 +99,16 @@ WebProcessorInstances = namedlist.namedtuple(
 '''WebProcessorInstances
 
 Args:
-    url_filter (DemuxURLFilter): An instance of
-        :class:`.url.DemuxURLFilter`.
-    document_scraper (DemuxDocumentScraper): An instance of
-        :class:`.scaper.DemuxDocumentScraper`.
-    file_writer: File writer.
-    waiter: Waiter.
-    statistics: Statistics.
-    converter: An instance of :class:`.converter.BatchDocumentConverter`.
-    phantomjs_controller: An instance of :class:`PhantomJSController`.
+    url_filter ( :class:`.url.DemuxURLFilter`): The URL filter.
+    document_scraper (:class:`.scaper.DemuxDocumentScraper`): The document
+        scraper.
+    file_writer (:class`.writer.BaseWriter`): The file writer.
+    waiter (:class:`.waiter.Waiter`): The Waiter.
+    statistics (:class:`.stats.Statistics`): The Statistics.
+    converter (:class:`.converter.BatchDocumentConverter`): The document
+        converter.
+    phantomjs_controller (:class:`PhantomJSController`): The PhantomJS
+        controller.
 '''
 
 
@@ -115,12 +116,12 @@ class WebProcessor(BaseProcessor):
     '''HTTP processor.
 
     Args:
-        rich_client (RichClient): An instance of :class:`.http.web.RichClient`.
+        rich_client (:class:`.http.web.RichClient`): The rich web client.
         root_path (str): The root directory path.
         fetch_params: An instance of :class:`WebProcessorFetchParams`.
         instances: An instance of :class:`WebProcessorInstances`.
 
-    :seealso: :class:`WebProcessorSession`,
+    .. seealso:: :class:`WebProcessorSession`,
         :class:`WebProcessorWithRobotsTxtSession`
     '''
     DOCUMENT_STATUS_CODES = (200, 206, 304,)
@@ -138,18 +139,22 @@ class WebProcessor(BaseProcessor):
 
     @property
     def rich_client(self):
+        '''The rich client.'''
         return self._rich_client
 
     @property
     def root_path(self):
+        '''The root path.'''
         return self._root_path
 
     @property
     def instances(self):
+        '''The processor instances.'''
         return self._instances
 
     @property
     def fetch_params(self):
+        '''The fetch parameters.'''
         return self._fetch_params
 
     @tornado.gen.coroutine

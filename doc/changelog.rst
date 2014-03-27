@@ -2,6 +2,29 @@
 What's New
 ==========
 
+0.28 (2014-03-27)
+==================
+
+* Fixes crash when redirected to malformed URL.
+* Fixes ``--directory-prefix`` not being honored.
+* Fixes unnecessary high CPU usage when determining encoding of document.
+* Fixes crash (GeneratorExit exception) when exiting on Python 3.4.
+* Uses new internal socket connection stream system.
+* Updates bundled certificates (Tue Jan 28 09:38:07 2014).
+* PhantomJS:
+
+  * Fixes things not appearing in WARC files. This regression was introduced in 0.26 where PhantomJS's disk cache was enabled. It is now disabled again.
+  * Fixes HTTPS proxy URL rewriting where relative URLs were not properly rewritten.
+  * Fixes proxy URL rewriting not working for localhost.
+  * Fixes unwanted ``Accept-Language`` header picked up from environment. The value has been overridden to ``*``.
+  * Fixes ``--header`` options left out in requests.
+
+* API:
+
+  * New ``iostream`` module.
+  * ``extended`` module is deprecated.
+
+
 0.27 (2014-03-23)
 ==================
 
@@ -16,7 +39,7 @@ What's New
 * PhantomJS:
 
   * Implements "smart scrolling" that avoids unnecessary scrolling.
-  * Adds ``--no-phantomjs-smart-scroll
+  * Adds ``--no-phantomjs-smart-scroll``
 
 * API:
 

@@ -45,7 +45,7 @@ class Client(BaseClient):
             Response: An instance of :class:`Response`.
 
         Raises:
-            Exception: See :func:`Connection.fetch`.
+            Exception: See :meth:`.http.connection.Connection.fetch`.
         '''
         _logger.debug('Client fetch request {0}.'.format(request))
 

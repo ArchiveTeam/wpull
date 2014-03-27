@@ -68,7 +68,7 @@ class WARCRecord(object):
     def set_content_length(self):
         '''Find and set the content length.
 
-        :seealso: :func:`compute_checksum`.
+        .. seealso:: :meth:`compute_checksum`.
         '''
         if not self.block_file:
             self.fields['Content-Length'] = '0'

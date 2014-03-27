@@ -102,9 +102,9 @@ class RichClient(BaseClient):
     '''HTTP client with redirect, cookies, and robots.txt handling.
 
     Args:
-        http_client (Client): An instance of `Client`.
-        robots_txt_pool (RobotsTxtPool): If provided an instance of
-            :class:`.robots.RobotsTxtPool`, robots.txt handling is enabled.
+        http_client (:class:`Client`): A client.
+        robots_txt_pool (:class:`.robotstxt.RobotsTxtPool`): If provided,
+            robots.txt handling is enabled.
         request_factory: A callable object that creates a :class:`Request`
             via :func:`Request.new`.
             This factory is used for redirects and robots.txt handling.
@@ -273,7 +273,10 @@ class RichClientSession(object):
         if not url:
             raise ProtocolError('Redirect location missing.')
 
-        request = self._rich_client.request_factory(url)
+        try:
+            request = self._rich_client.request_factory(url)
+        except ValueError as error:
+            raise ProtocolError('Invalid redirect location.') from error
 
         if self._redirect_tracker.is_repeat():
             _logger.debug('Got redirect is repeat.')

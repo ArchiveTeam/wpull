@@ -2,6 +2,6 @@ tornado>=3.1.1
 toro>=0.5
 chardet>=2.0.1
 sqlalchemy>=0.9
-sphinxcontrib-napoleon>=0.2.4
+sphinxcontrib-napoleon>=0.2.6
 beautifulsoup4>=4.3.2
 namedlist>=1.3

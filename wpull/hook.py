@@ -19,7 +19,7 @@ _logger = logging.getLogger(__name__)
 def load_lua():
     '''Load the Lua module.
 
-    :seealso: http://stackoverflow.com/a/8403467/1524507
+    .. seealso:: http://stackoverflow.com/a/8403467/1524507
     '''
     import DLFCN
     sys.setdlopenflags(DLFCN.RTLD_NOW | DLFCN.RTLD_GLOBAL)
@@ -39,15 +39,19 @@ class HookStop(Exception):
 
 
 class Actions(object):
-    '''Actions for ``handle_error`` and ``handle_response``.'''
+    '''Actions for handling responses and errors.
+
+    Attributes:
+        NORMAL (normal): Use Wpull's original behavior.
+        RETRY (retry): Retry this item (as if an error has occurred).
+        FINISH (finish): Consider this item as done; don't do any further
+            processing on it.
+        STOP (stop): Raises :class:`HookStop` to stop the Engine from running.
+    '''
     NORMAL = 'normal'
-    '''Use Wpull's original behavior.'''
     RETRY = 'retry'
-    '''Retry this item (as if an error has occured).'''
     FINISH = 'finish'
-    '''Consider this item as done; don't do any further processing on it.'''
     STOP = 'stop'
-    '''Raises :class:`HookStop` to stop the Engine from running.'''
 
 
 class Callbacks(object):
@@ -55,6 +59,9 @@ class Callbacks(object):
     @staticmethod
     def resolve_dns(host):
         '''Resolve the hostname to an IP address.
+
+        Args:
+            host (str): The hostname.
 
         This callback is to override the DNS response.
 
@@ -65,8 +72,8 @@ class Callbacks(object):
         cases, the original servers may still be online.
 
         Returns:
-            str, None: None to use the original behavior or a string containing
-            an IP address.
+            str, None: ``None`` to use the original behavior or a string
+            containing an IP address.
         '''
         return None
 
@@ -78,7 +85,7 @@ class Callbacks(object):
             url_info (dict): A mapping containing the same information in
                 :class:`.url.URLInfo`.
             record_info (dict): A mapping containing the same information in
-                :class:`.database.URLRecord`.
+                :class:`.item.URLRecord`.
             verdict (bool): A bool indicating whether Wpull wants to download
                 the URL.
             reasons (dict): A dict containing information for the verdict:
@@ -89,7 +96,7 @@ class Callbacks(object):
                   ``filters``, ``robots``, ``redirect``.
 
         Returns:
-            bool: If True, the URL should be downloaded. Otherwise, the URL
+            bool: If ``True``, the URL should be downloaded. Otherwise, the URL
             is skipped.
         '''
         return verdict
@@ -102,11 +109,11 @@ class Callbacks(object):
             url_info (dict): A mapping containing the same information in
                 :class:`.url.URLInfo`.
             http_info (dict): A mapping containing the same information
-                in :class:`.http.Response`.
+                in :class:`.http.request.Response`.
 
         Returns:
             str: A value from :class:`Actions`. The default is
-            `Actions.NORMAL`.
+            :attr:`Actions.NORMAL`.
         '''
         return Actions.NORMAL
 
@@ -124,7 +131,7 @@ class Callbacks(object):
 
         Returns:
             str: A value from :class:`Actions`. The default is
-            `Actions.NORMAL`.
+            :attr:`Actions.NORMAL`.
         '''
         return Actions.NORMAL
 
@@ -137,7 +144,7 @@ class Callbacks(object):
             url_info (dict): A mapping containing the same information in
                 :class:`.url.URLInfo`.
             document_info (dict): A mapping containing the same information in
-                :class:`.http.Body`.
+                :class:`.conversation.Body`.
 
         .. Note:: The URLs provided do not replace entries in the URL Table.
            If a URL already exists in the URL Table, it will be ignored
@@ -146,7 +153,7 @@ class Callbacks(object):
            this behavior, see ``replace`` as described below.
 
         Returns:
-            list: A :class:`list` of :class:`dict`. Each ``dict`` contains:
+            list: A ``list`` of ``dict``. Each ``dict`` contains:
 
                 * ``url``: a string of the URL
                 * ``link_type`` (str, optional): ``html`` or ``None``.
@@ -163,7 +170,7 @@ class Callbacks(object):
 
     @staticmethod
     def finishing_statistics(start_time, end_time, num_urls, bytes_downloaded):
-        '''Callback containing finial statistics.
+        '''Callback containing final statistics.
 
         Args:
             start_time (float): timestamp when the engine started

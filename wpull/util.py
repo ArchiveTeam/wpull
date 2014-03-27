@@ -106,9 +106,10 @@ def reset_file_offset(file):
     file.seek(offset)
 
 
-def peek_file(file):
+def peek_file(file, length=4096):
+    '''Peek the file by calling ``read`` on it.'''
     with reset_file_offset(file):
-        return file.read(4096)
+        return file.read(length)
 
 
 def to_bytes(instance, encoding='utf-8', error='strict'):
@@ -272,20 +273,18 @@ def detect_encoding(data, encoding=None, fallback='latin1', is_html=False):
     if encoding:
         encoding = normalize_codec_name(encoding)
 
-    if encoding:
-        override_encodings = [encoding]
-    else:
-        override_encodings = None
-
-    bs4_detector = EncodingDetector(data, override_encodings, is_html)
-    bs_encodings = [
-        normalize_codec_name(name) for name in bs4_detector.encodings
-    ]
-    candidates = itertools.chain(bs_encodings, [fallback])
+    bs4_detector = EncodingDetector(
+        data,
+        override_encodings=(encoding,) if encoding else (),
+        is_html=is_html
+    )
+    candidates = itertools.chain(bs4_detector.encodings, (fallback,))
 
     for candidate in candidates:
         if not candidate:
             continue
+
+        candidate = normalize_codec_name(candidate)
 
         if try_decoding(data, candidate):
             return candidate
@@ -354,3 +353,11 @@ CONTROL_BYTES = bytes(bytearray(
 def printable_bytes(data):
     '''Remove any bytes that is not printable ASCII.'''
     return data.translate(ALL_BYTES, CONTROL_BYTES)
+
+
+def coerce_str_to_ascii(string):
+    '''Force the contents of the string to be ASCII.
+
+    Anything not ASCII will be replaced with with a replacement character.
+    '''
+    return string.encode('ascii', 'replace').decode('ascii')
