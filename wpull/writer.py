@@ -208,7 +208,15 @@ class BaseFileWriterSession(BaseWriterSession):
 
     def _compute_filename(self, request):
         '''Get the appropriate filename from the request.'''
-        return self._path_namer.get_filename(request.url_info)
+        path = self._path_namer.get_filename(request.url_info)
+
+        if os.path.isdir(path):
+            path += '.f'
+        else:
+            dir_name, name = os.path.split(path)
+            path = os.path.join(anti_clobber_dir_path(dir_name), name)
+
+        return path
 
     def _process_file_continue_request(self, request):
         '''Modify the request to resume downloading file.'''
@@ -295,6 +303,10 @@ class AntiClobberFileWriter(BaseFileWriter):
 class AntiClobberFileWriterSession(BaseFileWriterSession):
     def _compute_filename(self, request):
         original_filename = self._path_namer.get_filename(request.url_info)
+        dir_name, filename = os.path.split(original_filename)
+        original_filename = os.path.join(
+            anti_clobber_dir_path(dir_name), filename
+        )
         candidate_filename = original_filename
 
         for suffix in itertools.count():
@@ -397,6 +409,9 @@ class PathNamer(BasePathNamer):
         self._ascii_only = ascii_only
         self._case = case
         self._max_filename_length = max_filename_length
+
+        if os.path.isfile(root):
+            raise IOError('Root cannot be a file.')
 
     def get_filename(self, url_info):
         url = url_info.url
@@ -615,3 +630,28 @@ case=None, encoding='utf8', max_length=None):
         new_filename = new_filename.upper()
 
     return new_filename
+
+
+def anti_clobber_dir_path(dir_path, suffix='.d'):
+    '''Return a directory path free of filenames.
+
+    Args:
+        dir_path (str): A directory path.
+        suffix (str): The suffix to append to the part of the path that is
+             a file.
+
+    Returns:
+        str
+    '''
+    dir_path = os.path.normpath(dir_path)
+    parts = dir_path.split(os.sep)
+
+    for index in range(len(parts)):
+        test_path = os.path.join(*parts[:index + 1])
+
+        if os.path.isfile(test_path):
+            parts[index] += suffix
+
+            return os.path.join(*parts)
+
+    return dir_path
