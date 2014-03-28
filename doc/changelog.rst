@@ -7,6 +7,7 @@ What's New
 
 * Fixes SSLVerficationError mistakenly raised during connection errors.
 * ``--span-hosts`` no longer implicitly enabled on non-recursive downloads. This behavior is superseded by strong redirect logic. (Use ``--span-hosts-allow`` to guarantee fetching of page-requisites.)
+* Fixes URL query strings normalized with unnecessary percent-encoding escapes. Some servers do not handle percent-encoded URLs well.
 
 
 0.28 (2014-03-27)

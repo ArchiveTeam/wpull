@@ -18,6 +18,16 @@ if sys.version_info < (2, 7):
     from wpull.backport import urlparse
 
 
+RELAXED_SAFE_CHARS = '/!$&()*+,:;=@[]~'
+'''Characters in URL path that should be safe to not escape.'''
+
+RELAXED_SAFE_QUERY_KEYS_CHARS = '/!$()*+,:;?@[]~'
+'''Characters in URL query keys that should be safe to not escape.'''
+
+RELAXED_SAFE_QUERY_VALUE_CHARS = RELAXED_SAFE_QUERY_KEYS_CHARS + '='
+'''Characters in URL query values that should be safe to not escape.'''
+
+
 _URLInfoType = collections.namedtuple(
     'URLInfoType',
     [
@@ -205,8 +215,8 @@ class URLInfo(_URLInfoType):
 
         return '&'.join([
             '='.join((
-                quote_func(name),
-                quote_func(value or '')
+                quote_func(name, safe=RELAXED_SAFE_QUERY_KEYS_CHARS),
+                quote_func(value or '', safe=RELAXED_SAFE_QUERY_VALUE_CHARS)
             ))
             if value is not None or always_delim else
             quote_func(name)
@@ -550,10 +560,6 @@ def normalize(url, **kwargs):
     :seealso: :func:`URLInfo.parse`.
     '''
     return URLInfo.parse(url, **kwargs).url
-
-
-RELAXED_SAFE_CHARS = '/!$&()*+,:;=@~'
-'''Characters in URL path that should be safe to not escape.'''
 
 
 def schemes_similar(scheme1, scheme2):
