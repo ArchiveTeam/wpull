@@ -92,7 +92,7 @@ The issue tracker is located at https://github.com/chfoo/wpull/issues.
 Dev
 ===
 
-.. image:: https://travis-ci.org/chfoo/wpull.png
+.. image:: https://travis-ci.org/chfoo/wpull.svg
    :target: https://travis-ci.org/chfoo/wpull
    :alt: Travis CI build status
 
