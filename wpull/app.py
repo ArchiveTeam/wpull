@@ -351,7 +351,7 @@ class Builder(object):
             LevelFilter(args.level),
             SpanHostsFilter(
                 self._url_infos,
-                enabled=not args.recursive or args.span_hosts,
+                enabled=args.span_hosts,
                 page_requisites='page-requisites' in args.span_hosts_allow,
                 linked_pages='linked-pages' in args.span_hosts_allow,
             ),

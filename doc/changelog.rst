@@ -6,6 +6,7 @@ What's New
 ==================
 
 * Fixes SSLVerficationError mistakenly raised during connection errors.
+* ``--span-hosts`` no longer implicitly enabled on non-recursive downloads. This behavior is superseded by strong redirect logic. (Use ``--span-hosts-allow`` to guarantee fetching of page-requisites.)
 
 
 0.28 (2014-03-27)
