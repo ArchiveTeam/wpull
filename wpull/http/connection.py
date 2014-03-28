@@ -148,11 +148,11 @@ class Connection(object):
             yield self._io_stream.connect(
                 self._address, timeout=self._connect_timeout
             )
-        except (ssl.SSLError, tornado.netutil.SSLCertificateError,
+        except (tornado.netutil.SSLCertificateError,
         SSLVerficationError) as error:
-            raise SSLVerficationError('SSLError: {error}'.format(
+            raise SSLVerficationError('Certificate error: {error}'.format(
                 error=error)) from error
-        except socket.error as error:
+        except (ssl.SSLError, socket.error) as error:
             if error.errno == errno.ECONNREFUSED:
                 raise ConnectionRefused('Connection refused: {error}'.format(
                     error=error)) from error

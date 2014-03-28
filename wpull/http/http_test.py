@@ -1,7 +1,9 @@
 # encoding=utf-8
 import functools
 import os.path
+import socket
 import ssl
+import sys
 import tornado.testing
 import tornado.web
 
@@ -317,6 +319,74 @@ class TestConnection(BadAppTestCase):
 
         self.connection.close()
         yield self.fetch('/')
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_mock_connect_socket_error(self):
+        @tornado.gen.coroutine
+        def mock_func():
+            @tornado.gen.coroutine
+            def mock_connect(*dummy, **dummy1):
+                raise socket.error(123, 'Mock error')
+
+            yield Connection._make_socket(self.connection)
+            self.connection._io_stream.connect = mock_connect
+
+        self.connection._make_socket = mock_func
+
+        try:
+            yield self.fetch('/')
+        except NetworkError:
+            pass
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_mock_connect_ssl_error(self):
+        @tornado.gen.coroutine
+        def mock_func():
+            @tornado.gen.coroutine
+            def mock_connect(*dummy, **dummy1):
+                raise ssl.SSLError(123, 'Mock error')
+
+            yield Connection._make_socket(self.connection)
+            self.connection._io_stream.connect = mock_connect
+
+        self.connection._make_socket = mock_func
+
+        try:
+            yield self.fetch('/')
+        except NetworkError:
+            pass
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_mock_request_socket_error(self):
+        @tornado.gen.coroutine
+        def mock_func(dummy):
+            if sys.version_info < (3, 3):
+                raise socket.error(123, 'Mock error')
+            else:
+                raise ConnectionError(123, 'Mock error')
+
+        self.connection._read_response_header = mock_func
+
+        try:
+            yield self.fetch('/')
+        except NetworkError:
+            pass
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_mock_request_ssl_error(self):
+        @tornado.gen.coroutine
+        def mock_func(dummy):
+            if sys.version_info < (3, 3):
+                raise socket.error(123, 'Mock error')
+            else:
+                raise ConnectionError(123, 'Mock error')
+
+        self.connection._read_response_header = mock_func
+
+        try:
+            yield self.fetch('/')
+        except NetworkError:
+            pass
 
 
 class TestClient(BadAppTestCase):
