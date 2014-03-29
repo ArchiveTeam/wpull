@@ -230,6 +230,9 @@ class Connection(object):
         else:
             error_class = (ConnectionError, StreamClosedError, ssl.SSLError)
 
+        if not self._keep_alive and 'Connection' not in request.fields:
+            request.fields['Connection'] = 'close'
+
         try:
             yield self._send_request_header(request)
             yield self._send_request_body(request)
