@@ -43,7 +43,7 @@ class AppHelpFormatter(argparse.HelpFormatter):
             else:
                 result = ''
 
-            choice_strs = [str(choice) for choice in action.choices]
+            choice_strs = sorted([str(choice) for choice in action.choices])
 
             if isinstance(action.choices, CommaChoiceListArgs):
                 result += '<%s>' % ','.join(choice_strs)
