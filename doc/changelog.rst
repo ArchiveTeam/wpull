@@ -10,6 +10,12 @@ What's New
 * Fixes URL query strings normalized with unnecessary percent-encoding escapes. Some servers do not handle percent-encoded URLs well.
 * Fixes crash handling directory paths that may contain a filename or a filename that is a directory. This crash occurs when a URL like `/blog` and `/blog/` exists. If a directory path contains a filename, the part of the directory path is suffixed with `.d`. If a filename is an existing directory, the filename is suffixed with `.f`.
 * Implements ``--warc-dedup``.
+
+* Scripting:
+
+  * Adds ``engine_run()`` callback.
+  * Exposes the instance factory.
+
 * API:
 
   * connection: ``Connection`` arguments changed. Uses ``ConnectionParams`` as a parameter object. ``HostConnectionPool`` arguments also changed.

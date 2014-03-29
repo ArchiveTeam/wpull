@@ -1,5 +1,9 @@
 local injected_url_found = false
 
+wpull_hook.callbacks.engine_run = function()
+  assert(wpull_hook.factory.get('Engine'))
+end
+
 wpull_hook.callbacks.resolve_dns = function(host)
   --  print('resolve_dns', host)
   assert(host == 'localhost')

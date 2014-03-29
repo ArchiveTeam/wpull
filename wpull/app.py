@@ -258,7 +258,7 @@ class Builder(object):
         _logger.info(_('Using Python hook script {filename}.').format(
             filename=filename))
 
-        hook_environment = HookEnvironment()
+        hook_environment = HookEnvironment(self._factory)
 
         self._setup_hook_environment(hook_environment)
 
@@ -273,7 +273,7 @@ class Builder(object):
             filename=filename))
 
         lua = wpull.hook.load_lua()
-        hook_environment = HookEnvironment(is_lua=True)
+        hook_environment = HookEnvironment(self._factory, is_lua=True)
 
         self._setup_hook_environment(hook_environment)
 
