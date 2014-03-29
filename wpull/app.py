@@ -688,8 +688,12 @@ class Builder(object):
                 params=ConnectionParams(
                     connect_timeout=connect_timeout,
                     read_timeout=read_timeout,
-                    keep_alive=self._args.http_keep_alive,
+                    keep_alive=(
+                        self._args.http_keep_alive
+                        and not self._args.ignore_length
+                    ),
                     ssl_options=self._build_ssl_options(),
+                    ignore_length=self._args.ignore_length,
                 ),
                 **kwargs)
 

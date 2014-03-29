@@ -48,6 +48,7 @@ ConnectionParams = namedlist.namedtuple(
         ('read_timeout', None),
         ('buffer_size', DEFAULT_BUFFER_SIZE),
         ('no_content_codes', DEFAULT_NO_CONTENT_CODES),
+        ('ignore_length', False),
     ]
 )
 '''Parameters for connections.
@@ -67,6 +68,8 @@ Args:
     buffer_size (int): The maximum size of the buffer in bytes.
     no_content_codes: A container of HTTP status codes where the response
         body is expected to be empty.
+    ignore_length (bool): If True, Content-Length headers will be ignored.
+        When using this option, `keep_alive` should be False.
 '''
 
 
@@ -341,7 +344,8 @@ class Connection(object):
         if re.match(r'chunked($|;)',
         response.fields.get('Transfer-Encoding', '')):
             yield self._read_response_by_chunk(response)
-        elif 'Content-Length' in response.fields:
+        elif 'Content-Length' in response.fields \
+        and not self._params.ignore_length:
             yield self._read_response_by_length(response)
         else:
             yield self._read_response_until_close(response)

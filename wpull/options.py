@@ -628,10 +628,11 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--adjust-extension',
 #             action='store_true',
 #         )
-#         self.add_argument(
-#             '--ignore-length',
-#             action='store_true',
-#         )
+        group.add_argument(
+            '--ignore-length',
+            action='store_true',
+            help=_('ignore any Content-Length provided by the server')
+        )
         group.add_argument(
             '--header',
             metavar='STRING',

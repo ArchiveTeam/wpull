@@ -402,6 +402,20 @@ class TestConnection(BadAppTestCase):
         except NetworkError:
             pass
 
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_ignore_length(self):
+        self.connection = Connection(
+            ('localhost', self._port),
+            params=ConnectionParams(keep_alive=False, ignore_length=True)
+        )
+
+        response = yield self.connection.fetch(
+            Request.new(self.get_url('/underrun')),
+            recorder=DebugPrintRecorder()
+        )
+
+        self.assertEqual(50, response.body.content_size)
+
 
 class TestClient(BadAppTestCase):
     def setUp(self):
