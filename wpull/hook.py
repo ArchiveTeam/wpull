@@ -156,8 +156,9 @@ class Callbacks(object):
             list: A ``list`` of ``dict``. Each ``dict`` contains:
 
                 * ``url``: a string of the URL
-                * ``link_type`` (str, optional): ``html`` or ``None``.
-                * ``boolean`` (bool, optional): If True, the link is an
+                * ``link_type`` (str, optional): A string defined in
+                    :class:`.item.LinkType`.
+                * ``inline`` (bool, optional): If True, the link is an
                   embedded HTML object.
                 * ``post_data`` (str, optional): If provided, the
                   request will be a POST request with a

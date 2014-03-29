@@ -19,6 +19,7 @@ from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
     DNSNotFound, NetworkError)
 from wpull.http.request import Response, Request
 from wpull.http.web import RichClientResponseType
+from wpull.item import LinkType
 from wpull.namevalue import NameValueRecord
 from wpull.scraper import HTMLScraper, DemuxDocumentScraper, CSSScraper
 from wpull.stats import Statistics
@@ -498,9 +499,9 @@ class WebProcessorSession(object):
             return 0, 0
 
         if isinstance(scraper, CSSScraper):
-            link_type = 'css'
+            link_type = LinkType.css
         elif isinstance(scraper, HTMLScraper):
-            link_type = 'html'
+            link_type = LinkType.html
         else:
             link_type = None
 
