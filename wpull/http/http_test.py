@@ -11,7 +11,8 @@ from wpull.backport.testing import unittest
 from wpull.errors import (ConnectionRefused, SSLVerficationError, NetworkError,
     ProtocolError, NetworkTimedOut)
 from wpull.http.client import Client
-from wpull.http.connection import Connection, ConnectionPool, HostConnectionPool
+from wpull.http.connection import (Connection, ConnectionPool, HostConnectionPool,
+    ConnectionParams)
 from wpull.http.request import Request, Response
 from wpull.http.util import parse_charset
 from wpull.recorder import DebugPrintRecorder
@@ -28,7 +29,7 @@ class TestConnection(BadAppTestCase):
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_no_such_host(self):
-        connection = Connection('wpull-no-exist.invalid', 80)
+        connection = Connection(('wpull-no-exist.invalid', 80))
         try:
             yield connection.fetch(
                 Request.new('http://wpull-no-exist.invalid'))
@@ -39,7 +40,7 @@ class TestConnection(BadAppTestCase):
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_refused(self):
-        connection = Connection('localhost', 1)
+        connection = Connection(('localhost', 1))
         try:
             yield connection.fetch(
                 Request.new('http://localhost:1/'))
@@ -50,7 +51,11 @@ class TestConnection(BadAppTestCase):
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_timeout(self):
-        connection = Connection('1.0.0.0', 1, connect_timeout=0.1)
+        connection = Connection(
+            ('1.0.0.0', 1),
+            params=ConnectionParams(connect_timeout=0.1)
+        )
+
         try:
             yield connection.fetch(
                 Request.new('http://1.0.0.0:1/'))
@@ -61,7 +66,7 @@ class TestConnection(BadAppTestCase):
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_reuse(self):
-        connection = Connection('localhost', self._port)
+        connection = Connection(('localhost', self._port))
         request = Request.new(self.get_url('/'))
         request.version = 'HTTP/1.0'
         response = yield connection.fetch(request)
@@ -90,7 +95,10 @@ class TestConnection(BadAppTestCase):
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_read_timeout(self):
-        connection = Connection('localhost', self._port, read_timeout=0.1)
+        connection = Connection(
+            ('localhost', self._port),
+            params=ConnectionParams(read_timeout=0.1)
+        )
         request = Request.new(self.get_url('/sleep_long'))
         try:
             yield connection.fetch(request)
@@ -163,8 +171,12 @@ class TestConnection(BadAppTestCase):
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_buffer_overflow(self):
-        connection = Connection('localhost', self._port,
-            connect_timeout=2.0, read_timeout=5.0, buffer_size=1000)
+        connection = Connection(
+            ('localhost', self._port),
+            params=ConnectionParams(
+                connect_timeout=2.0, read_timeout=5.0, buffer_size=1000
+            )
+        )
         request = Request.new(self.get_url('/buffer_overflow'))
         try:
             yield connection.fetch(request)
@@ -295,8 +307,10 @@ class TestConnection(BadAppTestCase):
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_underrun(self):
-        self.connection = Connection('localhost', self._port,
-            connect_timeout=2.0, read_timeout=1.0)
+        self.connection = Connection(
+            ('localhost', self._port),
+            params=ConnectionParams(connect_timeout=2.0, read_timeout=1.0)
+        )
 
         for counter in range(3):
             print(counter)
@@ -472,7 +486,9 @@ class TestClient(BadAppTestCase):
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_client_exception_recovery(self):
-        connection_factory = functools.partial(Connection, read_timeout=0.2)
+        connection_factory = functools.partial(
+            Connection, params=ConnectionParams(read_timeout=0.2)
+        )
         host_connection_pool_factory = functools.partial(
             HostConnectionPool, connection_factory=connection_factory)
         connection_pool = ConnectionPool(host_connection_pool_factory)
@@ -614,10 +630,14 @@ class TestSSL(tornado.testing.AsyncHTTPSTestCase):
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_ssl_fail(self):
-        connection = Connection('localhost', self.get_http_port(), ssl=True,
-            ssl_options=dict(
-                cert_reqs=ssl.CERT_REQUIRED,
-                ca_certs=self.get_ssl_options()['certfile']
+        connection = Connection(
+            ('localhost', self.get_http_port()),
+            ssl_enable=True,
+            params=ConnectionParams(
+                ssl_options=dict(
+                    cert_reqs=ssl.CERT_REQUIRED,
+                    ca_certs=self.get_ssl_options()['certfile']
+                )
             )
         )
         try:
@@ -629,5 +649,7 @@ class TestSSL(tornado.testing.AsyncHTTPSTestCase):
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_ssl_no_check(self):
-        connection = Connection('localhost', self.get_http_port(), ssl=True)
+        connection = Connection(
+            ('localhost', self.get_http_port()), ssl_enable=True
+        )
         yield connection.fetch(Request.new(self.get_url('/')))

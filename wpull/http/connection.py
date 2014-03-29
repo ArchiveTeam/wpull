@@ -6,6 +6,7 @@ import gettext
 import http.client
 import itertools
 import logging
+import namedlist
 import re
 import socket
 import ssl
@@ -19,8 +20,8 @@ import zlib
 from wpull.actor import Event
 from wpull.errors import (SSLVerficationError, ConnectionRefused, NetworkError,
     ProtocolError)
-from wpull.iostream import SSLIOStream, IOStream, BufferFullError
 from wpull.http.request import Response
+from wpull.iostream import SSLIOStream, IOStream, BufferFullError
 from wpull.network import Resolver
 
 
@@ -28,25 +29,57 @@ _ = gettext.gettext
 _logger = logging.getLogger(__name__)
 
 
+DEFAULT_BUFFER_SIZE = 1048576
+'''Default buffer size in bytes.'''
+DEFAULT_NO_CONTENT_CODES = frozenset(itertools.chain(
+    range(100, 200),
+    [http.client.NO_CONTENT, http.client.NOT_MODIFIED]
+))
+'''Status codes where a response body is prohibited.'''
+
+
+ConnectionParams = namedlist.namedtuple(
+    'ConnectionParamsType',
+    [
+        ('bind_address', None),
+        ('keep_alive', True),
+        ('ssl_options', None),
+        ('connect_timeout', None),
+        ('read_timeout', None),
+        ('buffer_size', DEFAULT_BUFFER_SIZE),
+        ('no_content_codes', DEFAULT_NO_CONTENT_CODES),
+    ]
+)
+'''Parameters for connections.
+
+Args:
+    bind_address: The IP address to bind the socket. Must match
+        :meth:`socket.SocketType.bind`. Use this if your local host has
+        multiple IP addresses.
+    keep_alive (bool): If True, use HTTP keep-alive.
+    ssl_options: A ``dict`` containing options for :func:`ssl.wrap_socket`
+    connect_timeout (float): If given, the time in seconds before the
+        connection is timed out during connection. Otherwise, depend on the
+        underlying libraries for timeout.
+    read_timeout (float): If given, the time in seconds before the connection
+        is timed out during reads. Otherwise, depend on the
+        underlying libraries for timeout.
+    buffer_size (int): The maximum size of the buffer in bytes.
+    no_content_codes: A container of HTTP status codes where the response
+        body is expected to be empty.
+'''
+
+
 class Connection(object):
     '''A single HTTP connection.
 
     Args:
-        host: The hostname
-        port: The port number
-        ssl: If True, SSL is used
-        bind_address: The IP address to bind the socket. Must match
-            :func:`socket.SocketType.bind`. Use this if your local host has
-            multiple IP addresses.
-        resolver: :class:`.network.Resovler`
-        connect_timeout: If given, the time in seconds before the connection
-            is timed out during connection. Otherwise, depend on the
-            underlying libraries for timeout.
-        read_timeout: If given, the time in seconds before the connection
-            is timed out during reads. Otherwise, depend on the
-            underlying libraries for timeout.
-        keep_alive: If True, use HTTP keep-alive.
-        ssl_options: A ``dict`` containing options for :func:`ssl.wrap_socket`
+        address (tuple): The hostname (str) and port number (int).
+        resolver (:class:`.network.Resovler`): The DNS resolver.
+        ssl_enable (bool): If True, SSL is used.
+        params (:class:`ConnectionParams`): Parameters that tweak the
+            connection.
+
     '''
     class ConnectionEvents(object):
         def __init__(self):
@@ -73,62 +106,51 @@ class Connection(object):
             self.request_data.clear()
             self.response_data.clear()
 
-    DEFAULT_BUFFER_SIZE = 1048576
-    '''Default buffer size in bytes.'''
-    DEFAULT_NO_CONTENT_CODES = frozenset(itertools.chain(
-        range(100, 200),
-        [http.client.NO_CONTENT, http.client.NOT_MODIFIED]
-    ))
-    '''Status codes where a response body is prohibited.'''
-
-    def __init__(self, host, port, ssl=False, bind_address=None,
-    resolver=None, connect_timeout=None, read_timeout=None,
-    keep_alive=True, ssl_options=None, buffer_size=DEFAULT_BUFFER_SIZE,
-    no_content_codes=DEFAULT_NO_CONTENT_CODES):
-        self._host = host
-        self._port = port
-        self._ssl = ssl
-        self._address = None
+    def __init__(self, address, resolver=None, ssl_enable=False, params=None):
+        self._original_address = address
+        self._resolver = resolver or Resolver()
+        self._ssl = ssl_enable
+        self._params = params or ConnectionParams()
+        self._resolved_address = None
         self._socket = None
         self._io_stream = None
-        self._bind_address = bind_address
         self._events = Connection.ConnectionEvents()
-        self._resolver = resolver or Resolver()
-        self._connect_timeout = connect_timeout
-        self._read_timeout = read_timeout
-        self._keep_alive = keep_alive
         self._active = False
-        self._ssl_options = ssl_options or {}
-        self._buffer_size = buffer_size
         self._gzip_decompressor = None
-        self._no_content_codes = no_content_codes
 
     @tornado.gen.coroutine
     def _make_socket(self):
         '''Make and wrap the socket with an IOStream.'''
-        family, self._address = yield self._resolver.resolve(
-            self._host, self._port)
+        host, port = self._original_address
+
+        family, self._resolved_address = yield self._resolver.resolve(
+            host, port)
+
         self._socket = socket.socket(family, socket.SOCK_STREAM)
 
-        _logger.debug('Socket to {0}/{1}.'.format(family, self._address))
+        _logger.debug(
+            'Socket to {0}/{1}.'.format(family, self._resolved_address)
+        )
 
-        if self._bind_address:
-            _logger.debug('Binding socket to {0}'.format(self._bind_address))
-            self._socket.bind(self._bind_address)
+        if self._params.bind_address:
+            _logger.debug(
+                'Binding socket to {0}'.format(self._params.bind_address)
+            )
+            self._socket.bind(self._params.bind_address)
 
         if self._ssl:
             self._io_stream = SSLIOStream(
                 self._socket,
-                max_buffer_size=self._buffer_size,
-                rw_timeout=self._read_timeout,
-                ssl_options=self._ssl_options,
-                server_hostname=self._host,
+                max_buffer_size=self._params.buffer_size,
+                rw_timeout=self._params.read_timeout,
+                ssl_options=self._params.ssl_options or {},
+                server_hostname=host,
             )
         else:
             self._io_stream = IOStream(
                 self._socket,
-                rw_timeout=self._read_timeout,
-                max_buffer_size=self._buffer_size,
+                rw_timeout=self._params.read_timeout,
+                max_buffer_size=self._params.buffer_size,
             )
 
         self._io_stream.set_close_callback(self._stream_closed_callback)
@@ -143,10 +165,10 @@ class Connection(object):
 
         yield self._make_socket()
 
-        _logger.debug('Connecting to {0}.'.format(self._address))
+        _logger.debug('Connecting to {0}.'.format(self._resolved_address))
         try:
             yield self._io_stream.connect(
-                self._address, timeout=self._connect_timeout
+                self._resolved_address, timeout=self._params.connect_timeout
             )
         except (tornado.netutil.SSLCertificateError,
         SSLVerficationError) as error:
@@ -205,7 +227,7 @@ class Connection(object):
             self._events.clear()
             self._active = False
 
-        if not self._keep_alive and self.connected:
+        if not self._params.keep_alive and self.connected:
             _logger.debug('Not keep-alive. Closing connection.')
             self.close()
 
@@ -222,7 +244,7 @@ class Connection(object):
         '''
         yield self._connect()
 
-        request.address = self._address
+        request.address = self._resolved_address
         self._events.pre_request(request)
 
         if sys.version_info < (3, 3):
@@ -230,7 +252,7 @@ class Connection(object):
         else:
             error_class = (ConnectionError, StreamClosedError, ssl.SSLError)
 
-        if not self._keep_alive and 'Connection' not in request.fields:
+        if not self._params.keep_alive and 'Connection' not in request.fields:
             request.fields['Connection'] = 'close'
 
         try:
@@ -309,7 +331,7 @@ class Connection(object):
         if 'Content-Length' not in response.fields \
         and 'Transfer-Encoding' not in response.fields \
         and (
-            response.status_code in self._no_content_codes \
+            response.status_code in self._params.no_content_codes \
             or request.method.upper() == 'HEAD'
         ):
             return
@@ -531,14 +553,13 @@ class ChunkedTransferStreamReader(object):
 
 class HostConnectionPool(collections.Set):
     '''A Connection pool to a particular server.'''
-    def __init__(self, host, port, request_queue=None, ssl=False, max_count=6,
+    def __init__(self, address, ssl_enable=False, max_count=6,
     connection_factory=Connection):
-        assert isinstance(host, str)
-        assert isinstance(port, int) and port
-        self._host = host
-        self._port = port
+        assert isinstance(address[0], str)
+        assert isinstance(address[1], int) and address[1]
+        self._address = address
         self._request_queue = toro.Queue()
-        self._ssl = ssl
+        self._ssl = ssl_enable
         self._connection_factory = connection_factory
         self._connections = set()
         self._max_count = max_count
@@ -572,8 +593,11 @@ class HostConnectionPool(collections.Set):
     @tornado.gen.coroutine
     def _run_loop(self):
         while self._running or self._request_queue.qsize():
-            _logger.debug('Host pool running ({0}:{1} SSL={2}).'.format(
-                self._host, self._port, self._ssl))
+            _logger.debug(
+                'Host pool running (Addr={0} SSL={1}).'.format(
+                    self._address, self._ssl)
+            )
+
             yield self._max_count_semaphore.acquire()
 
             tornado.ioloop.IOLoop.current().add_future(
@@ -621,9 +645,13 @@ class HostConnectionPool(collections.Set):
 
         if len(self._connections) < self._max_count:
             _logger.debug('Making another connection.')
+
             connection = self._connection_factory(
-                self._host, self._port, ssl=self._ssl)
+                self._address, ssl_enable=self._ssl
+            )
+
             self._connections.add(connection)
+
             return connection
 
         _logger.debug('Connections len={0} max={1}'.format(
@@ -678,18 +706,18 @@ class ConnectionPool(collections.Mapping):
 
         if request.address:
             address = request.address
-            host, port = address
         else:
             host = request.url_info.hostname
             port = request.url_info.port
             address = (host, port)
 
-        ssl = (request.url_info.scheme == 'https')
+        ssl_enable = (request.url_info.scheme == 'https')
 
         if address not in self._pools:
             _logger.debug('New host pool.')
             self._pools[address] = self._host_connection_pool_factory(
-                host, port, ssl=ssl)
+                address, ssl_enable=ssl_enable
+            )
 
         yield self._pools[address].put(request, kwargs, async_result)
 

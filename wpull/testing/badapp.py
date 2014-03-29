@@ -15,7 +15,7 @@ import tornado.gen
 from tornado.testing import AsyncTestCase
 
 from wpull.backport.gzip import GzipFile
-from wpull.http.connection import Connection
+from wpull.http.connection import Connection, ConnectionParams
 from wpull.http.request import Request
 from wpull.recorder import DebugPrintRecorder
 
@@ -464,8 +464,10 @@ class BadAppTestCase(AsyncTestCase):
         self.http_server.start()
         self.http_server.started_event.wait(timeout=5.0)
         self._port = self.http_server.port
-        self.connection = Connection('localhost', self._port,
-            connect_timeout=2.0, read_timeout=60.0)
+        self.connection = Connection(
+            ('localhost', self._port),
+            params=ConnectionParams(connect_timeout=2.0, read_timeout=60.0)
+        )
 
     @tornado.gen.coroutine
     def fetch(self, path):

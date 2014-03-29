@@ -20,9 +20,11 @@ from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
 from wpull.http.client import Client
-from wpull.http.connection import Connection, ConnectionPool, HostConnectionPool
+from wpull.http.connection import (Connection, ConnectionPool, HostConnectionPool,
+    ConnectionParams)
 from wpull.http.request import Request
 from wpull.http.web import RedirectTracker, RichClient
+from wpull.namevalue import NameValueRecord
 from wpull.network import Resolver
 from wpull.phantomjs import PhantomJSClient
 from wpull.processor import (WebProcessor, PhantomJSController,
@@ -44,7 +46,6 @@ from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
     IgnoreFileWriter, TimestampingFileWriter, AntiClobberFileWriter)
-from wpull.namevalue import NameValueRecord
 
 
 # Module lua is imported later on demand.
@@ -684,10 +685,12 @@ class Builder(object):
             return self._factory.new('Connection',
                 *args,
                 resolver=resolver,
-                connect_timeout=connect_timeout,
-                read_timeout=read_timeout,
-                keep_alive=self._args.http_keep_alive,
-                ssl_options=self._build_ssl_options(),
+                params=ConnectionParams(
+                    connect_timeout=connect_timeout,
+                    read_timeout=read_timeout,
+                    keep_alive=self._args.http_keep_alive,
+                    ssl_options=self._build_ssl_options(),
+                ),
                 **kwargs)
 
         def host_connection_pool_factory(*args, **kwargs):

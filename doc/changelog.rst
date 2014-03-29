@@ -12,6 +12,7 @@ What's New
 * Implements ``--warc-dedup``.
 * API:
 
+  * connection: ``Connection`` arguments changed. Uses ``ConnectionParams`` as a parameter object. ``HostConnectionPool`` arguments also changed.
   * database: ``URLDBRecord`` renamed to ``URL``. ``URLStrDBRecord`` renamed to ``URLString``.
 
 * Schema change:
