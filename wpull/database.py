@@ -12,7 +12,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.pool import SingletonThreadPool
-from sqlalchemy.sql.expression import select, insert, update
+from sqlalchemy.sql.expression import select, insert, update, and_
 from sqlalchemy.sql.schema import Column, ForeignKey
 from sqlalchemy.sql.sqltypes import String, Integer, Boolean, Enum
 
@@ -114,6 +114,13 @@ class URLString(DBBase):
         session.execute(query, [{'url': url} for url in urls])
 
 
+class Visit(DBBase):
+    __tablename__ = 'visits'
+    url = Column(String, primary_key=True, nullable=False)
+    warc_id = Column(String, nullable=False)
+    payload_digest = Column(String, nullable=False)
+
+
 class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
     '''URL table.'''
     def __init__(self):
@@ -157,6 +164,24 @@ class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def close(self):
         '''Run any clean-up actions and close the table.'''
+        pass
+
+    @abc.abstractmethod
+    def add_visits(self, visits):
+        '''Add visited URLs from CDX file.
+
+        Args:
+            visits (iterable): An iterable of items. Each item is a tuple
+                containing a URL, the WARC ID, and the payload digest.
+        '''
+
+    @abc.abstractmethod
+    def get_revisit_id(self, url, payload_digest):
+        '''Return the WARC ID corresponding to the visit.
+
+        Returns:
+            str, None
+        '''
         pass
 
 
@@ -288,6 +313,32 @@ class BaseSQLURLTable(BaseURLTable):
 
                 session.query(URL).filter_by(
                     url_str_id=url_id_map[url]).delete()
+
+    def add_visits(self, visits):
+        with self._session() as session:
+            for url, warc_id, payload_digest in visits:
+                session.execute(
+                    insert(Visit).prefix_with('OR IGNORE'),
+                    dict(
+                        url=url,
+                        warc_id=warc_id,
+                        payload_digest=payload_digest
+                    )
+                )
+
+    def get_revisit_id(self, url, payload_digest):
+        query = select([Visit.warc_id]).where(
+            and_(
+                Visit.url == url,
+                Visit.payload_digest == payload_digest
+            )
+        )
+
+        with self._session() as session:
+            row = session.execute(query).first()
+
+            if row:
+                return row.warc_id
 
 
 class SQLiteURLTable(BaseSQLURLTable):

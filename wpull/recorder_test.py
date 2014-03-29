@@ -1,9 +1,6 @@
 # encoding=utf-8
-import gzip
-import io
 import logging
 import os.path
-import tempfile
 
 from wpull.backport.testing import unittest
 from wpull.http.request import Request, Response
@@ -11,7 +8,7 @@ from wpull.recorder import WARCRecorder
 import wpull.util
 import wpull.version
 from wpull.warc import WARCRecord
-from wpull.app_test import cd_tempdir
+from wpull.database import URLTable
 
 
 try:
@@ -73,14 +70,14 @@ class RecorderTest(unittest.TestCase):
             cdx_file_content = in_file.read()
 
         self.assertTrue(warc_file_content.startswith(b'WARC/1.0'))
-        self.assertIn(b'WARC-Type: warcinfo', warc_file_content)
+        self.assertIn(b'WARC-Type: warcinfo\r\n', warc_file_content)
         self.assertIn(b'Content-Type: application/warc-fields',
             warc_file_content)
         self.assertIn(b'WARC-Date: ', warc_file_content)
         self.assertIn(b'WARC-Record-ID: <urn:uuid:', warc_file_content)
         self.assertIn(b'WARC-Block-Digest: sha1:', warc_file_content)
         self.assertIn(b'WARC-Payload-Digest: sha1:', warc_file_content)
-        self.assertIn(b'WARC-Type: request', warc_file_content)
+        self.assertIn(b'WARC-Type: request\r\n', warc_file_content)
         self.assertIn(b'WARC-Target-URI: http://', warc_file_content)
         self.assertIn(b'Content-Type: application/http;msgtype=request',
             warc_file_content)
@@ -261,3 +258,92 @@ class RecorderTest(unittest.TestCase):
                 self.fail()
 
             _logger.debug('original offset {0}'.format(original_offset))
+
+    def test_cdx_dedup(self):
+        url_table = URLTable()
+        warc_recorder = WARCRecorder(
+            'asdf', compress=False, cdx=True, url_table=url_table
+        )
+
+        url_table.add_visits([
+            (
+                'http://example.com/fennec',
+                '<urn:uuid:8a534d31-bd06-4056-8a0f-bdc5fd611036>',
+                'B62D734VFEKIDLFAB7TTSCSZF64BKAYJ'
+            )
+        ])
+
+        request = Request.new('http://example.com/fennec')
+        request.address = ('0.0.0.0', 80)
+        response = Response('HTTP/1.1', '200', 'OK')
+        revisit_response_header_size = len(response.header())
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            response.body.content_file.write(b'kitbit')
+
+        with warc_recorder.session() as session:
+            session.pre_request(request)
+            session.request_data(request.header())
+            session.request(request)
+            session.pre_response(response)
+            session.response_data(response.header())
+            session.response_data(response.body.content)
+            session.response(response)
+
+        request = Request.new('http://example.com/horse')
+        request.address = ('0.0.0.0', 80)
+        response = Response('HTTP/1.1', '200', 'OKaaaaaaaaaaaaaaaaaaaaaaaaaa')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            response.body.content_file.write(b'kitbit')
+
+        with warc_recorder.session() as session:
+            session.pre_request(request)
+            session.request_data(request.header())
+            session.request(request)
+            session.pre_response(response)
+            session.response_data(response.header())
+            session.response_data(response.body.content)
+            session.response(response)
+
+        _logger.info('FINISHED')
+
+        warc_recorder.close()
+
+        with open('asdf.warc', 'rb') as in_file:
+            warc_file_content = in_file.read()
+
+        with open('asdf.cdx', 'rb') as in_file:
+            cdx_file_content = in_file.read()
+
+        self.assertTrue(warc_file_content.startswith(b'WARC/1.0'))
+        self.assertIn(b'WARC-Type: revisit\r\n', warc_file_content)
+        self.assertIn(
+            b'WARC-Refers-To: '
+                b'<urn:uuid:8a534d31-bd06-4056-8a0f-bdc5fd611036>\r\n',
+            warc_file_content
+        )
+        self.assertIn(b'WARC-Truncated: length\r\n', warc_file_content)
+        self.assertIn(
+            b'WARC-Profile: http://netpreserve.org/warc/1.0/revisit/'
+                b'identical-payload-digest\r\n',
+            warc_file_content
+        )
+        self.assertIn(
+            b'Content-Length: ' +
+                str(revisit_response_header_size).encode('ascii') + b'\r\n',
+            warc_file_content
+        )
+        self.assertIn(
+            b'WARC-Target-URI: http://example.com/fennec\r\n',
+            warc_file_content
+        )
+        self.assertIn(
+            b'WARC-Target-URI: http://example.com/horse\r\n', warc_file_content
+        )
+        self.assertEqual(
+            1,
+            warc_file_content.count(b'kitbit')
+        )
+
+        self.assertIn(b'http://example.com/horse ', cdx_file_content)

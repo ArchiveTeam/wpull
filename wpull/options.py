@@ -882,9 +882,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('write CDX file along with the WARC file')
         )
-#         self.add_argument(
-#             '--warc-dedup',
-#         )
+        group.add_argument(
+            '--warc-dedup',
+            metavar='FILE',
+            type=argparse.FileType('rb'),
+            help=_('write revisit records using digests in FILE')
+        )
         group.add_argument(
             '--no-warc-compression',
             action='store_true',

@@ -435,6 +435,8 @@ class Builder(object):
                     digests=args.warc_digests,
                     cdx=args.warc_cdx,
                     max_size=args.warc_max_size,
+                    url_table=self._factory['URLTable'] if args.warc_dedup
+                        else None,
                 )
             )
 
@@ -452,7 +454,52 @@ class Builder(object):
             recorders.append(self._factory.new('ProgressRecorder',
                 bar_style=bar_style, stream=stream))
 
+        if args.warc_dedup:
+            self._populate_visits()
+
         return self._factory.new('DemuxRecorder', recorders)
+
+    def _populate_visits(self):
+        '''Populate the visits from the CDX into the URL table.'''
+        iterable = wpull.warc.read_cdx(
+            self._args.warc_dedup,
+            encoding=self._args.local_encoding or 'utf-8'
+        )
+
+        missing_url_msg = _('The URL ("a") is missing from the CDX file.')
+        missing_id_msg = _('The record ID ("u") is missing from the CDX file.')
+        missing_checksum_msg = \
+            _('The SHA1 checksum ("k") is missing from the CDX file.')
+
+        nonlocal_var = {'counter': 0}
+
+        def visits():
+            checked_fields = False
+
+            for record in iterable:
+                if not checked_fields:
+                    if 'a' not in record:
+                        raise ValueError(missing_url_msg)
+                    if 'u' not in record:
+                        raise ValueError(missing_id_msg)
+                    if 'k' not in record:
+                        raise ValueError(missing_checksum_msg)
+
+                    checked_fields = True
+
+                yield record['a'], record['u'], record['k']
+                nonlocal_var['counter'] += 1
+
+        url_table = self.factory['URLTable']
+        url_table.add_visits(visits())
+
+        _logger.info(
+            gettext.ngettext(
+                'Loaded {num} record from CDX file.',
+                'Loaded {num} records from CDX file.',
+                nonlocal_var['counter']
+            ).format(num=nonlocal_var['counter'])
+        )
 
     def _build_processor(self):
         '''Create the Processor

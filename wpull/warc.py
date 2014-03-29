@@ -16,6 +16,7 @@ import uuid
 from wpull.namevalue import NameValueRecord
 import wpull.util
 from wpull.http.request import Response
+import codecs
 
 
 class WARCRecord(object):
@@ -34,8 +35,11 @@ class WARCRecord(object):
     WARC_FIELDS = 'application/warc-fields'
     REQUEST = 'request'
     RESPONSE = 'response'
+    REVISIT = 'revisit'
     TYPE_REQUEST = 'application/http;msgtype=request'
     TYPE_RESPONSE = 'application/http;msgtype=response'
+    SAME_PAYLOAD_DIGEST_URI = \
+        'http://netpreserve.org/warc/1.0/revisit/identical-payload-digest'
     NAME_OVERRIDES = frozenset([
         'WARC-Date',
         'WARC-Type',
@@ -50,6 +54,13 @@ class WARCRecord(object):
         'WARC-Filename',
         'WARC-Warcinfo-ID',
         'WARC-Payload-Digest',
+        'WARC-Truncated',
+        'WARC-Filename',
+        'WARC-Profile',
+        'WARC-Identified-Payload-Type',
+        'WARC-Segment-Origin-ID',
+        'WARC-Segment-Number',
+        'WARC-Segment-Total-Length',
     ])
     '''Field name case normalization overrides because hanzo's warc-tools do
     not adequately conform to specifications.'''
@@ -170,3 +181,25 @@ class WARCRecord(object):
             return
 
         return response
+
+
+def read_cdx(file, encoding='utf8'):
+    '''Iterate CDX file.
+
+    Args:
+        file (str): A file object.
+        encoding (str): The encoding of the file.
+
+    Returns:
+        iterator: Each item is a dict that maps from field key to value.
+    '''
+    with codecs.getreader(encoding)(file) as stream:
+        header_line = stream.readline()
+        seperator = header_line[0]
+        field_keys = header_line.strip().split(seperator)
+
+        if field_keys.pop(0) != 'CDX':
+            raise ValueError('CDX header not found.')
+
+        for line in stream:
+            yield dict(zip(field_keys, line.strip().split(seperator)))
