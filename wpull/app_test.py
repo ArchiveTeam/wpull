@@ -772,6 +772,24 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_output_document(self):
+        arg_parser = AppArgumentParser()
+
+        with cd_tempdir():
+            args = arg_parser.parse_args([
+                self.get_url('/'),
+                '--output-document', 'blah.dat'
+            ])
+
+            builder = Builder(args)
+            engine = builder.build()
+            exit_code = yield engine()
+
+            self.assertTrue(os.path.exists('blah.dat'))
+
+        self.assertEqual(0, exit_code)
+
 
 class SimpleHandler(tornado.web.RequestHandler):
     def get(self):

@@ -345,13 +345,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('retry even if DNS fails to resolve hostname'),
         )
-#         self.add_argument(
-#             '-O',
-#             '--output-document',
-#             metavar='FILE',
-#             type=argparse.FileType('w'),
-#             help=_('combine and output the downloads to FILE'),
-#         )
+        group.add_argument(
+            '-O',
+            '--output-document',
+            metavar='FILE',
+            type=argparse.FileType('wb'),
+            help=_('stream every document into FILE'),
+        )
 #         self.add_argument(
 #             '--truncate-document',
 #             action='store_true',

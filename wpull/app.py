@@ -31,7 +31,7 @@ from wpull.processor import (WebProcessor, PhantomJSController,
     WebProcessorFetchParams, WebProcessorInstances)
 from wpull.proxy import HTTPProxyServer
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
-    PrintServerResponseRecorder, ProgressRecorder)
+    PrintServerResponseRecorder, ProgressRecorder, OutputDocumentRecorder)
 from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper import (HTMLScraper, CSSScraper, DemuxDocumentScraper,
     SitemapScraper)
@@ -59,7 +59,7 @@ class Builder(object):
     Args:
         args: Options from :class:`argparse.ArgumentParser`
     '''
-    UNSAFE_OPTIONS = frozenset(['save_headers', 'no_iri'])
+    UNSAFE_OPTIONS = frozenset(['save_headers', 'no_iri', 'output_document'])
 
     def __init__(self, args):
         self.default_user_agent = 'Mozilla/5.0 (compatible) Wpull/{0}'.format(
@@ -80,6 +80,7 @@ class Builder(object):
             'HostConnectionPool': HostConnectionPool,
             'HTTPProxyServer': HTTPProxyServer,
             'HTMLScraper': HTMLScraper,
+            'OutputDocumentRecorder': OutputDocumentRecorder,
             'PathNamer': PathNamer,
             'PhantomJSClient': PhantomJSClient,
             'PhantomJSController': PhantomJSController,
@@ -413,6 +414,7 @@ class Builder(object):
         '''
         args = self._args
         recorders = []
+
         if args.warc_file:
             extra_fields = [
                 ('robots', 'on' if args.robots else 'off'),
@@ -457,6 +459,13 @@ class Builder(object):
 
         if args.warc_dedup:
             self._populate_visits()
+
+        if args.output_document:
+            recorders.append(self._factory.new(
+                'OutputDocumentRecorder',
+                args.output_document,
+                with_headers=args.save_headers,
+            ))
 
         return self._factory.new('DemuxRecorder', recorders)
 
@@ -563,7 +572,7 @@ class Builder(object):
         '''
         args = self._args
 
-        if args.delete_after:
+        if args.delete_after or args.output_document:
             return NullWriter()
 
         use_dir = (len(args.urls) != 1 or args.page_requisites \
@@ -931,6 +940,7 @@ class Builder(object):
 
         * ``--save-headers``
         * ``--no-iri``
+        * ``--output-document``
         '''
         # TODO: Add output-document once implemented
         enabled_options = []

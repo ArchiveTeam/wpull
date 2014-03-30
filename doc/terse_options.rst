@@ -6,8 +6,8 @@ Brief Option Overview
   usage: __main__.py [-h] [-V] [--python-script FILE | --lua-script FILE]
                      [--database FILE] [--concurrent N] [-o FILE | -a FILE]
                      [-d | -q | -v | -nv] [--ascii-print] [-i FILE] [-t NUMBER]
-                     [--retry-connrefused] [--retry-dns-error] [-nc] [-c]
-                     [--progress TYPE={bar,dot}] [-N]
+                     [--retry-connrefused] [--retry-dns-error] [-O FILE] [-nc]
+                     [-c] [--progress TYPE={bar,dot}] [-N]
                      [--no-use-server-timestamps] [-S] [-T SECONDS]
                      [--dns-timeout SECS] [--connect-timeout SECS]
                      [--read-timeout SECS] [-w SECONDS] [--waitretry SECONDS]
@@ -83,6 +83,8 @@ Brief Option Overview
                           try NUMBER of times on transient errors (default: 20)
     --retry-connrefused   retry even if the server does not accept connections
     --retry-dns-error     retry even if DNS fails to resolve hostname
+    -O FILE, --output-document FILE
+                          combine and output the downloads to FILE
     -nc, --no-clobber     don’t use anti-clobbering filenames
     -c, --continue        resume downloading a partially-downloaded file
     --progress TYPE={bar,dot}

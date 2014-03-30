@@ -11,6 +11,7 @@ What's New
 * Fixes crash handling directory paths that may contain a filename or a filename that is a directory. This crash occurs when a URL like `/blog` and `/blog/` exists. If a directory path contains a filename, the part of the directory path is suffixed with `.d`. If a filename is an existing directory, the filename is suffixed with `.f`.
 * Implements ``--warc-dedup``.
 * Implements ``--ignore-length``.
+* Implements ``--output-document``.
 
 * Scripting:
 
