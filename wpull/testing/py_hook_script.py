@@ -8,6 +8,7 @@ injected_url_found = False
 
 def engine_run():
     assert wpull_hook.factory['Engine']
+    wpull_hook.factory['Engine'].set_concurrent(2)
 
 
 def resolve_dns(host):

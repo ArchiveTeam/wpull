@@ -13,6 +13,7 @@ from wpull.errors import (ExitStatus, ServerError, ConnectionRefused, DNSNotFoun
 from wpull.item import Status, URLItem
 from wpull.url import URLInfo
 import wpull.util
+from wpull.util import AdjustableSemaphore
 
 
 try:
@@ -66,13 +67,20 @@ class Engine(object):
         self._url_table = url_table
         self._processor = processor
         self._statistics = statistics
-        self._worker_semaphore = toro.BoundedSemaphore(concurrent)
+        self._worker_semaphore = AdjustableSemaphore(concurrent)
         self._done_event = toro.Event()
-        self._concurrent = concurrent
         self._num_worker_busy = 0
         self._exit_code = 0
         self._stopping = False
         self.stop_event = wpull.actor.Event()
+
+    @property
+    def concurrent(self):
+        '''The concurrency value.'''
+        return self._worker_semaphore.max
+
+    def set_concurrent(self, value):
+        self._worker_semaphore.set_max(value)
 
     @tornado.gen.coroutine
     def __call__(self):

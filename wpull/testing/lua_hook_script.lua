@@ -2,6 +2,7 @@ local injected_url_found = false
 
 wpull_hook.callbacks.engine_run = function()
   assert(wpull_hook.factory.get('Engine'))
+  wpull_hook.factory.get('Engine').set_concurrent(2)
 end
 
 wpull_hook.callbacks.resolve_dns = function(host)
