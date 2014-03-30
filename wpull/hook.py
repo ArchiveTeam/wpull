@@ -270,7 +270,7 @@ class HookedWebProcessorSessionMixin(object):
         verdict = self.callbacks_hook.accept_url(
             url_info_dict, record_info_dict, verdict, reasons)
 
-        _logger.debug('Hooked should fetch returned {0}'.format(verdict))
+        _logger.debug('Hooked should fetch returned %s', verdict)
 
         return verdict, reason_slug
 

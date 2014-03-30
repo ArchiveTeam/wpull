@@ -350,13 +350,20 @@ class WebProcessorSession(object):
             return True, 'redirect'
 
         else:
+#             _logger.debug(
+#                 'Rejecting {url} due to filters: '
+#                 'Passed={passed}. Failed={failed}.'.format(
+#                     url=url_info.url,
+#                     passed=test_info['passed'],
+#                     failed=test_info['failed']
+#             ))
             _logger.debug(
-                'Rejecting {url} due to filters: '
-                'Passed={passed}. Failed={failed}.'.format(
-                    url=url_info.url,
-                    passed=test_info['passed'],
-                    failed=test_info['failed']
-            ))
+                'Rejecting %s due to filters: '
+                'Passed=%s. Failed=%s.',
+                url_info.url,
+                test_info['passed'],
+                test_info['failed']
+            )
 
             return False, 'filters'
 
