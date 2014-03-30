@@ -286,6 +286,9 @@ def detect_encoding(data, encoding=None, fallback='latin1', is_html=False):
 
         candidate = normalize_codec_name(candidate)
 
+        if not candidate:
+            continue
+
         if try_decoding(data, candidate):
             return candidate
 

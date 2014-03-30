@@ -94,6 +94,22 @@ class TestUtil(unittest.TestCase):
             'utf8', fallback=()
         )
 
+        self.assertEqual(
+            'ascii',
+            detect_encoding(
+                b'<html><meta charset="dog_breath"><body>',
+                is_html=True
+            )
+        )
+
+        self.assertEqual(
+            'ascii',
+            detect_encoding(
+                b'<html><meta content="text/html; charset=cat-meows><body>',
+                is_html=True
+            )
+        )
+
         for length in range(1, 2):
             iterable = itertools.permutations(
                 [bytes(i) for i in range(256)], length
