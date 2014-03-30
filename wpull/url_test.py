@@ -122,6 +122,9 @@ class TestURL(unittest.TestCase):
         self.assertRaises(ValueError, URLInfo.parse, '')
         self.assertRaises(ValueError, URLInfo.parse, '#')
         self.assertRaises(ValueError, URLInfo.parse, 'http://')
+        self.assertRaises(ValueError, URLInfo.parse, 'example....com')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://example....com')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://example…com')
 
         self.assertEqual(
             'http://example.com/blah',

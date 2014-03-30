@@ -165,7 +165,9 @@ class URLInfo(_URLInfoType):
     def normalize_hostname(cls, hostname):
         '''Normalize the hostname.'''
         if hostname:
-            return hostname.encode('idna').decode('ascii')
+            # Double encodes to work around issue #82 (Python #21103).
+            return hostname.encode('idna').decode('ascii')\
+                .encode('idna').decode('ascii')
         else:
             return hostname
 
