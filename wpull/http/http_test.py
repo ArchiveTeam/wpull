@@ -269,6 +269,27 @@ class TestConnection(BadAppTestCase):
             self.assertEqual(len(test_data), len(response.body.content))
             self.assertEqual(test_data, response.body.content)
 
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_zlib_encoding(self):
+        filename = os.path.join(
+            os.path.dirname(__file__),
+            '..', 'testing', 'samples', 'xkcd_1.html'
+        )
+
+        with open(filename, 'rb') as in_file:
+            test_data = in_file.read()
+
+        paths = [
+            '/zlib_http_1_0', '/raw_deflate_http_1_0',
+            '/zlib_chunked', '/raw_deflate_chunked',
+        ]
+        for path in paths:
+            print('Fetching', path)
+            response = yield self.fetch(path)
+
+            self.assertEqual(len(test_data), len(response.body.content))
+            self.assertEqual(test_data, response.body.content)
+
     @unittest.skip('zlib seems to not error on short content')
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_gzip_corrupt_short(self):

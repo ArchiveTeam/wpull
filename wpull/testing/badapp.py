@@ -13,6 +13,7 @@ import threading
 import time
 import tornado.gen
 from tornado.testing import AsyncTestCase
+import zlib
 
 from wpull.backport.gzip import GzipFile
 from wpull.http.connection import Connection, ConnectionParams
@@ -57,8 +58,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/big': self.big,
             '/infinite': self.infinite,
             '/gzip_http_1_0': self.gzip_http_1_0,
+            '/zlib_http_1_0': self.zlib_http_1_0,
+            '/raw_deflate_http_1_0': self.raw_deflate_http_1_0,
             '/gzip_http_1_1': self.gzip_http_1_1,
             '/gzip_chunked': self.gzip_chunked,
+            '/zlib_chunked': self.zlib_chunked,
+            '/raw_deflate_chunked': self.raw_deflate_chunked,
             '/gzip_corrupt_short': self.gzip_corrupt_short,
             '/gzip_corrupt_footer': self.gzip_corrupt_footer,
             '/bad_cookie': self.bad_cookie,
@@ -294,6 +299,24 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         self.close_connection = True
 
+    def zlib_http_1_0(self):
+        self.send_response(200)
+        self.send_header('Content-encoding', 'deflate')
+        self.end_headers()
+
+        self.wfile.write(self.zlib_sample())
+
+        self.close_connection = True
+
+    def raw_deflate_http_1_0(self):
+        self.send_response(200)
+        self.send_header('Content-encoding', 'deflate')
+        self.end_headers()
+
+        self.wfile.write(self.raw_deflate_sample())
+
+        self.close_connection = True
+
     def gzip_http_1_1(self):
         data = self.gzip_sample()
 
@@ -309,6 +332,56 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         self.send_response(200)
         self.send_header('Content-encoding', 'gzip')
+        self.send_header('Transfer-encoding', 'chunked')
+        self.end_headers()
+
+        while True:
+            data = data_file.read(100)
+
+            assert len(data) <= 100
+
+            if not data:
+                break
+
+            self.wfile.write('{0:x}'.format(len(data)).encode('ascii'))
+            self.wfile.write(b'\r\n')
+            self.wfile.write(data)
+            self.wfile.write(b'\r\n')
+
+        self.wfile.write(b'0\r\n\r\n')
+
+        self.close_connection = True
+
+    def zlib_chunked(self):
+        data_file = io.BytesIO(self.zlib_sample())
+
+        self.send_response(200)
+        self.send_header('Content-encoding', 'deflate')
+        self.send_header('Transfer-encoding', 'chunked')
+        self.end_headers()
+
+        while True:
+            data = data_file.read(100)
+
+            assert len(data) <= 100
+
+            if not data:
+                break
+
+            self.wfile.write('{0:x}'.format(len(data)).encode('ascii'))
+            self.wfile.write(b'\r\n')
+            self.wfile.write(data)
+            self.wfile.write(b'\r\n')
+
+        self.wfile.write(b'0\r\n\r\n')
+
+        self.close_connection = True
+
+    def raw_deflate_chunked(self):
+        data_file = io.BytesIO(self.raw_deflate_sample())
+
+        self.send_response(200)
+        self.send_header('Content-encoding', 'deflate')
         self.send_header('Transfer-encoding', 'chunked')
         self.end_headers()
 
@@ -362,6 +435,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 gzip_file.write(in_file.read())
 
         return content_file.getvalue()
+
+    def zlib_sample(self):
+        path = os.path.join(
+            os.path.dirname(__file__), 'samples', 'xkcd_1.html')
+
+        with open(path, 'rb') as in_file:
+            return zlib.compress(in_file.read())
+
+    def raw_deflate_sample(self):
+        return self.zlib_sample()[2:-4]
 
     def bad_cookie(self):
         self.send_response(200)

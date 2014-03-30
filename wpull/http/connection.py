@@ -23,6 +23,7 @@ from wpull.errors import (SSLVerficationError, ConnectionRefused, NetworkError,
 from wpull.http.request import Response
 from wpull.iostream import SSLIOStream, IOStream, BufferFullError
 from wpull.network import Resolver
+import wpull.util
 
 
 _ = gettext.gettext
@@ -119,7 +120,7 @@ class Connection(object):
         self._io_stream = None
         self._events = Connection.ConnectionEvents()
         self._active = False
-        self._gzip_decompressor = None
+        self._decompressor = None
 
     @tornado.gen.coroutine
     def _make_socket(self):
@@ -354,18 +355,20 @@ class Connection(object):
 
     def _setup_decompressor(self, response):
         '''Set up the content encoding decompressor.'''
-        gzipped = response.fields.get('Content-Encoding') == 'gzip'
+        encoding = response.fields.get('Content-Encoding', '').lower()
 
-        if gzipped:
-            self._gzip_decompressor = tornado.util.GzipDecompressor()
+        if encoding == 'gzip':
+            self._decompressor = tornado.util.GzipDecompressor()
+        elif encoding == 'deflate':
+            self._decompressor = wpull.util.DeflateDecompressor()
         else:
-            self._gzip_decompressor = None
+            self._decompressor = None
 
     def _decompress_data(self, data):
         '''Decompress the given data and return the uncompressed data.'''
-        if self._gzip_decompressor:
+        if self._decompressor:
             try:
-                return self._gzip_decompressor.decompress(data)
+                return self._decompressor.decompress(data)
             except zlib.error as error:
                 raise ProtocolError(
                     'zlib error: {0}.'.format(error)
@@ -375,9 +378,9 @@ class Connection(object):
 
     def _flush_decompressor(self):
         '''Return any data left in the decompressor.'''
-        if self._gzip_decompressor:
+        if self._decompressor:
             try:
-                return self._gzip_decompressor.flush()
+                return self._decompressor.flush()
             except zlib.error as error:
                 raise ProtocolError(
                     'zlib flush error: {0}.'.format(error)
