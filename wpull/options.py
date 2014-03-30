@@ -742,6 +742,11 @@ class AppArgumentParser(argparse.ArgumentParser):
 #         self.add_argument(
 #             '--auth-no-challenge'
 #         )
+        group.add_argument(
+            '--http-compression',
+            action='store_true',
+            help=_('request servers to use HTTP compression'),
+        )
 
     def _add_ssl_args(self):
         self._ssl_version_map = {

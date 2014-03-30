@@ -14,6 +14,7 @@ What's New
 * Implements ``--warc-dedup``.
 * Implements ``--ignore-length``.
 * Implements ``--output-document``.
+* Implements ``--http-compression``.
 * Supports reading HTTP compression "deflate" encoding (both zlib and raw deflate).
 
 * Scripting:

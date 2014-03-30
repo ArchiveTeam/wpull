@@ -24,7 +24,7 @@ Brief Option Overview
                      [--no-cookies] [--load-cookies FILE] [--save-cookies FILE]
                      [--keep-session-cookies]
                      [--post-data STRING | --post-file FILE]
-                     [--content-on-error]
+                     [--content-on-error] [--http-compression]
                      [--secure-protocol PR={SSLv3,TLSv1,auto}] [--https-only]
                      [--no-check-certificate] [--certificate FILE]
                      [--certificate-type TYPE={PEM}] [--private-key FILE]
@@ -84,7 +84,7 @@ Brief Option Overview
     --retry-connrefused   retry even if the server does not accept connections
     --retry-dns-error     retry even if DNS fails to resolve hostname
     -O FILE, --output-document FILE
-                          combine and output the downloads to FILE
+                          stream every document into FILE
     -nc, --no-clobber     don’t use anti-clobbering filenames
     -c, --continue        resume downloading a partially-downloaded file
     --progress TYPE={bar,dot}
@@ -161,6 +161,7 @@ Brief Option Overview
     --post-data STRING    use POST for all requests with query STRING
     --post-file FILE      use POST for all requests with query in FILE
     --content-on-error    keep error pages
+    --http-compression    request servers to use HTTP compression
 
   SSL:
     --secure-protocol PR={SSLv3,TLSv1,auto}

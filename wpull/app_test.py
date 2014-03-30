@@ -173,6 +173,7 @@ class TestApp(GoodAppTestCase):
             '--max-filename-length', '100',
             '--user-agent', 'ΑΒΓαβγ',
             '--remote-encoding', 'latin1',
+            '--http-compression',
         ])
         with cd_tempdir():
             builder = Builder(args)

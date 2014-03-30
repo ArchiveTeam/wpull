@@ -656,6 +656,9 @@ class Builder(object):
             for header_string in self._args.header:
                 request.fields.parse(header_string)
 
+            if self._args.http_compression:
+                request.fields['Accept-Encoding'] = 'gzip, deflate'
+
             return request
 
         return request_factory
@@ -804,8 +807,10 @@ class Builder(object):
         # Since we can only pass a one-to-one mapping to PhantomJS,
         # we put these last since NameValueRecord.items() will use only the
         # first value added for each key.
-        default_headers.add('Accept-Encoding', 'identity')
         default_headers.add('Accept-Language', '*')
+
+        if not self._args.http_compression:
+            default_headers.add('Accept-Encoding', 'identity')
 
         default_headers = dict(default_headers.items())
 

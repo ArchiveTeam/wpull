@@ -143,6 +143,7 @@ class GoodApp(tornado.web.Application):
             static_path=os.path.join(os.path.dirname(__file__),
                 'static'),
             serve_traceback=True,
+            gzip=True,
         )
 
 
