@@ -401,12 +401,17 @@ class RobotsTxtRichClientSession(RichClientSession):
         if self._robots_attempts_remaining == 0:
             _logger.warning(_('Too many failed attempts to get robots.txt.'))
 
-            self._robots_state = RobotsState.error
+            self._robots_txt_pool.load_robots_txt(
+                self._robots_request.url_info,
+                b'User-Agent: *\nDisallow: /\n'
+            )
+            self._check_robots_pool()
 
         elif self._robots_redirect_tracker.exceeded():
             _logger.warning(_('Ignoring robots.txt redirect loop.'))
 
-            self._robots_state = RobotsState.error
+            self._accept_empty(self._robots_request.url_info)
+            self._check_robots_pool()
 
         elif not response or 500 <= response.status_code <= 599:
             _logger.debug('Temporary error getting robots.txt.')

@@ -11,6 +11,7 @@ What's New
 * Fixes crash handling directory paths that may contain a filename or a filename that is a directory. This crash occurs when a URL like `/blog` and `/blog/` exists. If a directory path contains a filename, the part of the directory path is suffixed with `.d`. If a filename is an existing directory, the filename is suffixed with `.f`.
 * Fixes crash when URL's hostname contains characters that decompose to dots.
 * Fixes crash when HTML document declares encoding name unknown to Python.
+* Fixes stuck in loop if server returns errors on robots.txt.
 * Implements ``--warc-dedup``.
 * Implements ``--ignore-length``.
 * Implements ``--output-document``.
