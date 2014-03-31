@@ -4,6 +4,7 @@ from distutils.core import setup
 from distutils.version import StrictVersion
 import os.path
 import re
+import os
 import sys
 
 import backport
@@ -14,7 +15,7 @@ def get_version():
 
     with open(path, 'r') as version_file:
         content = version_file.read()
-        return re.search(r"__version__ = '(.+)'", content).group(1)
+        return re.search(r"__version__ = u?'(.+)'", content).group(1)
 
 
 version = get_version()
@@ -83,6 +84,26 @@ if sys.version_info[0] == 2:
     setup_kwargs['scripts'] = ['scripts/wpull', 'scripts/wpull2']
 else:
     setup_kwargs['scripts'] = ['scripts/wpull', 'scripts/wpull3']
+
+
+if os.environ.get('USE_CX_FREEZE'):
+    from cx_Freeze import setup, Executable
+
+    sys.path.insert(0, os.path.dirname(PROJECT_PACKAGE_DIR['wpull']))
+
+    setup_kwargs['executables'] = [
+        Executable(
+            PROJECT_PACKAGE_DIR['wpull'] + '/__main__.py',
+        )
+    ]
+    setup_kwargs['options'] = {
+        'build_exe': {
+            'includes': [
+                'lxml._elementpath',
+                'sqlalchemy.dialects.sqlite',
+            ],
+        }
+    }
 
 
 if __name__ == '__main__':
