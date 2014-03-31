@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2014-MM-DD)
+0.29 (2014-03-31)
 ==================
 
 * Fixes SSLVerficationError mistakenly raised during connection errors.
