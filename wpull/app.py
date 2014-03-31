@@ -20,16 +20,18 @@ from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
 from wpull.http.client import Client
-from wpull.http.connection import Connection, ConnectionPool, HostConnectionPool
+from wpull.http.connection import (Connection, ConnectionPool, HostConnectionPool,
+    ConnectionParams)
 from wpull.http.request import Request
 from wpull.http.web import RedirectTracker, RichClient
+from wpull.namevalue import NameValueRecord
 from wpull.network import Resolver
 from wpull.phantomjs import PhantomJSClient
 from wpull.processor import (WebProcessor, PhantomJSController,
     WebProcessorFetchParams, WebProcessorInstances)
 from wpull.proxy import HTTPProxyServer
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
-    PrintServerResponseRecorder, ProgressRecorder)
+    PrintServerResponseRecorder, ProgressRecorder, OutputDocumentRecorder)
 from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper import (HTMLScraper, CSSScraper, DemuxDocumentScraper,
     SitemapScraper)
@@ -44,7 +46,6 @@ from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
     IgnoreFileWriter, TimestampingFileWriter, AntiClobberFileWriter)
-from wpull.namevalue import NameValueRecord
 
 
 # Module lua is imported later on demand.
@@ -58,7 +59,7 @@ class Builder(object):
     Args:
         args: Options from :class:`argparse.ArgumentParser`
     '''
-    UNSAFE_OPTIONS = frozenset(['save_headers', 'no_iri'])
+    UNSAFE_OPTIONS = frozenset(['save_headers', 'no_iri', 'output_document'])
 
     def __init__(self, args):
         self.default_user_agent = 'Mozilla/5.0 (compatible) Wpull/{0}'.format(
@@ -79,6 +80,7 @@ class Builder(object):
             'HostConnectionPool': HostConnectionPool,
             'HTTPProxyServer': HTTPProxyServer,
             'HTMLScraper': HTMLScraper,
+            'OutputDocumentRecorder': OutputDocumentRecorder,
             'PathNamer': PathNamer,
             'PhantomJSClient': PhantomJSClient,
             'PhantomJSController': PhantomJSController,
@@ -257,7 +259,7 @@ class Builder(object):
         _logger.info(_('Using Python hook script {filename}.').format(
             filename=filename))
 
-        hook_environment = HookEnvironment()
+        hook_environment = HookEnvironment(self._factory)
 
         self._setup_hook_environment(hook_environment)
 
@@ -272,7 +274,7 @@ class Builder(object):
             filename=filename))
 
         lua = wpull.hook.load_lua()
-        hook_environment = HookEnvironment(is_lua=True)
+        hook_environment = HookEnvironment(self._factory, is_lua=True)
 
         self._setup_hook_environment(hook_environment)
 
@@ -351,7 +353,7 @@ class Builder(object):
             LevelFilter(args.level),
             SpanHostsFilter(
                 self._url_infos,
-                enabled=not args.recursive or args.span_hosts,
+                enabled=args.span_hosts,
                 page_requisites='page-requisites' in args.span_hosts_allow,
                 linked_pages='linked-pages' in args.span_hosts_allow,
             ),
@@ -412,6 +414,7 @@ class Builder(object):
         '''
         args = self._args
         recorders = []
+
         if args.warc_file:
             extra_fields = [
                 ('robots', 'on' if args.robots else 'off'),
@@ -435,6 +438,8 @@ class Builder(object):
                     digests=args.warc_digests,
                     cdx=args.warc_cdx,
                     max_size=args.warc_max_size,
+                    url_table=self._factory['URLTable'] if args.warc_dedup
+                        else None,
                 )
             )
 
@@ -452,7 +457,59 @@ class Builder(object):
             recorders.append(self._factory.new('ProgressRecorder',
                 bar_style=bar_style, stream=stream))
 
+        if args.warc_dedup:
+            self._populate_visits()
+
+        if args.output_document:
+            recorders.append(self._factory.new(
+                'OutputDocumentRecorder',
+                args.output_document,
+                with_headers=args.save_headers,
+            ))
+
         return self._factory.new('DemuxRecorder', recorders)
+
+    def _populate_visits(self):
+        '''Populate the visits from the CDX into the URL table.'''
+        iterable = wpull.warc.read_cdx(
+            self._args.warc_dedup,
+            encoding=self._args.local_encoding or 'utf-8'
+        )
+
+        missing_url_msg = _('The URL ("a") is missing from the CDX file.')
+        missing_id_msg = _('The record ID ("u") is missing from the CDX file.')
+        missing_checksum_msg = \
+            _('The SHA1 checksum ("k") is missing from the CDX file.')
+
+        nonlocal_var = {'counter': 0}
+
+        def visits():
+            checked_fields = False
+
+            for record in iterable:
+                if not checked_fields:
+                    if 'a' not in record:
+                        raise ValueError(missing_url_msg)
+                    if 'u' not in record:
+                        raise ValueError(missing_id_msg)
+                    if 'k' not in record:
+                        raise ValueError(missing_checksum_msg)
+
+                    checked_fields = True
+
+                yield record['a'], record['u'], record['k']
+                nonlocal_var['counter'] += 1
+
+        url_table = self.factory['URLTable']
+        url_table.add_visits(visits())
+
+        _logger.info(
+            gettext.ngettext(
+                'Loaded {num} record from CDX file.',
+                'Loaded {num} records from CDX file.',
+                nonlocal_var['counter']
+            ).format(num=nonlocal_var['counter'])
+        )
 
     def _build_processor(self):
         '''Create the Processor
@@ -515,7 +572,7 @@ class Builder(object):
         '''
         args = self._args
 
-        if args.delete_after:
+        if args.delete_after or args.output_document:
             return NullWriter()
 
         use_dir = (len(args.urls) != 1 or args.page_requisites \
@@ -599,6 +656,9 @@ class Builder(object):
             for header_string in self._args.header:
                 request.fields.parse(header_string)
 
+            if self._args.http_compression:
+                request.fields['Accept-Encoding'] = 'gzip, deflate'
+
             return request
 
         return request_factory
@@ -637,10 +697,16 @@ class Builder(object):
             return self._factory.new('Connection',
                 *args,
                 resolver=resolver,
-                connect_timeout=connect_timeout,
-                read_timeout=read_timeout,
-                keep_alive=self._args.http_keep_alive,
-                ssl_options=self._build_ssl_options(),
+                params=ConnectionParams(
+                    connect_timeout=connect_timeout,
+                    read_timeout=read_timeout,
+                    keep_alive=(
+                        self._args.http_keep_alive
+                        and not self._args.ignore_length
+                    ),
+                    ssl_options=self._build_ssl_options(),
+                    ignore_length=self._args.ignore_length,
+                ),
                 **kwargs)
 
         def host_connection_pool_factory(*args, **kwargs):
@@ -741,8 +807,10 @@ class Builder(object):
         # Since we can only pass a one-to-one mapping to PhantomJS,
         # we put these last since NameValueRecord.items() will use only the
         # first value added for each key.
-        default_headers.add('Accept-Encoding', 'identity')
         default_headers.add('Accept-Language', '*')
+
+        if not self._args.http_compression:
+            default_headers.add('Accept-Encoding', 'identity')
 
         default_headers = dict(default_headers.items())
 
@@ -877,6 +945,7 @@ class Builder(object):
 
         * ``--save-headers``
         * ``--no-iri``
+        * ``--output-document``
         '''
         # TODO: Add output-document once implemented
         enabled_options = []

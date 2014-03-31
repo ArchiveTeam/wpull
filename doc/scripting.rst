@@ -3,7 +3,7 @@ Scripting Hooks
 
 Wpull's scripting support is modelled after `alard's Wget with Lua hooks <https://github.com/alard/wget-lua/wiki/Wget-with-Lua-hooks>`_.
 
-When the script is loaded, a global instance ``wpull_hook`` will be available. The ``wpull_hook`` instance contains the members:
+When the script is loaded, a global instance ``wpull_hook`` (:py:class:`wpull.hook.HookEnvironment`) will be available. The ``wpull_hook`` instance contains members where two of them are most useful:
 
 * ``callbacks``: Callback functions that serve as hooks to change functionality. These should be overridden if needed. ``callbacks`` is actually an instance of :py:class:`wpull.hook.Callbacks`.
 * ``actions``: Constants needed for some functions. ``actions`` is actually an instance of :py:class:`wpull.hook.Actions`.

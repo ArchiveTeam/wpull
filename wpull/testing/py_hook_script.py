@@ -6,6 +6,10 @@ wpull_hook = globals().get('wpull_hook')  # silence code checkers
 injected_url_found = False
 
 
+def engine_run():
+    assert wpull_hook.factory['Engine']
+
+
 def resolve_dns(host):
     print('resolve_dns', host)
     assert host == 'localhost'
@@ -100,6 +104,7 @@ def exit_status(exit_code):
     return 42
 
 
+wpull_hook.callbacks.engine_run = engine_run
 wpull_hook.callbacks.resolve_dns = resolve_dns
 wpull_hook.callbacks.accept_url = accept_url
 wpull_hook.callbacks.handle_response = handle_response

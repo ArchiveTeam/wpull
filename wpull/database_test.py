@@ -56,3 +56,30 @@ class TestDatabase(unittest.TestCase):
         self.assertEqual(200, url_record_dict['status_code'])
         self.assertEqual(Status.done, url_record_dict['status'])
         self.assertEqual(1, url_record_dict['try_count'])
+
+        self.assertFalse(
+            url_table.get_revisit_id('http://example.com/1', 'digest123')
+        )
+
+        url_table.add_visits([
+            ('http://example.com/1', 'id123', 'digest123'),
+            ('http://example.com/2', 'id456', 'digest456'),
+        ])
+
+        self.assertEqual(
+            'id123',
+            url_table.get_revisit_id('http://example.com/1', 'digest123')
+        )
+        self.assertEqual(
+            'id456',
+            url_table.get_revisit_id('http://example.com/2', 'digest456')
+        )
+        self.assertFalse(
+            url_table.get_revisit_id('http://example.com/1', 'digestbad')
+        )
+        self.assertFalse(
+            url_table.get_revisit_id('http://example.com/2', 'digestbad')
+        )
+        self.assertFalse(
+            url_table.get_revisit_id('http://example.com/asdf', 'digest123')
+        )

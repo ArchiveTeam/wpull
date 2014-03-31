@@ -44,6 +44,14 @@ _URLRecordType = collections.namedtuple(
 )
 
 
+class LinkType(object):
+    '''The type of contents that a link is expected to have.'''
+    html = 'html'
+    '''html document.'''
+    css = 'css'
+    '''stylesheet.'''
+
+
 class URLRecord(_URLRecordType):
     '''An entry in the URL table describing a URL to be downloaded.
 

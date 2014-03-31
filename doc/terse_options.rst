@@ -6,25 +6,25 @@ Brief Option Overview
   usage: __main__.py [-h] [-V] [--python-script FILE | --lua-script FILE]
                      [--database FILE] [--concurrent N] [-o FILE | -a FILE]
                      [-d | -q | -v | -nv] [--ascii-print] [-i FILE] [-t NUMBER]
-                     [--retry-connrefused] [--retry-dns-error] [-nc] [-c]
-                     [--progress TYPE={dot,bar}] [-N]
+                     [--retry-connrefused] [--retry-dns-error] [-O FILE] [-nc]
+                     [-c] [--progress TYPE={bar,dot}] [-N]
                      [--no-use-server-timestamps] [-S] [-T SECONDS]
                      [--dns-timeout SECS] [--connect-timeout SECS]
                      [--read-timeout SECS] [-w SECONDS] [--waitretry SECONDS]
                      [--random-wait] [-Q NUMBER] [--bind-address ADDRESS]
                      [--no-dns-cache] [--rotate-dns]
-                     [--restrict-file-names MODES=<windows,lower,ascii,unix,upper,nocontrol>]
-                     [-4 | -6 | --prefer-family FAMILY={IPv6,IPv4}] [--no-iri]
+                     [--restrict-file-names MODES=<ascii,lower,nocontrol,unix,upper,windows>]
+                     [-4 | -6 | --prefer-family FAMILY={IPv4,IPv6}] [--no-iri]
                      [--local-encoding ENC] [--remote-encoding ENC]
                      [--max-filename-length NUMBER] [-nd | -x] [-nH]
                      [--protocol-directories] [-P PREFIX] [--cut-dirs NUMBER]
-                     [--default-page NAME] [--header STRING]
+                     [--default-page NAME] [--ignore-length] [--header STRING]
                      [--max-redirect NUMBER] [--referer URL] [--save-headers]
                      [-U AGENT] [--no-robots] [--no-http-keep-alive]
                      [--no-cookies] [--load-cookies FILE] [--save-cookies FILE]
                      [--keep-session-cookies]
                      [--post-data STRING | --post-file FILE]
-                     [--content-on-error]
+                     [--content-on-error] [--http-compression]
                      [--secure-protocol PR={SSLv3,TLSv1,auto}] [--https-only]
                      [--no-check-certificate] [--certificate FILE]
                      [--certificate-type TYPE={PEM}] [--private-key FILE]
@@ -33,12 +33,13 @@ Brief Option Overview
                      [--random-file FILE] [--edg-file FILE]
                      [--warc-file FILENAME] [--warc-append]
                      [--warc-header STRING] [--warc-max-size NUMBER]
-                     [--warc-cdx] [--no-warc-compression] [--no-warc-digests]
-                     [--no-warc-keep-log] [--warc-tempdir DIRECTORY] [-r]
-                     [-l NUMBER] [--delete-after] [-k] [-K] [-p] [--sitemaps]
-                     [-A LIST] [-R LIST] [--accept-regex REGEX]
-                     [--reject-regex REGEX] [--regex-type TYPE={posix}]
-                     [-D LIST] [--exclude-domains LIST] [--hostnames LIST]
+                     [--warc-cdx] [--warc-dedup FILE] [--no-warc-compression]
+                     [--no-warc-digests] [--no-warc-keep-log]
+                     [--warc-tempdir DIRECTORY] [-r] [-l NUMBER]
+                     [--delete-after] [-k] [-K] [-p] [--sitemaps] [-A LIST]
+                     [-R LIST] [--accept-regex REGEX] [--reject-regex REGEX]
+                     [--regex-type TYPE={posix}] [-D LIST]
+                     [--exclude-domains LIST] [--hostnames LIST]
                      [--exclude-hostnames LIST] [--follow-tags LIST]
                      [--ignore-tags LIST]
                      [-H | --span-hosts-allow LIST=<linked-pages,page-requisites>]
@@ -82,9 +83,11 @@ Brief Option Overview
                           try NUMBER of times on transient errors (default: 20)
     --retry-connrefused   retry even if the server does not accept connections
     --retry-dns-error     retry even if DNS fails to resolve hostname
+    -O FILE, --output-document FILE
+                          stream every document into FILE
     -nc, --no-clobber     don’t use anti-clobbering filenames
     -c, --continue        resume downloading a partially-downloaded file
-    --progress TYPE={dot,bar}
+    --progress TYPE={bar,dot}
                           choose the type of progress indicator (default: bar)
     -N, --timestamping    only download files that are newer than local files
     --no-use-server-timestamps
@@ -108,11 +111,11 @@ Brief Option Overview
                           bind to ADDRESS on the local host
     --no-dns-cache        disable caching of DNS lookups
     --rotate-dns          use different resolved IP addresses on requests
-    --restrict-file-names MODES=<windows,lower,ascii,unix,upper,nocontrol>
+    --restrict-file-names MODES=<ascii,lower,nocontrol,unix,upper,windows>
                           list of safe filename modes to use (default: ['unix'])
     -4, --inet4-only      connect to IPv4 addresses only
     -6, --inet6-only      connect to IPv6 addresses only
-    --prefer-family FAMILY={IPv6,IPv4}
+    --prefer-family FAMILY={IPv4,IPv6}
                           prefer to connect to FAMILY IP addresses
     --no-iri              use ASCII encoding only
     --local-encoding ENC  use ENC as the encoding of input files and options
@@ -139,6 +142,7 @@ Brief Option Overview
   HTTP:
     --default-page NAME   use NAME as index page if not known (default:
                           index.html)
+    --ignore-length       ignore any Content-Length provided by the server
     --header STRING       adds STRING to the HTTP header
     --max-redirect NUMBER
                           follow only up to NUMBER document redirects (default:
@@ -157,6 +161,7 @@ Brief Option Overview
     --post-data STRING    use POST for all requests with query STRING
     --post-file FILE      use POST for all requests with query in FILE
     --content-on-error    keep error pages
+    --http-compression    request servers to use HTTP compression
 
   SSL:
     --secure-protocol PR={SSLv3,TLSv1,auto}
@@ -186,6 +191,7 @@ Brief Option Overview
     --warc-max-size NUMBER
                           write sequential WARC files sized about NUMBER bytes
     --warc-cdx            write CDX file along with the WARC file
+    --warc-dedup FILE     write revisit records using digests in FILE
     --no-warc-compression
                           do not compress the WARC file
     --no-warc-digests     do not compute and save SHA1 hash digests

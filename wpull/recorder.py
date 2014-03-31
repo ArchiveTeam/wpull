@@ -141,12 +141,14 @@ class WARCRecorder(BaseRecorder):
         cdx (bool): If True, a CDX file will be written.
         max_size (int): If provided, output files are named like
             ``name-00000.ext`` and the log file will be in ``name-meta.ext``.
+        url_table (:class:`.database.URLTable`): If given, then ``revist``
+            records will be written.
     '''
     CDX_DELIMINATOR = ' '
 
     def __init__(self, filename, compress=True, extra_fields=None,
     temp_dir=None, log=True, appending=False, digests=True, cdx=None,
-    max_size=None):
+    max_size=None, url_table=None):
         self._prefix_filename = filename
         self._sequence_num = 0
         self._gzip_enabled = compress
@@ -161,6 +163,7 @@ class WARCRecorder(BaseRecorder):
         self._warc_filename = None
         self._cdx_filename = None
         self._max_size = max_size
+        self._url_table = url_table
 
         if log:
             self._log_record = WARCRecord()
@@ -248,7 +251,9 @@ class WARCRecorder(BaseRecorder):
 
     @contextlib.contextmanager
     def session(self):
-        recorder_session = WARCRecorderSession(self, self._temp_dir)
+        recorder_session = WARCRecorderSession(
+            self, temp_dir=self._temp_dir, url_table=self._url_table
+        )
         yield recorder_session
 
         if self._max_size is not None \
@@ -425,15 +430,17 @@ class WARCRecorder(BaseRecorder):
 
 class WARCRecorderSession(BaseRecorderSession):
     '''WARC Recorder Session.'''
-    def __init__(self, recorder, temp_dir=None):
+    def __init__(self, recorder, temp_dir=None, url_table=None):
         self._recorder = recorder
+        self._temp_dir = temp_dir
+        self._url_table = url_table
         self._request = None
         self._request_record = None
         self._response_record = None
-        self._temp_dir = temp_dir
         self._response_temp_file = self._new_temp_file()
 
     def _new_temp_file(self):
+        '''Return new temp file.'''
         return tempfile.SpooledTemporaryFile(
             max_size=1048576,
             dir=self._temp_dir
@@ -479,7 +486,41 @@ class WARCRecorderSession(BaseRecorderSession):
             self._response_record,
             payload_offset=payload_offset
         )
+
+        if self._url_table is not None:
+            self._record_revisit(payload_offset)
+
         self._recorder.write_record(self._response_record)
+
+    def _record_revisit(self, payload_offset):
+        '''Record the revisit if possible.'''
+        fields = self._response_record.fields
+
+        ref_record_id = self._url_table.get_revisit_id(
+            fields['WARC-Target-URI'],
+            fields.get('WARC-Payload-Digest', '').upper().replace('SHA1:', '')
+        )
+
+        if ref_record_id:
+            try:
+                self._response_record.block_file.truncate(payload_offset)
+            except TypeError:
+                self._response_record.block_file.seek(0)
+
+                data = self._response_record.block_file.read(payload_offset)
+
+                self._response_record.block_file.truncate()
+                self._response_record.block_file.seek(0)
+                self._response_record.block_file.write(data)
+
+            self._recorder.set_length_and_maybe_checksums(
+                self._response_record
+            )
+
+            fields[WARCRecord.WARC_TYPE] = WARCRecord.REVISIT
+            fields['WARC-Refers-To'] = ref_record_id
+            fields['WARC-Profile'] = WARCRecord.SAME_PAYLOAD_DIGEST_URI
+            fields['WARC-Truncated'] = 'length'
 
 
 class DebugPrintRecorder(BaseRecorder):
@@ -758,3 +799,36 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
             self._total_size)
 
         self._print('{fraction_done:.1%}'.format(fraction_done=fraction_done))
+
+
+class OutputDocumentRecorder(BaseRecorder):
+    '''Output documents as a stream.'''
+    def __init__(self, file, with_headers=False):
+        self._file = file
+        self._with_headers = with_headers
+
+    @contextlib.contextmanager
+    def session(self):
+        yield OutputDocumentRecorderSession(self._file, self._with_headers)
+
+    def close(self):
+        self._file.close()
+
+
+class OutputDocumentRecorderSession(BaseRecorderSession):
+    '''Output document recorder session.'''
+    def __init__(self, file, with_headers=False):
+        self._file = file
+        self._with_headers = with_headers
+        self._response = None
+
+    def pre_response(self, response):
+        self._response = response
+
+    def response_data(self, data):
+        if self._with_headers and not self._response:
+            self._file.write(data)
+
+        if self._response:
+            self._response.body.content_file.seek(-len(data), 1)
+            self._file.write(self._response.body.content_file.read(len(data)))

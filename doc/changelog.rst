@@ -2,6 +2,37 @@
 What's New
 ==========
 
+0.29 (2014-03-31)
+==================
+
+* Fixes SSLVerficationError mistakenly raised during connection errors.
+* ``--span-hosts`` no longer implicitly enabled on non-recursive downloads. This behavior is superseded by strong redirect logic. (Use ``--span-hosts-allow`` to guarantee fetching of page-requisites.)
+* Fixes URL query strings normalized with unnecessary percent-encoding escapes. Some servers do not handle percent-encoded URLs well.
+* Fixes crash handling directory paths that may contain a filename or a filename that is a directory. This crash occurs when a URL like `/blog` and `/blog/` exists. If a directory path contains a filename, the part of the directory path is suffixed with `.d`. If a filename is an existing directory, the filename is suffixed with `.f`.
+* Fixes crash when URL's hostname contains characters that decompose to dots.
+* Fixes crash when HTML document declares encoding name unknown to Python.
+* Fixes stuck in loop if server returns errors on robots.txt.
+* Implements ``--warc-dedup``.
+* Implements ``--ignore-length``.
+* Implements ``--output-document``.
+* Implements ``--http-compression``.
+* Supports reading HTTP compression "deflate" encoding (both zlib and raw deflate).
+
+* Scripting:
+
+  * Adds ``engine_run()`` callback.
+  * Exposes the instance factory.
+
+* API:
+
+  * connection: ``Connection`` arguments changed. Uses ``ConnectionParams`` as a parameter object. ``HostConnectionPool`` arguments also changed.
+  * database: ``URLDBRecord`` renamed to ``URL``. ``URLStrDBRecord`` renamed to ``URLString``.
+
+* Schema change:
+
+  * New ``visits`` table.
+
+
 0.28 (2014-03-27)
 ==================
 

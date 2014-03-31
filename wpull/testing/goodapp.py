@@ -116,6 +116,11 @@ class BigPayloadHandler(tornado.web.RequestHandler):
         self.flush()
 
 
+class DirOrFileHandle(tornado.web.RequestHandler):
+    def get(self):
+        self.write(b'OH-NO')
+
+
 class GoodApp(tornado.web.Application):
     def __init__(self):
         tornado.web.Application.__init__(self, [
@@ -130,12 +135,15 @@ class GoodApp(tornado.web.Application):
                 (r'/always_error', AlwaysErrorHandler),
                 (r'/span_hosts', SpanHostsHandler),
                 (r'/big_payload', BigPayloadHandler),
+                (r'/dir_or_file', DirOrFileHandle),
+                (r'/dir_or_file/', DirOrFileHandle),
             ],
             template_path=os.path.join(os.path.dirname(__file__),
                 'templates'),
             static_path=os.path.join(os.path.dirname(__file__),
                 'static'),
             serve_traceback=True,
+            gzip=True,
         )
 
 

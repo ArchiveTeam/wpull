@@ -12,10 +12,21 @@ import sys
 import urllib.parse
 
 import wpull.util
+from wpull.cache import Cache
 
 
 if sys.version_info < (2, 7):
     from wpull.backport import urlparse
+
+
+RELAXED_SAFE_CHARS = '/!$&()*+,:;=@[]~'
+'''Characters in URL path that should be safe to not escape.'''
+
+RELAXED_SAFE_QUERY_KEYS_CHARS = '/!$()*+,:;?@[]~'
+'''Characters in URL query keys that should be safe to not escape.'''
+
+RELAXED_SAFE_QUERY_VALUE_CHARS = RELAXED_SAFE_QUERY_KEYS_CHARS + '='
+'''Characters in URL query values that should be safe to not escape.'''
 
 
 _URLInfoType = collections.namedtuple(
@@ -85,6 +96,8 @@ class URLInfo(_URLInfoType):
         'https': 443,
     }
 
+    cache = Cache(max_items=1000)
+
     @classmethod
     def parse(cls, string, default_scheme='http', encoding='utf8',
     normalization_params=None):
@@ -108,6 +121,13 @@ class URLInfo(_URLInfoType):
             raise ValueError('Empty URL')
 
         assert isinstance(string, str)
+
+        cache_key = (string, default_scheme, encoding, normalization_params)
+
+        try:
+            return cls.cache[cache_key]
+        except KeyError:
+            pass
 
         if normalization_params is None:
             normalization_params = NormalizationParams()
@@ -133,7 +153,7 @@ class URLInfo(_URLInfoType):
         if not port:
             port = 80 if url_split_result.scheme == 'http' else 443
 
-        return URLInfo(
+        url_info = URLInfo(
             url_split_result.scheme,
             url_split_result.netloc,
             cls.normalize_path(url_split_result.path, encoding=encoding),
@@ -151,11 +171,17 @@ class URLInfo(_URLInfoType):
             wpull.util.normalize_codec_name(encoding),
         )
 
+        cls.cache[cache_key] = url_info
+
+        return url_info
+
     @classmethod
     def normalize_hostname(cls, hostname):
         '''Normalize the hostname.'''
         if hostname:
-            return hostname.encode('idna').decode('ascii')
+            # Double encodes to work around issue #82 (Python #21103).
+            return hostname.encode('idna').decode('ascii')\
+                .encode('idna').decode('ascii')
         else:
             return hostname
 
@@ -205,8 +231,8 @@ class URLInfo(_URLInfoType):
 
         return '&'.join([
             '='.join((
-                quote_func(name),
-                quote_func(value or '')
+                quote_func(name, safe=RELAXED_SAFE_QUERY_KEYS_CHARS),
+                quote_func(value or '', safe=RELAXED_SAFE_QUERY_VALUE_CHARS)
             ))
             if value is not None or always_delim else
             quote_func(name)
@@ -550,10 +576,6 @@ def normalize(url, **kwargs):
     :seealso: :func:`URLInfo.parse`.
     '''
     return URLInfo.parse(url, **kwargs).url
-
-
-RELAXED_SAFE_CHARS = '/!$&()*+,:;=@~'
-'''Characters in URL path that should be safe to not escape.'''
 
 
 def schemes_similar(scheme1, scheme2):

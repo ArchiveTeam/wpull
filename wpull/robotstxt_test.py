@@ -85,6 +85,73 @@ class TestRobotsTxtRichClient(tornado.testing.AsyncTestCase):
         self.assertTrue(session.done)
 
     @tornado.testing.gen_test
+    def test_redirect_loop(self):
+        http_client = MockHTTPClient()
+        pool = RobotsTxtPool()
+        client = RichClient(http_client, pool)
+        session = MockRobotsTxtRichClientSession(
+            client, Request.new('http://example.com')
+        )
+
+        self.assertEqual(RobotsState.unknown, session._robots_state)
+
+        for dummy in range(21):
+            request = session.next_request
+            self.assertTrue(request.url_info.url.endswith('robots.txt'))
+
+            response = Response('HTTP/1.0', 302, 'See else')
+            response.url_info = request.url_info
+            response.fields['location'] = '/robots.txt'
+
+            http_client.response = response
+            yield session.fetch()
+
+        request = session.next_request
+        self.assertTrue(request)
+
+        response = Response('HTTP/1.0', 200, 'OK')
+
+        http_client.response = response
+        yield session.fetch()
+
+        self.assertEqual(RobotsState.ok, session._robots_state)
+
+        print(session.next_request)
+        self.assertTrue(session.done)
+
+    @tornado.testing.gen_test
+    def test_server_error(self):
+        http_client = MockHTTPClient()
+        pool = RobotsTxtPool()
+        client = RichClient(http_client, pool)
+        session = MockRobotsTxtRichClientSession(
+            client, Request.new('http://example.com')
+        )
+
+        self.assertEqual(RobotsState.unknown, session._robots_state)
+
+        for dummy in range(21):
+            request = session.next_request
+            self.assertTrue(request.url_info.url.endswith('robots.txt'))
+
+            response = Response('HTTP/1.0', 500, 'Opps')
+
+            http_client.response = response
+            yield session.fetch()
+
+        request = session.next_request
+        self.assertIsNone(request)
+
+        try:
+            yield session.fetch()
+        except RobotsDenied:
+            pass
+        else:
+            self.fail()
+
+        self.assertTrue(session.done)
+
+    @tornado.testing.gen_test
     def test_fetch_allow_redirects(self):
         http_client = MockHTTPClient()
         pool = RobotsTxtPool()

@@ -122,6 +122,9 @@ class TestURL(unittest.TestCase):
         self.assertRaises(ValueError, URLInfo.parse, '')
         self.assertRaises(ValueError, URLInfo.parse, '#')
         self.assertRaises(ValueError, URLInfo.parse, 'http://')
+        self.assertRaises(ValueError, URLInfo.parse, 'example....com')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://example....com')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://example…com')
 
         self.assertEqual(
             'http://example.com/blah',
@@ -191,17 +194,23 @@ class TestURL(unittest.TestCase):
 
         self.assertEqual(
             'http://example.com/'
-                '?blah=http%3A%2F%2Fexample.com%2F%3Ffail%3Dtrue',
+                '?blah=http://example.com/?fail=true',
             URLInfo.parse(
                 'http://example.com/'
                     '?blah=http%3A%2F%2Fexample.com%2F%3Ffail%3Dtrue').url
         )
         self.assertEqual(
             'http://example.com/'
-                '?blah=http%3A%2F%2Fexample.com%2F%3Ffail%3Dtrue',
+                '?blah=http://example.com/?fail=true',
             URLInfo.parse(
                 'http://example.com/'
                     '?blah=http://example.com/?fail%3Dtrue').url
+        )
+
+        self.assertEqual(
+            'http://example.com/??blah=blah[0:]=blah?blah%22&d%26_',
+            URLInfo.parse(
+                'http://example.com/??blah=blah[0:]=bl%61h?blah"&d%26_').url
         )
 
         self.assertEqual(
@@ -273,6 +282,9 @@ class TestURL(unittest.TestCase):
             'http://example.com/blah%20blah/',
             'example.com:81?blah=%c3%B0',
             'http://example.com/a/../../b/style.css',
+            'http://example.com/'
+                '?blah=http%3A%2F%2Fexample.com%2F%3Ffail%3Dtrue',
+            'http://example.com/??blah=blah[0:]=bl%61h?blah"&d%26_',
             'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6',
         ]
 

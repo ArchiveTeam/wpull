@@ -8,7 +8,8 @@ from wpull.app import Builder
 from wpull.app_test import cd_tempdir
 from wpull.options import AppArgumentParser
 from wpull.testing.goodapp import GoodAppTestCase
-from wpull.writer import url_to_dir_parts, url_to_filename, safe_filename
+from wpull.writer import (url_to_dir_parts, url_to_filename, safe_filename,
+    anti_clobber_dir_path)
 
 
 DEFAULT_TIMEOUT = 30
@@ -109,6 +110,54 @@ class TestWriter(unittest.TestCase):
                 max_length=20,
             )
         )
+
+    def test_anti_clobber_dir_path(self):
+        with cd_tempdir():
+            self.assertEqual(
+                'a',
+                anti_clobber_dir_path('a')
+            )
+
+        with cd_tempdir():
+            self.assertEqual(
+                'a/b/c/d/e/f/g',
+                anti_clobber_dir_path('a/b/c/d/e/f/g/')
+            )
+
+        with cd_tempdir():
+            self.assertEqual(
+                'a/b/c/d/e/f/g',
+                anti_clobber_dir_path('a/b/c/d/e/f/g')
+            )
+
+        with cd_tempdir():
+            with open('a', 'w'):
+                pass
+
+            self.assertEqual(
+                'a.d/b/c/d/e/f/g',
+                anti_clobber_dir_path('a/b/c/d/e/f/g')
+            )
+
+        with cd_tempdir():
+            os.makedirs('a/b')
+            with open('a/b/c', 'w'):
+                pass
+
+            self.assertEqual(
+                'a/b/c.d/d/e/f/g',
+                anti_clobber_dir_path('a/b/c/d/e/f/g')
+            )
+
+        with cd_tempdir():
+            os.makedirs('a/b/c/d/e/f')
+            with open('a/b/c/d/e/f/g', 'w'):
+                pass
+
+            self.assertEqual(
+                'a/b/c/d/e/f/g.d',
+                anti_clobber_dir_path('a/b/c/d/e/f/g')
+            )
 
 
 class TestWriterApp(GoodAppTestCase):
@@ -243,3 +292,45 @@ class TestWriterApp(GoodAppTestCase):
 
             with open(filename_orig, 'rb') as in_file:
                 self.assertEqual(b'HI', in_file.read())
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_dir_or_file(self):
+        arg_parser = AppArgumentParser()
+
+        with cd_tempdir():
+            args = arg_parser.parse_args([
+                self.get_url('/dir_or_file'),
+                '--recursive',
+                '--no-host-directories',
+            ])
+            engine = Builder(args).build()
+
+            os.mkdir('dir_or_file')
+
+            exit_code = yield engine()
+
+            self.assertEqual(0, exit_code)
+
+            print(list(os.walk('.')))
+            self.assertTrue(os.path.isdir('dir_or_file'))
+            self.assertTrue(os.path.isfile('dir_or_file.f'))
+
+        with cd_tempdir():
+            args = arg_parser.parse_args([
+                self.get_url('/dir_or_file/'),
+                '--recursive',
+                '--no-host-directories',
+            ])
+            engine = Builder(args).build()
+
+            with open('dir_or_file', 'wb'):
+                pass
+
+            exit_code = yield engine()
+
+            self.assertEqual(0, exit_code)
+
+            print(list(os.walk('.')))
+            self.assertTrue(os.path.isdir('dir_or_file.d'))
+            self.assertTrue(os.path.isfile('dir_or_file.d/index.html'))
+            self.assertTrue(os.path.isfile('dir_or_file'))

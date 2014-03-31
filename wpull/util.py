@@ -15,6 +15,7 @@ import tornado.gen
 import tornado.ioloop
 import tornado.util
 import toro
+import zlib
 
 
 try:
@@ -96,6 +97,28 @@ class ASCIIStreamWriter(codecs.StreamWriter):
     def writelines(self, list_instance):
         for item in list_instance:
             self.write(item)
+
+
+class DeflateDecompressor(tornado.util.GzipDecompressor):
+    '''zlib decompressor with raw deflate detection.
+
+    This class doesn't do any special. It only tries regular zlib and then
+    tries raw deflate on the first decompress.
+    '''
+    def __init__(self):
+        super().__init__()
+        self.decompressobj = None
+
+    def decompress(self, value):
+        if not self.decompressobj:
+            try:
+                self.decompressobj = zlib.decompressobj()
+                return self.decompressobj.decompress(value)
+            except zlib.error:
+                self.decompressobj = zlib.decompressobj(-zlib.MAX_WBITS)
+                return self.decompressobj.decompress(value)
+
+        return self.decompressobj.decompress(value)
 
 
 @contextlib.contextmanager
@@ -285,6 +308,9 @@ def detect_encoding(data, encoding=None, fallback='latin1', is_html=False):
             continue
 
         candidate = normalize_codec_name(candidate)
+
+        if not candidate:
+            continue
 
         if try_decoding(data, candidate):
             return candidate

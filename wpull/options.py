@@ -43,7 +43,7 @@ class AppHelpFormatter(argparse.HelpFormatter):
             else:
                 result = ''
 
-            choice_strs = [str(choice) for choice in action.choices]
+            choice_strs = sorted([str(choice) for choice in action.choices])
 
             if isinstance(action.choices, CommaChoiceListArgs):
                 result += '<%s>' % ','.join(choice_strs)
@@ -345,13 +345,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('retry even if DNS fails to resolve hostname'),
         )
-#         self.add_argument(
-#             '-O',
-#             '--output-document',
-#             metavar='FILE',
-#             type=argparse.FileType('w'),
-#             help=_('combine and output the downloads to FILE'),
-#         )
+        group.add_argument(
+            '-O',
+            '--output-document',
+            metavar='FILE',
+            type=argparse.FileType('wb'),
+            help=_('stream every document into FILE'),
+        )
 #         self.add_argument(
 #             '--truncate-document',
 #             action='store_true',
@@ -628,10 +628,11 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--adjust-extension',
 #             action='store_true',
 #         )
-#         self.add_argument(
-#             '--ignore-length',
-#             action='store_true',
-#         )
+        group.add_argument(
+            '--ignore-length',
+            action='store_true',
+            help=_('ignore any Content-Length provided by the server')
+        )
         group.add_argument(
             '--header',
             metavar='STRING',
@@ -741,6 +742,11 @@ class AppArgumentParser(argparse.ArgumentParser):
 #         self.add_argument(
 #             '--auth-no-challenge'
 #         )
+        group.add_argument(
+            '--http-compression',
+            action='store_true',
+            help=_('request servers to use HTTP compression'),
+        )
 
     def _add_ssl_args(self):
         self._ssl_version_map = {
@@ -882,9 +888,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('write CDX file along with the WARC file')
         )
-#         self.add_argument(
-#             '--warc-dedup',
-#         )
+        group.add_argument(
+            '--warc-dedup',
+            metavar='FILE',
+            type=argparse.FileType('rb'),
+            help=_('write revisit records using digests in FILE')
+        )
         group.add_argument(
             '--no-warc-compression',
             action='store_true',

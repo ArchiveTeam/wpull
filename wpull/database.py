@@ -12,7 +12,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.pool import SingletonThreadPool
-from sqlalchemy.sql.expression import select, insert, update
+from sqlalchemy.sql.expression import select, insert, update, and_
 from sqlalchemy.sql.schema import Column, ForeignKey
 from sqlalchemy.sql.sqltypes import String, Integer, Boolean, Enum
 
@@ -33,7 +33,7 @@ class NotFound(DatabaseError):
     pass
 
 
-class URLDBRecord(DBBase):
+class URL(DBBase):
     __tablename__ = 'urls'
     id = Column(Integer, primary_key=True, autoincrement=True)
     url_str_id = Column(
@@ -41,7 +41,7 @@ class URLDBRecord(DBBase):
         nullable=False, unique=True, index=True
     )
     url_str_record = relationship(
-        'URLStrDBRecord', uselist=False, foreign_keys=[url_str_id]
+        'URLString', uselist=False, foreign_keys=[url_str_id]
     )
     url = association_proxy('url_str_record', 'url')
     status = Column(
@@ -58,12 +58,12 @@ class URLDBRecord(DBBase):
     top_url_str_id = Column(
         Integer, ForeignKey('url_strings.id'))
     top_url_record = relationship(
-        'URLStrDBRecord', uselist=False, foreign_keys=[top_url_str_id])
+        'URLString', uselist=False, foreign_keys=[top_url_str_id])
     top_url = association_proxy('top_url_record', 'url')
     status_code = Column(Integer)
     referrer_id = Column(Integer, ForeignKey('url_strings.id'))
     referrer_record = relationship(
-        'URLStrDBRecord', uselist=False, foreign_keys=[referrer_id])
+        'URLString', uselist=False, foreign_keys=[referrer_id])
     referrer = association_proxy('referrer_record', 'url')
     inline = Column(Boolean)
     link_type = Column(String)
@@ -88,7 +88,7 @@ class URLDBRecord(DBBase):
         )
 
 
-class URLStrDBRecord(DBBase):
+class URLString(DBBase):
     __tablename__ = 'url_strings'
     id = Column(Integer, primary_key=True, autoincrement=True)
     url = Column(String, nullable=False, unique=True, index=True)
@@ -100,8 +100,8 @@ class URLStrDBRecord(DBBase):
         result_map = {}
 
         for batch in [urls[i:i + 500] for i in range(0, len(urls), 500)]:
-            query = select([URLStrDBRecord])\
-                .where(URLStrDBRecord.url.in_(batch))
+            query = select([URLString])\
+                .where(URLString.url.in_(batch))
 
             for row in session.execute(query):
                 result_map[row.url] = row.id
@@ -110,8 +110,15 @@ class URLStrDBRecord(DBBase):
 
     @classmethod
     def add_many(cls, session, urls):
-        query = insert(URLStrDBRecord).prefix_with('OR IGNORE')
+        query = insert(URLString).prefix_with('OR IGNORE')
         session.execute(query, [{'url': url} for url in urls])
+
+
+class Visit(DBBase):
+    __tablename__ = 'visits'
+    url = Column(String, primary_key=True, nullable=False)
+    warc_id = Column(String, nullable=False)
+    payload_digest = Column(String, nullable=False)
 
 
 class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
@@ -159,6 +166,24 @@ class BaseURLTable(collections.Mapping, object, metaclass=abc.ABCMeta):
         '''Run any clean-up actions and close the table.'''
         pass
 
+    @abc.abstractmethod
+    def add_visits(self, visits):
+        '''Add visited URLs from CDX file.
+
+        Args:
+            visits (iterable): An iterable of items. Each item is a tuple
+                containing a URL, the WARC ID, and the payload digest.
+        '''
+
+    @abc.abstractmethod
+    def get_revisit_id(self, url, payload_digest):
+        '''Return the WARC ID corresponding to the visit.
+
+        Returns:
+            str, None
+        '''
+        pass
+
 
 class BaseSQLURLTable(BaseURLTable):
     @abc.abstractproperty
@@ -181,7 +206,7 @@ class BaseSQLURLTable(BaseURLTable):
 
     def __getitem__(self, url):
         with self._session() as session:
-            result = session.query(URLDBRecord).filter_by(url=url).first()
+            result = session.query(URL).filter_by(url=url).first()
 
             if not result:
                 raise KeyError()
@@ -190,7 +215,7 @@ class BaseSQLURLTable(BaseURLTable):
 
     def __iter__(self):
         with self._session() as session:
-            return iter([record.url for record in session.query(URLDBRecord)])
+            return iter([record.url for record in session.query(URL)])
 
     def __len__(self):
         return self.count()
@@ -208,8 +233,8 @@ class BaseSQLURLTable(BaseURLTable):
             url_strings.append(top_url)
 
         with self._session() as session:
-            URLStrDBRecord.add_many(session, url_strings)
-            url_id_map = URLStrDBRecord.get_map(session, url_strings)
+            URLString.add_many(session, url_strings)
+            url_id_map = URLString.get_map(session, url_strings)
 
             for url in new_urls:
                 values = dict(status=Status.todo)
@@ -222,20 +247,20 @@ class BaseSQLURLTable(BaseURLTable):
                     values['top_url_str_id'] = url_id_map[top_url]
 
                 session.execute(
-                    insert(URLDBRecord).prefix_with('OR IGNORE'),
+                    insert(URL).prefix_with('OR IGNORE'),
                     values
                 )
 
     def get_and_update(self, status, new_status=None, level=None):
         with self._session() as session:
             if level is None:
-                url_record = session.query(URLDBRecord).filter_by(
+                url_record = session.query(URL).filter_by(
                     status=status).first()
             else:
-                url_record = session.query(URLDBRecord)\
+                url_record = session.query(URL)\
                     .filter(
-                        URLDBRecord.status == status,
-                        URLDBRecord.level < level,
+                        URL.status == status,
+                        URL.level < level,
                     ).first()
 
             if not url_record:
@@ -251,28 +276,28 @@ class BaseSQLURLTable(BaseURLTable):
 
         with self._session() as session:
             values = {}
-            url_id_map = URLStrDBRecord.get_map(session, [url])
+            url_id_map = URLString.get_map(session, [url])
             url_str_id = url_id_map[url]
 
             for key, value in kwargs.items():
-                values[getattr(URLDBRecord, key)] = value
+                values[getattr(URL, key)] = value
 
             if increment_try_count:
-                values[URLDBRecord.try_count] = URLDBRecord.try_count + 1
+                values[URL.try_count] = URL.try_count + 1
 
-            query = update(URLDBRecord)\
+            query = update(URL)\
                 .values(values)\
-                .where(URLDBRecord.url_str_id == url_str_id)
+                .where(URL.url_str_id == url_str_id)
 
             session.execute(query)
 
     def count(self):
         with self._session() as session:
-            return session.query(URLDBRecord).count()
+            return session.query(URL).count()
 
     def release(self):
         with self._session() as session:
-            session.query(URLDBRecord)\
+            session.query(URL)\
                 .filter_by(status=Status.in_progress)\
                 .update({'status': Status.todo})
 
@@ -280,14 +305,40 @@ class BaseSQLURLTable(BaseURLTable):
         assert not isinstance(urls, (str, bytes))
 
         with self._session() as session:
-            url_id_map = URLStrDBRecord.get_map(session, urls)
+            url_id_map = URLString.get_map(session, urls)
 
             for url in urls:
                 if url not in url_id_map:
                     continue
 
-                session.query(URLDBRecord).filter_by(
+                session.query(URL).filter_by(
                     url_str_id=url_id_map[url]).delete()
+
+    def add_visits(self, visits):
+        with self._session() as session:
+            for url, warc_id, payload_digest in visits:
+                session.execute(
+                    insert(Visit).prefix_with('OR IGNORE'),
+                    dict(
+                        url=url,
+                        warc_id=warc_id,
+                        payload_digest=payload_digest
+                    )
+                )
+
+    def get_revisit_id(self, url, payload_digest):
+        query = select([Visit.warc_id]).where(
+            and_(
+                Visit.url == url,
+                Visit.payload_digest == payload_digest
+            )
+        )
+
+        with self._session() as session:
+            row = session.execute(query).first()
+
+            if row:
+                return row.warc_id
 
 
 class SQLiteURLTable(BaseSQLURLTable):
@@ -352,7 +403,7 @@ URLTable = SQLiteURLTable
 
 __all__ = [
     'DatabaseError', 'NotFound', 'Status',
-    'URLRecord', 'URLDBRecord', 'URLStrDBRecord',
+    'URL', 'URLString',
     'BaseURLTable', 'SQLiteURLTable', 'GenericSQLURLTable',
     'URLTable',
 ]

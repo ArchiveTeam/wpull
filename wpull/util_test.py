@@ -7,7 +7,9 @@ import tornado.testing
 from wpull.backport.testing import unittest
 from wpull.util import (to_bytes, sleep, to_str, datetime_str, OrderedDefaultDict,
     wait_future, TimedOut, python_version, filter_pem, detect_encoding,
-    parse_iso8601_str, printable_bytes)
+    parse_iso8601_str, printable_bytes, DeflateDecompressor)
+import hashlib
+import zlib
 
 
 class TestUtil(unittest.TestCase):
@@ -94,6 +96,22 @@ class TestUtil(unittest.TestCase):
             'utf8', fallback=()
         )
 
+        self.assertEqual(
+            'ascii',
+            detect_encoding(
+                b'<html><meta charset="dog_breath"><body>',
+                is_html=True
+            )
+        )
+
+        self.assertEqual(
+            'ascii',
+            detect_encoding(
+                b'<html><meta content="text/html; charset=cat-meows><body>',
+                is_html=True
+            )
+        )
+
         for length in range(1, 2):
             iterable = itertools.permutations(
                 [bytes(i) for i in range(256)], length
@@ -106,6 +124,34 @@ class TestUtil(unittest.TestCase):
             b' 1234abc XYZ~',
             printable_bytes(b' 1234\x00abc XYZ\xff~')
         )
+
+    def test_deflate_decompressor(self):
+
+        input_list = []
+        hash_obj = hashlib.sha1(b'moose')
+
+        for dummy in range(100):
+            data = hash_obj.digest()
+            input_list.append(data)
+            hash_obj.update(data)
+
+        input_data = b''.join(input_list)
+        zlib_data = zlib.compress(input_data)
+        deflate_data = zlib_data[2:-4]
+
+        decompressor = DeflateDecompressor()
+        test_data = decompressor.decompress(zlib_data[:50]) \
+            + decompressor.decompress(zlib_data[50:]) \
+            + decompressor.flush()
+
+        self.assertEqual(input_data, test_data)
+
+        decompressor = DeflateDecompressor()
+        test_data = decompressor.decompress(deflate_data[:50]) \
+            + decompressor.decompress(deflate_data[50:]) \
+            + decompressor.flush()
+
+        self.assertEqual(input_data, test_data)
 
 
 class TestUtilAsync(tornado.testing.AsyncTestCase):

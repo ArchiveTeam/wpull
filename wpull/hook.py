@@ -57,6 +57,11 @@ class Actions(object):
 class Callbacks(object):
     '''Callback hooking instance.'''
     @staticmethod
+    def engine_run():
+        '''Called when the Engine is about run.'''
+        pass
+
+    @staticmethod
     def resolve_dns(host):
         '''Resolve the hostname to an IP address.
 
@@ -156,8 +161,9 @@ class Callbacks(object):
             list: A ``list`` of ``dict``. Each ``dict`` contains:
 
                 * ``url``: a string of the URL
-                * ``link_type`` (str, optional): ``html`` or ``None``.
-                * ``boolean`` (bool, optional): If True, the link is an
+                * ``link_type`` (str, optional): A string defined in
+                  :class:`.item.LinkType`.
+                * ``inline`` (bool, optional): If True, the link is an
                   embedded HTML object.
                 * ``post_data`` (str, optional): If provided, the
                   request will be a POST request with a
@@ -264,7 +270,7 @@ class HookedWebProcessorSessionMixin(object):
         verdict = self.callbacks_hook.accept_url(
             url_info_dict, record_info_dict, verdict, reasons)
 
-        _logger.debug('Hooked should fetch returned {0}'.format(verdict))
+        _logger.debug('Hooked should fetch returned %s', verdict)
 
         return verdict, reason_slug
 
@@ -424,6 +430,12 @@ class HookedEngine(Engine):
         self._callbacks_hook = self._hook_env.callbacks
         super().__init__(*args, **kwargs)
 
+    @tornado.gen.coroutine
+    def __call__(self):
+        self._callbacks_hook.engine_run()
+
+        raise tornado.gen.Return((yield super().__call__()))
+
     def _compute_exit_code_from_stats(self):
         super()._compute_exit_code_from_stats()
         exit_code = self._callbacks_hook.exit_status(
@@ -450,8 +462,17 @@ class HookedEngine(Engine):
 
 
 class HookEnvironment(object):
-    '''The global instance used by scripts.'''
-    def __init__(self, is_lua=False):
+    '''The global instance used by scripts.
+
+    Attributes:
+        factory (:class:`.factory.Factory`): The factory with the instances
+            built for the application.
+        is_lua (bool): Whether the script is running as Lua.
+        actions (:class:`Actions`): The Actions instance.
+        callbacks (:class:`Callbacks`): The Callback instance.
+    '''
+    def __init__(self, factory, is_lua=False):
+        self.factory = factory
         self.is_lua = is_lua
         self.actions = Actions()
         self.callbacks = Callbacks()

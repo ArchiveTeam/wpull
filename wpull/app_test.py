@@ -173,6 +173,7 @@ class TestApp(GoodAppTestCase):
             '--max-filename-length', '100',
             '--user-agent', 'ΑΒΓαβγ',
             '--remote-encoding', 'latin1',
+            '--http-compression',
         ])
         with cd_tempdir():
             builder = Builder(args)
@@ -272,6 +273,43 @@ class TestApp(GoodAppTestCase):
         with cd_tempdir():
             engine = builder.build()
             exit_code = yield engine()
+        self.assertEqual(0, exit_code)
+        self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_args_warc_dedup(self):
+        arg_parser = AppArgumentParser()
+
+        with cd_tempdir():
+            with open('dedup.cdx', 'wb') as out_file:
+                out_file.write(b' CDX a k u\n')
+                out_file.write(
+                    self.get_url('/static/my_file.txt').encode('ascii')
+                )
+                out_file.write(b' KQ4IUKATKL63FT5GMAE2YDRV3WERNL34')
+                out_file.write(b' <under-the-deer>\n')
+
+            args = arg_parser.parse_args([
+                self.get_url('/static/my_file.txt'),
+                '--no-parent',
+                '--warc-file', 'test',
+                '--no-warc-compression',
+                '-4',
+                '--no-robots',
+                '--warc-dedup', 'dedup.cdx',
+            ])
+
+            builder = Builder(args)
+            engine = builder.build()
+            exit_code = yield engine()
+
+            with open('test.warc', 'rb') as in_file:
+                data = in_file.read()
+
+                self.assertIn(b'KQ4IUKATKL63FT5GMAE2YDRV3WERNL34', data)
+                self.assertIn(b'Type: revisit', data)
+                self.assertIn(b'<under-the-deer>', data)
+
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
 
@@ -735,6 +773,24 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_output_document(self):
+        arg_parser = AppArgumentParser()
+
+        with cd_tempdir():
+            args = arg_parser.parse_args([
+                self.get_url('/'),
+                '--output-document', 'blah.dat'
+            ])
+
+            builder = Builder(args)
+            engine = builder.build()
+            exit_code = yield engine()
+
+            self.assertTrue(os.path.exists('blah.dat'))
+
+        self.assertEqual(0, exit_code)
+
 
 class SimpleHandler(tornado.web.RequestHandler):
     def get(self):
@@ -823,3 +879,20 @@ class TestAppBad(BadAppTestCase):
 
         self.assertEqual(7, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_ignore_length(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/underrun'),
+            '--ignore-length',
+            '--no-robots',
+        ])
+        builder = Builder(args)
+
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
