@@ -15,7 +15,7 @@ _logger = logging.getLogger(__name__)
 _ = gettext.gettext
 
 
-def main():
+def main(exit=True):
     arg_parser = AppArgumentParser()
     args = arg_parser.parse_args()
     io_loop = tornado.ioloop.IOLoop.current()
@@ -47,7 +47,11 @@ def main():
     signal.signal(signal.SIGTERM, forceful_stop_handler)
 
     exit_code = io_loop.run_sync(engine)
-    sys.exit(exit_code)
+
+    if exit:
+        sys.exit(exit_code)
+    else:
+        return exit_code
 
 
 if __name__ == '__main__':
@@ -55,5 +59,13 @@ if __name__ == '__main__':
         import cProfile
         cProfile.run('main()', 'stats-{0}.profile'.format(int(time.time())))
         # I suggest installing runsnakerun to view the profile file graphically
+    elif os.environ.get('RUN_PDB'):
+        import pdb
+
+        def wrapper():
+            main(exit=False)
+            pdb.set_trace()
+
+        pdb.runcall(wrapper)
     else:
         main()
