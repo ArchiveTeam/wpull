@@ -12,6 +12,7 @@ import sys
 import urllib.parse
 
 import wpull.util
+from wpull.cache import Cache
 
 
 if sys.version_info < (2, 7):
@@ -95,6 +96,8 @@ class URLInfo(_URLInfoType):
         'https': 443,
     }
 
+    cache = Cache(max_items=1000)
+
     @classmethod
     def parse(cls, string, default_scheme='http', encoding='utf8',
     normalization_params=None):
@@ -118,6 +121,13 @@ class URLInfo(_URLInfoType):
             raise ValueError('Empty URL')
 
         assert isinstance(string, str)
+
+        cache_key = (string, default_scheme, encoding, normalization_params)
+
+        try:
+            return cls.cache[cache_key]
+        except KeyError:
+            pass
 
         if normalization_params is None:
             normalization_params = NormalizationParams()
@@ -143,7 +153,7 @@ class URLInfo(_URLInfoType):
         if not port:
             port = 80 if url_split_result.scheme == 'http' else 443
 
-        return URLInfo(
+        url_info = URLInfo(
             url_split_result.scheme,
             url_split_result.netloc,
             cls.normalize_path(url_split_result.path, encoding=encoding),
@@ -160,6 +170,10 @@ class URLInfo(_URLInfoType):
             string,
             wpull.util.normalize_codec_name(encoding),
         )
+
+        cls.cache[cache_key] = url_info
+
+        return url_info
 
     @classmethod
     def normalize_hostname(cls, hostname):
