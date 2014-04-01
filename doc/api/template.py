@@ -35,6 +35,7 @@ MODULES = [
     'scraper',
     'stats',
     'url',
+    'urlfilter',
     'util',
     'version',
     'waiter',

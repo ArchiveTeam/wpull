@@ -8,6 +8,10 @@ What's New
 * Fixes crash on SSL handshake if connection is broken.
 * DNS entries are periodically removed from cache instead of held for long times.
 
+* API:
+
+  * URL filters moved into urlfilter module.
+
 
 0.29 (2014-03-31)
 ==================

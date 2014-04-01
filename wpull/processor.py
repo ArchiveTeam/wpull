@@ -17,13 +17,14 @@ from wpull.database import Status
 from wpull.document import HTMLReader
 from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
     DNSNotFound, NetworkError)
-from wpull.http.request import Response, Request
+from wpull.http.request import Response
 from wpull.http.web import RichClientResponseType
 from wpull.item import LinkType
 from wpull.namevalue import NameValueRecord
 from wpull.scraper import HTMLScraper, DemuxDocumentScraper, CSSScraper
 from wpull.stats import Statistics
-from wpull.url import URLInfo, DemuxURLFilter, SpanHostsFilter
+from wpull.url import URLInfo
+from wpull.urlfilter import DemuxURLFilter, SpanHostsFilter
 import wpull.util
 from wpull.waiter import LinearWaiter
 from wpull.warc import WARCRecord
@@ -100,7 +101,7 @@ WebProcessorInstances = namedlist.namedtuple(
 '''WebProcessorInstances
 
 Args:
-    url_filter ( :class:`.url.DemuxURLFilter`): The URL filter.
+    url_filter ( :class:`.urlfilter.DemuxURLFilter`): The URL filter.
     document_scraper (:class:`.scaper.DemuxDocumentScraper`): The document
         scraper.
     file_writer (:class`.writer.BaseWriter`): The file writer.

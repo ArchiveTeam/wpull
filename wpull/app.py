@@ -36,10 +36,11 @@ from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper import (HTMLScraper, CSSScraper, DemuxDocumentScraper,
     SitemapScraper)
 from wpull.stats import Statistics
-from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
-    RecursiveFilter, SpanHostsFilter, ParentFilter, RegexFilter, HTTPFilter,
-    DirectoryFilter, HostnameFilter, DemuxURLFilter, BackwardFilenameFilter,
-    HTTPSOnlyFilter)
+from wpull.url import URLInfo
+from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, HTTPFilter,
+    BackwardDomainFilter, HostnameFilter, TriesFilter, RecursiveFilter, LevelFilter,
+    SpanHostsFilter, RegexFilter, DirectoryFilter, BackwardFilenameFilter,
+    ParentFilter)
 from wpull.util import ASCIIStreamWriter
 import wpull.version
 from wpull.waiter import LinearWaiter

@@ -47,6 +47,7 @@ wpull Package
    api/scraper
    api/stats
    api/url
+   api/urlfilter
    api/util
    api/version
    api/waiter
