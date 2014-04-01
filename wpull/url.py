@@ -12,7 +12,7 @@ import sys
 import urllib.parse
 
 import wpull.util
-from wpull.cache import FIFOCache
+from wpull.cache import LRUCache
 
 
 if sys.version_info < (2, 7):
@@ -96,7 +96,7 @@ class URLInfo(_URLInfoType):
         'https': 443,
     }
 
-    cache = FIFOCache(max_items=1000)
+    cache = LRUCache(max_items=1000)
 
     @classmethod
     def parse(cls, string, default_scheme='http', encoding='utf8',

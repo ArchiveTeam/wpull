@@ -351,6 +351,7 @@ class TestURL(unittest.TestCase):
             number=2000,
             setup='import random; from wpull.url import URLInfo',
         )
+        print(t1, t2)
         self.assertLess(t1, t2)
 
     def test_url_info_to_dict(self):
