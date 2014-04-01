@@ -18,6 +18,7 @@ wpull Package
    api/actor
    api/app
    api/cache
+   api/collections
    api/conversation
    api/converter
    api/database
