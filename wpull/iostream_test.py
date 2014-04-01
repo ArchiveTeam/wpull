@@ -2,9 +2,11 @@
 
 import socket
 import tornado.testing
+import tornado.web
 
 from wpull.backport.testing import unittest
-from wpull.iostream import DataBuffer, BufferFullError, IOStream
+from wpull.errors import NetworkError
+from wpull.iostream import DataBuffer, BufferFullError, IOStream, SSLIOStream
 from wpull.testing.badapp import BadAppTestCase
 
 
@@ -96,3 +98,59 @@ class TestIOStream(BadAppTestCase):
         self.assertEqual(b'hello world!', body_1 + body_2)
 
         self.assertTrue(stream.closed)
+
+
+class SimpleHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.write(b'OK')
+
+
+class TestSSLIOStream(tornado.testing.AsyncHTTPSTestCase):
+    def get_app(self):
+        return tornado.web.Application([
+            (r'/', SimpleHandler)
+        ])
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_ssl(self):
+        socket_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+        stream = SSLIOStream(
+            socket_obj,
+            server_hostname='127.0.0.1:' + str(self.get_http_port())
+        )
+
+        yield stream.connect(('127.0.0.1', self.get_http_port()))
+        yield stream.write(b'GET / HTTP/1.0\r\n\r\n')
+
+        headers = yield stream.read_until(b'\r\n\r\n')
+
+        self.assertIn(b'OK', headers)
+
+        body = yield stream.read_until_close()
+
+        self.assertEqual(b'OK', body)
+
+        self.assertTrue(stream.closed)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_ssl_mock_reset(self):
+        socket_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+        stream = SSLIOStream(
+            socket_obj,
+            server_hostname='127.0.0.1:' + str(self.get_http_port())
+        )
+
+        @tornado.gen.coroutine
+        def _do_handshake(timeout):
+            stream._socket._sslobj = None
+            yield SSLIOStream._do_handshake(stream, timeout)
+
+        stream._do_handshake = _do_handshake
+
+        try:
+            yield stream.connect(('127.0.0.1', self.get_http_port()))
+        except NetworkError:
+            pass
+        else:
+            self.fail()
+

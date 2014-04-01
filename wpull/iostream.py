@@ -637,7 +637,6 @@ class SSLIOStream(IOStream):
         while True:
             try:
                 self._socket.do_handshake()
-                break
             except ssl.SSLError as error:
                 if error.errno == ssl.SSL_ERROR_WANT_READ:
                     events = yield self._wait_event(
@@ -652,6 +651,12 @@ class SSLIOStream(IOStream):
 
                 if events & ERROR:
                     self._raise_socket_error()
+
+            except AttributeError as error:
+                # May occur if connection reset. Issue #98.
+                raise NetworkError('SSL socket not ready.') from error
+            else:
+                break
 
     def _verify_certificates(self):
         '''Verify the certificates.
