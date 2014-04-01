@@ -5,6 +5,7 @@ What's New
 0.XX (2014-MM-DD)
 ==================
 
+* Fixes crash on SSL handshake if connection is broken.
 * DNS entries are periodically removed from cache instead of held for long times.
 
 
