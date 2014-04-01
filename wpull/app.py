@@ -180,9 +180,6 @@ class Builder(object):
 
         A handler and with a formatter is added to the root logger.
         '''
-        if self._args.verbosity == logging.DEBUG:
-            tornado.ioloop.IOLoop.current().set_blocking_log_threshold(5)
-
         stream = self._new_encoded_stream(sys.stderr)
 
         logger = logging.getLogger()
