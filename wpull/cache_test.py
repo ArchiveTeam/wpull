@@ -1,12 +1,12 @@
 import time
 
 from wpull.backport.testing import unittest
-from wpull.cache import Cache
+from wpull.cache import FIFOCache
 
 
 class TestCache(unittest.TestCase):
-    def test_size(self):
-        cache = Cache(max_items=2)
+    def test_fifo_size(self):
+        cache = FIFOCache(max_items=2)
 
         cache['a'] = 1
         cache['b'] = 2
@@ -24,8 +24,8 @@ class TestCache(unittest.TestCase):
         self.assertIn('b', cache)
         self.assertEqual(2, cache['b'])
 
-    def test_expire(self):
-        cache = Cache(time_to_live=0.1)
+    def test_fifo_expire(self):
+        cache = FIFOCache(time_to_live=0.1)
 
         cache['a'] = 1
 
