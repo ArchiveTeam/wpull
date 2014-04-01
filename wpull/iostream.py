@@ -652,9 +652,9 @@ class SSLIOStream(IOStream):
                 if events & ERROR:
                     self._raise_socket_error()
 
-            except AttributeError:
+            except AttributeError as error:
                 # May occur if connection reset. Issue #98.
-                self.close()
+                raise NetworkError('SSL socket not ready.') from error
             else:
                 break
 
