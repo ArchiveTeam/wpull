@@ -1,7 +1,7 @@
 import time
 
 from wpull.backport.testing import unittest
-from wpull.cache import FIFOCache
+from wpull.cache import FIFOCache, LRUCache
 
 
 class TestCache(unittest.TestCase):
@@ -26,6 +26,41 @@ class TestCache(unittest.TestCase):
 
     def test_fifo_expire(self):
         cache = FIFOCache(time_to_live=0.1)
+
+        cache['a'] = 1
+
+        self.assertIn('a', cache)
+        self.assertEqual(1, cache['a'])
+
+        time.sleep(0.2)
+
+        self.assertNotIn('a', cache)
+
+    def test_lru_size(self):
+        cache = LRUCache(max_items=2)
+
+        cache['a'] = 1
+        cache['b'] = 2
+
+        self.assertIn('a', cache)
+        self.assertEqual(1, cache['a'])
+        self.assertIn('b', cache)
+        self.assertEqual(2, cache['b'])
+
+        # Touch!
+        time.sleep(0.01)
+        dummy = cache['a']
+
+        cache['c'] = 3
+
+        self.assertIn('c', cache)
+        self.assertEqual(3, cache['c'])
+        self.assertNotIn('b', cache)
+        self.assertIn('a', cache)
+        self.assertEqual(1, cache['a'])
+
+    def test_lru_expire(self):
+        cache = LRUCache(time_to_live=0.1)
 
         cache['a'] = 1
 

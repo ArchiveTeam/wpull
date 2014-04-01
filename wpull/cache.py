@@ -1,9 +1,10 @@
 '''Caching.'''
 import abc
 import collections
-import heapq
 import sys
 import time
+
+from wpull.collections import LinkedList
 
 
 if 'sphinx' not in sys.modules:
@@ -15,7 +16,7 @@ else:
     total_ordering = lambda obj: obj
 
 
-class BaseCache(collections.Mapping):
+class BaseCache(collections.Mapping, object):
     @abc.abstractmethod
     def __setitem__(self, key, value):
         pass
@@ -36,8 +37,9 @@ class FIFOCache(BaseCache):
     item.
     '''
     def __init__(self, max_items=None, time_to_live=None):
+        super().__init__()
         self._map = {}
-        self._deque = collections.deque()
+        self._seq = collections.deque()
         self._max_items = max_items
         self._time_to_live = time_to_live
 
@@ -58,96 +60,61 @@ class FIFOCache(BaseCache):
         else:
             item = CacheItem(key, value, self._time_to_live)
             self._map[key] = item
-            self._deque.append(item)
+            self._seq.append(item)
 
             self.trim()
 
     def clear(self):
         self._map = {}
-        self._deque = collections.deque()
+        self._seq = collections.deque()
 
     def trim(self):
         '''Remove items that are expired or exceed the max size.'''
         now_time = time.time()
 
-        while self._deque and self._deque[0].expire_time < now_time:
-            item = self._deque.popleft()
+        while self._seq and self._seq[0].expire_time < now_time:
+            item = self._seq.popleft()
             del self._map[item.key]
 
         if self._max_items:
-            while self._deque and len(self._deque) > self._max_items:
-                item = self._deque.popleft()
+            while self._seq and len(self._seq) > self._max_items:
+                item = self._seq.popleft()
                 del self._map[item.key]
 
 
-class Cache(collections.MutableMapping):
-    # TODO: rewrite this into LRUCache
-    '''Object cache.
-
-    .. warning:: Do not use this class. The time to live feature is broken
-        in some ways.
-
-        This class will be made an alias to a LRUCache in the future.
+class LRUCache(FIFOCache):
+    '''Least recently used object cache.
 
     Args:
         max_items: The maximum number of items to keep
         time_to_live: The time in seconds of how long to keep the item
     '''
     def __init__(self, max_items=None, time_to_live=None):
-        self._data = {}
-        self._heap = []
-        self._max_items = max_items
-        self._time_to_live = time_to_live
-
-    def expire(self):
-        '''Remove old items.'''
-        now_time = time.time()
-        while True:
-            if not self._heap:
-                break
-
-            if self._heap[0].expire_time < now_time:
-                self.pop_top()
-            else:
-                break
-
-        if self._max_items is not None:
-            while len(self._heap) > self._max_items:
-                self.pop_top()
-
-    def pop_top(self):
-        '''Delete and return the oldest item.'''
-        item = heapq.heappop(self._heap)
-        del self._data[item.key]
-        return item
-
-    def __iter__(self):
-        return iter(self._data.keys())
+        super().__init__(max_items=max_items, time_to_live=time_to_live)
+        self._seq = LinkedList()
 
     def __getitem__(self, key):
-        self.expire()
+        self.trim()
+        self.touch(key)
 
-        self._data[key].access_time = time.time()
-
-        return self._data[key].value
+        return self._map[key].value
 
     def __setitem__(self, key, value):
-        self.expire()
+        if key in self._map:
+            self._map[key].value = value
+            self.touch(key)
 
-        if key not in self._data:
-            item = CacheItem(key, value, self._time_to_live)
-            heapq.heappush(self._heap, item)
-            self._data[key] = item
         else:
-            self._data[key].value = value
+            item = CacheItem(key, value, self._time_to_live)
+            self._map[key] = item
+            self._seq.append(item)
 
-    def __delitem__(self, key):
-        item = self._data.pop(key)
-        self._heap.remove(item)
-        heapq.heapify(self._heap)
+            self.trim()
 
-    def __len__(self):
-        return len(self._data)
+    def touch(self, key):
+        self._map[key].access_time = time.time()
+        self._seq.remove(self._map[key])
+        self._seq.append(self._map[key])
 
 
 @total_ordering
@@ -191,3 +158,9 @@ class CacheItem(object):
                 ttl=self.time_to_live,
                 access_time=self.access_time, id=id(self)
             )
+
+    def __hash__(self):
+        return hash(self.key)
+
+
+Cache = LRUCache
