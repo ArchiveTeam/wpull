@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.XX (2014-MM-DD)
+==================
+
+* DNS entries are periodically removed from cache instead of held for long times.
+
+
 0.29 (2014-03-31)
 ==================
 

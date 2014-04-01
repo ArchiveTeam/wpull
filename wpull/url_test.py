@@ -1,5 +1,7 @@
 # encoding=utf-8
 
+import timeit
+
 from wpull.backport.testing import unittest
 from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
     ParentFilter, RecursiveFilter, SpanHostsFilter, RegexFilter, HTTPFilter,
@@ -327,6 +329,29 @@ class TestURL(unittest.TestCase):
             'https://[::ffff:192.0.2.128]/',
             URLInfo.parse('https://[::ffff:c000:0280]').url
         )
+
+    @unittest.skip('experiment only')
+    def test_url_info_timing(self):
+        t1 = timeit.timeit(
+            '''URLInfo.parse(
+            "http://asdjfklðkjir.com:585?" +
+            "$fasjdfklfd=45asdfasdf345hd.s&g4=4d&&" +
+            str(random.randint(0,1000))
+            )''',
+            number=2000,
+            setup='import random; from wpull.url import URLInfo',
+        )
+        t2 = timeit.timeit(
+            '''URLInfo.parse(
+            "http://asdjfklðkjir.com:585?" +
+            "$fasjdfklfd=45asdfasdf345hd.s&g4=4d&&" +
+            str(random.randint(0,1000))
+            , use_cache=False
+            )''',
+            number=2000,
+            setup='import random; from wpull.url import URLInfo',
+        )
+        self.assertLess(t1, t2)
 
     def test_url_info_to_dict(self):
         url_info = URLInfo.parse('https://example.com/file.jpg')

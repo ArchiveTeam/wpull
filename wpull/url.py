@@ -12,7 +12,7 @@ import sys
 import urllib.parse
 
 import wpull.util
-from wpull.cache import Cache
+from wpull.cache import FIFOCache
 
 
 if sys.version_info < (2, 7):
@@ -96,11 +96,11 @@ class URLInfo(_URLInfoType):
         'https': 443,
     }
 
-    cache = Cache(max_items=1000)
+    cache = FIFOCache(max_items=1000)
 
     @classmethod
     def parse(cls, string, default_scheme='http', encoding='utf8',
-    normalization_params=None):
+    normalization_params=None, use_cache=True):
         '''Parse and return a new info from the given URL.
 
         Args:
@@ -124,10 +124,11 @@ class URLInfo(_URLInfoType):
 
         cache_key = (string, default_scheme, encoding, normalization_params)
 
-        try:
-            return cls.cache[cache_key]
-        except KeyError:
-            pass
+        if use_cache:
+            try:
+                return cls.cache[cache_key]
+            except KeyError:
+                pass
 
         if normalization_params is None:
             normalization_params = NormalizationParams()
@@ -171,7 +172,8 @@ class URLInfo(_URLInfoType):
             wpull.util.normalize_codec_name(encoding),
         )
 
-        cls.cache[cache_key] = url_info
+        if use_cache:
+            cls.cache[cache_key] = url_info
 
         return url_info
 
