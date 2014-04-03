@@ -7,7 +7,11 @@ What's New
 
 * Fixes crash on SSL handshake if connection is broken.
 * DNS entries are periodically removed from cache instead of held for long times.
-* Fixes PhantomJS proxy errors with requests containing a body.
+
+* PhantomJS:
+
+  * Fixes proxy errors with requests containing a body.
+  * Fixes proxy errors with occasional FileNotFoundError.
 
 * API:
 

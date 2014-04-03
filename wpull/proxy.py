@@ -43,6 +43,7 @@ class HTTPProxyServer(tornado.tcpserver.TCPServer):
             wpull_io_stream_class = wpull.iostream.IOStream
 
         wpull_stream = wpull_io_stream_class(stream.socket, rw_timeout=900)
+        wpull_stream.attach()
 
         handler = HTTPProxyHandler(
             self._http_client, wpull_stream, self._rewrite
