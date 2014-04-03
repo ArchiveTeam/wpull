@@ -188,7 +188,9 @@ class IOStream(object):
     '''Socket IO Stream.
 
     Args:
-        socket_obj: A socket object.
+        socket_obj: A socket object. If the socket is connected, call
+            :meth:`attach` before reading or writing. Otherwise,
+            call :meth:`connect`.
         ioloop: IOLoop.
         chunk_size (int): The number of bytes read per receive call.
         max_buffer_size (int): Maximum size of the buffer in bytes.
@@ -245,6 +247,8 @@ class IOStream(object):
     @tornado.gen.coroutine
     def _wait_event(self, events, timeout=None):
         '''Set the events to listen for and wait for it to occur.'''
+        assert self._state != State.not_yet_connected
+
         deadline = datetime.timedelta(seconds=timeout) if timeout else None
         self._event_result = toro.AsyncResult()
 
@@ -335,6 +339,12 @@ class IOStream(object):
 
         if events & ERROR:
             self._raise_socket_error()
+
+    def attach(self):
+        '''Set up with an already connected socket.'''
+        self._remove_handler()
+        self._handle_socket()
+        self._state = State.connected
 
     @tornado.gen.coroutine
     def write(self, data):
