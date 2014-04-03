@@ -883,9 +883,10 @@ class Builder(object):
         certs = set()
 
         if self._args.use_internal_ca_certs:
-            pem_filename = os.path.join(os.path.dirname(__file__),
-                'cert', 'ca-bundle.pem')
-            certs.update(self._read_pem_file(pem_filename))
+            pem_filename = os.path.join(
+                os.path.dirname(__file__), 'cert', 'ca-bundle.pem'
+            )
+            certs.update(self._read_pem_file(pem_filename, from_package=True))
 
         if self._args.ca_directory:
             for filename in os.listdir(self._args.ca_directory):
@@ -910,7 +911,7 @@ class Builder(object):
 
         return certs_filename
 
-    def _read_pem_file(self, filename):
+    def _read_pem_file(self, filename, from_package=False):
         '''Read the PEM file.
 
         Returns:
@@ -918,6 +919,9 @@ class Builder(object):
             is :class:`byte`.
         '''
         _logger.debug('Reading PEM {0}.'.format(filename))
+
+        if from_package:
+            return wpull.util.filter_pem(wpull.util.get_package_data(filename))
 
         with open(filename, 'rb') as in_file:
             return wpull.util.filter_pem(in_file.read())
