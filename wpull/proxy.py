@@ -184,15 +184,11 @@ class HTTPProxyHandler(object):
         _logger.debug('Reading request body.')
 
         body_length = int(request.fields['Content-Length'])
-        data_queue = self._io_stream.read_bytes_queue(body_length)
 
-        while True:
-            data = yield data_queue.get()
-
-            if not data:
-                break
-
-            request.body.content_file.write(data)
+        yield self._io_stream.read_bytes(
+            body_length,
+            streaming_callback=request.body.content_file.write
+        )
 
         request.body.content_file.seek(0)
 

@@ -40,13 +40,39 @@ class TestProxy(wpull.testing.goodapp.GoodAppTestCase):
         request = tornado.httpclient.HTTPRequest(
             self.get_url('/'),
             proxy_host='localhost',
-            proxy_port=proxy_port
+            proxy_port=proxy_port,
         )
 
         response = yield test_client.fetch(request)
 
         self.assertEqual(200, response.code)
         self.assertIn(b'Hello!', response.body)
+
+    # TODO: fix Travis CI to install pycurl
+    @unittest.skipIf(pycurl is None, "pycurl module not present")
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_post(self):
+        http_client = Client(recorder=DebugPrintRecorder())
+        proxy = HTTPProxyServer(http_client, io_loop=self.io_loop)
+        proxy_socket, proxy_port = tornado.testing.bind_unused_port()
+        proxy.add_socket(proxy_socket)
+
+        _logger.debug('Proxy on port {0}'.format(proxy_port))
+
+        test_client = tornado.curl_httpclient.CurlAsyncHTTPClient()
+
+        request = tornado.httpclient.HTTPRequest(
+            self.get_url('/post/'),
+            proxy_host='localhost',
+            proxy_port=proxy_port,
+            body='text=blah',
+            method='POST'
+        )
+
+        response = yield test_client.fetch(request)
+
+        self.assertEqual(200, response.code)
+        self.assertIn(b'OK', response.body)
 
 
 class TestProxy2(wpull.testing.badapp.BadAppTestCase):
