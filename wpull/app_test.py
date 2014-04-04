@@ -692,7 +692,7 @@ class TestApp(GoodAppTestCase):
             '--no-robots',
             '--phantomjs',
             '--phantomjs-wait', '0.1',
-            '--phantomjs-scroll', '10',
+            '--phantomjs-scroll', '20',
         ])
         builder = Builder(args)
         with cd_tempdir():

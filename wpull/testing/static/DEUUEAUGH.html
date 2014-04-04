@@ -27,9 +27,10 @@ img.lazy {
 	<script src="jquery.lazyload.js"></script>
 	<script>
 		var container = $('#container');
-		var token = Math.random();
 
 		for (var i = 0; i < 10; i++) {
+			var token = Math.random();
+
 			container.append('<img class="lazy" data-original="Wpull.png?t='
 					+ token + '" height="500" width="500">');
 		}

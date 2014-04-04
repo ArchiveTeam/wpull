@@ -686,8 +686,8 @@ class WebProcessorSession(object):
 
 class PhantomJSController(object):
     '''PhantomJS Page Controller.'''
-    def __init__(self, client, wait_time=1, num_scrolls=5, snapshot=True,
-    warc_recorder=None, viewport_size=(1024, 3072), paper_size=(2048, 6144),
+    def __init__(self, client, wait_time=1.0, num_scrolls=10, snapshot=True,
+    warc_recorder=None, viewport_size=(1200, 1920), paper_size=(2400, 3840),
     smart_scroll=True):
         self.client = client
         self._wait_time = wait_time
@@ -730,36 +730,31 @@ class PhantomJSController(object):
         url = yield remote.eval('page.url')
         total_scroll_count = 0
 
-        page_down_key = yield remote.eval('page.event.key.PageDown')
-
         for scroll_count in range(num_scrolls):
             _logger.debug('Scrolling page. Count={0}.'.format(scroll_count))
 
             pre_scroll_counter_values = remote.resource_counter.values()
+
             scroll_position = yield remote.eval('page.scrollPosition')
             scroll_position['top'] += self._viewport_size[1]
 
-            self._log_action('set_scroll_top', scroll_position['top'])
-            yield remote.set('page.scrollPosition', scroll_position)
-            yield remote.set('page.evaluate',
-                '''
-                function() {{
-                    if (window) {{
-                        window.scrollTo(0, {0});
-                    }}
-                }}
-                '''.format(scroll_position['top'] * 2)
-            )
-            yield remote.call('page.sendEvent', 'keypress', page_down_key)
-            yield remote.call('page.sendEvent', 'keydown', page_down_key)
-            yield remote.call('page.sendEvent', 'keyup', page_down_key)
+            yield self.scroll_to(remote, 0, scroll_position['top'])
 
             total_scroll_count += 1
 
             self._log_action('wait', self._wait_time)
             yield wpull.util.sleep(self._wait_time)
 
-            if remote.resource_counter.values() == pre_scroll_counter_values \
+            post_scroll_counter_values = remote.resource_counter.values()
+
+            _logger.debug(
+                'Counter values pre={0} post={1}'.format(
+                    pre_scroll_counter_values,
+                    post_scroll_counter_values
+                )
+            )
+
+            if post_scroll_counter_values == pre_scroll_counter_values \
             and self._smart_scroll:
                 break
 
@@ -769,6 +764,8 @@ class PhantomJSController(object):
                 yield wpull.util.sleep(self._wait_time)
             else:
                 break
+
+        yield self.scroll_to(remote, 0, 0)
 
         _logger.info(
             gettext.ngettext(
@@ -780,6 +777,27 @@ class PhantomJSController(object):
 
         if self._warc_recorder:
             self._add_warc_action_log(url)
+
+    @tornado.gen.coroutine
+    def scroll_to(self, remote, x, y):
+        page_down_key = yield remote.eval('page.event.key.PageDown')
+
+        self._log_action('set_scroll_left', x)
+        self._log_action('set_scroll_top', y)
+
+        yield remote.set('page.scrollPosition', {'left': x, 'top': y})
+        yield remote.set('page.evaluate',
+            '''
+            function() {{
+                if (window) {{
+                    window.scrollTo({0}, {1});
+                }}
+            }}
+            '''.format(x, y)
+        )
+        yield remote.call('page.sendEvent', 'keypress', page_down_key)
+        yield remote.call('page.sendEvent', 'keydown', page_down_key)
+        yield remote.call('page.sendEvent', 'keyup', page_down_key)
 
     @tornado.gen.coroutine
     def snapshot(self, remote, html_path=None, render_path=None):

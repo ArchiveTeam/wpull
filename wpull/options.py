@@ -1119,7 +1119,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         group.add_argument(
             '--phantomjs-scroll',
             type=int,
-            default=5,
+            default=10,
             metavar='NUM',
             help=_('scroll the page up to NUM times'),
         )

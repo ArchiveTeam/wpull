@@ -13,6 +13,9 @@ What's New
   * Fixes proxy errors with requests containing a body.
   * Fixes proxy errors with occasional FileNotFoundError.
   * Adds timeouts to calls.
+  * Viewport size is now 1200 × 1920.
+  * Default ``--phantomjs-scroll`` is now 10.
+  * Scrolls to top of page before taking snapshot.
 
 * API:
 
