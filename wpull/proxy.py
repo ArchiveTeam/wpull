@@ -84,6 +84,9 @@ class HTTPProxyHandler(object):
         '''Process the request.'''
         request = yield self._read_request_header()
 
+        if not request:
+            return
+
         _logger.debug('Handling proxy request.')
 
         if 'Content-Length' in request.fields:
