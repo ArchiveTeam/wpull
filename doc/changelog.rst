@@ -12,6 +12,7 @@ What's New
 
   * Fixes proxy errors with requests containing a body.
   * Fixes proxy errors with occasional FileNotFoundError.
+  * Adds timeouts to calls.
 
 * API:
 
