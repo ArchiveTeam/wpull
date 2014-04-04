@@ -730,6 +730,8 @@ class PhantomJSController(object):
         url = yield remote.eval('page.url')
         total_scroll_count = 0
 
+        page_down_key = yield remote.eval('page.event.key.PageDown')
+
         for scroll_count in range(num_scrolls):
             _logger.debug('Scrolling page. Count={0}.'.format(scroll_count))
 
@@ -739,9 +741,18 @@ class PhantomJSController(object):
 
             self._log_action('set_scroll_top', scroll_position['top'])
             yield remote.set('page.scrollPosition', scroll_position)
-            yield remote.call('page.sendEvent', 'keypress', 'PageDown')
-            yield remote.call('page.sendEvent', 'keydown', 'PageDown')
-            yield remote.call('page.sendEvent', 'keyup', 'PageDown')
+            yield remote.set('page.evaluate',
+                '''
+                function() {{
+                    if (window) {{
+                        window.scrollTo(0, {0});
+                    }}
+                }}
+                '''.format(scroll_position['top'] * 2)
+            )
+            yield remote.call('page.sendEvent', 'keypress', page_down_key)
+            yield remote.call('page.sendEvent', 'keydown', page_down_key)
+            yield remote.call('page.sendEvent', 'keyup', page_down_key)
 
             total_scroll_count += 1
 
@@ -772,7 +783,7 @@ class PhantomJSController(object):
 
     @tornado.gen.coroutine
     def snapshot(self, remote, html_path=None, render_path=None):
-        '''Take snapshot.'''
+        '''Take HTML and PDF snapshot.'''
         content = yield remote.eval('page.content')
         url = yield remote.eval('page.url')
 
@@ -799,6 +810,7 @@ class PhantomJSController(object):
         raise tornado.gen.Return(content)
 
     def _add_warc_snapshot(self, filename, content_type, url):
+        '''Add the snaphot to the WARC file.'''
         _logger.debug('Adding snapshot record.')
 
         record = WARCRecord()
@@ -817,6 +829,7 @@ class PhantomJSController(object):
             self._warc_recorder.write_record(record)
 
     def _log_action(self, name, value):
+        '''Add a action to the action log.'''
         _logger.debug('Action: {0} {1}'.format(name, value))
 
         self._actions.append({
@@ -826,6 +839,7 @@ class PhantomJSController(object):
         })
 
     def _add_warc_action_log(self, url):
+        '''Add the acton log to the WARC file.'''
         _logger.debug('Adding action log record.')
 
         log_data = json.dumps(
