@@ -161,7 +161,7 @@ class PhantomJSRemote(object):
                     self._process_rpc_result(rpc_info)
 
     @tornado.gen.coroutine
-    def call(self, name, *args, timeout=10):
+    def call(self, name, *args, timeout=120):
         '''Call a function.
 
         Args:
@@ -184,7 +184,7 @@ class PhantomJSRemote(object):
         raise tornado.gen.Return(result)
 
     @tornado.gen.coroutine
-    def set(self, name, value, timeout=10):
+    def set(self, name, value, timeout=120):
         '''Set a variable value.
 
         Args:
@@ -204,7 +204,7 @@ class PhantomJSRemote(object):
         raise tornado.gen.Return(result)
 
     @tornado.gen.coroutine
-    def eval(self, text, timeout=10):
+    def eval(self, text, timeout=120):
         '''Get a variable value or evaluate an expression.
 
         Args:
@@ -247,7 +247,8 @@ class PhantomJSRemote(object):
         try:
             rpc_info = yield async_result.get(deadline)
         except toro.Timeout as error:
-            raise PhantomJSRPCTimedOut('Waiting for event timed out.') from error
+            raise PhantomJSRPCTimedOut('Waiting for event timed out.') \
+                from error
 
         self.page_event.unhandle(page_event_cb)
 
@@ -267,7 +268,7 @@ class PhantomJSRemote(object):
             rpc_info['id'] = uuid.uuid4().hex
 
         if self._subproc.returncode is not None:
-            raise PhantomJSRPCError('PhantomJS process has quit unexpectly.')
+            raise PhantomJSRPCError('PhantomJS process has quit unexpectedly.')
 
         deadline = datetime.timedelta(seconds=timeout) if timeout else None
         async_result = self._put_rpc_info(rpc_info)
