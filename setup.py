@@ -107,8 +107,14 @@ if os.environ.get('USE_CX_FREEZE'):
                 'sqlalchemy.dialects.sqlite',
             ],
             'zip_includes': [
-                os.path.join(wpull_package_dir, 'cert', 'ca-bundle.pem')
+                os.path.join(wpull_package_dir, 'cert', 'ca-bundle.pem'),
             ],
+            'include_files': [
+                (
+                    os.path.join(wpull_package_dir, 'phantomjs.js'),
+                    'phantomjs.js'
+                ),
+            ]
         }
     }
 

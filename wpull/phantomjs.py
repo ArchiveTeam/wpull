@@ -50,7 +50,7 @@ class PhantomJSRemote(object):
     '''
     def __init__(self, exe_path='phantomjs', extra_args=None,
     page_settings=None, default_headers=None):
-        script_path = os.path.join(os.path.dirname(__file__), 'phantomjs.js')
+        script_path = wpull.util.get_package_filename('phantomjs.js')
         self._in_queue = toro.Queue()
         self._out_queue = toro.Queue()
         self.page_event = wpull.actor.Event()

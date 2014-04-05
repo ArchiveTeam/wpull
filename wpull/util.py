@@ -406,3 +406,13 @@ def get_package_data(filename, mode='rb'):
 
         with zipfile.ZipFile(zip_path) as zip_file:
             return zip_file.read(member_path)
+
+
+def get_package_filename(filename, package_dir=None):
+    '''Return the filename of the data file.'''
+    if getattr(sys, 'frozen', False):
+        package_dir = os.path.dirname(sys.executable)
+    elif not package_dir:
+        package_dir = os.path.dirname(__file__)
+
+    return os.path.join(package_dir, filename)
