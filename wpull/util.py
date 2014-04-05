@@ -8,6 +8,7 @@ import contextlib
 import copy
 import datetime
 import itertools
+import os.path
 import re
 import sys
 import time
@@ -15,6 +16,7 @@ import tornado.gen
 import tornado.ioloop
 import tornado.util
 import toro
+import zipfile
 import zlib
 
 
@@ -387,3 +389,30 @@ def coerce_str_to_ascii(string):
     Anything not ASCII will be replaced with with a replacement character.
     '''
     return string.encode('ascii', 'replace').decode('ascii')
+
+
+def get_package_data(filename, mode='rb'):
+    '''Return the contents of a real file or a zip file.'''
+    if os.path.exists(filename):
+        with open(filename, mode=mode) as in_file:
+            return in_file.read()
+    else:
+        parts = os.path.normpath(filename).split(os.sep)
+
+        for part, index in zip(parts, range(len(parts))):
+            if part.endswith('.zip'):
+                zip_path = os.sep.join(parts[:index + 1])
+                member_path = os.sep.join(parts[index + 1:])
+
+        with zipfile.ZipFile(zip_path) as zip_file:
+            return zip_file.read(member_path)
+
+
+def get_package_filename(filename, package_dir=None):
+    '''Return the filename of the data file.'''
+    if getattr(sys, 'frozen', False):
+        package_dir = os.path.dirname(sys.executable)
+    elif not package_dir:
+        package_dir = os.path.dirname(__file__)
+
+    return os.path.join(package_dir, filename)
