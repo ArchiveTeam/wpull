@@ -21,6 +21,7 @@ What's New
 * API:
 
   * URL filters moved into urlfilter module.
+  * Engine uses and exposes interface to AdjustableSemaphore for issue #93.
 
 
 0.29 (2014-03-31)
