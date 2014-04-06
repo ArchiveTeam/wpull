@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2014-MM-DD)
+0.30 (2014-04-06)
 ==================
 
 * Fixes crash on SSL handshake if connection is broken.
