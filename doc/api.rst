@@ -18,6 +18,7 @@ wpull Package
    api/actor
    api/app
    api/cache
+   api/collections
    api/conversation
    api/converter
    api/database
@@ -46,6 +47,7 @@ wpull Package
    api/scraper
    api/stats
    api/url
+   api/urlfilter
    api/util
    api/version
    api/waiter

@@ -2,6 +2,28 @@
 What's New
 ==========
 
+0.30 (2014-04-06)
+==================
+
+* Fixes crash on SSL handshake if connection is broken.
+* DNS entries are periodically removed from cache instead of held for long times.
+* Experimental cx_freeze support.
+
+* PhantomJS:
+
+  * Fixes proxy errors with requests containing a body.
+  * Fixes proxy errors with occasional FileNotFoundError.
+  * Adds timeouts to calls.
+  * Viewport size is now 1200 × 1920.
+  * Default ``--phantomjs-scroll`` is now 10.
+  * Scrolls to top of page before taking snapshot.
+
+* API:
+
+  * URL filters moved into urlfilter module.
+  * Engine uses and exposes interface to AdjustableSemaphore for issue #93.
+
+
 0.29 (2014-03-31)
 ==================
 

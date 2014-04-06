@@ -2,7 +2,8 @@
 import tornado.testing
 
 from wpull.http.client import Client
-from wpull.phantomjs import PhantomJSRemote, PhantomJSClient
+from wpull.phantomjs import (PhantomJSRemote, PhantomJSClient,
+    PhantomJSRPCTimedOut)
 from wpull.proxy import HTTPProxyServer
 import wpull.util
 
@@ -74,3 +75,41 @@ class TestPhantomJS(tornado.testing.AsyncTestCase):
 
         self.assertIn(test_remote, remote_client.remotes_ready)
         self.assertNotIn(test_remote, remote_client.remotes_busy)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_timeouts(self):
+        remote = PhantomJSRemote()
+
+        try:
+            yield remote.wait_page_event('invalid_event', timeout=0.1)
+        except PhantomJSRPCTimedOut:
+            pass
+        else:
+            self.fail()
+
+        try:
+            future = remote.eval('blah', timeout=0.1)
+            remote._rpc_reply_map.clear()
+            yield future
+        except PhantomJSRPCTimedOut:
+            pass
+        else:
+            self.fail()
+
+        try:
+            future = remote.set('blah', 123, timeout=0.1)
+            remote._rpc_reply_map.clear()
+            yield future
+        except PhantomJSRPCTimedOut:
+            pass
+        else:
+            self.fail()
+
+        try:
+            future = remote.call('blah', timeout=0.1)
+            remote._rpc_reply_map.clear()
+            yield future
+        except PhantomJSRPCTimedOut:
+            pass
+        else:
+            self.fail()

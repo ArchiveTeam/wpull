@@ -7,7 +7,7 @@ import socket
 import time
 import tornado.gen
 
-from wpull.cache import Cache
+from wpull.cache import FIFOCache
 from wpull.errors import NetworkError, DNSNotFound
 import wpull.util
 
@@ -33,7 +33,7 @@ class Resolver(object):
     '''Constant for IPv4.'''
     IPv6 = socket.AF_INET6
     '''Constant for IPv6.'''
-    global_cache = Cache(max_items=100, time_to_live=3600)
+    global_cache = FIFOCache(max_items=100, time_to_live=3600)
     '''The cache for resolved addresses.'''
 
     def __init__(self, cache_enabled=True, families=(IPv4, IPv6),

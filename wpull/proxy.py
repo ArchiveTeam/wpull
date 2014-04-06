@@ -43,6 +43,7 @@ class HTTPProxyServer(tornado.tcpserver.TCPServer):
             wpull_io_stream_class = wpull.iostream.IOStream
 
         wpull_stream = wpull_io_stream_class(stream.socket, rw_timeout=900)
+        wpull_stream.attach()
 
         handler = HTTPProxyHandler(
             self._http_client, wpull_stream, self._rewrite
@@ -82,6 +83,9 @@ class HTTPProxyHandler(object):
     def _handle_request(self):
         '''Process the request.'''
         request = yield self._read_request_header()
+
+        if not request:
+            return
 
         _logger.debug('Handling proxy request.')
 
@@ -184,15 +188,11 @@ class HTTPProxyHandler(object):
         _logger.debug('Reading request body.')
 
         body_length = int(request.fields['Content-Length'])
-        data_queue = self._io_stream.read_bytes_queue(body_length)
 
-        while True:
-            data = yield data_queue.get()
-
-            if not data:
-                break
-
-            request.body.content_file.write(data)
+        yield self._io_stream.read_bytes(
+            body_length,
+            streaming_callback=request.body.content_file.write
+        )
 
         request.body.content_file.seek(0)
 

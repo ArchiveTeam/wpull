@@ -13,6 +13,7 @@ from wpull.errors import (ExitStatus, ServerError, ConnectionRefused, DNSNotFoun
 from wpull.item import Status, URLItem
 from wpull.url import URLInfo
 import wpull.util
+from wpull.util import AdjustableSemaphore
 
 
 try:
@@ -66,13 +67,20 @@ class Engine(object):
         self._url_table = url_table
         self._processor = processor
         self._statistics = statistics
-        self._worker_semaphore = toro.BoundedSemaphore(concurrent)
+        self._worker_semaphore = AdjustableSemaphore(concurrent)
         self._done_event = toro.Event()
-        self._concurrent = concurrent
         self._num_worker_busy = 0
         self._exit_code = 0
         self._stopping = False
         self.stop_event = wpull.actor.Event()
+
+    @property
+    def concurrent(self):
+        '''The concurrency value.'''
+        return self._worker_semaphore.max
+
+    def set_concurrent(self, value):
+        self._worker_semaphore.set_max(value)
 
     @tornado.gen.coroutine
     def __call__(self):
@@ -113,7 +121,7 @@ class Engine(object):
     @tornado.gen.coroutine
     def _run_workers(self):
         '''Start the worker tasks.'''
-        while True:
+        while not self._stopping:
             yield self._worker_semaphore.acquire()
 
             tornado.ioloop.IOLoop.current().add_future(
@@ -153,12 +161,15 @@ class Engine(object):
 
     @tornado.gen.coroutine
     def _process_input(self):
-        '''Loop and process until there are no more items to process.
+        '''Get an item and process it.
 
         If processing an item encounters an error, :func:`stop` is called.
+
+        Contract: This function will release the ``_worker_semaphore``.
         '''
         try:
             while True:
+                # Poll for an item
                 if not self._stopping:
                     url_record = self._get_next_url_record()
                 else:
@@ -168,6 +179,10 @@ class Engine(object):
                     # TODO: need better check if we are done
                     if self._num_worker_busy == 0:
                         self.stop(force=True)
+                        self._worker_semaphore.release()
+
+                        return
+
                     yield wpull.util.sleep(1.0)
                 else:
                     break

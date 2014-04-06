@@ -13,7 +13,7 @@ class ProtocolError(ValueError):
 
 
 class SSLVerficationError(OSError):
-    '''A problem occured validing SSL certificates.'''
+    '''A problem occurred validating SSL certificates.'''
     pass
 
 

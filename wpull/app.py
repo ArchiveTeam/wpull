@@ -36,10 +36,11 @@ from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper import (HTMLScraper, CSSScraper, DemuxDocumentScraper,
     SitemapScraper)
 from wpull.stats import Statistics
-from wpull.url import (URLInfo, BackwardDomainFilter, TriesFilter, LevelFilter,
-    RecursiveFilter, SpanHostsFilter, ParentFilter, RegexFilter, HTTPFilter,
-    DirectoryFilter, HostnameFilter, DemuxURLFilter, BackwardFilenameFilter,
-    HTTPSOnlyFilter)
+from wpull.url import URLInfo
+from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, HTTPFilter,
+    BackwardDomainFilter, HostnameFilter, TriesFilter, RecursiveFilter, LevelFilter,
+    SpanHostsFilter, RegexFilter, DirectoryFilter, BackwardFilenameFilter,
+    ParentFilter)
 from wpull.util import ASCIIStreamWriter
 import wpull.version
 from wpull.waiter import LinearWaiter
@@ -180,9 +181,6 @@ class Builder(object):
 
         A handler and with a formatter is added to the root logger.
         '''
-        if self._args.verbosity == logging.DEBUG:
-            tornado.ioloop.IOLoop.current().set_blocking_log_threshold(5)
-
         stream = self._new_encoded_stream(sys.stderr)
 
         logger = logging.getLogger()
@@ -883,9 +881,10 @@ class Builder(object):
         certs = set()
 
         if self._args.use_internal_ca_certs:
-            pem_filename = os.path.join(os.path.dirname(__file__),
-                'cert', 'ca-bundle.pem')
-            certs.update(self._read_pem_file(pem_filename))
+            pem_filename = os.path.join(
+                os.path.dirname(__file__), 'cert', 'ca-bundle.pem'
+            )
+            certs.update(self._read_pem_file(pem_filename, from_package=True))
 
         if self._args.ca_directory:
             for filename in os.listdir(self._args.ca_directory):
@@ -910,7 +909,7 @@ class Builder(object):
 
         return certs_filename
 
-    def _read_pem_file(self, filename):
+    def _read_pem_file(self, filename, from_package=False):
         '''Read the PEM file.
 
         Returns:
@@ -918,6 +917,9 @@ class Builder(object):
             is :class:`byte`.
         '''
         _logger.debug('Reading PEM {0}.'.format(filename))
+
+        if from_package:
+            return wpull.util.filter_pem(wpull.util.get_package_data(filename))
 
         with open(filename, 'rb') as in_file:
             return wpull.util.filter_pem(in_file.read())
