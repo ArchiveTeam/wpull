@@ -416,3 +416,53 @@ def get_package_filename(filename, package_dir=None):
         package_dir = os.path.dirname(__file__)
 
     return os.path.join(package_dir, filename)
+
+
+class AdjustableSemaphore(toro.Semaphore):
+    '''An adjustable semaphore.'''
+    def __init__(self, value=1, io_loop=None):
+        self._max_value = value
+        self._num_acquired = 0
+        super().__init__(value=value, io_loop=None)
+
+    @property
+    def max(self):
+        '''The upper bound of the value.'''
+        return self._max_value
+
+    def set_max(self, value):
+        '''Set the upper bound the value.'''
+        if value < 0:
+            raise ValueError('Maximum must be 0 or positive.')
+
+        self._max_value = value
+
+        while self.q.qsize() + self._num_acquired < self._max_value:
+            self.q.put_nowait(None)
+
+    def acquire(self, deadline=None):
+        def increment_cb(future):
+            if not future.cancelled() and not future.exception():
+                self._num_acquired += 1
+
+        future = super().acquire(deadline=deadline)
+
+        future.add_done_callback(increment_cb)
+
+        return future
+
+    def release(self):
+        # Copied and modified from toro
+        """Increment :attr:`counter` and wake waiters based on :attr:`max`.
+        """
+        self._num_acquired -= 1
+
+        if self._num_acquired < 0:
+            raise ValueError('Semaphore released too many times.')
+
+        while self.q.qsize() + self._num_acquired < self._max_value:
+            self.q.put_nowait(None)
+
+        if not self.locked():
+            # No one was waiting on acquire(), so self.q.qsize() is positive
+            self._unlocked.set()

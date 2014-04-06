@@ -371,10 +371,16 @@ class TestApp(GoodAppTestCase):
             '--page-requisites',
             '--reject-regex', '/post/',
         ])
+        builder = Builder(args)
+
         with cd_tempdir():
-            engine = Builder(args).build()
+            engine = builder.build()
             exit_code = yield engine()
+
         self.assertEqual(42, exit_code)
+
+        engine = builder.factory['Engine']
+        self.assertEqual(2, engine.concurrent)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_python_script_stop(self):
@@ -404,10 +410,16 @@ class TestApp(GoodAppTestCase):
             '--page-requisites',
             '--reject-regex', '/post/',
         ])
+        builder = Builder(args)
+
         with cd_tempdir():
-            engine = Builder(args).build()
+            engine = builder.build()
             exit_code = yield engine()
+
         self.assertEqual(42, exit_code)
+
+        engine = builder.factory['Engine']
+        self.assertEqual(2, engine.concurrent)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_iri_handling(self):
