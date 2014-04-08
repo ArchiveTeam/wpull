@@ -426,6 +426,13 @@ class Builder(object):
                 value = value.strip()
                 extra_fields.append((name, value))
 
+            software_string = WARCRecorder.DEFAULT_SOFTWARE_STRING
+
+            if args.phantomjs:
+                software_string += ' PhantomJS/{0}'.format(
+                    wpull.phantomjs.get_version()
+                )
+
             recorders.append(
                 self._factory.new('WARCRecorder',
                     args.warc_file,
@@ -440,6 +447,7 @@ class Builder(object):
                         max_size=args.warc_max_size,
                         url_table=self._factory['URLTable'] if args.warc_dedup
                             else None,
+                        software_string=software_string,
                     ),
                 )
             )

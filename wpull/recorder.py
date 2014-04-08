@@ -140,6 +140,7 @@ WARCRecorderParams = namedlist.namedtuple(
         ('cdx', None),
         ('max_size', None),
         ('url_table', None),
+        ('software_string', None)
     ]
 )
 ''':class:`WARCRecorder` parameters.
@@ -157,6 +158,8 @@ Args:
         ``name-00000.ext`` and the log file will be in ``name-meta.ext``.
     url_table (:class:`.database.URLTable`): If given, then ``revist``
         records will be written.
+    software_string (str): The value for the ``software`` field in the
+        Warcinfo record.
 '''
 
 
@@ -234,7 +237,8 @@ class WARCRecorder(BaseRecorder):
             WARCRecord.WARCINFO, WARCRecord.WARC_FIELDS)
 
         info_fields = NameValueRecord()
-        info_fields['Software'] = self.DEFAULT_SOFTWARE_STRING
+        info_fields['Software'] = self._params.software_string \
+            or self.DEFAULT_SOFTWARE_STRING
         info_fields['format'] = 'WARC File Format 1.0'
         info_fields['conformsTo'] = \
             'http://bibnum.bnf.fr/WARC/WARC_ISO_28500_version1_latestdraft.pdf'

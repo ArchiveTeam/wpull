@@ -5,6 +5,8 @@ What's New
 0.XX (2014-04-DD)
 ==================
 
+* Includes PhantomJS version string in WARC warcinfo record.
+
 * API:
 
   * WARCRecorder uses new parameter object WARCRecorderParams.
