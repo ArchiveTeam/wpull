@@ -2,6 +2,14 @@
 What's New
 ==========
 
+0.XX (2014-04-DD)
+==================
+
+* API:
+
+  * WARCRecorder uses new parameter object WARCRecorderParams.
+
+
 0.30 (2014-04-06)
 ==================
 

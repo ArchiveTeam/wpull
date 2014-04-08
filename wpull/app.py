@@ -31,7 +31,8 @@ from wpull.processor import (WebProcessor, PhantomJSController,
     WebProcessorFetchParams, WebProcessorInstances)
 from wpull.proxy import HTTPProxyServer
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
-    PrintServerResponseRecorder, ProgressRecorder, OutputDocumentRecorder)
+    PrintServerResponseRecorder, ProgressRecorder, OutputDocumentRecorder,
+    WARCRecorderParams)
 from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper import (HTMLScraper, CSSScraper, DemuxDocumentScraper,
     SitemapScraper)
@@ -428,16 +429,18 @@ class Builder(object):
             recorders.append(
                 self._factory.new('WARCRecorder',
                     args.warc_file,
-                    compress=not args.no_warc_compression,
-                    extra_fields=extra_fields,
-                    temp_dir=args.warc_tempdir,
-                    log=args.warc_log,
-                    appending=args.warc_append,
-                    digests=args.warc_digests,
-                    cdx=args.warc_cdx,
-                    max_size=args.warc_max_size,
-                    url_table=self._factory['URLTable'] if args.warc_dedup
-                        else None,
+                    params=WARCRecorderParams(
+                        compress=not args.no_warc_compression,
+                        extra_fields=extra_fields,
+                        temp_dir=args.warc_tempdir,
+                        log=args.warc_log,
+                        appending=args.warc_append,
+                        digests=args.warc_digests,
+                        cdx=args.warc_cdx,
+                        max_size=args.warc_max_size,
+                        url_table=self._factory['URLTable'] if args.warc_dedup
+                            else None,
+                    ),
                 )
             )
 
