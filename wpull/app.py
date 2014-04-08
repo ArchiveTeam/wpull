@@ -64,7 +64,7 @@ class Builder(object):
     UNSAFE_OPTIONS = frozenset(['save_headers', 'no_iri', 'output_document'])
 
     def __init__(self, args):
-        self.default_user_agent = 'Mozilla/5.0 (compatible) Wpull/{0}'.format(
+        self.default_user_agent = 'Wpull/{0} (gzip)'.format(
             wpull.version.__version__)
         self._args = args
         self._factory = Factory({
