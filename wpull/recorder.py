@@ -19,6 +19,7 @@ import wpull.backport.gzip
 from wpull.namevalue import NameValueRecord
 from wpull.network import BandwidthMeter
 import wpull.util
+import wpull.version
 from wpull.warc import WARCRecord
 
 
@@ -145,6 +146,11 @@ class WARCRecorder(BaseRecorder):
             records will be written.
     '''
     CDX_DELIMINATOR = ' '
+    '''Default CDX delimiter.'''
+    DEFAULT_SOFTWARE_STRING = 'Wpull/{0} Python/{1}'.format(
+        wpull.version.__version__, wpull.util.python_version()
+    )
+    '''Default software string.'''
 
     def __init__(self, filename, compress=True, extra_fields=None,
     temp_dir=None, log=True, appending=False, digests=True, cdx=None,
@@ -215,8 +221,7 @@ class WARCRecorder(BaseRecorder):
             WARCRecord.WARCINFO, WARCRecord.WARC_FIELDS)
 
         info_fields = NameValueRecord()
-        info_fields['Software'] = 'Wpull/{0} Python/{1}'.format(
-            wpull.version.__version__, wpull.util.python_version())
+        info_fields['Software'] = self.DEFAULT_SOFTWARE_STRING
         info_fields['format'] = 'WARC File Format 1.0'
         info_fields['conformsTo'] = \
             'http://bibnum.bnf.fr/WARC/WARC_ISO_28500_version1_latestdraft.pdf'
