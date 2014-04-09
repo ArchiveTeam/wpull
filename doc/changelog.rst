@@ -5,6 +5,7 @@ What's New
 0.XX (2014-04-DD)
 ==================
 
+* Fixes HTML document parsing where a HTML tag closed early loses elements.
 * Includes PhantomJS version string in WARC warcinfo record.
 * User-agent string no longer includes Mozilla reference.
 

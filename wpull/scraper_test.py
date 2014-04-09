@@ -113,6 +113,64 @@ class TestDocument(unittest.TestCase):
             linked_urls
         )
 
+    def test_html_early_end_html_soup(self):
+        scraper = HTMLScraper()
+        request = Request.new('http://example.com/')
+        response = Response('HTTP/1.0', 200, '')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'Download.html')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual(
+            {
+                'http://igrosale.com/templates/default/css/main.css',
+                'http://igrosale.com/templates/default/css/dcaccordion.css',
+                'http://igrosale.com/templates/default/css/graphite.css',
+                'http://igrosale.com/templates/default/pix/fon_header.png',
+                'http://example.com/icons/blank.gif',
+                'http://example.com/icons/back.gif',
+                'http://example.com/icons/folder.gif',
+                'http://example.com/icons/unknown.gif',
+                'http://example.com/icons/layout.gif',
+                'http://example.com/icons/layout.gif',
+            },
+            inline_urls
+        )
+        self.assertEqual(
+            {
+                'http://igrosale.com',
+                'http://example.com/',
+                'http://example.com/?C=N;O=D',
+                'http://example.com/?C=M;O=A',
+                'http://example.com/?C=S;O=A',
+                'http://example.com/Igrosoft/',
+                'http://example.com/Novomatic/',
+                'http://example.com/Original%20Resources/',
+                'http://example.com/Photo/',
+                'http://example.com/SIMM%20Flash%20Programmer/',
+                'http://example.com/Belatra%20GAL.rar',
+                'http://example.com/Bill%20Acceptor%20ICT%20Pulse%20(Rus).pdf',
+                'http://example.com/DGIEditor%203.0.1.512.rar',
+                'http://example.com/'
+                    'Driver%20Sapphire%20Serial%20Ports%20Adapter.rar',
+                'http://example.com/'
+                    'Igrosoft%20MAME%20Full%20+%20Source%20Code.rar',
+                'http://example.com/JP103.rar',
+                'http://example.com/KP%205-6%20v1.rar',
+                'http://example.com/UX9%20Technical%20Specification.pdf',
+                'http://example.com/'
+                    'Windows%20XP%20Professional%20SP3%20x86%20VL%20Rus.rar',
+            },
+            linked_urls
+        )
+
     def test_html_mojibake(self):
         scraper = HTMLScraper()
         request = Request.new('http://example.com/')
@@ -253,7 +311,7 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             response.body.content_file.write(
-                '힖'.encode('euc_kr')
+                '<html><body>힖'.encode('euc_kr')
             )
 
         scrape_info = scraper.scrape(request, response)
@@ -272,6 +330,21 @@ class TestDocument(unittest.TestCase):
                 'testing', 'samples', 'xkcd_1_evil.html')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+
+        self.assertFalse(scrape_info)
+
+    def test_html_emptyness(self):
+        scraper = HTMLScraper()
+        request = Request.new('http://example.com/')
+        response = Response('HTTP/1.0', 200, '')
+        response.fields['content-type'] = 'text/html'
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            response.body.content_file.write(
+                b'OK'
+            )
 
         scrape_info = scraper.scrape(request, response)
 

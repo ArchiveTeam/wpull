@@ -6,6 +6,7 @@ import io
 import logging
 import lxml.html
 import re
+import tempfile
 import zlib
 
 import wpull.http.util
@@ -79,9 +80,17 @@ class HTMLReader(BaseDocumentReader):
 
         parser = lxml.html.HTMLParser(encoding=lxml_encoding)
 
-        with wpull.util.reset_file_offset(file):
+        with tempfile.SpooledTemporaryFile(4194304) as buffer:
+            with wpull.util.reset_file_offset(file):
+                # Works around early HTML end tag. See issue #104.
+                buffer.write('< '.encode(encoding or 'ascii'))
+                buffer.write(file.read())
+                buffer.write(' >'.encode(encoding or 'ascii'))
+
+            buffer.seek(0)
+
             tree = lxml.html.parse(
-                file,
+                buffer,
                 base_url=base_url,
                 parser=parser,
             )
