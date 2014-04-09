@@ -5,6 +5,8 @@ import gzip
 import io
 import logging
 import lxml.html
+import lxml.etree
+import html5lib
 import re
 import zlib
 
@@ -20,7 +22,7 @@ class BaseDocumentReader(object, metaclass=abc.ABCMeta):
     '''Base class for classes that read documents.'''
 
     @abc.abstractmethod
-    def parse(self, file):
+    def parse(self, file, encoding=None):
         '''Read and return a document.
 
         The arguments and return value will depend on the implementation.
@@ -28,7 +30,7 @@ class BaseDocumentReader(object, metaclass=abc.ABCMeta):
         pass
 
     @classmethod
-    def is_supported(cls, file):
+    def is_supported(cls, file, request=None, response=None, url_info=None):
         '''Return whether the reader is likely able to read the document.
 
         The arguments will depend on the implementation.
@@ -40,52 +42,25 @@ class BaseDocumentReader(object, metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
 
-class HTMLReader(BaseDocumentReader):
+class BaseHTMLReader(BaseDocumentReader):
     '''HTML document reader.
 
     This reader uses lxml as the parser.
     '''
-    def parse(self, file, encoding=None, base_url=None):
+
+    @abc.abstractmethod
+    def parse(self, file, encoding=None):
         '''Parse the HTML file and return the document.
 
         Args:
             file: A file object.
             encoding (str): If provided, it will override the encoding
                 specified in the document.
-            base_url (str): If provided, it will override the base URL
-                specified in the document.
 
         Returns:
             _ElementTree: An instance of :class:`lxml.etree._ElementTree`.
         '''
-        if encoding:
-            lxml_encoding = to_lxml_encoding(encoding) or 'latin1'
-
-# FIXME: this needs more testing
-#             if not lxml_encoding:
-#                 parser = lxml.html.HTMLParser()
-#
-#                 with wpull.util.reset_file_offset(file):
-#                     decoded_file = io.StringIO(file.read().decode(encoding))
-#                     tree = lxml.html.parse(
-#                         decoded_file,
-#                         base_url=base_url,
-#                         parser=parser,
-#                     )
-#
-#                 return tree
-        else:
-            lxml_encoding = encoding
-
-        parser = lxml.html.HTMLParser(encoding=lxml_encoding)
-
-        with wpull.util.reset_file_offset(file):
-            tree = lxml.html.parse(
-                file,
-                base_url=base_url,
-                parser=parser,
-            )
-            return tree
+        pass
 
     @classmethod
     def is_supported(cls, file, request=None, response=None, url_info=None):
@@ -138,6 +113,54 @@ class HTMLReader(BaseDocumentReader):
         or b'<table' in peeked_data \
         or b'<a href' in peeked_data:
             return True
+
+
+class LxmlHTMLReader(BaseHTMLReader):
+    '''HTML document reader with lxml and libxml2'''
+    def parse(self, file, encoding=None):
+        if encoding:
+            lxml_encoding = to_lxml_encoding(encoding) or 'latin1'
+
+# FIXME: this needs more testing
+#             if not lxml_encoding:
+#                 parser = lxml.html.HTMLParser()
+#
+#                 with wpull.util.reset_file_offset(file):
+#                     decoded_file = io.StringIO(file.read().decode(encoding))
+#                     tree = lxml.html.parse(
+#                         decoded_file,
+#                         base_url=base_url,
+#                         parser=parser,
+#                     )
+#
+#                 return tree
+        else:
+            lxml_encoding = encoding
+
+        parser = lxml.html.HTMLParser(encoding=lxml_encoding)
+
+        with wpull.util.reset_file_offset(file):
+            tree = lxml.html.parse(
+                file,
+                parser=parser,
+            )
+            return tree
+
+
+class Html5libHTMLReader(BaseHTMLReader):
+    '''HTML document reader with html5lib'''
+    def parse(self, file, encoding=None):
+        with wpull.util.reset_file_offset(file):
+            tree = html5lib.parse(
+                file,
+                encoding=encoding,
+                treebuilder='lxml'
+            )
+            return tree
+
+
+HTMLReader = Html5libHTMLReader
+'''Default HTML reader.'''
 
 
 class CSSReader(BaseDocumentReader):

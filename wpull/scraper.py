@@ -174,7 +174,8 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         encoding = self._encoding_override \
             or get_encoding(response, is_html=True)
 
-        tree = self.parse(content_file, encoding, request.url_info.url)
+        base_url = request.url_info.url
+        tree = self.parse(content_file, encoding=encoding)
         root = tree.getroot()
 
         if root is None:
@@ -205,15 +206,15 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             if not self._is_accepted(scraped_link.tag):
                 continue
 
-            base_url = clean_link_soup(root.base_url)
-
             if scraped_link.base_link:
-                base_url = urljoin_safe(
+                link_base_url = urljoin_safe(
                     base_url, clean_link_soup(scraped_link.base_link)
                 ) or base_url
+            else:
+                link_base_url = base_url
 
             url = urljoin_safe(
-                base_url,
+                link_base_url,
                 clean_link_soup(scraped_link.link),
                 allow_fragments=False
             )
@@ -230,7 +231,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         return {
             'inline_urls': inline_urls,
             'linked_urls': linked_urls,
-            'base_url': to_str(root.base_url),
+            'base_url': base_url,
             'encoding': encoding,
         }
 

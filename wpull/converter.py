@@ -95,7 +95,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
         css_already_done = set()
 
         with open(input_filename, 'rb') as in_file:
-            tree = self.parse(in_file, base_url=base_url)
+            tree = self.parse(in_file)
 
         root = tree.getroot()
 
@@ -110,7 +110,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
 
         for link_info in self.iter_links(root):
             if link_info.value_type == 'plain':
-                self._convert_plain(link_info, root, encoding)
+                self._convert_plain(link_info, encoding, base_url)
             elif link_info.value_type == 'css':
                 self._convert_css(link_info, css_already_done, base_url)
 
@@ -119,9 +119,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
             encoding=encoding
         )
 
-    def _convert_plain(self, link_info, root, encoding):
-        base_url = wpull.util.to_str(root.base_url)
-
+    def _convert_plain(self, link_info, encoding, base_url):
         if link_info.base_link:
             base_url = wpull.url.urljoin(base_url, link_info.base_link)
 
