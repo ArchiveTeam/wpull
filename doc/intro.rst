@@ -5,7 +5,7 @@ Introduction
 .. ⬇ Please keep this intro in sync with the README file. ⬇
 
 Wpull is a Wget-compatible (or remake/clone/replacement/alternative) web
-downloader.
+downloader and crawler.
 
 .. image:: ../icon/wpull_logo_full.png
    :target: https://github.com/chfoo/wpull

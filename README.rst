@@ -4,7 +4,7 @@ Wpull
 
 
 Wpull is a Wget-compatible (or remake/clone/replacement/alternative) web
-downloader.
+downloader and crawler.
 
 .. image:: https://raw.github.com/chfoo/wpull/master/icon/wpull_logo_full.png
    :target: https://github.com/chfoo/wpull
