@@ -42,7 +42,7 @@ class Mock(object):
             return Mock()
 
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
-MOCK_MODULES = ['lxml', 'lxml.html', 'chardet']
+MOCK_MODULES = ['lxml', 'lxml.html', 'lxml.etree', 'chardet']
 
 
 if on_rtd:

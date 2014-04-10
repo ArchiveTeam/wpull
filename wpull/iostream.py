@@ -54,7 +54,7 @@ class DataBuffer(object):
     Args:
         max_size (int): The maximum number of bytes to store.
 
-    This buffer uses algorithms similar to :module:`tornado.iostream`.
+    This buffer uses algorithms similar to :mod:`tornado.iostream`.
     '''
     def __init__(self, max_size=1048576):
         self._data = collections.deque()
