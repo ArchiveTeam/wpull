@@ -7,6 +7,7 @@ What's New
 
 * Includes PhantomJS version string in WARC warcinfo record.
 * User-agent string no longer includes Mozilla reference.
+* Implements ``--force-html`` and ``--base``.
 
 * API:
 

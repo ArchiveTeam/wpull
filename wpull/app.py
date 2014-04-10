@@ -48,6 +48,7 @@ from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
     IgnoreFileWriter, TimestampingFileWriter, AntiClobberFileWriter)
+from wpull.document import HTMLReader
 
 
 # Module lua is imported later on demand.
@@ -300,21 +301,25 @@ class Builder(object):
         url_string_iter = self._args.urls or ()
 
         if self._args.input_file:
-            input_file = codecs.getreader(
-                self._args.local_encoding or 'utf-8')(self._args.input_file)
-
-            urls = [line.strip() for line in input_file if line.strip()]
-
-            if not urls:
-                raise ValueError(_('No URLs found in input file.'))
+            if self._args.force_html:
+                urls = self._read_input_file_as_html()
+            else:
+                urls = self._read_input_file_as_lines()
 
             url_string_iter = itertools.chain(url_string_iter, urls)
 
         sitemap_url_infos = set()
+        base_url = self._args.base
 
         for url_string in url_string_iter:
+            _logger.debug('Parsing URL {0}'.format(url_string))
+
+            if base_url:
+                url_string = wpull.url.urljoin(base_url, url_string)
+
             url_info = self._factory.class_map['URLInfo'].parse(
                 url_string, default_scheme=default_scheme)
+
             _logger.debug('Parsed URL {0}'.format(url_info))
             yield url_info
 
@@ -332,6 +337,32 @@ class Builder(object):
 
         for url_info in sitemap_url_infos:
             yield url_info
+
+    def _read_input_file_as_lines(self):
+        '''Read lines from input file and return them.'''
+        input_file = codecs.getreader(
+            self._args.local_encoding or 'utf-8')(self._args.input_file)
+
+        urls = [line.strip() for line in input_file if line.strip()]
+
+        if not urls:
+            raise ValueError(_('No URLs found in input file.'))
+
+        return urls
+
+    def _read_input_file_as_html(self):
+        '''Read input file as HTML and return the links.'''
+        input_file = codecs.getreader(
+            self._args.local_encoding or 'utf-8')(self._args.input_file)
+
+        reader = HTMLReader()
+        tree = reader.parse(input_file)
+        scraped_links = HTMLScraper.iter_links(tree.getroot())
+
+        for scraped_link in scraped_links:
+            link = wpull.scraper.clean_link_soup(scraped_link.link)
+
+            yield link
 
     def _build_url_filters(self):
         '''Create the URL filter instances.

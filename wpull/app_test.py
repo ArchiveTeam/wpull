@@ -143,7 +143,8 @@ class TestApp(GoodAppTestCase):
     def test_app_args(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            self.get_url('/').encode('utf-8'),
+            '/',
+            '--base', self.get_url('/').encode('utf-8'),
             '--no-parent',
             '--recursive',
             '--page-requisites',
@@ -203,6 +204,29 @@ class TestApp(GoodAppTestCase):
 
             args = arg_parser.parse_args([
                 '--input-file', in_file.name
+            ])
+            with cd_tempdir():
+                builder = Builder(args)
+                engine = builder.build()
+                exit_code = yield engine()
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(builder.factory['Statistics'].files, 2)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_input_html_file_arg(self):
+        arg_parser = AppArgumentParser(real_exit=False)
+        with tempfile.NamedTemporaryFile() as in_file:
+            in_file.write(b'<html><body><a href="')
+            in_file.write(self.get_url('/').encode('utf-8'))
+            in_file.write(b'">blah<a href="\n')
+            in_file.write(self.get_url('/blog/?ðfßðfëéå').encode('utf-8'))
+            in_file.write(b'">core</a>')
+            in_file.flush()
+
+            args = arg_parser.parse_args([
+                '--input-file', in_file.name,
+                '--force-html',
             ])
             with cd_tempdir():
                 builder = Builder(args)
