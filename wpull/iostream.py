@@ -371,7 +371,7 @@ class IOStream(object):
                 else:
                     if not bytes_sent:
                         self.close()
-                        raise StreamClosedError('Stream is closed.')
+                        raise StreamClosedError('Stream unexpectedly closed.')
                     else:
                         total_bytes_sent += bytes_sent
                         continue
@@ -389,7 +389,7 @@ class IOStream(object):
 
             if not bytes_sent:
                 self.close()
-                raise StreamClosedError('Stream is closed.')
+                raise StreamClosedError('Stream unexpectedly closed.')
 
             total_bytes_sent += bytes_sent
 
@@ -419,7 +419,7 @@ class IOStream(object):
                     raise tornado.gen.Return(data)
                 else:
                     self.close()
-                    raise StreamClosedError('Stream is closed.')
+                    raise StreamClosedError('Stream unexpectedly closed.')
         else:
             self._blocking_counter = 0
 
@@ -443,7 +443,7 @@ class IOStream(object):
 
         if not data:
             self.close()
-            raise StreamClosedError('Stream is closed.')
+            raise StreamClosedError('Stream unexpectedly closed.')
 
         raise tornado.gen.Return(data)
 
