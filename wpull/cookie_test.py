@@ -1,6 +1,7 @@
 from http.cookiejar import CookieJar
 import http.cookiejar
-import urllib
+import sys
+import urllib.request
 
 from wpull.backport.testing import unittest
 from wpull.cookie import CookieLimitsPolicy
@@ -12,8 +13,14 @@ class FakeResponse(object):
         """
         headers: list of RFC822-style 'Key: value' strings
         """
-        import email
-        self._headers = email.message_from_string("\n".join(headers))
+        if sys.version_info[0] == 2:
+            import mimetools, StringIO
+            f = StringIO.StringIO("\n".join(headers))
+            self._headers = mimetools.Message(f)
+        else:
+            import email
+            self._headers = email.message_from_string("\n".join(headers))
+
         self._url = url or []
 
     def info(self):
