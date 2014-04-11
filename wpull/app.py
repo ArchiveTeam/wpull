@@ -15,7 +15,9 @@ import tornado.ioloop
 import tornado.testing
 
 from wpull.converter import BatchDocumentConverter
+from wpull.cookie import CookieLimitsPolicy
 from wpull.database import URLTable
+from wpull.document import HTMLReader
 from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
@@ -48,7 +50,6 @@ from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
     IgnoreFileWriter, TimestampingFileWriter, AntiClobberFileWriter)
-from wpull.document import HTMLReader
 
 
 # Module lua is imported later on demand.
@@ -73,6 +74,7 @@ class Builder(object):
             'Client': Client,
             'CookieJar': CookieJar,
             'CookieJarWrapper': CookieJarWrapper,
+            'CookiePolicy': CookieLimitsPolicy,
             'Connection': Connection,
             'ConnectionPool': ConnectionPool,
             'CSSScraper': CSSScraper,
@@ -799,6 +801,10 @@ class Builder(object):
                 cookie_jar.load(self._args.load_cookies, ignore_discard=True)
         else:
             cookie_jar = self._factory.new('CookieJar')
+
+        policy = self._factory.new('CookiePolicy', cookie_jar=cookie_jar)
+
+        cookie_jar.set_policy(policy)
 
         _logger.debug('Loaded cookies: {0}'.format(list(cookie_jar)))
 

@@ -67,6 +67,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/gzip_corrupt_short': self.gzip_corrupt_short,
             '/gzip_corrupt_footer': self.gzip_corrupt_footer,
             '/bad_cookie': self.bad_cookie,
+            '/long_cookie': self.long_cookie,
             '/header_early_close': self.header_early_close,
             '/no_content': self.no_content,
             '/many_links': self.many_links,
@@ -453,6 +454,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '\x00?#?+:%ff=hope you have cookies enabled!; expires=Dog'
         )
         self.send_header('Set-cookie', 'test=valid')
+        self.send_header('Content-length', '0')
+        self.end_headers()
+
+    def long_cookie(self):
+        self.send_response(200)
+        self.send_header(
+            'Set-cookie',
+            'a={0}'.format('b' * 5000)
+        )
         self.send_header('Content-length', '0')
         self.end_headers()
 

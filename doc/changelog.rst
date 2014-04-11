@@ -8,6 +8,7 @@ What's New
 * Includes PhantomJS version string in WARC warcinfo record.
 * User-agent string no longer includes Mozilla reference.
 * Implements ``--force-html`` and ``--base``.
+* Cookies now are limited to approximately 4 kilobytes and a maximum of 50 cookies per domain.
 
 * API:
 
