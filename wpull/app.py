@@ -376,27 +376,48 @@ class Builder(object):
 
         filters = [
             HTTPSOnlyFilter() if args.https_only else HTTPFilter(),
-            BackwardDomainFilter(args.domains, args.exclude_domains),
-            HostnameFilter(args.hostnames, args.exclude_hostnames),
-            TriesFilter(args.tries),
             RecursiveFilter(
                 enabled=args.recursive, page_requisites=args.page_requisites
             ),
-            LevelFilter(args.level),
             SpanHostsFilter(
                 self._url_infos,
                 enabled=args.span_hosts,
                 page_requisites='page-requisites' in args.span_hosts_allow,
                 linked_pages='linked-pages' in args.span_hosts_allow,
             ),
-            RegexFilter(args.accept_regex, args.reject_regex),
-            DirectoryFilter(args.include_directories,
-                args.exclude_directories),
-            BackwardFilenameFilter(args.accept, args.reject),
         ]
 
         if args.no_parent:
             filters.append(ParentFilter())
+
+        if args.domains or args.exclude_domains:
+            filters.append(
+                BackwardDomainFilter(args.domains, args.exclude_domains)
+            )
+
+        if args.hostnames or args.exclude_hostnames:
+            filters.append(
+                HostnameFilter(args.hostnames, args.exclude_hostnames)
+            )
+
+        if args.tries:
+            filters.append(TriesFilter(args.tries))
+
+        if args.level and args.recursive:
+            filters.append(LevelFilter(args.level))
+
+        if args.accept_regex or args.reject_regex:
+            filters.append(RegexFilter(args.accept_regex, args.reject_regex))
+
+        if args.include_directories or args.exclude_directories:
+            filters.append(
+                DirectoryFilter(
+                    args.include_directories, args.exclude_directories
+                )
+            )
+
+        if args.accept or args.reject:
+            filters.append(BackwardFilenameFilter(args.accept, args.reject))
 
         return filters
 
