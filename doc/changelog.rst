@@ -5,14 +5,17 @@ What's New
 0.XX (2014-04-DD)
 ==================
 
+* Fixes issue where an early ``</html>`` causes link discovery to be broken and converted documents missing elements.
 * Includes PhantomJS version string in WARC warcinfo record.
 * User-agent string no longer includes Mozilla reference.
 * Implements ``--force-html`` and ``--base``.
 * Cookies now are limited to approximately 4 kilobytes and a maximum of 50 cookies per domain.
+* Document parsing is now streamed for better handling of large documents.
 
 * API:
 
   * WARCRecorder uses new parameter object WARCRecorderParams.
+  * ``document``, ``scraper``, ``converter`` modules heavily modified to accommodate streaming readers. ``document.BaseDocumentReader.parse`` was removed and replaced with ``read_links``.
 
 
 0.30 (2014-04-06)

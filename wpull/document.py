@@ -3,8 +3,10 @@
 import abc
 import gzip
 import io
+import itertools
 import logging
 import lxml.html
+import lxml.etree
 import re
 import zlib
 
@@ -19,25 +21,164 @@ _logger = logging.getLogger(__name__)
 class BaseDocumentReader(object, metaclass=abc.ABCMeta):
     '''Base class for classes that read documents.'''
 
-    @abc.abstractmethod
-    def parse(self, file):
-        '''Read and return a document.
-
-        The arguments and return value will depend on the implementation.
-        '''
-        pass
-
     @classmethod
-    def is_supported(cls, file):
+    def is_supported(cls, file, request=None, response=None, url_info=None):
         '''Return whether the reader is likely able to read the document.
 
-        The arguments will depend on the implementation.
+        Args:
+            file: A file object containing the document.
+            request (:class:`.http.request.Request`): An HTTP request.
+            response (:class:`.http.request.Response`): An HTTP response.
+            url_info (:lcass:`.url.URLInfo`): A URLINfo.
 
         Returns:
-            bool: If True, reader should be able to read it.
+            bool: If True, the reader should be able to read it.
         '''
         # Python 2.6 doesn't support abc.abstractclassmethod
         raise NotImplementedError()
+
+    @abc.abstractmethod
+    def read_links(self, file, encoding=None):
+        '''Return an iterator of links found in the document.
+
+        Args:
+            file: A file object containing the document.
+            encoding (str): The encoding of the document.
+
+        The items returned will depend on the implementation.
+        '''
+        pass
+
+
+class HTMLLightParserTarget(object):
+    '''An HTML parser target for partial elements.
+
+    Args:
+        callback: A callback function. The function should accept the
+            arguments:
+
+                1. `tag` (str): The tag name of the element.
+                2. `attrib` (dict): The attributes of the element.
+                3. `text` (str, None): The text of the element.
+
+        text_elements: A frozenset of element tag names that we should keep
+            track of text.
+    '''
+    def __init__(self, callback, text_elements=('style')):
+        self.callback = callback
+        self.text_elements = text_elements
+        self.tag = None
+        self.attrib = None
+        self.buffer = None
+
+    def start(self, tag, attrib):
+        if tag not in self.text_elements or tag in lxml.html.defs.empty_tags:
+            self.callback(tag, attrib, None)
+            return
+
+        if self.buffer:
+            self.callback(self.tag, self.attrib, self.buffer.getvalue())
+
+        self.tag = tag
+        self.attrib = attrib
+        self.buffer = io.StringIO()
+
+    def data(self, data):
+        if self.buffer:
+            self.buffer.write(data)
+
+    def end(self, tag):
+        if self.buffer:
+            self.callback(self.tag, self.attrib, self.buffer.getvalue())
+            self.buffer = None
+
+    def close(self):
+        if self.buffer:
+            self.callback(self.tag, self.attrib, self.buffer.getvalue())
+
+        return True
+
+
+COMMENT = object()
+'''Comment element'''
+
+
+class HTMLParserTarget(object):
+    '''An HTML parser target.
+
+    Args:
+        callback: A callback function. The function should accept the
+            arguments:
+
+                1. `tag` (str): The tag name of the element.
+                2. `attrib` (dict): The attributes of the element.
+                3. `text` (str, None): The text of the element.
+                3. `tail` (str, None): The text after the element.
+    '''
+    def __init__(self, callback,):
+        self.callback = callback
+        self.tag = None
+        self.attrib = None
+        self.buffer = None
+        self.tail_buffer = None
+
+    def start(self, tag, attrib):
+        if self.buffer or self.tail_buffer:
+            self.callback(
+                self.tag, self.attrib,
+                self.buffer.getvalue() if self.buffer else None,
+                self.tail_buffer.getvalue() if self.tail_buffer else None
+            )
+
+        self.tag = tag
+        self.attrib = attrib
+        self.buffer = io.StringIO()
+
+    def data(self, data):
+        if self.buffer:
+            self.buffer.write(data)
+
+        if self.tail_buffer:
+            self.tail_buffer.write(data)
+
+    def end(self, tag):
+        self.tail_buffer = io.StringIO()
+
+    def comment(self, text):
+        self.callback(COMMENT, None, text, None)
+
+    def close(self):
+        if self.buffer or self.tail_buffer:
+            self.callback(
+                self.tag, self.attrib,
+                self.buffer.getvalue() if self.buffer else None,
+                self.tail_buffer.getvalue() if self.tail_buffer else None
+            )
+
+        return True
+
+
+class HTMLReadElement(object):
+    '''Results from :meth:`HTMLReader.read_links`.
+
+    Attributes:
+        tag (str): The element tag name.
+        attrib (dict): The element attributes.
+        text (str, None): The element text.
+        tail (str, None): The text after the element.
+    '''
+    __slots__ = ('tag', 'attrib', 'text', 'tail')
+
+    def __init__(self, tag, attrib, text, tail):
+        self.tag = tag
+        self.attrib = attrib
+        self.text = text
+        self.tail = tail
+
+    def __repr__(self):
+        return 'HTMLReadElement({0}, {1}, {2}, {3})'.format(
+            repr(self.tag), repr(self.attrib), repr(self.text), repr(self.tail)
+        )
 
 
 class HTMLReader(BaseDocumentReader):
@@ -45,47 +186,7 @@ class HTMLReader(BaseDocumentReader):
 
     This reader uses lxml as the parser.
     '''
-    def parse(self, file, encoding=None, base_url=None):
-        '''Parse the HTML file and return the document.
-
-        Args:
-            file: A file object.
-            encoding (str): If provided, it will override the encoding
-                specified in the document.
-            base_url (str): If provided, it will override the base URL
-                specified in the document.
-
-        Returns:
-            _ElementTree: An instance of :class:`lxml.etree._ElementTree`.
-        '''
-        if encoding:
-            lxml_encoding = to_lxml_encoding(encoding) or 'latin1'
-
-# FIXME: this needs more testing
-#             if not lxml_encoding:
-#                 parser = lxml.html.HTMLParser()
-#
-#                 with wpull.util.reset_file_offset(file):
-#                     decoded_file = io.StringIO(file.read().decode(encoding))
-#                     tree = lxml.html.parse(
-#                         decoded_file,
-#                         base_url=base_url,
-#                         parser=parser,
-#                     )
-#
-#                 return tree
-        else:
-            lxml_encoding = encoding
-
-        parser = lxml.html.HTMLParser(encoding=lxml_encoding)
-
-        with wpull.util.reset_file_offset(file):
-            tree = lxml.html.parse(
-                file,
-                base_url=base_url,
-                parser=parser,
-            )
-            return tree
+    BUFFER_SIZE = 1048576
 
     @classmethod
     def is_supported(cls, file, request=None, response=None, url_info=None):
@@ -139,11 +240,93 @@ class HTMLReader(BaseDocumentReader):
         or b'<a href' in peeked_data:
             return True
 
+    def read_tree(self, file, encoding=None, target_class=HTMLParserTarget):
+        '''Return an iterator of elements found in the document.
+
+        Args:
+            file: A file object containing the document.
+            encoding (str): The encoding of the document.
+            target_class: A class to be used for target parsing.
+
+        Returns:
+            iterable: class:`HTMLReadElement`
+        '''
+        if encoding:
+            lxml_encoding = to_lxml_encoding(encoding) or 'latin1'
+        else:
+            lxml_encoding = encoding
+
+        elements = []
+
+        def callback_func(tag, attrib, text, tail=None):
+            elements.append(HTMLReadElement(tag, attrib, text, tail))
+
+        target = target_class(callback_func)
+        parser = lxml.html.HTMLParser(
+            encoding=lxml_encoding, target=target
+        )
+
+        # XXX: Force libxml2 to do full read in case of early "</html>"
+        # See https://github.com/chfoo/wpull/issues/104
+        # See https://bugzilla.gnome.org/show_bug.cgi?id=727935
+        for dummy in range(2):
+            parser.feed('<html>'.encode(encoding))
+
+        while True:
+            data = file.read(self.BUFFER_SIZE)
+
+            if not data:
+                break
+
+            parser.feed(data)
+
+            for element in elements:
+                yield element
+
+            elements.clear()
+
+        parser.close()
+
+        for element in elements:
+            yield element
+
+    def read_links(self, file, encoding=None):
+        '''Return an iterator of partial elements found in the document.
+
+        Args:
+            file: A file object containing the document.
+            encoding (str): The encoding of the document.
+
+        This function does not return elements to rebuild the tree, but
+        rather element fragments that can be scraped for links.
+
+        Returns:
+            iterable: class:`HTMLReadElement`
+        '''
+        elements = self.read_tree(
+            file, encoding=encoding, target_class=HTMLLightParserTarget
+        )
+
+        return elements
+
+    def parse_doctype(self, file, encoding=None):
+        '''Get the doctype from the document.'''
+        if encoding:
+            lxml_encoding = to_lxml_encoding(encoding) or 'latin1'
+        else:
+            lxml_encoding = encoding
+
+        parser = lxml.html.HTMLParser(encoding=lxml_encoding)
+        tree = lxml.html.parse(io.BytesIO(file.read(4096)), parser)
+        return tree.docinfo.doctype
+
 
 class CSSReader(BaseDocumentReader):
     '''Cascading Stylesheet Document Reader.'''
-    def parse(self, *args, **kwargs):
-        raise NotImplementedError()
+    URL_PATTERN = r'''url\(\s*['"]?(.*?)['"]?\s*\)'''
+    IMPORT_URL_PATTERN = r'''@import\s*([^\s]+).*?;'''
+    BUFFER_SIZE = 1048576
+    STREAM_REWIND = 4096
 
     @classmethod
     def is_supported(cls, file, request=None, response=None, url_info=None):
@@ -196,49 +379,93 @@ class CSSReader(BaseDocumentReader):
         peeked_data):
             return True
 
+    def read_links(self, file, encoding=None):
+        '''Return an iterator of links found in the document.
 
-class SitemapReader(BaseDocumentReader):
-    def parse(self, file, encoding=None):
-        '''Parse Sitemap.
+        Args:
+            file: A file object containing the document.
+            encoding (str): The encoding of the document.
 
         Returns:
-            RobotExclusionRulesParser, ElementTree
+            iterable: str
         '''
-        peeked_data = wpull.util.peek_file(file)
+        stream = io.TextIOWrapper(file, encoding=encoding or 'latin1')
 
-        if wpull.document.is_gzip(peeked_data):
-            file = gzip.GzipFile(mode='rb', fileobj=file)
+        while True:
+            text = stream.read(self.BUFFER_SIZE)
 
-        if self.is_sitemap_file(file):
-            if encoding:
-                lxml_encoding = to_lxml_encoding(encoding) or 'latin1'
+            if not text:
+                break
 
-# FIXME: this needs better testing
-#                 if not lxml_encoding:
-#                     parser = lxml.etree.XMLParser()
-#
-#                     with wpull.util.reset_file_offset(file):
-#                         decoded_file = io.StringIO(file.read().decode(encoding))
-#
-#                     tree = lxml.etree.parse(decoded_file, parser=parser)
-#                     return tree
+            for link in itertools.chain(
+                    self.scrape_imports(text), self.scrape_imports(text)
+            ):
+                yield link
 
+            if len(text) > self.STREAM_REWIND:
+                stream.seek(-self.STREAM_REWIND)
+
+    @classmethod
+    def scrape_urls(cls, text):
+        '''Scrape any thing that is a ``url()``.
+
+        Returns:
+            iterable: Each item is a str.
+        '''
+        for match in re.finditer(cls.URL_PATTERN, text):
+            yield match.group(1)
+
+    @classmethod
+    def scrape_imports(cls, text):
+        '''Scrape any thing that looks like an import.
+
+        Returns:
+            iterable: Each item is a str.
+        '''
+        for match in re.finditer(cls.IMPORT_URL_PATTERN, text):
+            url_str_fragment = match.group(1)
+            if url_str_fragment.startswith('url('):
+                for url in cls.scrape_urls(url_str_fragment):
+                    yield url
             else:
-                lxml_encoding = encoding
+                yield url_str_fragment.strip('"\'')
 
-            parser = lxml.etree.XMLParser(encoding=lxml_encoding)
 
-            with wpull.util.reset_file_offset(file):
-                tree = lxml.etree.parse(
-                    file,
-                    parser=parser,
-                )
-                return tree
-        else:
-            parser = robotexclusionrulesparser.RobotExclusionRulesParser()
-            parser.parse(file.read())
+class SitemapParserTarget(object):
+    '''An XML parser target for sitemaps.
 
-            return parser
+    Args:
+        link_callback: A callback function. The first argument is a str with
+            the link.
+    '''
+    def __init__(self, link_callback):
+        self.link_callback = link_callback
+        self.buffer = None
+
+    def start(self, tag, attrib):
+        if tag.endswith('loc'):
+            self.buffer = io.StringIO()
+
+    def data(self, data):
+        if self.buffer:
+            self.buffer.write(data)
+
+    def end(self, tag):
+        if self.buffer:
+            self.link_callback(self.buffer.getvalue())
+            self.buffer = None
+
+    def close(self):
+        if self.buffer:
+            self.link_callback(self.buffer.getvalue())
+
+        return True
+
+
+class SitemapReader(BaseDocumentReader):
+    '''Sitemap XML reader.'''
+    BUFFER_SIZE = 1048576
+    MAX_ROBOTS_FILE_SIZE = 4096
 
     @classmethod
     def is_supported(cls, file, request=None, url_info=None):
@@ -290,6 +517,58 @@ class SitemapReader(BaseDocumentReader):
         and (b'<sitemapindex' in peeked_data or b'<urlset' in peeked_data):
             return True
 
+    def read_links(self, file, encoding=None):
+        '''Return an iterator of links found in the document.
+
+        Args:
+            file: A file object containing the document.
+            encoding (str): The encoding of the document.
+
+        Returns:
+            iterable: str
+        '''
+        peeked_data = wpull.util.peek_file(file)
+
+        if wpull.document.is_gzip(peeked_data):
+            file = gzip.GzipFile(mode='rb', fileobj=file)
+
+        if self.is_sitemap_file(file):
+            if encoding:
+                lxml_encoding = to_lxml_encoding(encoding) or 'latin1'
+            else:
+                lxml_encoding = encoding
+
+            links = set()
+
+            target = SitemapParserTarget(links.add)
+            parser = lxml.etree.XMLParser(
+                encoding=lxml_encoding, target=target
+            )
+
+            while True:
+                data = file.read(self.BUFFER_SIZE)
+
+                if not data:
+                    break
+
+                parser.feed(data)
+
+                for link in links:
+                    yield link
+
+                links.clear()
+
+            parser.close()
+
+            for link in links:
+                yield link
+        else:
+            parser = robotexclusionrulesparser.RobotExclusionRulesParser()
+            parser.parse(file.read(self.MAX_ROBOTS_FILE_SIZE))
+
+            for link in parser.sitemaps:
+                yield link
+
 
 def get_heading_encoding(response):
     '''Return the document encoding from a HTTP header.
@@ -309,13 +588,13 @@ def get_heading_encoding(response):
         return None
 
 
-def get_encoding(response, is_html=False, peek=1048576):
-    '''Return the likely encoding of the document.
+def detect_response_encoding(response, is_html=False, peek=1048576):
+    '''Return the likely encoding of the response document.
 
     Args:
         response (Response): An instance of :class:`.http.Response`.
         is_html (bool): See :func:`.util.detect_encoding`.
-        peek (int): The number of bytes to read of the document.
+        peek (int): The maximum number of bytes of the document to be analyzed.
 
     Returns:
         ``str``, ``None``: The codec name.
@@ -335,6 +614,7 @@ def get_encoding(response, is_html=False, peek=1048576):
 
 def is_gzip(data):
     '''Return whether the data is likely to be gzip.'''
+    # FIXME: gzip doesn't have a fixed magic header
     return data.startswith(b'\x1f\x8b')
 
 

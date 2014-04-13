@@ -116,8 +116,8 @@ class TestDocument(unittest.TestCase):
 
         for name in CODEC_NAMES:
             data = io.BytesIO('<img>'.encode(name))
-            tree = reader.parse(data, encoding=name)
-            html_element = tree.getroot()
+            elements = tuple(reader.read_links(data, encoding=name))
+            html_element = elements[0]
             self.assertEqual('html', html_element.tag)
 
     def test_sitemap_encoding(self):
@@ -131,9 +131,9 @@ class TestDocument(unittest.TestCase):
 
             data = io.BytesIO(
                 '<?xml version="1.0" encoding="UTF-8"?>'
-                '<urlset><url>blah</url></urlset>'.encode(name)
+                '<urlset><url><loc>blah</loc></url></urlset>'.encode(name)
             )
             print('->', name)
-            tree = reader.parse(data, encoding=name)
-            urlset_element = tree.getroot()
-            self.assertEqual('urlset', urlset_element.tag)
+            links = tuple(reader.read_links(data, encoding=name))
+            link = links[0]
+            self.assertEqual('blah', link)
