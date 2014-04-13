@@ -78,12 +78,19 @@ class BatchDocumentConverter(object):
         if self._backup_enabled:
             shutil.copy2(filename, filename + '.orig')
 
+        temp_filename = filename + '-new'
+
         if link_type == 'css':
             self._css_converter.convert(
-                filename, filename, base_url=url_record.url)
+                filename, temp_filename, base_url=url_record.url)
         elif link_type == 'html':
             self._html_converter.convert(
-                filename, filename, base_url=url_record.url)
+                filename, temp_filename, base_url=url_record.url)
+        else:
+            raise Exception('Unknown link type.')
+
+        os.remove(filename)
+        os.rename(temp_filename, filename)
 
 
 class HTMLConverter(HTMLScraper, BaseDocumentConverter):
@@ -124,6 +131,12 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
                         out_file.write(
                             '<!--{0}-->'.format(element.text)
                         )
+                    elif element.end:
+                        if element.tag not in lxml.html.defs.empty_tags:
+                            self._out_file.write('</{0}>'.format(element.tag))
+
+                        if element.tail:
+                            self._out_file.write(element.tail)
                     else:
                         self._convert_element(element)
 
@@ -172,12 +185,9 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
             if new_text:
                 self._out_file.write(new_text)
 
-            self._out_file.write('</{0}>'.format(element.tag))
-
-        if element.tail:
-            self._out_file.write(element.tail)
-
     def _convert_plain(self, link_info):
+        base_url = self._base_url
+
         if link_info.base_link:
             if self._base_url:
                 base_url = wpull.url.urljoin(
@@ -185,6 +195,8 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
                 )
             else:
                 base_url = link_info.base_link
+
+        if base_url:
             url = wpull.url.urljoin(base_url, link_info.link)
         else:
             url = link_info.link
