@@ -10,10 +10,7 @@ import re
 
 from wpull.document import (BaseDocumentReader, HTMLReader,
     detect_response_encoding, CSSReader, SitemapReader)
-from wpull.http.request import Request, Response
-from wpull.thirdparty import robotexclusionrulesparser
 import wpull.url
-from wpull.util import to_str
 
 
 _ = gettext.gettext
@@ -210,7 +207,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
                 if link:
                     link_info = LinkInfo(
                         None, '_refresh', None,
-                        to_str(link),
+                        link,
                         False, True,
                         None, 'refresh'
                     )
@@ -319,8 +316,6 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
     def iter_links_element(cls, element):
         '''Iterate a HTML element.'''
         # reference: lxml.html.HtmlMixin.iterlinks()
-        # NOTE: to_str is needed because on Python 2, only byte strings
-        # are returned from lxml
         attrib = element.attrib
         tag = element.tag
 
@@ -344,7 +339,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             for link in CSSScraper.scrape_urls(attrib['style']):
                 yield LinkInfo(
                     element, element.tag, 'style',
-                    to_str(link),
+                    link,
                     True, False,
                     None,
                     'css'
@@ -363,7 +358,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         for attrib_name, link in cls.iter_links_by_attrib(element):
             yield LinkInfo(
                 element, element.tag, attrib_name,
-                to_str(link),
+                link,
                 inline, not inline,
                 None,
                 'plain'
@@ -381,7 +376,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             if link:
                 yield LinkInfo(
                     element, element.tag, 'http-equiv',
-                    to_str(link),
+                    link,
                     False, True,
                     None,
                     'refresh'
@@ -393,7 +388,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
 
         This function also looks at ``codebase`` and ``archive`` attributes.
         '''
-        base_link = to_str(element.attrib.get('codebase', None))
+        base_link = element.attrib.get('codebase', None)
 
         if base_link:
             # lxml returns codebase as inline
@@ -409,7 +404,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             if attribute in element.attrib:
                 yield LinkInfo(
                     element, element.tag, attribute,
-                    to_str(element.attrib.get(attribute)),
+                    element.attrib.get(attribute),
                     True, False,
                     base_link,
                     'plain'
@@ -420,7 +415,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
                 value = match.group(0)
                 yield LinkInfo(
                     element, element.tag, 'archive',
-                    to_str(value),
+                    value,
                     True, False,
                     base_link,
                     'list'
@@ -434,7 +429,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         if valuetype.lower() == 'ref' and 'value' in element.attrib:
             yield LinkInfo(
                 element, element.tag, 'value',
-                to_str(element.get('value')),
+                element.attrib.get('value'),
                 True, False,
                 None,
                 'plain'
@@ -451,7 +446,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             for link in link_iter:
                 yield LinkInfo(
                     element, element.tag, None,
-                    to_str(link),
+                    link,
                     True, False,
                     None,
                     'css'
@@ -465,7 +460,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             linked = cls.is_html_link(element.tag, attrib_name)
             yield LinkInfo(
                 element, element.tag, attrib_name,
-                to_str(link),
+                link,
                 inline, linked,
                 None,
                 'plain'
@@ -589,7 +584,7 @@ class SitemapScraper(SitemapReader, BaseDocumentScraper):
             for link in link_iter:
                 link = urljoin_safe(
                     base_url,
-                    clean_link_soup(to_str(link))
+                    clean_link_soup(link)
                 )
 
                 if link:

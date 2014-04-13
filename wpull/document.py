@@ -259,7 +259,14 @@ class HTMLReader(BaseDocumentReader):
         elements = []
 
         def callback_func(tag, attrib, text, tail=None):
-            elements.append(HTMLReadElement(tag, attrib, text, tail))
+            # NOTE: to_str is needed because on Python 2, byte strings may be
+            # returned from lxml
+            elements.append(HTMLReadElement(
+                wpull.util.to_str(tag),
+                wpull.util.to_str(dict(attrib)),
+                wpull.util.to_str(text),
+                wpull.util.to_str(tail)
+            ))
 
         target = target_class(callback_func)
         parser = lxml.html.HTMLParser(
@@ -283,7 +290,7 @@ class HTMLReader(BaseDocumentReader):
             for element in elements:
                 yield element
 
-            elements.clear()
+            elements = []
 
         parser.close()
 
