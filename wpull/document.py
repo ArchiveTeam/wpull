@@ -1,12 +1,13 @@
 # encoding=utf-8
 '''Document readers.'''
 import abc
+import codecs
 import gzip
 import io
 import itertools
 import logging
-import lxml.html
 import lxml.etree
+import lxml.html
 import re
 import zlib
 
@@ -440,7 +441,8 @@ class CSSReader(BaseDocumentReader):
         Returns:
             iterable: str
         '''
-        stream = io.TextIOWrapper(file, encoding=encoding or 'latin1')
+        stream = codecs.getreader(encoding or 'latin1')(file)
+        # stream = io.TextIOWrapper(file, encoding=encoding or 'latin1')
 
         while True:
             text = stream.read(self.BUFFER_SIZE)
@@ -449,7 +451,7 @@ class CSSReader(BaseDocumentReader):
                 break
 
             for link in itertools.chain(
-                    self.scrape_imports(text), self.scrape_imports(text)
+                    self.scrape_urls(text), self.scrape_imports(text)
             ):
                 yield link
 
