@@ -614,7 +614,6 @@ def detect_response_encoding(response, is_html=False, peek=1048576):
 
 def is_gzip(data):
     '''Return whether the data is likely to be gzip.'''
-    # FIXME: gzip doesn't have a fixed magic header
     return data.startswith(b'\x1f\x8b')
 
 
