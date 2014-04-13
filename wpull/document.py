@@ -113,9 +113,10 @@ class HTMLParserTarget(object):
                 1. `tag` (str): The tag name of the element.
                 2. `attrib` (dict): The attributes of the element.
                 3. `text` (str, None): The text of the element.
-                3. `tail` (str, None): The text after the element.
+                4. `tail` (str, None): The text after the element.
+                5. `end` (bool): Whether the tag is and end tag.
     '''
-    def __init__(self, callback,):
+    def __init__(self, callback):
         self.callback = callback
         self.tag = None
         self.attrib = None
@@ -123,12 +124,22 @@ class HTMLParserTarget(object):
         self.tail_buffer = None
 
     def start(self, tag, attrib):
-        if self.buffer or self.tail_buffer:
+        if self.buffer:
             self.callback(
                 self.tag, self.attrib,
-                self.buffer.getvalue() if self.buffer else None,
-                self.tail_buffer.getvalue() if self.tail_buffer else None
+                self.buffer.getvalue(),
+                None
             )
+            self.buffer = None
+
+        if self.tail_buffer:
+            self.callback(
+                self.tag, None,
+                None,
+                self.tail_buffer.getvalue(),
+                True
+            )
+            self.tail_buffer = None
 
         self.tag = tag
         self.attrib = attrib
@@ -142,18 +153,46 @@ class HTMLParserTarget(object):
             self.tail_buffer.write(data)
 
     def end(self, tag):
+        if self.buffer:
+            self.callback(
+                tag, self.attrib,
+                self.buffer.getvalue(),
+                None
+            )
+            self.buffer = None
+
+        if self.tail_buffer:
+            self.callback(
+                self.tag, None,
+                None,
+                self.tail_buffer.getvalue(),
+                True
+            )
+            self.tail_buffer = None
+
         self.tail_buffer = io.StringIO()
+        self.tag = tag
 
     def comment(self, text):
         self.callback(COMMENT, None, text, None)
 
     def close(self):
-        if self.buffer or self.tail_buffer:
+        if self.buffer:
             self.callback(
                 self.tag, self.attrib,
-                self.buffer.getvalue() if self.buffer else None,
-                self.tail_buffer.getvalue() if self.tail_buffer else None
+                self.buffer.getvalue(),
+                None
             )
+            self.buffer = None
+
+        if self.tail_buffer:
+            self.callback(
+                self.tag, None,
+                None,
+                self.tail_buffer.getvalue(),
+                True
+            )
+            self.tail_buffer = None
 
         return True
 
@@ -166,18 +205,21 @@ class HTMLReadElement(object):
         attrib (dict): The element attributes.
         text (str, None): The element text.
         tail (str, None): The text after the element.
+        end (bool): Whether the tag is an end tag.
     '''
-    __slots__ = ('tag', 'attrib', 'text', 'tail')
+    __slots__ = ('tag', 'attrib', 'text', 'tail', 'end')
 
-    def __init__(self, tag, attrib, text, tail):
+    def __init__(self, tag, attrib, text, tail, end):
         self.tag = tag
         self.attrib = attrib
         self.text = text
         self.tail = tail
+        self.end = end
 
     def __repr__(self):
-        return 'HTMLReadElement({0}, {1}, {2}, {3})'.format(
-            repr(self.tag), repr(self.attrib), repr(self.text), repr(self.tail)
+        return 'HTMLReadElement({0}, {1}, {2}, {3}, {4})'.format(
+            repr(self.tag), repr(self.attrib), repr(self.text),
+            repr(self.tail), repr(self.end)
         )
 
 
@@ -258,14 +300,16 @@ class HTMLReader(BaseDocumentReader):
 
         elements = []
 
-        def callback_func(tag, attrib, text, tail=None):
+        def callback_func(tag, attrib, text, tail=None, end=None):
             # NOTE: to_str is needed because on Python 2, byte strings may be
             # returned from lxml
             elements.append(HTMLReadElement(
                 wpull.util.to_str(tag),
-                wpull.util.to_str(dict(attrib)),
+                wpull.util.to_str(dict(attrib))
+                    if attrib is not None else None,
                 wpull.util.to_str(text),
-                wpull.util.to_str(tail)
+                wpull.util.to_str(tail),
+                end
             ))
 
         target = target_class(callback_func)
@@ -276,7 +320,7 @@ class HTMLReader(BaseDocumentReader):
         # XXX: Force libxml2 to do full read in case of early "</html>"
         # See https://github.com/chfoo/wpull/issues/104
         # See https://bugzilla.gnome.org/show_bug.cgi?id=727935
-        for dummy in range(2):
+        for dummy in range(3):
             parser.feed('<html>'.encode(encoding))
 
         while True:
