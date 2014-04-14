@@ -10,6 +10,11 @@ What's New
 * Implements ``--force-html`` and ``--base``.
 * Cookies now are limited to approximately 4 kilobytes and a maximum of 50 cookies per domain.
 
+* Scripting:
+
+  * Ability to set a scripting API version.
+  * Scripting API version 2: Adds ``record_info`` argument to ``handle_error`` and ``handle_response``.
+
 * API:
 
   * WARCRecorder uses new parameter object WARCRecorderParams.

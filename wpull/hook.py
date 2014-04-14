@@ -33,6 +33,51 @@ except ImportError:
     lua = None
 
 
+def to_lua_type(instance):
+    '''Convert instance to appropriate Python types for Lua.'''
+    return to_lua_table(to_lua_string(to_lua_number(instance)))
+
+
+def to_lua_string(instance):
+    '''If Lua, convert to bytes.'''
+    if sys.version_info[0] == 2:
+        return wpull.util.to_bytes(instance)
+    else:
+        return instance
+
+
+def to_lua_number(instance):
+    '''If Lua and Python 2, convert to long.'''
+    if sys.version_info[0] == 2:
+        if instance is True or instance is False:
+            return instance
+        elif isinstance(instance, int):
+            return long(instance)
+        elif isinstance(instance, list):
+            return list([to_lua_number(item) for item in instance])
+        elif isinstance(instance, tuple):
+            return tuple([to_lua_number(item) for item in instance])
+        elif isinstance(instance, dict):
+            return dict(
+                [(to_lua_number(key), to_lua_number(value))
+                    for key, value in instance.items()])
+        return instance
+    else:
+        return instance
+
+
+def to_lua_table(instance):
+    '''If Lua and instance is ``dict``, convert to Lua table.'''
+    if isinstance(instance, dict):
+        table = lua.eval('{}')
+
+        for key, value in instance.items():
+            table[to_lua_table(key)] = to_lua_table(value)
+
+        return table
+    return instance
+
+
 class HookStop(Exception):
     '''Stop the engine.'''
     pass
@@ -54,8 +99,78 @@ class Actions(object):
     STOP = 'stop'
 
 
-class Callbacks(object):
-    '''Callback hooking instance.'''
+class LegacyCallbacks(object):
+    '''Legacy callback hooks.
+
+    .. note:: Legacy functions are suffixed with an integer here only for
+       documentation purposes. Do not include the integer suffix in your
+       scripts; the arugment signature will be adjusted automatically.
+    '''
+
+    @staticmethod
+    def handle_response1(url_info, http_info):
+        '''Return an action to handle the response.
+
+        Args:
+            url_info (dict): A mapping containing the same information in
+                :class:`.url.URLInfo`.
+            http_info (dict): A mapping containing the same information
+                in :class:`.http.request.Response`.
+
+        .. deprecated:: Scripting-API-2
+
+        Returns:
+            str: A value from :class:`Actions`. The default is
+            :attr:`Actions.NORMAL`.
+        '''
+        return Actions.NORMAL
+
+    @staticmethod
+    def handle_error1(url_info, error_info):
+        '''Return an action to handle the error.
+
+        Args:
+            url_info (dict): A mapping containing the same information in
+                :class:`.url.URLInfo`.
+            http_info (dict): A mapping containing the keys:
+
+                * ``error``: The name of the exception (for example,
+                  ``ProtocolError``)
+
+        .. deprecated:: Scripting-API-2
+
+        Returns:
+            str: A value from :class:`Actions`. The default is
+            :attr:`Actions.NORMAL`.
+        '''
+        return Actions.NORMAL
+
+
+class Callbacks(LegacyCallbacks):
+    '''Callback hooking instance.
+
+    Attributes:
+        AVAILABLE_VERSIONS (tuple): The available API versions.
+        version (int): The current API version in use. You can set this.
+            Default: 1.
+
+    .. note:: For deprecation purposes, the default is version 1.
+    '''
+    AVAILABLE_VERSIONS = to_lua_number((1, 2,))
+
+    def __init__(self):
+        self._version = to_lua_number(1)
+
+    @property
+    def version(self):
+        return self._version
+
+    @version.setter
+    def version(self, num):
+        assert num in self.AVAILABLE_VERSIONS
+
+        self._version = num
+
     @staticmethod
     def engine_run():
         '''Called when the Engine is about run.'''
@@ -107,12 +222,17 @@ class Callbacks(object):
         return verdict
 
     @staticmethod
-    def handle_response(url_info, http_info):
+    def handle_response(url_info, record_info, http_info):
         '''Return an action to handle the response.
 
         Args:
             url_info (dict): A mapping containing the same information in
                 :class:`.url.URLInfo`.
+            record_info (dict): A mapping containing the same information in
+                :class:`.item.URLRecord`.
+
+                .. versionadded:: Scripting-API-2
+
             http_info (dict): A mapping containing the same information
                 in :class:`.http.request.Response`.
 
@@ -122,13 +242,29 @@ class Callbacks(object):
         '''
         return Actions.NORMAL
 
+    original_handle_response = handle_response
+
+    def call_handle_response(self, url_info, record_info, http_info):
+        '''Call the correct :meth:`handle_response`.'''
+
+        if self.version >= 2 \
+        or self.original_handle_response == self.handle_response:
+            return self.handle_response(url_info, record_info, http_info)
+        else:
+            return self.handle_response(url_info, http_info)
+
     @staticmethod
-    def handle_error(url_info, error_info):
+    def handle_error(url_info, record_info, error_info):
         '''Return an action to handle the error.
 
         Args:
             url_info (dict): A mapping containing the same information in
                 :class:`.url.URLInfo`.
+            record_info (dict): A mapping containing the same information in
+                :class:`.item.URLRecord`.
+
+                .. versionadded:: Scripting-API-2
+
             http_info (dict): A mapping containing the keys:
 
                 * ``error``: The name of the exception (for example,
@@ -139,6 +275,17 @@ class Callbacks(object):
             :attr:`Actions.NORMAL`.
         '''
         return Actions.NORMAL
+
+    original_handle_error = handle_error
+
+    def call_handle_error(self, url_info, record_info, error_info):
+        '''Call the correct :meth:`handle_error`.'''
+
+        if self.version >= 2 \
+        or self.original_handle_error == self.handle_error:
+            return self.handle_error(url_info, record_info, error_info)
+        else:
+            return self.handle_error(url_info, error_info)
 
     @staticmethod
     def get_urls(filename, url_info, document_info):
@@ -293,10 +440,15 @@ class HookedWebProcessorSessionMixin(object):
 
     def _handle_response(self, response):
         url_info_dict = self._to_script_native_type(
-            self._request.url_info.to_dict())
+            self._request.url_info.to_dict()
+        )
+        url_record_dict = self._to_script_native_type(
+            self._url_item.url_record.to_dict()
+        )
         response_info_dict = self._to_script_native_type(response.to_dict())
-        action = self.callbacks_hook.handle_response(
-            url_info_dict, response_info_dict)
+        action = self.callbacks_hook.call_handle_response(
+            url_info_dict, url_record_dict, response_info_dict
+        )
 
         _logger.debug('Hooked response returned {0}'.format(action))
 
@@ -314,12 +466,17 @@ class HookedWebProcessorSessionMixin(object):
 
     def _handle_error(self, error):
         url_info_dict = self._to_script_native_type(
-            self._request.url_info.to_dict())
+            self._request.url_info.to_dict()
+        )
+        url_record_dict = self._to_script_native_type(
+            self._url_item.url_record.to_dict()
+        )
         error_info_dict = self._to_script_native_type({
             'error': error.__class__.__name__,
         })
-        action = self.callbacks_hook.handle_error(
-            url_info_dict, error_info_dict)
+        action = self.callbacks_hook.call_handle_error(
+            url_info_dict, url_record_dict, error_info_dict
+        )
 
         _logger.debug('Hooked error returned {0}'.format(action))
 
@@ -513,48 +670,3 @@ class HookEnvironment(object):
             hook_env=self,
             **kwargs
         )
-
-
-def to_lua_type(instance):
-    '''Convert instance to appropriate Python types for Lua.'''
-    return to_lua_table(to_lua_string(to_lua_number(instance)))
-
-
-def to_lua_string(instance):
-    '''If Lua, convert to bytes.'''
-    if sys.version_info[0] == 2:
-        return wpull.util.to_bytes(instance)
-    else:
-        return instance
-
-
-def to_lua_number(instance):
-    '''If Lua and Python 2, convert to long.'''
-    if sys.version_info[0] == 2:
-        if instance is True or instance is False:
-            return instance
-        elif isinstance(instance, int):
-            return long(instance)
-        elif isinstance(instance, list):
-            return list([to_lua_number(item) for item in instance])
-        elif isinstance(instance, tuple):
-            return tuple([to_lua_number(item) for item in instance])
-        elif isinstance(instance, dict):
-            return dict(
-                [(to_lua_number(key), to_lua_number(value))
-                    for key, value in instance.items()])
-        return instance
-    else:
-        return instance
-
-
-def to_lua_table(instance):
-    '''If Lua and instance is ``dict``, convert to Lua table.'''
-    if isinstance(instance, dict):
-        table = lua.eval('{}')
-
-        for key, value in instance.items():
-            table[to_lua_table(key)] = to_lua_table(value)
-
-        return table
-    return instance

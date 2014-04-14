@@ -29,3 +29,8 @@ Here is the same script, but in Lua:
             return verdict
         end
     end
+
+Wpull will attempt to support deprecation and feature selection through Scripting API Versions. To select a version, include in your script::
+
+    wpull_hook.callbacks.version = 2
+
