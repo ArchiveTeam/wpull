@@ -176,7 +176,10 @@ class ParentFilter(BaseURLFilter):
 
         if schemes_similar(url_info.scheme, top_url_info.scheme) \
         and url_info.hostname == top_url_info.hostname \
-        and url_info.port == top_url_info.port:
+        and (
+            url_info.scheme != top_url_info.scheme or
+            url_info.port == top_url_info.port
+        ):
             return is_subdir(top_url_info.path, url_info.path,
                 trailing_slash=True)
 

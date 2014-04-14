@@ -200,12 +200,24 @@ class TestURLFilter(unittest.TestCase):
             URLInfo.parse('http://example.com/blog/topic1/blah.html'),
             mock_record
         ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('https://example.com/blog/topic1/blah2.html'),
+            mock_record
+        ))
         self.assertFalse(url_filter.test(
             URLInfo.parse('http://example.com/blog/'),
             mock_record
         ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('https://example.com/blog/'),
+            mock_record
+        ))
         self.assertTrue(url_filter.test(
             URLInfo.parse('http://somewhere.com/'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('https://somewhere.com/'),
             mock_record
         ))
 
