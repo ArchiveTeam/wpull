@@ -59,6 +59,7 @@ class TestDocument(unittest.TestCase):
             'http://example.com/object/',  # returned by lxml
             'http://example.com/object/object_data.swf',
             'http://example.com/object/object_archive.dat',
+            'http://example.com/param_ref_value.php',
             'http://example.com/overlay_src.html',
             },
             inline_urls

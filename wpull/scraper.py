@@ -425,7 +425,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
     @classmethod
     def iter_links_param_element(cls, element):
         '''Iterate a ``param`` element.'''
-        valuetype = element.get('valuetype', '')
+        valuetype = element.attrib.get('valuetype', '')
 
         if valuetype.lower() == 'ref' and 'value' in element.attrib:
             yield LinkInfo(
