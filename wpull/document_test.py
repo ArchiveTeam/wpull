@@ -2,7 +2,7 @@
 import io
 
 from wpull.backport.testing import unittest
-from wpull.document import HTMLReader, SitemapReader
+from wpull.document import HTMLReader, SitemapReader, CSSReader
 
 
 CODEC_NAMES = (
@@ -235,3 +235,41 @@ class TestDocument(unittest.TestCase):
                 reader.read_tree(io.BytesIO(test_string), encoding='ascii')
             )
             self.assertEqual('img', elements[-4].tag)
+
+    def test_css_read_links_big(self):
+        css_data = b'\n'.join(
+            [
+                'url(blah{0});'.format(num).encode('ascii')
+                    for num in range(100000)
+            ]
+        )
+        reader = CSSReader()
+
+        self.assertGreater(len(css_data), reader.BUFFER_SIZE)
+
+        links = set()
+
+        for link in \
+        reader.read_links(io.BytesIO(css_data), encoding='ascii'):
+            links.add(link)
+
+        self.assertEqual(len(links), 100000)
+
+    def test_css_read_links_huge(self):
+        css_data = b'\n'.join(
+            [
+                'url(blah{0});'.format(num).encode('ascii')
+                    for num in range(200000)
+            ]
+        )
+        reader = CSSReader()
+
+        self.assertGreater(len(css_data), reader.BUFFER_SIZE)
+
+        links = set()
+
+        for link in \
+        reader.read_links(io.BytesIO(css_data), encoding='ascii'):
+            links.add(link)
+
+        self.assertEqual(len(links), 200000)

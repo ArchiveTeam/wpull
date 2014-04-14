@@ -443,6 +443,7 @@ class CSSReader(BaseDocumentReader):
         '''
         stream = codecs.getreader(encoding or 'latin1')(file)
         # stream = io.TextIOWrapper(file, encoding=encoding or 'latin1')
+        buffer = None
 
         while True:
             text = stream.read(self.BUFFER_SIZE)
@@ -450,13 +451,23 @@ class CSSReader(BaseDocumentReader):
             if not text:
                 break
 
+            if not buffer and len(text) == self.BUFFER_SIZE:
+                buffer = io.StringIO()
+
+            if buffer:
+                buffer.write(text)
+                buffer.seek(0)
+
+                text = buffer.getvalue()
+
             for link in itertools.chain(
-                    self.scrape_urls(text), self.scrape_imports(text)
+                self.scrape_urls(text), self.scrape_imports(text)
             ):
                 yield link
 
-            if len(text) > self.STREAM_REWIND:
-                stream.seek(-self.STREAM_REWIND)
+            if buffer:
+                buffer.truncate()
+                buffer.write(text[:-self.STREAM_REWIND])
 
     @classmethod
     def scrape_urls(cls, text):
