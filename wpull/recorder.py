@@ -19,7 +19,9 @@ import wpull.backport.gzip
 from wpull.namevalue import NameValueRecord
 from wpull.network import BandwidthMeter
 import wpull.util
+import wpull.version
 from wpull.warc import WARCRecord
+import namedlist
 
 
 _logger = logging.getLogger(__name__)
@@ -126,63 +128,83 @@ class DemuxRecorderSession(BaseRecorderSession):
             context.__exit__(*args)
 
 
+WARCRecorderParams = namedlist.namedtuple(
+    'WARCRecorderParamsType',
+    [
+        ('compress', True),
+        ('extra_fields', None),
+        ('temp_dir', None),
+        ('log', True),
+        ('appending', False),
+        ('digests', True),
+        ('cdx', None),
+        ('max_size', None),
+        ('url_table', None),
+        ('software_string', None)
+    ]
+)
+''':class:`WARCRecorder` parameters.
+
+Args:
+    compress (bool): If True, files will be compressed with gzip
+    extra_fields (list): A list of key-value pairs containing extra
+        metadata fields
+    temp_dir (str): Directory to use for temporary files
+    log (bool): Include the program logging messages in the WARC file
+    appending (bool): If True, the file is not overwritten upon opening
+    digests (bool): If True, the SHA1 hash digests will be written.
+    cdx (bool): If True, a CDX file will be written.
+    max_size (int): If provided, output files are named like
+        ``name-00000.ext`` and the log file will be in ``name-meta.ext``.
+    url_table (:class:`.database.URLTable`): If given, then ``revist``
+        records will be written.
+    software_string (str): The value for the ``software`` field in the
+        Warcinfo record.
+'''
+
+
 class WARCRecorder(BaseRecorder):
     '''Record to WARC file.
 
     Args:
         filename (str): The filename (without the extension).
-        compress (bool): If True, files will be compressed with gzip
-        extra_fields (list): A list of key-value pairs containing extra
-            metadata fields
-        temp_dir (str): Directory to use for temporary files
-        log (bool): Include the program logging messages in the WARC file
-        appending (bool): If True, the file is not overwritten upon opening
-        digests (bool): If True, the SHA1 hash digests will be written.
-        cdx (bool): If True, a CDX file will be written.
-        max_size (int): If provided, output files are named like
-            ``name-00000.ext`` and the log file will be in ``name-meta.ext``.
-        url_table (:class:`.database.URLTable`): If given, then ``revist``
-            records will be written.
+        params (:class:`WARCRecorderParams`): Parameters.
     '''
     CDX_DELIMINATOR = ' '
+    '''Default CDX delimiter.'''
+    DEFAULT_SOFTWARE_STRING = 'Wpull/{0} Python/{1}'.format(
+        wpull.version.__version__, wpull.util.python_version()
+    )
+    '''Default software string.'''
 
-    def __init__(self, filename, compress=True, extra_fields=None,
-    temp_dir=None, log=True, appending=False, digests=True, cdx=None,
-    max_size=None, url_table=None):
+    def __init__(self, filename, params=None):
         self._prefix_filename = filename
-        self._sequence_num = 0
-        self._gzip_enabled = compress
-        self._temp_dir = temp_dir
+        self._params = params or WARCRecorderParams()
         self._warcinfo_record = None
+        self._sequence_num = 0
         self._log_record = None
         self._log_handler = None
-        self._digests_enabled = digests
-        self._cdx = cdx
-        self._appending = appending
-        self._extra_fields = extra_fields
         self._warc_filename = None
         self._cdx_filename = None
-        self._max_size = max_size
-        self._url_table = url_table
 
-        if log:
+        if params.log:
             self._log_record = WARCRecord()
             self._setup_log()
 
         self._start_new_warc_file()
 
-        if self._cdx:
+        if self._params.cdx:
             self._start_new_cdx_file()
 
     def _start_new_warc_file(self, meta=False):
-        if self._max_size is None:
+        if self._params.max_size is None:
             sequence_name = ''
         elif meta:
             sequence_name = '-meta'
         else:
             sequence_name = '-{0:05d}'.format(self._sequence_num)
 
-        if self._gzip_enabled:
+        if self._params.compress:
             extension = 'warc.gz'
         else:
             extension = 'warc'
@@ -193,17 +215,17 @@ class WARCRecorder(BaseRecorder):
 
         _logger.debug('WARC file at {0}'.format(self._warc_filename))
 
-        if not self._appending:
+        if not self._params.appending:
             wpull.util.truncate_file(self._warc_filename)
 
         self._warcinfo_record = WARCRecord()
-        self._populate_warcinfo(self._extra_fields)
+        self._populate_warcinfo(self._params.extra_fields)
         self.write_record(self._warcinfo_record)
 
     def _start_new_cdx_file(self):
         self._cdx_filename = '{0}.cdx'.format(self._prefix_filename)
 
-        if not self._appending:
+        if not self._params.appending:
             wpull.util.truncate_file(self._cdx_filename)
             self._write_cdx_header()
         elif not os.path.exists(self._cdx_filename):
@@ -215,8 +237,8 @@ class WARCRecorder(BaseRecorder):
             WARCRecord.WARCINFO, WARCRecord.WARC_FIELDS)
 
         info_fields = NameValueRecord()
-        info_fields['Software'] = 'Wpull/{0} Python/{1}'.format(
-            wpull.version.__version__, wpull.util.python_version())
+        info_fields['Software'] = self._params.software_string \
+            or self.DEFAULT_SOFTWARE_STRING
         info_fields['format'] = 'WARC File Format 1.0'
         info_fields['conformsTo'] = \
             'http://bibnum.bnf.fr/WARC/WARC_ISO_28500_version1_latestdraft.pdf'
@@ -236,7 +258,7 @@ class WARCRecorder(BaseRecorder):
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         self._log_record.block_file = NamedTemporaryFile(
             prefix='wpull-warc-',
-            dir=self._temp_dir,
+            dir=self._params.temp_dir,
             suffix='.log',
         )
         self._log_handler = handler = logging.FileHandler(
@@ -252,12 +274,13 @@ class WARCRecorder(BaseRecorder):
     @contextlib.contextmanager
     def session(self):
         recorder_session = WARCRecorderSession(
-            self, temp_dir=self._temp_dir, url_table=self._url_table
+            self,
+            temp_dir=self._params.temp_dir, url_table=self._params.url_table
         )
         yield recorder_session
 
-        if self._max_size is not None \
-        and os.path.getsize(self._warc_filename) > self._max_size:
+        if self._params.max_size is not None \
+        and os.path.getsize(self._warc_filename) > self._params.max_size:
             self._sequence_num += 1
 
             _logger.debug('Starting new warc file due to max size.')
@@ -265,7 +288,7 @@ class WARCRecorder(BaseRecorder):
 
     def set_length_and_maybe_checksums(self, record, payload_offset=None):
         '''Set the content length and possibly the checksums.'''
-        if self._digests_enabled:
+        if self._params.digests:
             record.compute_checksum(payload_offset)
         else:
             record.set_content_length()
@@ -280,7 +303,7 @@ class WARCRecorder(BaseRecorder):
         _logger.debug('Writing WARC record {0}.'.format(
             record.fields['WARC-Type']))
 
-        if self._gzip_enabled:
+        if self._params.compress:
             open_func = wpull.backport.gzip.GzipFile
         else:
             open_func = open
@@ -329,7 +352,7 @@ class WARCRecorder(BaseRecorder):
             self._log_record.fields['WARC-Target-URI'] = \
                 'urn:X-wpull:log'
 
-            if self._max_size is not None:
+            if self._params.max_size is not None:
                 self._start_new_warc_file(meta=True)
 
             self.set_length_and_maybe_checksums(self._log_record)

@@ -5,9 +5,10 @@ Brief Option Overview
 
   usage: __main__.py [-h] [-V] [--python-script FILE | --lua-script FILE]
                      [--database FILE] [--concurrent N] [-o FILE | -a FILE]
-                     [-d | -q | -v | -nv] [--ascii-print] [-i FILE] [-t NUMBER]
-                     [--retry-connrefused] [--retry-dns-error] [-O FILE] [-nc]
-                     [-c] [--progress TYPE={bar,dot}] [-N]
+                     [-d | -q | -v | -nv] [--ascii-print] [-i FILE] [-F]
+                     [-B URL] [-t NUMBER] [--retry-connrefused]
+                     [--retry-dns-error] [-O FILE] [-nc] [-c]
+                     [--progress TYPE={bar,dot}] [-N]
                      [--no-use-server-timestamps] [-S] [-T SECONDS]
                      [--dns-timeout SECS] [--connect-timeout SECS]
                      [--read-timeout SECS] [-w SECONDS] [--waitretry SECONDS]
@@ -76,7 +77,9 @@ Brief Option Overview
     -nv, --no-verbose     print program warning and informative messages only
     --ascii-print         print program messages in ASCII only
     -i FILE, --input-file FILE
-                          download URLs listen from FILE
+                          download URLs listed in FILE
+    -F, --force-html      read URL input files as HTML files
+    -B URL, --base URL    resolves input relative URLs to URL
 
   download:
     -t NUMBER, --tries NUMBER
@@ -245,7 +248,7 @@ Brief Option Overview
   PhantomJS:
     --phantomjs           use PhantomJS for loading dynamic pages
     --phantomjs-scroll NUM
-                          scroll the page up to NUM times (default: 5)
+                          scroll the page up to NUM times (default: 10)
     --phantomjs-wait SEC  wait SEC seconds between page interactions (default:
                           1.0)
     --no-phantomjs-snapshot

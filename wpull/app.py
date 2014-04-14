@@ -15,6 +15,7 @@ import tornado.ioloop
 import tornado.testing
 
 from wpull.converter import BatchDocumentConverter
+from wpull.cookie import CookieLimitsPolicy
 from wpull.database import URLTable
 from wpull.engine import Engine
 from wpull.factory import Factory
@@ -31,7 +32,8 @@ from wpull.processor import (WebProcessor, PhantomJSController,
     WebProcessorFetchParams, WebProcessorInstances)
 from wpull.proxy import HTTPProxyServer
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
-    PrintServerResponseRecorder, ProgressRecorder, OutputDocumentRecorder)
+    PrintServerResponseRecorder, ProgressRecorder, OutputDocumentRecorder,
+    WARCRecorderParams)
 from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper import (HTMLScraper, CSSScraper, DemuxDocumentScraper,
     SitemapScraper)
@@ -63,7 +65,7 @@ class Builder(object):
     UNSAFE_OPTIONS = frozenset(['save_headers', 'no_iri', 'output_document'])
 
     def __init__(self, args):
-        self.default_user_agent = 'Mozilla/5.0 (compatible) Wpull/{0}'.format(
+        self.default_user_agent = 'Wpull/{0} (gzip)'.format(
             wpull.version.__version__)
         self._args = args
         self._factory = Factory({
@@ -71,6 +73,7 @@ class Builder(object):
             'Client': Client,
             'CookieJar': CookieJar,
             'CookieJarWrapper': CookieJarWrapper,
+            'CookiePolicy': CookieLimitsPolicy,
             'Connection': Connection,
             'ConnectionPool': ConnectionPool,
             'CSSScraper': CSSScraper,
@@ -299,21 +302,25 @@ class Builder(object):
         url_string_iter = self._args.urls or ()
 
         if self._args.input_file:
-            input_file = codecs.getreader(
-                self._args.local_encoding or 'utf-8')(self._args.input_file)
-
-            urls = [line.strip() for line in input_file if line.strip()]
-
-            if not urls:
-                raise ValueError(_('No URLs found in input file.'))
+            if self._args.force_html:
+                urls = self._read_input_file_as_html()
+            else:
+                urls = self._read_input_file_as_lines()
 
             url_string_iter = itertools.chain(url_string_iter, urls)
 
         sitemap_url_infos = set()
+        base_url = self._args.base
 
         for url_string in url_string_iter:
+            _logger.debug('Parsing URL {0}'.format(url_string))
+
+            if base_url:
+                url_string = wpull.url.urljoin(base_url, url_string)
+
             url_info = self._factory.class_map['URLInfo'].parse(
                 url_string, default_scheme=default_scheme)
+
             _logger.debug('Parsed URL {0}'.format(url_info))
             yield url_info
 
@@ -332,6 +339,30 @@ class Builder(object):
         for url_info in sitemap_url_infos:
             yield url_info
 
+    def _read_input_file_as_lines(self):
+        '''Read lines from input file and return them.'''
+        input_file = codecs.getreader(
+            self._args.local_encoding or 'utf-8')(self._args.input_file)
+
+        urls = [line.strip() for line in input_file if line.strip()]
+
+        if not urls:
+            raise ValueError(_('No URLs found in input file.'))
+
+        return urls
+
+    def _read_input_file_as_html(self):
+        '''Read input file as HTML and return the links.'''
+        scrape_info = HTMLScraper.scrape_file(
+            self._args.input_file,
+            encoding=self._args.local_encoding or 'utf-8'
+        )
+        links = itertools.chain(
+            scrape_info['inline_urls'], scrape_info['linked_urls']
+        )
+
+        return links
+
     def _build_url_filters(self):
         '''Create the URL filter instances.
 
@@ -342,27 +373,48 @@ class Builder(object):
 
         filters = [
             HTTPSOnlyFilter() if args.https_only else HTTPFilter(),
-            BackwardDomainFilter(args.domains, args.exclude_domains),
-            HostnameFilter(args.hostnames, args.exclude_hostnames),
-            TriesFilter(args.tries),
             RecursiveFilter(
                 enabled=args.recursive, page_requisites=args.page_requisites
             ),
-            LevelFilter(args.level),
             SpanHostsFilter(
                 self._url_infos,
                 enabled=args.span_hosts,
                 page_requisites='page-requisites' in args.span_hosts_allow,
                 linked_pages='linked-pages' in args.span_hosts_allow,
             ),
-            RegexFilter(args.accept_regex, args.reject_regex),
-            DirectoryFilter(args.include_directories,
-                args.exclude_directories),
-            BackwardFilenameFilter(args.accept, args.reject),
         ]
 
         if args.no_parent:
             filters.append(ParentFilter())
+
+        if args.domains or args.exclude_domains:
+            filters.append(
+                BackwardDomainFilter(args.domains, args.exclude_domains)
+            )
+
+        if args.hostnames or args.exclude_hostnames:
+            filters.append(
+                HostnameFilter(args.hostnames, args.exclude_hostnames)
+            )
+
+        if args.tries:
+            filters.append(TriesFilter(args.tries))
+
+        if args.level and args.recursive:
+            filters.append(LevelFilter(args.level))
+
+        if args.accept_regex or args.reject_regex:
+            filters.append(RegexFilter(args.accept_regex, args.reject_regex))
+
+        if args.include_directories or args.exclude_directories:
+            filters.append(
+                DirectoryFilter(
+                    args.include_directories, args.exclude_directories
+                )
+            )
+
+        if args.accept or args.reject:
+            filters.append(BackwardFilenameFilter(args.accept, args.reject))
 
         return filters
 
@@ -425,19 +477,29 @@ class Builder(object):
                 value = value.strip()
                 extra_fields.append((name, value))
 
+            software_string = WARCRecorder.DEFAULT_SOFTWARE_STRING
+
+            if args.phantomjs:
+                software_string += ' PhantomJS/{0}'.format(
+                    wpull.phantomjs.get_version()
+                )
+
             recorders.append(
                 self._factory.new('WARCRecorder',
                     args.warc_file,
-                    compress=not args.no_warc_compression,
-                    extra_fields=extra_fields,
-                    temp_dir=args.warc_tempdir,
-                    log=args.warc_log,
-                    appending=args.warc_append,
-                    digests=args.warc_digests,
-                    cdx=args.warc_cdx,
-                    max_size=args.warc_max_size,
-                    url_table=self._factory['URLTable'] if args.warc_dedup
-                        else None,
+                    params=WARCRecorderParams(
+                        compress=not args.no_warc_compression,
+                        extra_fields=extra_fields,
+                        temp_dir=args.warc_tempdir,
+                        log=args.warc_log,
+                        appending=args.warc_append,
+                        digests=args.warc_digests,
+                        cdx=args.warc_cdx,
+                        max_size=args.warc_max_size,
+                        url_table=self._factory['URLTable'] if args.warc_dedup
+                            else None,
+                        software_string=software_string,
+                    ),
                 )
             )
 
@@ -757,6 +819,10 @@ class Builder(object):
                 cookie_jar.load(self._args.load_cookies, ignore_discard=True)
         else:
             cookie_jar = self._factory.new('CookieJar')
+
+        policy = self._factory.new('CookiePolicy', cookie_jar=cookie_jar)
+
+        cookie_jar.set_policy(policy)
 
         _logger.debug('Loaded cookies: {0}'.format(list(cookie_jar)))
 

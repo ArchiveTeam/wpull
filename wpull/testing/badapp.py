@@ -6,6 +6,7 @@ import http.server
 import io
 import logging
 import os.path
+import random
 import socket
 import socketserver
 import struct
@@ -67,6 +68,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/gzip_corrupt_short': self.gzip_corrupt_short,
             '/gzip_corrupt_footer': self.gzip_corrupt_footer,
             '/bad_cookie': self.bad_cookie,
+            '/long_cookie': self.long_cookie,
             '/header_early_close': self.header_early_close,
             '/no_content': self.no_content,
             '/many_links': self.many_links,
@@ -456,6 +458,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header('Content-length', '0')
         self.end_headers()
 
+    def long_cookie(self):
+        self.send_response(200)
+        self.send_header(
+            'Set-cookie',
+            'a={0}'.format('b' * 5000)
+        )
+        self.send_header('Content-length', '0')
+        self.end_headers()
+
     def header_early_close(self):
         # http://stackoverflow.com/a/6440364/1524507
         l_onoff = 1
@@ -479,10 +490,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         self.wfile.write(b'<html><body>')
 
-        for num in range(10000):
-            self.wfile.write(b'<a href="/?')
-            self.wfile.write(str(num).encode('ascii'))
-            self.wfile.write(b'">hi</a><br>')
+        for dummy in range(10000):
+            self.wfile.write(b'<a href="/many_links?')
+            self.wfile.write(str(random.randint(0, 1000000)).encode('ascii'))
+            self.wfile.write(b'">hi</a>')
+            self.wfile.write(b'<img src="/?')
+            self.wfile.write(str(random.randint(0, 1000000)).encode('ascii'))
+            self.wfile.write(b'"><br>')
 
         self.wfile.write(b'</html>')
 

@@ -143,7 +143,8 @@ class TestApp(GoodAppTestCase):
     def test_app_args(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            self.get_url('/').encode('utf-8'),
+            '/',
+            '--base', self.get_url('/').encode('utf-8'),
             '--no-parent',
             '--recursive',
             '--page-requisites',
@@ -203,6 +204,29 @@ class TestApp(GoodAppTestCase):
 
             args = arg_parser.parse_args([
                 '--input-file', in_file.name
+            ])
+            with cd_tempdir():
+                builder = Builder(args)
+                engine = builder.build()
+                exit_code = yield engine()
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(builder.factory['Statistics'].files, 2)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_input_html_file_arg(self):
+        arg_parser = AppArgumentParser(real_exit=False)
+        with tempfile.NamedTemporaryFile() as in_file:
+            in_file.write(b'<html><body><a href="')
+            in_file.write(self.get_url('/').encode('utf-8'))
+            in_file.write(b'">blah<a href="\n')
+            in_file.write(self.get_url('/blog/?ðfßðfëéå').encode('utf-8'))
+            in_file.write(b'">core</a>')
+            in_file.flush()
+
+            args = arg_parser.parse_args([
+                '--input-file', in_file.name,
+                '--force-html',
             ])
             with cd_tempdir():
                 builder = Builder(args)
@@ -383,6 +407,29 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(2, engine.concurrent)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_python_script_api_2(self):
+        arg_parser = AppArgumentParser()
+        filename = os.path.join(os.path.dirname(__file__),
+            'testing', 'py_hook_script2.py')
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            'localhost:1',
+            '--python-script', filename,
+            '--page-requisites',
+            '--reject-regex', '/post/',
+        ])
+        builder = Builder(args)
+
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+
+        self.assertEqual(42, exit_code)
+
+        engine = builder.factory['Engine']
+        self.assertEqual(2, engine.concurrent)
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_python_script_stop(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
@@ -403,6 +450,31 @@ class TestApp(GoodAppTestCase):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
             'testing', 'lua_hook_script.lua')
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            'localhost:1',
+            '--lua-script', filename,
+            '--page-requisites',
+            '--reject-regex', '/post/',
+        ])
+        builder = Builder(args)
+
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+
+        self.assertEqual(42, exit_code)
+
+        engine = builder.factory['Engine']
+        self.assertEqual(2, engine.concurrent)
+
+    @unittest.skipIf(sys.version_info[0:2] == (3, 2),
+        'lua module not working in this python version')
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_lua_script_api_2(self):
+        arg_parser = AppArgumentParser()
+        filename = os.path.join(os.path.dirname(__file__),
+            'testing', 'lua_hook_script2.lua')
         args = arg_parser.parse_args([
             self.get_url('/'),
             'localhost:1',
@@ -856,6 +928,23 @@ class TestAppBad(BadAppTestCase):
         cookies = list(builder.factory['CookieJar'])
         _logger.debug('{0}'.format(cookies))
         self.assertEqual(2, len(cookies))
+
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_long_cookie(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/long_cookie'),
+        ])
+        builder = Builder(args)
+        with cd_tempdir():
+            engine = builder.build()
+            exit_code = yield engine()
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
+        cookies = list(builder.factory['CookieJar'])
+        _logger.debug('{0}'.format(cookies))
+        self.assertEqual(0, len(cookies))
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_non_http_redirect(self):

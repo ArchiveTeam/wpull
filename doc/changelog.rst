@@ -2,6 +2,30 @@
 What's New
 ==========
 
+0.31 (2014-04-14)
+==================
+
+* Fixes issue where an early ``</html>`` causes link discovery to be broken and converted documents missing elements.
+* Fixes ``--no-parent`` which did not behave like Wget. This issue was noticeable with options such as ``--span-hosts-allow linked-pages``.
+* Fixes ``--level`` where page requisites were mistakenly not fetched if it exceeds recursion level.
+* Includes PhantomJS version string in WARC warcinfo record.
+* User-agent string no longer includes Mozilla reference.
+* Implements ``--force-html`` and ``--base``.
+* Cookies now are limited to approximately 4 kilobytes and a maximum of 50 cookies per domain.
+* Document parsing is now streamed for better handling of large documents.
+
+* Scripting:
+
+  * Ability to set a scripting API version.
+  * Scripting API version 2: Adds ``record_info`` argument to ``handle_error`` and ``handle_response``.
+
+* API:
+
+  * WARCRecorder uses new parameter object WARCRecorderParams.
+  * ``document``, ``scraper``, ``converter`` modules heavily modified to accommodate streaming readers. ``document.BaseDocumentReader.parse`` was removed and replaced with ``read_links``.
+  * `version.version_info` available.
+
+
 0.30 (2014-04-06)
 ==================
 

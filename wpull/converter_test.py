@@ -33,6 +33,7 @@ HTML_TEXT = '''
     <div style="background: url('http://example.com/fox.jpg');"></div>
     <div style="background: url('http://example.com/ferret.jpg');"></div>
 </body>
+<!-- hello world!! -->
 </html>
 '''
 
@@ -145,3 +146,4 @@ class TestConverter(unittest.TestCase):
             self.assertIn('"http://example.com/lol.html"', converted_text)
             self.assertIn("url('http://example.com/fox.jpg')", converted_text)
             self.assertIn("url('ferret.jpg')", converted_text)
+            self.assertIn("hello world!!", converted_text)

@@ -6,6 +6,7 @@ MODULES = [
     'actor',
     'app',
     'cache',
+    'cookie',
     'collections',
     'conversation',
     'converter',

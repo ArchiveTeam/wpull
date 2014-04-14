@@ -304,20 +304,20 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--input-file',
             metavar='FILE',
             type=argparse.FileType('rb'),
-            help=_('download URLs listen from FILE'),
+            help=_('download URLs listed in FILE'),
         )
-#         self.add_argument(
-#             '-F',
-#             '--force-html',
-#             action='store_true',
-#             help=_('read input URL contents as HTML files')
-#         )
-#         self.add_argument(
-#             '-B',
-#             '--base',
-#             metavar='URL',
-#             help=_('resolves input relative URLs to URL')
-#         )
+        group.add_argument(
+            '-F',
+            '--force-html',
+            action='store_true',
+            help=_('read URL input files as HTML files')
+        )
+        group.add_argument(
+            '-B',
+            '--base',
+            metavar='URL',
+            help=_('resolves input relative URLs to URL')
+        )
 #         self.add_argument(
 #             '--config',
 #             metavar='FILE',

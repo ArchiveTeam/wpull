@@ -4,7 +4,7 @@ import os.path
 
 from wpull.backport.testing import unittest
 from wpull.http.request import Request, Response
-from wpull.recorder import WARCRecorder
+from wpull.recorder import WARCRecorder, WARCRecorderParams
 import wpull.util
 import wpull.version
 from wpull.warc import WARCRecord
@@ -38,9 +38,12 @@ class RecorderTest(unittest.TestCase):
         cdx_filename = 'asdf.cdx'
 
         warc_recorder = WARCRecorder(
-            file_prefix, compress=False,
-            extra_fields=[('Extra-field', 'my_extra_field')],
-            cdx=True,
+            file_prefix,
+            params=WARCRecorderParams(
+                compress=False,
+                extra_fields=[('Extra-field', 'my_extra_field')],
+                cdx=True,
+            ),
         )
 
         request = Request.new('http://example.com/')
@@ -140,9 +143,12 @@ class RecorderTest(unittest.TestCase):
         cdx_filename = 'asdf.cdx'
 
         warc_recorder = WARCRecorder(
-            file_prefix, compress=False,
-            extra_fields=[('Extra-field', 'my_extra_field')],
-            cdx=True, max_size=1,
+            file_prefix,
+            params=WARCRecorderParams(
+                compress=False,
+                extra_fields=[('Extra-field', 'my_extra_field')],
+                cdx=True, max_size=1,
+            )
         )
 
         request = Request.new('http://example.com/1')
@@ -221,7 +227,10 @@ class RecorderTest(unittest.TestCase):
             warc_file.write(b'a' * 10)
 
         warc_recorder = WARCRecorder(
-            warc_filename, compress=False,
+            warc_filename,
+            params=WARCRecorderParams(
+                compress=False,
+            )
         )
 
         request = Request.new('http://example.com/')
@@ -262,7 +271,10 @@ class RecorderTest(unittest.TestCase):
     def test_cdx_dedup(self):
         url_table = URLTable()
         warc_recorder = WARCRecorder(
-            'asdf', compress=False, cdx=True, url_table=url_table
+            'asdf',
+            params=WARCRecorderParams(
+                compress=False, cdx=True, url_table=url_table
+            )
         )
 
         url_table.add_visits([

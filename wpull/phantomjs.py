@@ -5,7 +5,7 @@ import contextlib
 import datetime
 import json
 import logging
-import os.path
+import subprocess
 import time
 import tornado.gen
 import tornado.httpserver
@@ -488,6 +488,16 @@ class ResourceCounter(object):
             tuple: (pending, loaded, error)
         '''
         return (self.pending, self.loaded, self.error)
+
+
+def get_version(exe_path='phantomjs'):
+    '''Get the version string of PhantomJS.'''
+    process = subprocess.Popen(
+        [exe_path, '--version'],
+        stdout=subprocess.PIPE
+    )
+    version_string = process.communicate()[0]
+    return version_string.decode().strip()
 
 
 if __name__ == '__main__':

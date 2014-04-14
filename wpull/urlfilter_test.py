@@ -170,6 +170,9 @@ class TestURLFilter(unittest.TestCase):
         mock_record.level = 6
         self.assertFalse(url_filter.test(None, mock_record))
 
+        mock_record.inline = True
+        self.assertTrue(url_filter.test(None, mock_record))
+
     def test_tries_filter(self):
         mock_record = MockURLTableRecord()
         mock_record.try_count = 4
@@ -197,8 +200,24 @@ class TestURLFilter(unittest.TestCase):
             URLInfo.parse('http://example.com/blog/topic1/blah.html'),
             mock_record
         ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('https://example.com/blog/topic1/blah2.html'),
+            mock_record
+        ))
         self.assertFalse(url_filter.test(
             URLInfo.parse('http://example.com/blog/'),
+            mock_record
+        ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('https://example.com/blog/'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://somewhere.com/'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('https://somewhere.com/'),
             mock_record
         ))
 
