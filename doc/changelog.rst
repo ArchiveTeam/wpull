@@ -2,7 +2,7 @@
 What's New
 ==========
 
-0.XX (2014-04-DD)
+0.31 (2014-04-14)
 ==================
 
 * Fixes issue where an early ``</html>`` causes link discovery to be broken and converted documents missing elements.
