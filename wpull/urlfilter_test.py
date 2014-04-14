@@ -170,6 +170,9 @@ class TestURLFilter(unittest.TestCase):
         mock_record.level = 6
         self.assertFalse(url_filter.test(None, mock_record))
 
+        mock_record.inline = True
+        self.assertTrue(url_filter.test(None, mock_record))
+
     def test_tries_filter(self):
         mock_record = MockURLTableRecord()
         mock_record.try_count = 4
