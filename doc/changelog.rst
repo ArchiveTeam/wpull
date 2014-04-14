@@ -13,6 +13,7 @@ What's New
 * API:
 
   * WARCRecorder uses new parameter object WARCRecorderParams.
+  * `version.version_info` available.
 
 
 0.30 (2014-04-06)
