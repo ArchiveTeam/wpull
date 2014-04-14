@@ -2,7 +2,9 @@
 '''Document content post-processing.'''
 import abc
 import gettext
+import io
 import logging
+import lxml.html
 import os.path
 import re
 import shutil
@@ -76,12 +78,19 @@ class BatchDocumentConverter(object):
         if self._backup_enabled:
             shutil.copy2(filename, filename + '.orig')
 
+        temp_filename = filename + '-new'
+
         if link_type == 'css':
             self._css_converter.convert(
-                filename, filename, base_url=url_record.url)
+                filename, temp_filename, base_url=url_record.url)
         elif link_type == 'html':
             self._html_converter.convert(
-                filename, filename, base_url=url_record.url)
+                filename, temp_filename, base_url=url_record.url)
+        else:
+            raise Exception('Unknown link type.')
+
+        os.remove(filename)
+        os.rename(temp_filename, filename)
 
 
 class HTMLConverter(HTMLScraper, BaseDocumentConverter):
@@ -90,68 +99,142 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
         super().__init__()
         self._url_table = url_table
         self._css_converter = CSSConverter(url_table)
+        self._out_file = None
+        self._css_already_done = None
+        self._base_url = None
+        self._encoding = None
 
     def convert(self, input_filename, output_filename, base_url=None):
-        css_already_done = set()
+        self._css_already_done = set()
+        self._base_url = base_url
 
         with open(input_filename, 'rb') as in_file:
-            tree = self.parse(in_file, base_url=base_url)
-
-        root = tree.getroot()
-
-        if root is None:
-            _logger.warning(
-                _('Failed to convert ‘{filename}’.')\
-                .format(filename=input_filename)
+            encoding = wpull.util.detect_encoding(
+                in_file.peek(1048576), is_html=True
             )
-            return
 
-        encoding = wpull.util.to_str(tree.docinfo.encoding)
+        with open(input_filename, 'rb') as in_file:
+            doctype = self.parse_doctype(in_file, encoding=encoding)
 
-        for link_info in self.iter_links(root):
+        with open(input_filename, 'rb') as in_file:
+            with open(output_filename, 'wb') as bin_out_file:
+                elements = self.read_tree(in_file, encoding=encoding)
+                out_file = io.TextIOWrapper(bin_out_file, encoding=encoding)
+                out_file.write(doctype)
+                out_file.write('\r\n')
+
+                self._out_file = out_file
+                self._encoding = encoding
+
+                for element in elements:
+                    if element.tag == wpull.document.COMMENT:
+                        out_file.write(
+                            '<!--{0}-->'.format(element.text)
+                        )
+                    elif element.end:
+                        if element.tag not in lxml.html.defs.empty_tags:
+                            self._out_file.write('</{0}>'.format(element.tag))
+
+                        if element.tail:
+                            self._out_file.write(element.tail)
+                    else:
+                        self._convert_element(element)
+
+                self._out_file.close()
+                self._out_file = None
+
+    def _convert_element(self, element):
+        self._out_file.write('<')
+        self._out_file.write(element.tag)
+
+        new_text = element.text
+        unfilled_value = object()
+        new_attribs = dict(((name, unfilled_value) for name in element.attrib))
+
+        for link_info in self.iter_links_element(element):
+            new_value = None
+
             if link_info.value_type == 'plain':
-                self._convert_plain(link_info, root, encoding)
+                new_value = self._convert_plain(link_info)
             elif link_info.value_type == 'css':
-                self._convert_css(link_info, css_already_done, base_url)
+                if link_info.attrib:
+                    new_value = self._convert_css_attrib(link_info)
+                else:
+                    text = self._convert_css_text(link_info)
 
-        tree.write(
-            output_filename, method='html', pretty_print=True,
-            encoding=encoding
-        )
+                    if text:
+                        new_text = text
 
-    def _convert_plain(self, link_info, root, encoding):
-        base_url = wpull.util.to_str(root.base_url)
+            if new_value:
+                if new_attribs[link_info.attrib] == unfilled_value:
+                    new_attribs[link_info.attrib] = [new_value]
+                else:
+                    new_attribs[link_info.attrib].append(new_value)
+
+        for name in new_attribs:
+            if new_attribs[name] == unfilled_value:
+                value = element.attrib[name]
+            else:
+                value = ' '.join(new_attribs[name])
+
+            self._out_file.write(' {0}="{1}"'.format(name, value))
+
+        self._out_file.write('>')
+
+        if element.tag not in lxml.html.defs.empty_tags:
+            if new_text:
+                self._out_file.write(new_text)
+
+    def _convert_plain(self, link_info):
+        base_url = self._base_url
 
         if link_info.base_link:
-            base_url = wpull.url.urljoin(base_url, link_info.base_link)
+            if self._base_url:
+                base_url = wpull.url.urljoin(
+                    self._base_url, link_info.base_link
+                )
+            else:
+                base_url = link_info.base_link
 
-        url = wpull.url.urljoin(base_url, link_info.link)
-        url_info = URLInfo.parse(url, encoding=encoding)
+        if base_url:
+            url = wpull.url.urljoin(base_url, link_info.link)
+        else:
+            url = link_info.link
+
+        url_info = URLInfo.parse(url, encoding=self._encoding)
         new_url = self._get_new_url(url_info)
 
-        link_info.element.set(link_info.attrib, new_url)
+        return new_url
 
-    def _convert_css(self, link_info, css_already_done, base_url=None):
-        if link_info.attrib:
-            done_key = (link_info.element, link_info.attrib)
+    def _convert_css_attrib(self, link_info):
+        done_key = (link_info.element, link_info.attrib)
 
-            if done_key in css_already_done:
-                return
+        if done_key in self._css_already_done:
+            return
 
-            text = wpull.util.to_str(link_info.element.get(link_info.attrib))
-            new_text = self._css_converter.convert_text(text, base_url)
+        text = wpull.util.to_str(
+            link_info.element.attrib.get(link_info.attrib)
+        )
+        new_value = self._css_converter.convert_text(
+            text, base_url=self._base_url
+        )
 
-            link_info.element.set(link_info.attrib, new_text)
-            css_already_done.add(done_key)
-        else:
-            if link_info.element in css_already_done:
-                return
+        self._css_already_done.add(done_key)
 
-            text = wpull.util.to_str(link_info.element.text)
-            new_text = self._css_converter.convert_text(text, base_url)
-            link_info.element.text = new_text
+        return new_value
 
-            css_already_done.add(link_info.element)
+    def _convert_css_text(self, link_info):
+        if link_info.element in self._css_already_done:
+            return
+
+        text = wpull.util.to_str(link_info.element.text)
+        new_text = self._css_converter.convert_text(
+            text, base_url=self._base_url
+        )
+
+        self._css_already_done.add(link_info.element)
+
+        return new_text
 
     def _get_new_url(self, url_info):
         url_record = self._url_table.get(url_info.url)

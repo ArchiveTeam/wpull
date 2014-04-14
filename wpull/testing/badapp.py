@@ -6,6 +6,7 @@ import http.server
 import io
 import logging
 import os.path
+import random
 import socket
 import socketserver
 import struct
@@ -489,10 +490,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         self.wfile.write(b'<html><body>')
 
-        for num in range(10000):
-            self.wfile.write(b'<a href="/?')
-            self.wfile.write(str(num).encode('ascii'))
-            self.wfile.write(b'">hi</a><br>')
+        for dummy in range(10000):
+            self.wfile.write(b'<a href="/many_links?')
+            self.wfile.write(str(random.randint(0, 1000000)).encode('ascii'))
+            self.wfile.write(b'">hi</a>')
+            self.wfile.write(b'<img src="/?')
+            self.wfile.write(str(random.randint(0, 1000000)).encode('ascii'))
+            self.wfile.write(b'"><br>')
 
         self.wfile.write(b'</html>')
 

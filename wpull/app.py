@@ -17,7 +17,6 @@ import tornado.testing
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import CookieLimitsPolicy
 from wpull.database import URLTable
-from wpull.document import HTMLReader
 from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
@@ -354,17 +353,15 @@ class Builder(object):
 
     def _read_input_file_as_html(self):
         '''Read input file as HTML and return the links.'''
-        input_file = codecs.getreader(
-            self._args.local_encoding or 'utf-8')(self._args.input_file)
+        scrape_info = HTMLScraper.scrape_file(
+            self._args.input_file,
+            encoding=self._args.local_encoding or 'utf-8'
+        )
+        links = itertools.chain(
+            scrape_info['inline_urls'], scrape_info['linked_urls']
+        )
 
-        reader = HTMLReader()
-        tree = reader.parse(input_file)
-        scraped_links = HTMLScraper.iter_links(tree.getroot())
-
-        for scraped_link in scraped_links:
-            link = wpull.scraper.clean_link_soup(scraped_link.link)
-
-            yield link
+        return links
 
     def _build_url_filters(self):
         '''Create the URL filter instances.

@@ -275,7 +275,7 @@ class TestDocument(unittest.TestCase):
 
         scrape_info = scraper.scrape(request, response)
 
-        self.assertFalse(scrape_info)
+        self.assertTrue(scrape_info)
 
     def test_scrape_css_urls(self):
         text = '''
