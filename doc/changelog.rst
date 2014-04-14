@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.XX (2014-04-DD)
+==================
+
+* Fixes crash when HTML meta refresh URL is empty.
+
+
 0.31 (2014-04-14)
 ==================
 

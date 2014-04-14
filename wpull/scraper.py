@@ -373,15 +373,18 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         '''
         if element.attrib.get('http-equiv', '').lower() == 'refresh':
             content_value = element.attrib.get('content')
-            link = parse_refresh(content_value)
-            if link:
-                yield LinkInfo(
-                    element, element.tag, 'http-equiv',
-                    link,
-                    False, True,
-                    None,
-                    'refresh'
-                )
+
+            if content_value:
+                link = parse_refresh(content_value)
+
+                if link:
+                    yield LinkInfo(
+                        element, element.tag, 'http-equiv',
+                        link,
+                        False, True,
+                        None,
+                        'refresh'
+                    )
 
     @classmethod
     def iter_links_object_element(cls, element):
@@ -608,7 +611,7 @@ def parse_refresh(text):
     Returns:
         str, None
     '''
-    match = re.search(r'url=(.+)', text, re.IGNORECASE)
+    match = re.search(r'url\s*=(.+)', text, re.IGNORECASE)
 
     if match:
         url = match.group(1)
@@ -618,7 +621,7 @@ def parse_refresh(text):
         elif url.startswith("'"):
             url = url.strip("'")
 
-        return url
+        return clean_link_soup(url)
 
 
 def clean_link_soup(link):
