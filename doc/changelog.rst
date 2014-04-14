@@ -5,6 +5,7 @@ What's New
 0.XX (2014-04-DD)
 ==================
 
+* Fixes ``--no-parent`` which did not behave like Wget. This was noticeable with options such as ``--span-hosts-allow linked-pages``.
 * Includes PhantomJS version string in WARC warcinfo record.
 * User-agent string no longer includes Mozilla reference.
 * Implements ``--force-html`` and ``--base``.

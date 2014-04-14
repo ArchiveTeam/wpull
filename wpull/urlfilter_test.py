@@ -201,6 +201,10 @@ class TestURLFilter(unittest.TestCase):
             URLInfo.parse('http://example.com/blog/'),
             mock_record
         ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://somewhere.com/'),
+            mock_record
+        ))
 
         mock_record.inline = True
         self.assertTrue(url_filter.test(

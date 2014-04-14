@@ -177,7 +177,7 @@ class ParentFilter(BaseURLFilter):
             return is_subdir(top_url_info.path, url_info.path,
                 trailing_slash=True)
 
-        return False
+        return True
 
 
 class SpanHostsFilter(BaseURLFilter):
