@@ -7,6 +7,7 @@ What's New
 
 * Fixes crash when HTML meta refresh URL is empty.
 * Fixes crash when decoding a document that is malformed later in the document. These invalid documents are not searched for links.
+* Reduces CPU usage when ``--debug`` logging is not enabled.
 
 * API:
 

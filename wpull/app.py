@@ -172,12 +172,40 @@ class Builder(object):
     def _setup_logging(self):
         '''Set up the root logger if needed.
 
-        The root logger is set to DEBUG level so the file and WARC logs
+        The root logger is set the appropriate level so the file and WARC logs
         work correctly.
         '''
+        assert (
+            logging.CRITICAL >
+            logging.ERROR >
+            logging.WARNING >
+            logging.INFO >
+            logging.DEBUG >
+            logging.NOTSET
+        )
+        assert self._args.verbosity
+
         root_logger = logging.getLogger()
-        root_logger.setLevel(logging.DEBUG)
-        root_logger.debug('Wpull needs the root logger level set to DEBUG.')
+        current_level = root_logger.getEffectiveLevel()
+        min_level = logging.ERROR
+
+        if self._args.verbosity == logging.WARNING:
+            min_level = logging.WARNING
+
+        if self._args.verbosity == logging.INFO \
+        or self._args.warc_file \
+        or self._args.output_file or self._args.append_output:
+            min_level = logging.INFO
+
+        if self._args.verbosity == logging.DEBUG:
+            min_level = logging.DEBUG
+
+        if current_level > min_level:
+            root_logger.setLevel(min_level)
+            root_logger.debug(
+                'Wpull needs the root logger level set to {0}.'\
+                    .format(min_level)
+            )
 
     def _setup_console_logger(self):
         '''Set up the console logger.
@@ -506,7 +534,9 @@ class Builder(object):
         if args.server_response:
             recorders.append(self._factory.new('PrintServerResponseRecorder'))
 
-        if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARN, None):
+        assert args.verbosity
+
+        if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARNING):
             stream = self._new_encoded_stream(sys.stderr)
 
             bar_style = args.progress == 'bar'
