@@ -6,6 +6,7 @@ What's New
 ==================
 
 * Fixes crash when HTML meta refresh URL is empty.
+* Fixes crash when decoding a document that is malformed later in the document. These invalid documents are not searched for links.
 
 
 0.31 (2014-04-14)
