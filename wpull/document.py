@@ -652,7 +652,7 @@ def get_heading_encoding(response):
         return None
 
 
-def detect_response_encoding(response, is_html=False, peek=1048576):
+def detect_response_encoding(response, is_html=False, peek=131072):
     '''Return the likely encoding of the response document.
 
     Args:
