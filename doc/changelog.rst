@@ -12,6 +12,7 @@ What's New
 * API:
 
   * `document.detect_response_encoding()` default peek argument is lowered to reduce hanging.
+  * `document.BaseDocumentDetector` is now a base class for document type detection.
 
 
 0.31 (2014-04-14)

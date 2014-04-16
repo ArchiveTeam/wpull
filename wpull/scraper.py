@@ -178,7 +178,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             self._ignored_tags = None
 
     def scrape(self, request, response):
-        if not self.is_html(request, response):
+        if not self.is_supported(request=request, response=response):
             return
 
         base_url = request.url_info.url
@@ -528,7 +528,7 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
         self._encoding_override = encoding_override
 
     def scrape(self, request, response):
-        if not self.is_css(request, response):
+        if not self.is_supported(request=request, response=response):
             return
 
         scraped_links = self.iter_scrape(request, response)
@@ -546,7 +546,7 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
         }
 
     def iter_scrape(self, request, response):
-        if not self.is_css(request, response):
+        if not self.is_supported(request=request, response=response):
             return
 
         base_url = request.url_info.url
@@ -568,7 +568,7 @@ class SitemapScraper(SitemapReader, BaseDocumentScraper):
         self._encoding_override = encoding_override
 
     def scrape(self, request, response):
-        if not self.is_sitemap(request, response):
+        if not self.is_supported(request=request, response=response):
             return
 
         base_url = request.url_info.url

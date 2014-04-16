@@ -19,24 +19,102 @@ import wpull.util
 _logger = logging.getLogger(__name__)
 
 
-class BaseDocumentReader(object, metaclass=abc.ABCMeta):
-    '''Base class for classes that read documents.'''
+class BaseDocumentDetector(object, metaclass=abc.ABCMeta):
+    '''Base class for classes that detect document types.'''
 
     @classmethod
-    def is_supported(cls, file, request=None, response=None, url_info=None):
-        '''Return whether the reader is likely able to read the document.
+    def is_supported(cls, file=None, request=None, response=None,
+    url_info=None):
+        '''Given the hints, return whether the document is supported.
 
         Args:
             file: A file object containing the document.
             request (:class:`.http.request.Request`): An HTTP request.
             response (:class:`.http.request.Response`): An HTTP response.
-            url_info (:lcass:`.url.URLInfo`): A URLINfo.
+            url_info (:class:`.url.URLInfo`): A URLInfo.
 
         Returns:
             bool: If True, the reader should be able to read it.
         '''
-        # Python 2.6 doesn't support abc.abstractclassmethod
-        raise NotImplementedError()
+        if response:
+            try:
+                if cls.is_response(response):
+                    return True
+            except NotImplementedError:
+                pass
+
+        if file:
+            try:
+                if cls.is_file(file):
+                    return True
+            except NotImplementedError:
+                pass
+
+        if request:
+            try:
+                if cls.is_request(request):
+                    return True
+            except NotImplementedError:
+                pass
+
+        if url_info:
+            try:
+                if cls.is_url(url_info):
+                    return True
+            except NotImplementedError:
+                pass
+
+    @classmethod
+    def is_file(cls, file):
+        '''Return whether the reader is likely able to read the file.
+
+        Args:
+            file: A file object containing the document.
+
+        Returns:
+            bool
+        '''
+        raise NotImplementedError()  # optional override
+
+    @classmethod
+    def is_request(cls, request):
+        '''Return whether the request is likely supported.
+
+        Args:
+            request (:class:`.http.request.Request`): An HTTP request.
+
+        Returns:
+            bool
+        '''
+        raise NotImplementedError()  # optional override
+
+    @classmethod
+    def is_response(cls, response):
+        '''Return whether the response is likely able to be read.
+
+        Args:
+            response (:class:`.http.request.Response`): An HTTP response.
+
+        Returns:
+            bool
+        '''
+        raise NotImplementedError()  # optional override
+
+    @classmethod
+    def is_url(cls, url_info):
+        '''Return whether the URL is likely to be supported.
+
+        Args:
+            url_info (:class:`.url.URLInfo`): A URLInfo.
+
+        Returns:
+            bool
+        '''
+        raise NotImplementedError()  # optional override
+
+
+class BaseDocumentReader(BaseDocumentDetector):
+    '''Base class for classes that read documents.'''
 
     @abc.abstractmethod
     def read_links(self, file, encoding=None):
@@ -232,44 +310,28 @@ class HTMLReader(BaseDocumentReader):
     BUFFER_SIZE = 1048576
 
     @classmethod
-    def is_supported(cls, file, request=None, response=None, url_info=None):
-        '''Return whether the file is likely to be HTML.'''
-        if response and cls.is_html_response(response) \
-        or request and cls.is_html_request(request) \
-        or url_info and cls.is_html_url_info(url_info):
-            return True
-
-        if cls.is_html_file(file):
-            return True
-
-    @classmethod
-    def is_html(cls, request, response):
-        '''Return whether Request/Response is likely to be HTML.'''
-        return cls.is_html_request(request) or cls.is_html_response(response)
-
-    @classmethod
-    def is_html_response(cls, response):
+    def is_response(cls, response):
         '''Return whether the Response is likely to be HTML.'''
         if 'html' in response.fields.get('content-type', '').lower():
             return True
 
         if response.body:
-            return cls.is_html_file(response.body.content_file)
+            return cls.is_file(response.body.content_file)
 
     @classmethod
-    def is_html_request(cls, request):
+    def is_request(cls, request):
         '''Return whether the Request is likely to be a HTML.'''
-        return cls.is_html_url_info(request.url_info)
+        return cls.is_url(request.url_info)
 
     @classmethod
-    def is_html_url_info(cls, url_info):
+    def is_url(cls, url_info):
         '''Return whether the URLInfo is likely to be a HTML.'''
         path = url_info.path.lower()
         if '.htm' in path or '.dhtm' in path:
             return True
 
     @classmethod
-    def is_html_file(cls, file):
+    def is_file(cls, file):
         '''Return whether the file is likely to be HTML.'''
         peeked_data = wpull.util.printable_bytes(
             wpull.util.peek_file(file)).lower()
@@ -381,45 +443,29 @@ class CSSReader(BaseDocumentReader):
     STREAM_REWIND = 4096
 
     @classmethod
-    def is_supported(cls, file, request=None, response=None, url_info=None):
-        '''Return whether the file is likely to be CSS.'''
-        if request and cls.is_css_request(request) \
-        or response and cls.is_css_response(response) \
-        or url_info and cls.is_css_url_info(url_info):
-            return True
-
-        return cls.is_css_file(file)
-
-    @classmethod
-    def is_css(cls, request, response):
-        '''Return whether the document is likely to be CSS.'''
-        if cls.is_css_request(request) or cls.is_css_response(response):
-            return True
-
-        if response.body:
-            if 'html' in response.fields.get('content-type', '').lower() \
-            and cls.is_css_file(response.body.content_file):
-                return True
-
-    @classmethod
-    def is_css_url_info(cls, url_info):
+    def is_url(cls, url_info):
         '''Return whether the document is likely to be CSS.'''
         if '.css' in url_info.path.lower():
             return True
 
     @classmethod
-    def is_css_request(cls, request):
+    def is_request(cls, request):
         '''Return whether the document is likely to be CSS.'''
-        return cls.is_css_url_info(request.url_info)
+        return cls.is_url(request.url_info)
 
     @classmethod
-    def is_css_response(cls, response):
+    def is_response(cls, response):
         '''Return whether the document is likely to be CSS.'''
         if 'css' in response.fields.get('content-type', '').lower():
             return True
 
+        if response.body:
+            if 'html' in response.fields.get('content-type', '').lower() \
+            and cls.is_file(response.body.content_file):
+                return True
+
     @classmethod
-    def is_css_file(cls, file):
+    def is_file(cls, file):
         '''Return whether the file is likely CSS.'''
         peeked_data = wpull.util.printable_bytes(
             wpull.util.peek_file(file)).lower()
@@ -532,25 +578,7 @@ class SitemapReader(BaseDocumentReader):
     MAX_ROBOTS_FILE_SIZE = 4096
 
     @classmethod
-    def is_supported(cls, file, request=None, url_info=None):
-        if request and cls.is_sitemap_request(request) \
-        or url_info and cls.is_sitemap_url_info(url_info):
-            return True
-
-        return cls.is_sitemap_file(file)
-
-    @classmethod
-    def is_sitemap(cls, request, response):
-        '''Return whether the document is likely to be a Sitemap.'''
-        if cls.is_sitemap_request(request):
-            return True
-
-        if response.body:
-            if cls.is_sitemap_file(response.body.content_file):
-                return True
-
-    @classmethod
-    def is_sitemap_url_info(cls, url_info):
+    def is_url(cls, url_info):
         '''Return whether the document is likely to be a Sitemap.'''
         path = url_info.path.lower()
         if path == '/robots.txt':
@@ -559,12 +587,19 @@ class SitemapReader(BaseDocumentReader):
             return True
 
     @classmethod
-    def is_sitemap_request(cls, request):
+    def is_request(cls, request):
         '''Return whether the document is likely to be a Sitemap.'''
-        return cls.is_sitemap_url_info(request.url_info)
+        return cls.is_url(request.url_info)
 
     @classmethod
-    def is_sitemap_file(cls, file):
+    def is_response(cls, response):
+        '''Return whether the document is likely to be a Sitemap.'''
+        if response.body:
+            if cls.is_file(response.body.content_file):
+                return True
+
+    @classmethod
+    def is_file(cls, file):
         '''Return whether the file is likely a Sitemap.'''
         peeked_data = wpull.util.printable_bytes(
             wpull.util.peek_file(file)).lower()
@@ -596,7 +631,7 @@ class SitemapReader(BaseDocumentReader):
         if wpull.document.is_gzip(peeked_data):
             file = gzip.GzipFile(mode='rb', fileobj=file)
 
-        if self.is_sitemap_file(file):
+        if self.is_file(file):
             if encoding:
                 lxml_encoding = to_lxml_encoding(encoding) or 'latin1'
             else:

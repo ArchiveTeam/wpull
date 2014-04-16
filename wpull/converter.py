@@ -62,10 +62,10 @@ class BatchDocumentConverter(object):
         else:
             with open(filename, 'rb') as in_file:
                 if HTMLScraper.is_supported(
-                in_file, url_info=url_record.url_info):
+                file=in_file, url_info=url_record.url_info):
                     link_type = 'html'
                 elif CSSScraper.is_supported(
-                in_file, url_info=url_record.url_info):
+                file=in_file, url_info=url_record.url_info):
                     link_type = 'css'
                 else:
                     link_type = None

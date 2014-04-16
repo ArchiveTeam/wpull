@@ -575,7 +575,7 @@ class WebProcessorSession(object):
         if response.status_code != 200:
             return
 
-        if not HTMLReader.is_html(request, response):
+        if not HTMLReader.is_supported(request=request, response=response):
             return
 
         _logger.debug('Starting PhantomJS processing.')
