@@ -165,6 +165,26 @@ class TestDocument(unittest.TestCase):
         response.fields['Content-Type'] = 'image/png'
         self.assertFalse(HTMLReader.is_response(response))
 
+    def test_html_parse_doctype(self):
+        self.assertIn(
+            'html',
+            HTMLReader.parse_doctype(
+                io.BytesIO(b'<!DOCTYPE HTML><html></html>')
+            )
+        )
+        self.assertIn(
+            'XHTML',
+            HTMLReader.parse_doctype(
+                io.BytesIO(b'''
+                <!DOCTYPE html PUBLIC
+                "-//W3C//DTD XHTML 1.0 Transitional//EN"
+                "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+                <html></html>
+                ''')
+            )
+        )
+        self.assertFalse(HTMLReader.parse_doctype(io.BytesIO(b'hello world!')))
+
     def test_html_encoding(self):
         reader = HTMLReader()
 

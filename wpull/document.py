@@ -151,7 +151,7 @@ class HTMLLightParserTarget(object):
         self.buffer = None
 
     def start(self, tag, attrib):
-        if tag not in self.text_elements or tag in lxml.html.defs.empty_tags:
+        if tag not in self.text_elements:
             self.callback(tag, attrib, None)
             return
 
@@ -345,13 +345,16 @@ class HTMLReader(BaseDocumentReader):
         or b'<a href' in peeked_data:
             return True
 
-    def read_tree(self, file, encoding=None, target_class=HTMLParserTarget):
+    def read_tree(self, file, encoding=None, target_class=HTMLParserTarget,
+    parser_type='html'):
         '''Return an iterator of elements found in the document.
 
         Args:
             file: A file object containing the document.
             encoding (str): The encoding of the document.
             target_class: A class to be used for target parsing.
+            parser_type (str): The type of parser to use. Accepted values:
+                ``html``, ``xhtml``, ``xml``.
 
         Returns:
             iterable: class:`HTMLReadElement`
@@ -376,9 +379,19 @@ class HTMLReader(BaseDocumentReader):
             ))
 
         target = target_class(callback_func)
-        parser = lxml.html.HTMLParser(
-            encoding=lxml_encoding, target=target
-        )
+
+        if parser_type == 'html':
+            parser = lxml.html.HTMLParser(
+                encoding=lxml_encoding, target=target
+            )
+        elif parser_type == 'xhtml':
+            parser = lxml.html.XHTMLParser(
+                encoding=lxml_encoding, target=target, recover=True
+            )
+        else:
+            parser = lxml.etree.XMLParser(
+                encoding=lxml_encoding, target=target, recover=True
+            )
 
         # XXX: Force libxml2 to do full read in case of early "</html>"
         # See https://github.com/chfoo/wpull/issues/104
@@ -418,21 +431,49 @@ class HTMLReader(BaseDocumentReader):
             iterable: class:`HTMLReadElement`
         '''
         elements = self.read_tree(
-            file, encoding=encoding, target_class=HTMLLightParserTarget
+            file, encoding=encoding, target_class=HTMLLightParserTarget,
+            parser_type=self.detect_parser_type(file, encoding=encoding)
         )
 
         return elements
 
-    def parse_doctype(self, file, encoding=None):
-        '''Get the doctype from the document.'''
+    @classmethod
+    def parse_doctype(cls, file, encoding=None):
+        '''Get the doctype from the document.
+
+        Returns:
+            str, None
+        '''
         if encoding:
             lxml_encoding = to_lxml_encoding(encoding) or 'latin1'
         else:
             lxml_encoding = encoding
 
-        parser = lxml.html.HTMLParser(encoding=lxml_encoding)
-        tree = lxml.html.parse(io.BytesIO(file.read(4096)), parser)
-        return tree.docinfo.doctype
+        parser = lxml.etree.XMLParser(encoding=lxml_encoding, recover=True)
+        tree = lxml.etree.parse(
+            io.BytesIO(wpull.util.peek_file(file)), parser=parser
+        )
+
+        if tree.getroot() is not None:
+            return wpull.util.to_str(tree.docinfo.doctype)
+
+    @classmethod
+    def detect_parser_type(cls, file, encoding=None):
+        '''Get the suitable parser type for the document.
+
+        Returns:
+            str
+        '''
+        is_xml = XMLDetector.is_file(file)
+        doctype = cls.parse_doctype(file, encoding=encoding) or ''
+
+        if not doctype and is_xml:
+            return 'xml'
+
+        if 'XHTML' in doctype:
+            return 'xhtml'
+
+        return 'html'
 
 
 class CSSReader(BaseDocumentReader):

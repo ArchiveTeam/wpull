@@ -115,13 +115,16 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
 
         with open(input_filename, 'rb') as in_file:
             doctype = self.parse_doctype(in_file, encoding=encoding)
+            is_xhtml = doctype and 'XHTML' in doctype
 
         with open(input_filename, 'rb') as in_file:
             with open(output_filename, 'wb') as bin_out_file:
                 elements = self.read_tree(in_file, encoding=encoding)
                 out_file = io.TextIOWrapper(bin_out_file, encoding=encoding)
-                out_file.write(doctype)
-                out_file.write('\r\n')
+
+                if doctype:
+                    out_file.write(doctype)
+                    out_file.write('\r\n')
 
                 self._out_file = out_file
                 self._encoding = encoding
@@ -138,12 +141,12 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
                         if element.tail:
                             self._out_file.write(element.tail)
                     else:
-                        self._convert_element(element)
+                        self._convert_element(element, is_xhtml=is_xhtml)
 
                 self._out_file.close()
                 self._out_file = None
 
-    def _convert_element(self, element):
+    def _convert_element(self, element, is_xhtml=False):
         self._out_file.write('<')
         self._out_file.write(element.tag)
 
@@ -178,6 +181,9 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
                 value = ' '.join(new_attribs[name])
 
             self._out_file.write(' {0}="{1}"'.format(name, value))
+
+        if is_xhtml and element.tag in lxml.html.defs.empty_tags:
+            self._out_file.write('/')
 
         self._out_file.write('>')
 
