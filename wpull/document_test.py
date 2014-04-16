@@ -2,7 +2,10 @@
 import io
 
 from wpull.backport.testing import unittest
-from wpull.document import HTMLReader, SitemapReader, CSSReader
+from wpull.document import HTMLReader, SitemapReader, CSSReader, XMLDetector
+from wpull.url import URLInfo
+from wpull.http.request import Request, Response
+import gzip
 
 
 CODEC_NAMES = (
@@ -111,6 +114,57 @@ EBCDIC = (
 
 
 class TestDocument(unittest.TestCase):
+    def test_html_detect(self):
+        self.assertTrue(HTMLReader.is_file(
+            io.BytesIO('<html><body>hi</body></html>'.encode('utf-16le'))
+        ))
+        self.assertFalse(HTMLReader.is_file(
+            io.BytesIO('hello world!'.encode('utf-16le'))
+        ))
+        self.assertTrue(HTMLReader.is_file(
+            io.BytesIO(b'<title>hello</title>hi')
+        ))
+        self.assertTrue(HTMLReader.is_file(
+            io.BytesIO(b'<html><body>hello')
+        ))
+        self.assertTrue(HTMLReader.is_file(
+            io.BytesIO(
+                b'The document has moved <a href="somewhere.html">here</a>'
+            )
+        ))
+        self.assertTrue(
+            HTMLReader.is_url(URLInfo.parse('example.com/index.htm'))
+        )
+        self.assertTrue(
+            HTMLReader.is_url(URLInfo.parse('example.com/index.html'))
+        )
+        self.assertTrue(
+            HTMLReader.is_url(URLInfo.parse('example.com/index.dhtm'))
+        )
+        self.assertTrue(
+            HTMLReader.is_url(URLInfo.parse('example.com/index.xhtml'))
+        )
+        self.assertTrue(
+            HTMLReader.is_url(URLInfo.parse('example.com/index.xht'))
+        )
+        self.assertFalse(
+            HTMLReader.is_url(URLInfo.parse('example.com/image.jpg'))
+        )
+        self.assertTrue(
+            HTMLReader.is_request(Request.new('example.com/index.html'))
+        )
+        self.assertFalse(
+            HTMLReader.is_request(Request.new('example.com/image.jpg'))
+        )
+
+        response = Response('HTTP/1.0', '200', 'OK')
+        response.fields['Content-Type'] = 'text/html'
+        self.assertTrue(HTMLReader.is_response(response))
+
+        response = Response('HTTP/1.0', '200', 'OK')
+        response.fields['Content-Type'] = 'image/png'
+        self.assertFalse(HTMLReader.is_response(response))
+
     def test_html_encoding(self):
         reader = HTMLReader()
 
@@ -236,6 +290,43 @@ class TestDocument(unittest.TestCase):
             )
             self.assertEqual('img', elements[-4].tag)
 
+    def test_css_detect(self):
+        self.assertTrue(CSSReader.is_file(
+            io.BytesIO('body { color: white }'.encode('utf-16le'))
+        ))
+        self.assertFalse(CSSReader.is_file(
+            io.BytesIO('hello world!'.encode('utf-16le'))
+        ))
+        self.assertFalse(CSSReader.is_file(
+            io.BytesIO(b'<html><body>hello')
+        ))
+        self.assertTrue(CSSReader.is_file(
+            io.BytesIO(b'h1 { background-color: red }')
+        ))
+        self.assertTrue(CSSReader.is_file(
+            io.BytesIO(b'@import url.css;')
+        ))
+        self.assertTrue(
+            CSSReader.is_url(URLInfo.parse('example.com/index.css'))
+        )
+        self.assertFalse(
+            CSSReader.is_url(URLInfo.parse('example.com/image.jpg'))
+        )
+        self.assertTrue(
+            CSSReader.is_request(Request.new('example.com/index.css'))
+        )
+        self.assertFalse(
+            CSSReader.is_request(Request.new('example.com/image.jpg'))
+        )
+
+        response = Response('HTTP/1.0', '200', 'OK')
+        response.fields['Content-Type'] = 'text/css'
+        self.assertTrue(CSSReader.is_response(response))
+
+        response = Response('HTTP/1.0', '200', 'OK')
+        response.fields['Content-Type'] = 'image/png'
+        self.assertFalse(CSSReader.is_response(response))
+
     def test_css_read_links_big(self):
         css_data = b'\n'.join(
             [
@@ -273,3 +364,80 @@ class TestDocument(unittest.TestCase):
             links.add(link)
 
         self.assertEqual(len(links), 200000)
+
+    def test_xml_detect(self):
+        self.assertTrue(XMLDetector.is_file(
+            io.BytesIO('<?xml version='.encode('utf-16le'))
+        ))
+        self.assertFalse(XMLDetector.is_file(
+            io.BytesIO('<!DOCTYPE html><html><body>'.encode('utf-16le'))
+        ))
+        self.assertFalse(XMLDetector.is_file(
+            io.BytesIO(b'<html><body>hello')
+        ))
+        self.assertTrue(XMLDetector.is_file(
+            io.BytesIO(b'<?xml version')
+        ))
+        self.assertTrue(
+            XMLDetector.is_url(URLInfo.parse('example.com/index.xml'))
+        )
+        self.assertFalse(
+            XMLDetector.is_url(URLInfo.parse('example.com/image.jpg'))
+        )
+        self.assertTrue(
+            XMLDetector.is_request(Request.new('example.com/index.xml'))
+        )
+        self.assertFalse(
+            XMLDetector.is_request(Request.new('example.com/image.jpg'))
+        )
+
+        response = Response('HTTP/1.0', '200', 'OK')
+        response.fields['Content-Type'] = 'text/xml'
+        self.assertTrue(XMLDetector.is_response(response))
+
+        response = Response('HTTP/1.0', '200', 'OK')
+        response.fields['Content-Type'] = 'application/xml'
+        self.assertTrue(XMLDetector.is_response(response))
+
+        response = Response('HTTP/1.0', '200', 'OK')
+        response.fields['Content-Type'] = 'image/png'
+        self.assertFalse(XMLDetector.is_response(response))
+
+    def test_sitemap_detect(self):
+        self.assertTrue(SitemapReader.is_file(
+            io.BytesIO('<?xml > <urlset >'.encode('utf-16le'))
+        ))
+        self.assertFalse(XMLDetector.is_file(
+            io.BytesIO('<!DOCTYPE html><html><body>'.encode('utf-16le'))
+        ))
+        self.assertFalse(XMLDetector.is_file(
+            io.BytesIO(b'<html><body>hello<urlset>')
+        ))
+        self.assertTrue(XMLDetector.is_file(
+            io.BytesIO(b'<?xml version> <urlset>')
+        ))
+
+        data_file = io.BytesIO()
+        g_file = gzip.GzipFile(fileobj=data_file, mode='wb')
+        g_file.write('<?xml version> <urlset>'.encode('utf-16le'))
+        g_file.close()
+        data_file.seek(0)
+        self.assertTrue(SitemapReader.is_file(
+            data_file
+        ))
+
+        self.assertTrue(
+            SitemapReader.is_url(URLInfo.parse('example.com/sitemaps1.xml'))
+        )
+        self.assertTrue(
+            SitemapReader.is_url(URLInfo.parse('example.com/robots.txt'))
+        )
+        self.assertFalse(
+            SitemapReader.is_url(URLInfo.parse('example.com/image.jpg'))
+        )
+        self.assertTrue(
+            SitemapReader.is_request(Request.new('example.com/sitemaps34.xml'))
+        )
+        self.assertFalse(
+            SitemapReader.is_request(Request.new('example.com/image.jpg'))
+        )

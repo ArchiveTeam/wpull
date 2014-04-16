@@ -327,7 +327,7 @@ class HTMLReader(BaseDocumentReader):
     def is_url(cls, url_info):
         '''Return whether the URLInfo is likely to be a HTML.'''
         path = url_info.path.lower()
-        if '.htm' in path or '.dhtm' in path:
+        if '.htm' in path or '.dhtm' in path or '.xht' in path:
             return True
 
     @classmethod
@@ -541,6 +541,35 @@ class CSSReader(BaseDocumentReader):
                 yield url_str_fragment.strip('"\'')
 
 
+class XMLDetector(BaseDocumentDetector):
+    @classmethod
+    def is_file(cls, file):
+        peeked_data = wpull.util.printable_bytes(
+            wpull.util.peek_file(file)).lower()
+
+        if b'<?xml' in peeked_data:
+            return True
+
+    @classmethod
+    def is_request(cls, request):
+        return cls.is_url(request.url_info)
+
+    @classmethod
+    def is_response(cls, response):
+        if 'xml' in response.fields.get('content-type', '').lower():
+            return True
+
+        if response.body:
+            if cls.is_file(response.body.content_file):
+                return True
+
+    @classmethod
+    def is_url(cls, url_info):
+        path = url_info.path.lower()
+        if path.endswith('.xml'):
+            return True
+
+
 class SitemapParserTarget(object):
     '''An XML parser target for sitemaps.
 
@@ -601,16 +630,17 @@ class SitemapReader(BaseDocumentReader):
     @classmethod
     def is_file(cls, file):
         '''Return whether the file is likely a Sitemap.'''
-        peeked_data = wpull.util.printable_bytes(
-            wpull.util.peek_file(file)).lower()
+        peeked_data = wpull.util.peek_file(file)
 
         if is_gzip(peeked_data):
             try:
-                peeked_data = wpull.util.gzip_uncompress(peeked_data)
+                peeked_data = wpull.util.gzip_uncompress(
+                    peeked_data, truncated=True
+                )
             except zlib.error:
                 pass
 
-        peeked_data = peeked_data.replace(b'\x00', b'')
+        peeked_data = wpull.util.printable_bytes(peeked_data)
 
         if b'<?xml' in peeked_data \
         and (b'<sitemapindex' in peeked_data or b'<urlset' in peeked_data):
