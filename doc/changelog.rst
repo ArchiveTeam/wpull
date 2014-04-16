@@ -10,6 +10,7 @@ What's New
 * Reduces CPU usage when ``--debug`` logging is not enabled.
 * Better support for detecting and differentiating XHTML and XML documents.
 * Fixes converting XHTML documents where it did not write XHTML syntax.
+* RSS/Atcom feed ``link``, ``url``, ``icon`` elements are searched for links.
 
 * API:
 

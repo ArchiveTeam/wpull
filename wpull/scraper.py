@@ -333,6 +333,12 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         else:
             iterable = cls.iter_links_plain_element(element)
 
+        # RSS/Atom
+        if tag in ('link', 'url', 'icon'):
+            iterable = itertools.chain(
+                iterable, cls.iter_links_element_text(element)
+            )
+
         for link_info in iterable:
             yield link_info
 
@@ -345,6 +351,18 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
                     None,
                     'css'
                 )
+
+    @classmethod
+    def iter_links_element_text(cls, element):
+        '''Get the element text as a link.'''
+        if element.text:
+            yield LinkInfo(
+                element, element.tag, None,
+                element.text,
+                False, True,
+                None,
+                'plain'
+            )
 
     @classmethod
     def iter_links_link_element(cls, element):

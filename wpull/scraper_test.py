@@ -279,6 +279,34 @@ class TestDocument(unittest.TestCase):
 
         self.assertTrue(scrape_info)
 
+    def test_rss_as_html(self):
+        scraper = HTMLScraper()
+        request = Request.new('http://example.com/')
+        response = Response('HTTP/1.0', 200, '')
+        response.fields['content-type'] = 'application/rss+xml'
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'rss.xml')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+
+        self.assertTrue(scrape_info)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+        self.assertFalse(
+            inline_urls
+        )
+        self.assertEqual(
+            {
+                'http://www.someexamplerssdomain.com/main.html',
+                'http://www.wikipedia.org/'
+            },
+            linked_urls
+        )
+
     def test_scrape_css_urls(self):
         text = '''
         @import url("fineprint.css") print;

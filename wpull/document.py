@@ -143,7 +143,8 @@ class HTMLLightParserTarget(object):
         text_elements: A frozenset of element tag names that we should keep
             track of text.
     '''
-    def __init__(self, callback, text_elements=('style')):
+    def __init__(self, callback,
+    text_elements=frozenset(['style', 'link', 'url', 'icon'])):
         self.callback = callback
         self.text_elements = text_elements
         self.tag = None
