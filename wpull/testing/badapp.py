@@ -74,6 +74,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/many_links': self.many_links,
             '/non_http_redirect': self.non_http_redirect,
             '/bad_redirect': self.bad_redirect,
+            '/utf8_then_binary': self.utf8_then_binary,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -518,6 +519,27 @@ class Handler(http.server.BaseHTTPRequestHandler):
         )
         self.send_header('Content-Length', 0)
         self.end_headers()
+
+    def utf8_then_binary(self):
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/html; charset=utf8')
+        self.end_headers()
+
+        data = (
+            '᚛᚛ᚉᚑᚅᚔᚉᚉᚔᚋ ᚔᚈᚔ ᚍᚂᚐᚅᚑ ᚅᚔᚋᚌᚓᚅᚐ᚜'
+            'Je peux manger du verre, ça ne me fait pas mal.'
+            "Dw i'n gallu bwyta gwydr, 'dyw e ddim yn gwneud dolur i mi."
+            ).encode('utf8')
+
+        for dummy in range(8000):
+            self.wfile.write(data)
+
+        self.wfile.write(b'\xfe')
+
+        for dummy in range(10):
+            self.wfile.write(data)
+
+        self.close_connection = True
 
 
 class ConcurrentHTTPServer(socketserver.ThreadingMixIn,

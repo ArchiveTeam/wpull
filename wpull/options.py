@@ -1163,6 +1163,9 @@ class AppArgumentParser(argparse.ArgumentParser):
             args.local_encoding = 'ascii'
             args.remote_encoding = 'ascii'
 
+        if not args.verbosity:
+            args.verbosity = logging.INFO
+
     def _post_warc_args(self, args):
         option_names = ('clobber_method', 'timestamping', 'continue_download')
 

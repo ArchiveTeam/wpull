@@ -5,7 +5,7 @@ import shutil
 from wpull.backport.testing import unittest
 from wpull.http.request import Request, Response
 from wpull.scraper import (HTMLScraper, CSSScraper, clean_link_soup,
-    SitemapScraper)
+    SitemapScraper, parse_refresh)
 import wpull.util
 
 
@@ -91,6 +91,7 @@ class TestDocument(unittest.TestCase):
         scraper = HTMLScraper()
         request = Request.new('http://example.com/')
         response = Response('HTTP/1.0', 200, '')
+        response.fields['Refresh'] = 'yes'
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
@@ -277,6 +278,34 @@ class TestDocument(unittest.TestCase):
         scrape_info = scraper.scrape(request, response)
 
         self.assertTrue(scrape_info)
+
+    def test_rss_as_html(self):
+        scraper = HTMLScraper()
+        request = Request.new('http://example.com/')
+        response = Response('HTTP/1.0', 200, '')
+        response.fields['content-type'] = 'application/rss+xml'
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'rss.xml')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+
+        self.assertTrue(scrape_info)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+        self.assertFalse(
+            inline_urls
+        )
+        self.assertEqual(
+            {
+                'http://www.someexamplerssdomain.com/main.html',
+                'http://www.wikipedia.org/'
+            },
+            linked_urls
+        )
 
     def test_scrape_css_urls(self):
         text = '''
@@ -518,4 +547,21 @@ class TestDocument(unittest.TestCase):
         self.assertEqual(
             'ßðf ¤Jáßðff ßðfœ³²œ¤ œë ßfœ',
             clean_link_soup('ß\tðf ¤Jáßðf\n f ßðfœ³²œ¤ œë ßfœ ')
+        )
+
+    def test_parse_refresh(self):
+        self.assertEqual(
+            'http://example.com', parse_refresh('10;url="http://example.com"')
+        )
+        self.assertEqual(
+            'http://example.com', parse_refresh('10;url= http://example.com ')
+        )
+        self.assertEqual(
+            'example.com', parse_refresh("url =' example.com '")
+        )
+        self.assertFalse(
+            parse_refresh('url=')
+        )
+        self.assertFalse(
+            parse_refresh('url =     ')
         )

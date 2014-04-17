@@ -485,8 +485,16 @@ class WebProcessorSession(object):
 
     def _scrape_document(self, request, response):
         '''Scrape the document for URLs.'''
-        demux_info = self._processor.instances.document_scraper.scrape_info(
-            request, response)
+        try:
+            demux_info = self._processor.instances\
+                .document_scraper.scrape_info(request, response)
+        except UnicodeError as error:
+            _logger.warning(
+                _('Failed to decode document at ‘{url}’: {error}.')\
+                .format(url=request.url_info.url, error=error)
+            )
+            return
+
         num_inline_urls = 0
         num_linked_urls = 0
 
@@ -567,7 +575,7 @@ class WebProcessorSession(object):
         if response.status_code != 200:
             return
 
-        if not HTMLReader.is_html(request, response):
+        if not HTMLReader.is_supported(request=request, response=response):
             return
 
         _logger.debug('Starting PhantomJS processing.')

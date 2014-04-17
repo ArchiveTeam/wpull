@@ -178,7 +178,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             self._ignored_tags = None
 
     def scrape(self, request, response):
-        if not self.is_html(request, response):
+        if not self.is_supported(request=request, response=response):
             return
 
         base_url = request.url_info.url
@@ -333,6 +333,12 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         else:
             iterable = cls.iter_links_plain_element(element)
 
+        # RSS/Atom
+        if tag in ('link', 'url', 'icon'):
+            iterable = itertools.chain(
+                iterable, cls.iter_links_element_text(element)
+            )
+
         for link_info in iterable:
             yield link_info
 
@@ -345,6 +351,18 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
                     None,
                     'css'
                 )
+
+    @classmethod
+    def iter_links_element_text(cls, element):
+        '''Get the element text as a link.'''
+        if element.text:
+            yield LinkInfo(
+                element, element.tag, None,
+                element.text,
+                False, True,
+                None,
+                'plain'
+            )
 
     @classmethod
     def iter_links_link_element(cls, element):
@@ -373,15 +391,18 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         '''
         if element.attrib.get('http-equiv', '').lower() == 'refresh':
             content_value = element.attrib.get('content')
-            link = parse_refresh(content_value)
-            if link:
-                yield LinkInfo(
-                    element, element.tag, 'http-equiv',
-                    link,
-                    False, True,
-                    None,
-                    'refresh'
-                )
+
+            if content_value:
+                link = parse_refresh(content_value)
+
+                if link:
+                    yield LinkInfo(
+                        element, element.tag, 'http-equiv',
+                        link,
+                        False, True,
+                        None,
+                        'refresh'
+                    )
 
     @classmethod
     def iter_links_object_element(cls, element):
@@ -525,7 +546,7 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
         self._encoding_override = encoding_override
 
     def scrape(self, request, response):
-        if not self.is_css(request, response):
+        if not self.is_supported(request=request, response=response):
             return
 
         scraped_links = self.iter_scrape(request, response)
@@ -543,7 +564,7 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
         }
 
     def iter_scrape(self, request, response):
-        if not self.is_css(request, response):
+        if not self.is_supported(request=request, response=response):
             return
 
         base_url = request.url_info.url
@@ -565,7 +586,7 @@ class SitemapScraper(SitemapReader, BaseDocumentScraper):
         self._encoding_override = encoding_override
 
     def scrape(self, request, response):
-        if not self.is_sitemap(request, response):
+        if not self.is_supported(request=request, response=response):
             return
 
         base_url = request.url_info.url
@@ -608,7 +629,7 @@ def parse_refresh(text):
     Returns:
         str, None
     '''
-    match = re.search(r'url=(.+)', text, re.IGNORECASE)
+    match = re.search(r'url\s*=(.+)', text, re.IGNORECASE)
 
     if match:
         url = match.group(1)
@@ -618,7 +639,7 @@ def parse_refresh(text):
         elif url.startswith("'"):
             url = url.strip("'")
 
-        return url
+        return clean_link_soup(url)
 
 
 def clean_link_soup(link):

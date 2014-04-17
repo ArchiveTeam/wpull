@@ -422,9 +422,6 @@ def split_query(qs, keep_blank_values=False):
     for pair in qs.split('&'):
         items = pair.split('=', 1)
 
-        if len(items) == 0:
-            continue
-
         if len(items) == 1:
             name = items[0]
             value = None
@@ -445,9 +442,10 @@ def uppercase_percent_encoding(string):
         string)
 
 
-PRINTABLE_CHARS = frozenset(string.printable)
+PRINTABLE_CHARS = frozenset(
+    string.digits + string.ascii_letters + string.punctuation
+)
 HEX_CHARS = frozenset(string.hexdigits)
-UNESCAPED_CHARS = frozenset(' ')
 
 
 def is_percent_encoded(url):
@@ -455,9 +453,6 @@ def is_percent_encoded(url):
     input_chars = frozenset(url)
 
     if not input_chars <= PRINTABLE_CHARS:
-        return False
-
-    if UNESCAPED_CHARS & input_chars:
         return False
 
     for match_str in re.findall('%(..)', url):

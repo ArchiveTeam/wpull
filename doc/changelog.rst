@@ -2,6 +2,22 @@
 What's New
 ==========
 
+0.32 (2014-04-17)
+==================
+
+* Fixes crash when HTML meta refresh URL is empty.
+* Fixes crash when decoding a document that is malformed later in the document. These invalid documents are not searched for links.
+* Reduces CPU usage when ``--debug`` logging is not enabled.
+* Better support for detecting and differentiating XHTML and XML documents.
+* Fixes converting XHTML documents where it did not write XHTML syntax.
+* RSS/Atcom feed ``link``, ``url``, ``icon`` elements are searched for links.
+
+* API:
+
+  * `document.detect_response_encoding()` default peek argument is lowered to reduce hanging.
+  * `document.BaseDocumentDetector` is now a base class for document type detection.
+
+
 0.31 (2014-04-14)
 ==================
 
