@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.XX (2014-04-DD)
+==================
+
+* Fixes XHTML documents not properly extracted for links.
+
+
 0.32 (2014-04-17)
 ==================
 
