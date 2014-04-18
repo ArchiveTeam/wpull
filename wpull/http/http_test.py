@@ -437,6 +437,13 @@ class TestConnection(BadAppTestCase):
 
         self.assertEqual(50, response.body.content_size)
 
+    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    def test_false_gzip(self):
+        response = yield self.fetch('/false_gzip')
+
+        self.assertEqual('gzip', response.fields['Content-Encoding'])
+        self.assertEqual(b'a' * 100, response.body.content)
+
 
 class TestClient(BadAppTestCase):
     def setUp(self):

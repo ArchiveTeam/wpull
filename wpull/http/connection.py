@@ -358,7 +358,7 @@ class Connection(object):
         encoding = response.fields.get('Content-Encoding', '').lower()
 
         if encoding == 'gzip':
-            self._decompressor = tornado.util.GzipDecompressor()
+            self._decompressor = wpull.util.GzipDecompressor()
         elif encoding == 'deflate':
             self._decompressor = wpull.util.DeflateDecompressor()
         else:

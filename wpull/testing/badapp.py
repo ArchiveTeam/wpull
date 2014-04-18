@@ -75,6 +75,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/non_http_redirect': self.non_http_redirect,
             '/bad_redirect': self.bad_redirect,
             '/utf8_then_binary': self.utf8_then_binary,
+            '/false_gzip': self.false_gzip,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -543,6 +544,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(data)
 
         self.close_connection = True
+
+    def false_gzip(self):
+        self.send_response(200)
+        self.send_header('Content-Encoding', 'gzip')
+        self.send_header('Content-Length', 100)
+        self.end_headers()
+
+        self.wfile.write(b'a' * 100)
 
 
 class ConcurrentHTTPServer(socketserver.ThreadingMixIn,

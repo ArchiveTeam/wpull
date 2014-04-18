@@ -6,6 +6,7 @@ What's New
 ==================
 
 * Fixes XHTML documents not properly extracted for links.
+* If a server responds with content declared as Gzip, the content is checked to see if it starts with the Gzip magic number. This check avoids misreading text as Gzip streams.
 
 
 0.32 (2014-04-17)
@@ -16,7 +17,7 @@ What's New
 * Reduces CPU usage when ``--debug`` logging is not enabled.
 * Better support for detecting and differentiating XHTML and XML documents.
 * Fixes converting XHTML documents where it did not write XHTML syntax.
-* RSS/Atcom feed ``link``, ``url``, ``icon`` elements are searched for links.
+* RSS/Atom feed ``link``, ``url``, ``icon`` elements are searched for links.
 
 * API:
 
