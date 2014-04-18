@@ -84,6 +84,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         route()
         _logger.debug('do_GET done. path={0}'.format(self.path))
 
+    def do_HEAD(self):
+        self.do_GET()
+
     def log_message(self, message, *args):
         _logger.debug(message, *args)
 
