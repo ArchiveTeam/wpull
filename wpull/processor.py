@@ -247,7 +247,7 @@ class WebProcessorSession(object):
 
             is_done = yield self._process_one()
 
-            wait_time = self._processor.instances.waiter.get()
+            wait_time = self._get_wait_time()
 
             if wait_time:
                 _logger.debug('Sleeping {0}.'.format(wait_time))
@@ -565,6 +565,10 @@ class WebProcessorSession(object):
         and hasattr(instance.body, 'content_file') \
         and instance.body.content_file:
             instance.body.content_file.close()
+
+    def _get_wait_time(self):
+        '''Return the wait time.'''
+        return self._processor.instances.waiter.get()
 
     @tornado.gen.coroutine
     def _process_phantomjs(self, request, response):
