@@ -1,17 +1,16 @@
 # encoding=utf-8
 import datetime
-import hashlib
 import itertools
 import sys
 import time
+
 import tornado.testing
 import toro
-import zlib
 
 from wpull.backport.testing import unittest
 from wpull.util import (to_bytes, sleep, to_str, datetime_str,
     wait_future, TimedOut, python_version, filter_pem, detect_encoding,
-    parse_iso8601_str, printable_bytes, DeflateDecompressor, AdjustableSemaphore)
+    parse_iso8601_str, printable_bytes, AdjustableSemaphore)
 
 
 DEFAULT_TIMEOUT = 30
@@ -118,34 +117,6 @@ class TestUtil(unittest.TestCase):
             b' 1234abc XYZ~',
             printable_bytes(b' 1234\x00abc XYZ\xff~')
         )
-
-    def test_deflate_decompressor(self):
-
-        input_list = []
-        hash_obj = hashlib.sha1(b'moose')
-
-        for dummy in range(100):
-            data = hash_obj.digest()
-            input_list.append(data)
-            hash_obj.update(data)
-
-        input_data = b''.join(input_list)
-        zlib_data = zlib.compress(input_data)
-        deflate_data = zlib_data[2:-4]
-
-        decompressor = DeflateDecompressor()
-        test_data = decompressor.decompress(zlib_data[:50]) \
-            + decompressor.decompress(zlib_data[50:]) \
-            + decompressor.flush()
-
-        self.assertEqual(input_data, test_data)
-
-        decompressor = DeflateDecompressor()
-        test_data = decompressor.decompress(deflate_data[:50]) \
-            + decompressor.decompress(deflate_data[50:]) \
-            + decompressor.flush()
-
-        self.assertEqual(input_data, test_data)
 
 
 class TestUtilAsync(tornado.testing.AsyncTestCase):

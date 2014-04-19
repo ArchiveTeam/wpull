@@ -6,11 +6,13 @@ import gzip
 import io
 import itertools
 import logging
-import lxml.etree
-import lxml.html
 import re
 import zlib
 
+import lxml.etree
+import lxml.html
+
+import wpull.decompression
 import wpull.http.util
 from wpull.thirdparty import robotexclusionrulesparser
 import wpull.util
@@ -677,7 +679,7 @@ class SitemapReader(BaseDocumentReader):
 
         if is_gzip(peeked_data):
             try:
-                peeked_data = wpull.util.gzip_uncompress(
+                peeked_data = wpull.decompression.gzip_uncompress(
                     peeked_data, truncated=True
                 )
             except zlib.error:

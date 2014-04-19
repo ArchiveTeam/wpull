@@ -6,24 +6,25 @@ import gettext
 import http.client
 import itertools
 import logging
-import namedlist
 import re
 import socket
 import ssl
 import sys
-import tornado.gen
-from tornado.iostream import StreamClosedError
-import toro
 import traceback
 import zlib
 
+import namedlist
+import tornado.gen
+from tornado.iostream import StreamClosedError
+import toro
+
 from wpull.actor import Event
+import wpull.decompression
 from wpull.errors import (SSLVerficationError, ConnectionRefused, NetworkError,
     ProtocolError)
 from wpull.http.request import Response
 from wpull.iostream import SSLIOStream, IOStream, BufferFullError
 from wpull.network import Resolver
-import wpull.util
 
 
 _ = gettext.gettext
@@ -358,9 +359,9 @@ class Connection(object):
         encoding = response.fields.get('Content-Encoding', '').lower()
 
         if encoding == 'gzip':
-            self._decompressor = wpull.util.GzipDecompressor()
+            self._decompressor = wpull.decompression.GzipDecompressor()
         elif encoding == 'deflate':
-            self._decompressor = wpull.util.DeflateDecompressor()
+            self._decompressor = wpull.decompression.DeflateDecompressor()
         else:
             self._decompressor = None
 

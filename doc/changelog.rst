@@ -10,7 +10,8 @@ What's New
 
 * API:
 
-  * Moved ``OrderedDefaultDict`` from ``util`` to ``collections``.
+  * Moves ``OrderedDefaultDict`` from ``util`` to ``collections``.
+  * Moves ``DeflateDecompressor``, ``gzip_decompress`` from ``util`` to ``decompression``.
 
 
 0.32 (2014-04-17)

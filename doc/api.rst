@@ -23,6 +23,7 @@ wpull Package
    api/conversation
    api/converter
    api/database
+   api/decompression
    api/document
    api/engine
    api/errors
