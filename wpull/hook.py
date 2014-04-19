@@ -1,16 +1,16 @@
 # encoding=utf-8
 '''Python and Lua scripting supprt.'''
-import contextlib
 import itertools
 import logging
 import sys
+
 import tornado.gen
 
 from wpull.database import Status
 from wpull.engine import Engine
 from wpull.network import Resolver
 from wpull.processor import WebProcessor, WebProcessorSession
-import wpull.util
+import wpull.string
 
 
 _logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ def to_lua_type(instance):
 def to_lua_string(instance):
     '''If Lua, convert to bytes.'''
     if sys.version_info[0] == 2:
-        return wpull.util.to_bytes(instance)
+        return wpull.string.to_bytes(instance)
     else:
         return instance
 

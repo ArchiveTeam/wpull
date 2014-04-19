@@ -4,15 +4,16 @@ import abc
 import gettext
 import io
 import logging
-import lxml.html
 import os.path
 import re
 import shutil
 
+import lxml.html
+
 from wpull.database import Status
 from wpull.scraper import HTMLScraper, CSSScraper
+import wpull.string
 from wpull.url import URLInfo
-import wpull.util
 
 
 _ = gettext.gettext
@@ -109,7 +110,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
         self._base_url = base_url
 
         with open(input_filename, 'rb') as in_file:
-            encoding = wpull.util.detect_encoding(
+            encoding = wpull.string.detect_encoding(
                 in_file.peek(1048576), is_html=True
             )
 
@@ -218,7 +219,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
         if done_key in self._css_already_done:
             return
 
-        text = wpull.util.to_str(
+        text = wpull.string.to_str(
             link_info.element.attrib.get(link_info.attrib)
         )
         new_value = self._css_converter.convert_text(
@@ -233,7 +234,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
         if link_info.element in self._css_already_done:
             return
 
-        text = wpull.util.to_str(link_info.element.text)
+        text = wpull.string.to_str(link_info.element.text)
         new_text = self._css_converter.convert_text(
             text, base_url=self._base_url
         )
@@ -267,7 +268,7 @@ class CSSConverter(CSSScraper, BaseDocumentConverter):
         with open(input_filename, 'rb') as in_file:
             text = in_file.read()
 
-        encoding = wpull.util.detect_encoding(text)
+        encoding = wpull.string.detect_encoding(text)
         text = text.decode(encoding)
         new_text = self.convert_text(text, base_url)
 

@@ -8,6 +8,13 @@ What's New
 * Fixes XHTML documents not properly extracted for links.
 * If a server responds with content declared as Gzip, the content is checked to see if it starts with the Gzip magic number. This check avoids misreading text as Gzip streams.
 
+* API:
+
+  * Moves ``OrderedDefaultDict`` from ``util`` to ``collections``.
+  * Moves ``DeflateDecompressor``, ``gzip_decompress`` from ``util`` to ``decompression``.
+  * Moves ``sleep``, ``TimedOut``, ``wait_future``, ``AdjustableSemaphore`` from ``util`` to ``async``.
+  * Moves ``to_bytes``, ``to_str``, ``normalize_codec_name``, ``detect_encoding``, ``try_decoding``, ``format_size``, ``printable_bytes``, ``coerce_str_to_ascii`` from ``util`` to ``string``.
+
 
 0.32 (2014-04-17)
 ==================

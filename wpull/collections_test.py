@@ -1,10 +1,22 @@
 # encoding=utf-8
 
 from wpull.backport.testing import unittest
-from wpull.collections import LinkedList
+from wpull.collections import LinkedList, OrderedDefaultDict
 
 
 class TestCollections(unittest.TestCase):
+    def test_ordered_default_dict(self):
+        mapping = OrderedDefaultDict(lambda: 2)
+        mapping['a'] += 4
+        mapping['b'] += 3
+        mapping['c'] += 2
+
+        self.assertEqual(
+            [('a', 6), ('b', 5), ('c', 4)],
+            list(mapping.items())
+        )
+
+
     def test_linked_list(self):
         linked_list = LinkedList()
 

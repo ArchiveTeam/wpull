@@ -5,6 +5,7 @@ import re
 from wpull.conversation import BaseRequest, Body, BaseResponse
 from wpull.errors import ProtocolError
 from wpull.namevalue import NameValueRecord
+import wpull.string
 from wpull.url import URLInfo
 import wpull.util
 
@@ -75,7 +76,7 @@ class Request(BaseRequest):
         if match:
             groups = match.groups()
             if len(groups) == 3:
-                return wpull.util.to_str(
+                return wpull.string.to_str(
                     (groups[0], groups[1], groups[2]),
                     encoding='latin-1',
                 )
@@ -131,7 +132,7 @@ class Response(BaseResponse):
         if match:
             groups = match.groups()
             if len(groups) == 3:
-                return wpull.util.to_str(
+                return wpull.string.to_str(
                     (groups[0], int(groups[1]), groups[2]),
                     encoding='latin-1',
                 )

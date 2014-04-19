@@ -6,12 +6,14 @@ import gettext
 import io
 import json
 import logging
-import namedlist
 import os
 import tempfile
 import time
+
+import namedlist
 import tornado.gen
 
+import wpull.async
 from wpull.conversation import Body
 from wpull.database import Status
 from wpull.document import HTMLReader
@@ -23,6 +25,7 @@ from wpull.item import LinkType
 from wpull.namevalue import NameValueRecord
 from wpull.scraper import HTMLScraper, DemuxDocumentScraper, CSSScraper
 from wpull.stats import Statistics
+import wpull.string
 from wpull.url import URLInfo
 from wpull.urlfilter import DemuxURLFilter, SpanHostsFilter
 import wpull.util
@@ -251,7 +254,7 @@ class WebProcessorSession(object):
 
             if wait_time:
                 _logger.debug('Sleeping {0}.'.format(wait_time))
-                yield wpull.util.sleep(wait_time)
+                yield wpull.async.sleep(wait_time)
 
             if is_done:
                 break
@@ -370,9 +373,11 @@ class WebProcessorSession(object):
 
     def _add_post_data(self, request):
         if self._url_item.url_record.post_data:
-            data = wpull.util.to_bytes(self._url_item.url_record.post_data)
+            data = wpull.string.to_bytes(self._url_item.url_record.post_data)
         else:
-            data = wpull.util.to_bytes(self._processor.fetch_params.post_data)
+            data = wpull.string.to_bytes(
+                self._processor.fetch_params.post_data
+            )
 
         request.method = 'POST'
         request.fields['Content-Type'] = 'application/x-www-form-urlencoded'
@@ -751,7 +756,7 @@ class PhantomJSController(object):
             total_scroll_count += 1
 
             self._log_action('wait', self._wait_time)
-            yield wpull.util.sleep(self._wait_time)
+            yield wpull.async.sleep(self._wait_time)
 
             post_scroll_counter_values = remote.resource_counter.values()
 
@@ -769,7 +774,7 @@ class PhantomJSController(object):
         for dummy in range(remote.resource_counter.pending):
             if remote.resource_counter.pending:
                 self._log_action('wait', self._wait_time)
-                yield wpull.util.sleep(self._wait_time)
+                yield wpull.async.sleep(self._wait_time)
             else:
                 break
 

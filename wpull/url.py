@@ -4,14 +4,15 @@ import collections
 import fnmatch
 import functools
 import itertools
-import namedlist
 import re
 import string
 import sys
 import urllib.parse
 
-import wpull.util
+import namedlist
+
 from wpull.cache import LRUCache
+import wpull.string
 
 
 if sys.version_info < (2, 7):
@@ -168,7 +169,7 @@ class URLInfo(_URLInfoType):
             cls.normalize_hostname(url_split_result.hostname),
             port,
             string,
-            wpull.util.normalize_codec_name(encoding),
+            wpull.string.normalize_codec_name(encoding),
         )
 
         if use_cache:

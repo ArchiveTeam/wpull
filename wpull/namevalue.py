@@ -4,7 +4,7 @@ import collections
 import gettext
 import io
 
-from wpull.util import OrderedDefaultDict
+from wpull.collections import OrderedDefaultDict
 
 
 _ = gettext.gettext
