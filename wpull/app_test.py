@@ -58,10 +58,15 @@ class TestApp(GoodAppTestCase):
         cookiejar.debug = True
         super().setUp()
         tornado.ioloop.IOLoop.current().set_blocking_log_threshold(0.5)
+        self.original_loggers = list(logging.getLogger().handlers)
 
     def tearDown(self):
         GoodAppTestCase.tearDown(self)
         cookiejar.debug = self._original_cookiejar_debug
+
+        for handler in list(logging.getLogger().handlers):
+            if handler not in self.original_loggers:
+                logging.getLogger().removeHandler(handler)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_no_args(self):
