@@ -8,6 +8,10 @@ What's New
 * Fixes XHTML documents not properly extracted for links.
 * If a server responds with content declared as Gzip, the content is checked to see if it starts with the Gzip magic number. This check avoids misreading text as Gzip streams.
 
+* API:
+
+  * Moved ``OrderedDefaultDict`` from ``util`` to ``collections``.
+
 
 0.32 (2014-04-17)
 ==================

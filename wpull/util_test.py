@@ -1,16 +1,15 @@
 # encoding=utf-8
 import datetime
+import hashlib
 import itertools
 import sys
 import time
 import tornado.testing
 import toro
-import hashlib
 import zlib
 
-
 from wpull.backport.testing import unittest
-from wpull.util import (to_bytes, sleep, to_str, datetime_str, OrderedDefaultDict,
+from wpull.util import (to_bytes, sleep, to_str, datetime_str,
     wait_future, TimedOut, python_version, filter_pem, detect_encoding,
     parse_iso8601_str, printable_bytes, DeflateDecompressor, AdjustableSemaphore)
 
@@ -34,17 +33,6 @@ class TestUtil(unittest.TestCase):
 
     def test_parse_iso8601_str(self):
         self.assertEqual(10, parse_iso8601_str('1970-01-01T00:00:10Z'))
-
-    def test_ordered_default_dict(self):
-        mapping = OrderedDefaultDict(lambda: 2)
-        mapping['a'] += 4
-        mapping['b'] += 3
-        mapping['c'] += 2
-
-        self.assertEqual(
-            [('a', 6), ('b', 5), ('c', 4)],
-            list(mapping.items())
-        )
 
     def test_python_version(self):
         version_string = python_version()
