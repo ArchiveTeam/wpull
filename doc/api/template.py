@@ -16,7 +16,6 @@ MODULES = [
     'document',
     'engine',
     'errors',
-    'extended',
     'factory',
     'hook',
     'http',

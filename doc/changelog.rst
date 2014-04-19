@@ -14,6 +14,7 @@ What's New
   * Moves ``DeflateDecompressor``, ``gzip_decompress`` from ``util`` to ``decompression``.
   * Moves ``sleep``, ``TimedOut``, ``wait_future``, ``AdjustableSemaphore`` from ``util`` to ``async``.
   * Moves ``to_bytes``, ``to_str``, ``normalize_codec_name``, ``detect_encoding``, ``try_decoding``, ``format_size``, ``printable_bytes``, ``coerce_str_to_ascii`` from ``util`` to ``string``.
+  * Removes ``extended`` module.
 
 
 0.32 (2014-04-17)
@@ -28,8 +29,8 @@ What's New
 
 * API:
 
-  * `document.detect_response_encoding()` default peek argument is lowered to reduce hanging.
-  * `document.BaseDocumentDetector` is now a base class for document type detection.
+  * ``document.detect_response_encoding()`` default peek argument is lowered to reduce hanging.
+  * ``document.BaseDocumentDetector`` is now a base class for document type detection.
 
 
 0.31 (2014-04-14)

@@ -28,7 +28,6 @@ wpull Package
    api/document
    api/engine
    api/errors
-   api/extended
    api/factory
    api/hook
    api/http
