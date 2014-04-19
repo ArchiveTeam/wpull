@@ -3,17 +3,19 @@
 import datetime
 import gettext
 import logging
+
 import tornado.gen
 import toro
 
 import wpull.actor
+from wpull.async import AdjustableSemaphore
+import wpull.async
 from wpull.database import NotFound
 from wpull.errors import (ExitStatus, ServerError, ConnectionRefused, DNSNotFound,
     SSLVerficationError, ProtocolError, NetworkError)
 from wpull.item import Status, URLItem
 from wpull.url import URLInfo
 import wpull.util
-from wpull.util import AdjustableSemaphore
 
 
 try:
@@ -183,7 +185,7 @@ class Engine(object):
 
                         return
 
-                    yield wpull.util.sleep(1.0)
+                    yield wpull.async.sleep(1.0)
                 else:
                     break
 

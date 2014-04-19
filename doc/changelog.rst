@@ -12,6 +12,7 @@ What's New
 
   * Moves ``OrderedDefaultDict`` from ``util`` to ``collections``.
   * Moves ``DeflateDecompressor``, ``gzip_decompress`` from ``util`` to ``decompression``.
+  * Moves ``sleep``, ``TimedOut``, ``wait_future``, ``AdjustableSemaphore`` from ``util`` to ``async``.
 
 
 0.32 (2014-04-17)

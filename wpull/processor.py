@@ -6,12 +6,14 @@ import gettext
 import io
 import json
 import logging
-import namedlist
 import os
 import tempfile
 import time
+
+import namedlist
 import tornado.gen
 
+import wpull.async
 from wpull.conversation import Body
 from wpull.database import Status
 from wpull.document import HTMLReader
@@ -251,7 +253,7 @@ class WebProcessorSession(object):
 
             if wait_time:
                 _logger.debug('Sleeping {0}.'.format(wait_time))
-                yield wpull.util.sleep(wait_time)
+                yield wpull.async.sleep(wait_time)
 
             if is_done:
                 break
@@ -751,7 +753,7 @@ class PhantomJSController(object):
             total_scroll_count += 1
 
             self._log_action('wait', self._wait_time)
-            yield wpull.util.sleep(self._wait_time)
+            yield wpull.async.sleep(self._wait_time)
 
             post_scroll_counter_values = remote.resource_counter.values()
 
@@ -769,7 +771,7 @@ class PhantomJSController(object):
         for dummy in range(remote.resource_counter.pending):
             if remote.resource_counter.pending:
                 self._log_action('wait', self._wait_time)
-                yield wpull.util.sleep(self._wait_time)
+                yield wpull.async.sleep(self._wait_time)
             else:
                 break
 

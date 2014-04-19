@@ -17,6 +17,7 @@ wpull Package
 .. toctree::
    api/actor
    api/app
+   api/async
    api/cache
    api/cookie
    api/collections

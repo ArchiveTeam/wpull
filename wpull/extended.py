@@ -8,11 +8,12 @@
 '''
 import datetime
 import logging
+
 import tornado.iostream
 import toro
 
+import wpull.async
 from wpull.errors import NetworkError, SSLVerficationError
-import wpull.util
 
 
 _logger = logging.getLogger(__name__)
@@ -63,8 +64,8 @@ class IOStreamMixin(object):
             )
 
         try:
-            yield wpull.util.wait_future(connect(), self._connect_timeout)
-        except wpull.util.TimedOut as error:
+            yield wpull.async.wait_future(connect(), self._connect_timeout)
+        except wpull.async.TimedOut as error:
             self.close()
             raise NetworkError('Connection timed out') from error
 
@@ -90,8 +91,8 @@ class IOStreamMixin(object):
             )
             raise tornado.gen.Return(result)
         try:
-            result = yield wpull.util.wait_future(read(), self._read_timeout)
-        except wpull.util.TimedOut as error:
+            result = yield wpull.async.wait_future(read(), self._read_timeout)
+        except wpull.async.TimedOut as error:
             self.close()
             raise NetworkError('Read timed out.') from error
         else:

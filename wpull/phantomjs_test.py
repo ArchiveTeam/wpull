@@ -1,11 +1,11 @@
 # encoding=utf-8
 import tornado.testing
 
+import wpull.async
 from wpull.http.client import Client
 from wpull.phantomjs import (PhantomJSRemote, PhantomJSClient,
     PhantomJSRPCTimedOut)
 from wpull.proxy import HTTPProxyServer
-import wpull.util
 
 
 DEFAULT_TIMEOUT = 30
@@ -71,7 +71,7 @@ class TestPhantomJS(tornado.testing.AsyncTestCase):
             if test_remote in remote_client.remotes_ready:
                 break
 
-            yield wpull.util.sleep(0.1)
+            yield wpull.async.sleep(0.1)
 
         self.assertIn(test_remote, remote_client.remotes_ready)
         self.assertNotIn(test_remote, remote_client.remotes_busy)

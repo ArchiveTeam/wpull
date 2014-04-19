@@ -5,6 +5,7 @@ import os.path
 MODULES = [
     'actor',
     'app',
+    'async',
     'cache',
     'cookie',
     'collections',

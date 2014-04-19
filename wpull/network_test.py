@@ -1,10 +1,11 @@
 # encoding=utf-8
 import time
+
 import tornado.testing
 
+import wpull.async
 from wpull.errors import NetworkError, DNSNotFound
 from wpull.network import Resolver, BandwidthMeter
-import wpull.util
 
 
 DEFAULT_TIMEOUT = 30
@@ -13,7 +14,7 @@ DEFAULT_TIMEOUT = 30
 class MockFaultyResolver(Resolver):
     @tornado.gen.coroutine
     def _resolve_tornado(self, host, port, family):
-        yield wpull.util.sleep(5)
+        yield wpull.async.sleep(5)
         yield Resolver._resolve_tornado(self, host, port, family)
 
 

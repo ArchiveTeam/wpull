@@ -5,8 +5,10 @@ import logging
 import random
 import socket
 import time
+
 import tornado.gen
 
+import wpull.async
 from wpull.cache import FIFOCache
 from wpull.errors import NetworkError, DNSNotFound
 import wpull.util
@@ -79,8 +81,8 @@ class Resolver(object):
 
             future = self._resolve_tornado(host, port, family)
             try:
-                results = yield wpull.util.wait_future(future, self._timeout)
-            except wpull.util.TimedOut as error:
+                results = yield wpull.async.wait_future(future, self._timeout)
+            except wpull.async.TimedOut as error:
                 raise NetworkError('DNS resolve timed out') from error
 
             addresses.extend(results)
