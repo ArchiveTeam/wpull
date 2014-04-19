@@ -9,14 +9,14 @@ https://archive.org/web/researcher/cdx_file_format.php and
 https://github.com/internetarchive/CDX-Writer.
 '''
 import base64
+import codecs
 import hashlib
 import re
 import uuid
 
+from wpull.http.request import Response
 from wpull.namevalue import NameValueRecord
 import wpull.util
-from wpull.http.request import Response
-import codecs
 
 
 class WARCRecord(object):

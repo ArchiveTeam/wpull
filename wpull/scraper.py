@@ -5,8 +5,9 @@ import collections
 import gettext
 import itertools
 import logging
-import lxml.etree
 import re
+
+import lxml.etree
 
 from wpull.document import (BaseDocumentReader, HTMLReader,
     detect_response_encoding, CSSReader, SitemapReader)

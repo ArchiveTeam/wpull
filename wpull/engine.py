@@ -14,8 +14,8 @@ from wpull.database import NotFound
 from wpull.errors import (ExitStatus, ServerError, ConnectionRefused, DNSNotFound,
     SSLVerficationError, ProtocolError, NetworkError)
 from wpull.item import Status, URLItem
+import wpull.string
 from wpull.url import URLInfo
-import wpull.util
 
 
 try:
@@ -283,10 +283,10 @@ class Engine(object):
         time_length = datetime.timedelta(
             seconds=int(stats.stop_time - stats.start_time)
         )
-        file_size = wpull.util.format_size(stats.size)
+        file_size = wpull.string.format_size(stats.size)
 
         if stats.bandwidth_meter.num_samples:
-            speed_size_str = wpull.util.format_size(
+            speed_size_str = wpull.string.format_size(
                 stats.bandwidth_meter.speed()
             )
         else:

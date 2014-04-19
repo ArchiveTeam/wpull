@@ -14,6 +14,7 @@ import lxml.html
 
 import wpull.decompression
 import wpull.http.util
+import wpull.string
 from wpull.thirdparty import robotexclusionrulesparser
 import wpull.util
 
@@ -336,7 +337,7 @@ class HTMLReader(BaseDocumentReader):
     @classmethod
     def is_file(cls, file):
         '''Return whether the file is likely to be HTML.'''
-        peeked_data = wpull.util.printable_bytes(
+        peeked_data = wpull.string.printable_bytes(
             wpull.util.peek_file(file)).lower()
 
         if b'<!doctype html' in peeked_data \
@@ -373,11 +374,11 @@ class HTMLReader(BaseDocumentReader):
             # NOTE: to_str is needed because on Python 2, byte strings may be
             # returned from lxml
             elements.append(HTMLReadElement(
-                wpull.util.to_str(tag),
-                wpull.util.to_str(dict(attrib))
+                wpull.string.to_str(tag),
+                wpull.string.to_str(dict(attrib))
                     if attrib is not None else None,
-                wpull.util.to_str(text),
-                wpull.util.to_str(tail),
+                wpull.string.to_str(text),
+                wpull.string.to_str(tail),
                 end
             ))
 
@@ -459,7 +460,7 @@ class HTMLReader(BaseDocumentReader):
         )
 
         if tree.getroot() is not None:
-            return wpull.util.to_str(tree.docinfo.doctype)
+            return wpull.string.to_str(tree.docinfo.doctype)
 
     @classmethod
     def detect_parser_type(cls, file, encoding=None):
@@ -512,7 +513,7 @@ class CSSReader(BaseDocumentReader):
     @classmethod
     def is_file(cls, file):
         '''Return whether the file is likely CSS.'''
-        peeked_data = wpull.util.printable_bytes(
+        peeked_data = wpull.string.printable_bytes(
             wpull.util.peek_file(file)).lower()
 
         if b'<html' in peeked_data:
@@ -589,7 +590,7 @@ class CSSReader(BaseDocumentReader):
 class XMLDetector(BaseDocumentDetector):
     @classmethod
     def is_file(cls, file):
-        peeked_data = wpull.util.printable_bytes(
+        peeked_data = wpull.string.printable_bytes(
             wpull.util.peek_file(file)).lower()
 
         if b'<?xml' in peeked_data:
@@ -685,7 +686,7 @@ class SitemapReader(BaseDocumentReader):
             except zlib.error:
                 pass
 
-        peeked_data = wpull.util.printable_bytes(peeked_data)
+        peeked_data = wpull.string.printable_bytes(peeked_data)
 
         if b'<?xml' in peeked_data \
         and (b'<sitemapindex' in peeked_data or b'<urlset' in peeked_data):
@@ -757,7 +758,7 @@ def get_heading_encoding(response):
         response.fields.get('content-type', ''))
 
     if encoding:
-        return wpull.util.normalize_codec_name(encoding)
+        return wpull.string.normalize_codec_name(encoding)
     else:
         return None
 
@@ -777,7 +778,7 @@ def detect_response_encoding(response, is_html=False, peek=131072):
         response.fields.get('content-type', '')
     )
 
-    encoding = wpull.util.detect_encoding(
+    encoding = wpull.string.detect_encoding(
         response.body.content_peek(peek), encoding=encoding, is_html=is_html
     )
 

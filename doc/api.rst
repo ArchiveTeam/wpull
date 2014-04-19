@@ -49,6 +49,7 @@ wpull Package
    api/robotstxt
    api/scraper
    api/stats
+   api/string
    api/url
    api/urlfilter
    api/util

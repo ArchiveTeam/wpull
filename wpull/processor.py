@@ -25,6 +25,7 @@ from wpull.item import LinkType
 from wpull.namevalue import NameValueRecord
 from wpull.scraper import HTMLScraper, DemuxDocumentScraper, CSSScraper
 from wpull.stats import Statistics
+import wpull.string
 from wpull.url import URLInfo
 from wpull.urlfilter import DemuxURLFilter, SpanHostsFilter
 import wpull.util
@@ -372,9 +373,11 @@ class WebProcessorSession(object):
 
     def _add_post_data(self, request):
         if self._url_item.url_record.post_data:
-            data = wpull.util.to_bytes(self._url_item.url_record.post_data)
+            data = wpull.string.to_bytes(self._url_item.url_record.post_data)
         else:
-            data = wpull.util.to_bytes(self._processor.fetch_params.post_data)
+            data = wpull.string.to_bytes(
+                self._processor.fetch_params.post_data
+            )
 
         request.method = 'POST'
         request.fields['Content-Type'] = 'application/x-www-form-urlencoded'

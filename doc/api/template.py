@@ -37,6 +37,7 @@ MODULES = [
     'robotstxt',
     'scraper',
     'stats',
+    'string',
     'url',
     'urlfilter',
     'util',
