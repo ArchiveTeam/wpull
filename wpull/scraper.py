@@ -188,70 +188,25 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         content_file = response.body.content_file
         encoding = self._encoding_override \
             or detect_response_encoding(response, is_html=True)
+        linked_urls = set()
+        inline_urls = set()
 
-        with wpull.util.reset_file_offset(content_file):
-            elements = self.read_links(content_file, encoding=encoding)
+        try:
+            with wpull.util.reset_file_offset(content_file):
+                elements = self.read_links(content_file, encoding=encoding)
 
-            linked_urls = set()
-            inline_urls = set()
-            robots_check_needed = self._robots
-            robots_no_follow = False
-            inject_refresh = True
+                result_meta_info = self._process_elements(
+                    elements, response, base_url, linked_urls, inline_urls
+                )
 
-            for element in elements:
-                if robots_check_needed and self.robots_cannot_follow(element):
-                    robots_check_needed = False
-                    robots_no_follow = True
+        except (UnicodeError, lxml.etree.LxmlError) as error:
+            _logger.warning(
+                _('Failed to read document at ‘{url}’: {error}')\
+                .format(url=request.url_info.url, error=error)
+            )
+            result_meta_info = {}
 
-                link_infos = self.iter_links_element(element)
-
-                if inject_refresh and 'Refresh' in response.fields:
-                    link = parse_refresh(response.fields['Refresh'])
-
-                    if link:
-                        link_info = LinkInfo(
-                            None, '_refresh', None,
-                            link,
-                            False, True,
-                            None, 'refresh'
-                        )
-                        link_infos = itertools.chain(link_infos, [link_info])
-
-                    inject_refresh = False
-                else:
-                    inject_refresh = False
-
-                for link_info in link_infos:
-                    if self._only_relative:
-                        if link_info.base_link or '://' in link_info.link:
-                            continue
-
-                    if not self._is_accepted(link_info.tag):
-                        continue
-
-                    element_base_url = base_url
-
-                    if link_info.base_link:
-                        clean_base_url = clean_link_soup(link_info.base_link)
-
-                        if clean_base_url:
-                            element_base_url = urljoin_safe(
-                                base_url, clean_base_url
-                            ) or base_url
-
-                    url = urljoin_safe(
-                        element_base_url,
-                        clean_link_soup(link_info.link),
-                        allow_fragments=False
-                    )
-
-                    if url:
-                        if link_info.inline:
-                            inline_urls.add(url)
-                        if link_info.linked:
-                            linked_urls.add(url)
-
-        if robots_no_follow:
+        if result_meta_info.get('robots_no_follow'):
             linked_urls.clear()
 
         return {
@@ -260,6 +215,67 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             'base_url': base_url,
             'encoding': encoding,
         }
+
+    def _process_elements(self, elements, response, base_url, linked_urls,
+    inline_urls):
+        robots_check_needed = self._robots
+        robots_no_follow = False
+        inject_refresh = True
+
+        for element in elements:
+            if robots_check_needed and self.robots_cannot_follow(element):
+                robots_check_needed = False
+                robots_no_follow = True
+
+            link_infos = self.iter_links_element(element)
+
+            if inject_refresh and 'Refresh' in response.fields:
+                link = parse_refresh(response.fields['Refresh'])
+
+                if link:
+                    link_info = LinkInfo(
+                        None, '_refresh', None,
+                        link,
+                        False, True,
+                        None, 'refresh'
+                    )
+                    link_infos = itertools.chain(link_infos, [link_info])
+
+                inject_refresh = False
+            else:
+                inject_refresh = False
+
+            for link_info in link_infos:
+                if self._only_relative:
+                    if link_info.base_link or '://' in link_info.link:
+                        continue
+
+                if not self._is_accepted(link_info.tag):
+                    continue
+
+                element_base_url = base_url
+
+                if link_info.base_link:
+                    clean_base_url = clean_link_soup(link_info.base_link)
+
+                    if clean_base_url:
+                        element_base_url = urljoin_safe(
+                            base_url, clean_base_url
+                        ) or base_url
+
+                url = urljoin_safe(
+                    element_base_url,
+                    clean_link_soup(link_info.link),
+                    allow_fragments=False
+                )
+
+                if url:
+                    if link_info.inline:
+                        inline_urls.add(url)
+                    if link_info.linked:
+                        linked_urls.add(url)
+
+        return {'robots_no_follow': robots_no_follow}
 
     @classmethod
     def scrape_file(self, file, encoding=None, base_url=None):
@@ -578,9 +594,16 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
         inline_urls = set()
         encoding = 'latin1'
 
-        for scraped_link in scraped_links:
-            encoding = scraped_link.encoding
-            inline_urls.add(scraped_link.link)
+        try:
+            for scraped_link in scraped_links:
+                encoding = scraped_link.encoding
+                inline_urls.add(scraped_link.link)
+
+        except UnicodeError as error:
+            _logger.warning(
+                _('Failed to read document at ‘{url}’: {error}')\
+                .format(url=request.url_info.url, error=error)
+            )
 
         return {
             'inline_urls': inline_urls,
@@ -619,13 +642,20 @@ class JavaScriptScraper(JavaScriptReader, BaseDocumentScraper):
         linked_urls = set()
         encoding = 'latin1'
 
-        for scraped_link in scraped_links:
-            encoding = scraped_link.encoding
+        try:
+            for scraped_link in scraped_links:
+                encoding = scraped_link.encoding
 
-            if is_likely_inline(scraped_link.link):
-                inline_urls.add(scraped_link.link)
-            else:
-                linked_urls.add(scraped_link.link)
+                if is_likely_inline(scraped_link.link):
+                    inline_urls.add(scraped_link.link)
+                else:
+                    linked_urls.add(scraped_link.link)
+
+        except UnicodeError as error:
+            _logger.warning(
+                _('Failed to read document at ‘{url}’: {error}')\
+                .format(url=request.url_info.url, error=error)
+            )
 
         return {
             'inline_urls': inline_urls,
@@ -679,12 +709,11 @@ class SitemapScraper(SitemapReader, BaseDocumentScraper):
                     if link:
                         links.add(link)
 
-        except lxml.etree.ParseError as error:
+        except (UnicodeError, lxml.etree.LxmlError) as error:
             _logger.warning(
-                _('Failed to parse document at ‘{url}’: {error}')\
+                _('Failed to read document at ‘{url}’: {error}')\
                 .format(url=request.url_info.url, error=error)
             )
-            return
 
         return {
             'inline_urls': (),

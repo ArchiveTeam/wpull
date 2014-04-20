@@ -490,15 +490,8 @@ class WebProcessorSession(object):
 
     def _scrape_document(self, request, response):
         '''Scrape the document for URLs.'''
-        try:
-            demux_info = self._processor.instances\
-                .document_scraper.scrape_info(request, response)
-        except UnicodeError as error:
-            _logger.warning(
-                _('Failed to decode document at ‘{url}’: {error}.')\
-                .format(url=request.url_info.url, error=error)
-            )
-            return
+        demux_info = self._processor.instances\
+            .document_scraper.scrape_info(request, response)
 
         num_inline_urls = 0
         num_linked_urls = 0

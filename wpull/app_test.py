@@ -1019,7 +1019,10 @@ class TestAppBad(BadAppTestCase):
     def test_bad_utf8(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            self.get_url('/utf8_then_binary'),
+            self.get_url('/utf8_then_binary/doc.html'),
+            self.get_url('/utf8_then_binary/doc.xml'),
+            self.get_url('/utf8_then_binary/doc.css'),
+            self.get_url('/utf8_then_binary/doc.js'),
             '--no-robots',
         ])
         builder = Builder(args)
@@ -1029,4 +1032,4 @@ class TestAppBad(BadAppTestCase):
             exit_code = yield engine()
 
         self.assertEqual(0, exit_code)
-        self.assertEqual(1, builder.factory['Statistics'].files)
+        self.assertEqual(4, builder.factory['Statistics'].files)

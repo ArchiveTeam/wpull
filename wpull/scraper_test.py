@@ -573,7 +573,15 @@ class TestDocument(unittest.TestCase):
             )
 
         scrape_info = scraper.scrape(request, response)
-        self.assertFalse(scrape_info)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual({
+            'http://www.example.com/',
+            },
+            linked_urls
+        )
+        self.assertFalse(inline_urls)
 
     def test_javascript_scraper(self):
         scraper = JavaScriptScraper()
