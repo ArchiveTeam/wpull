@@ -94,7 +94,7 @@ def get_urls(filename, url_info, document_info):
 
 def wait_time(seconds):
     assert seconds >= 0
-    return seconds
+    return 0
 
 
 def finish_statistics(start_time, end_time, num_urls, bytes_downloaded):

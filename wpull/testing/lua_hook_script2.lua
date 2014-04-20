@@ -104,7 +104,7 @@ end
 
 wpull_hook.callbacks.wait_time = function(seconds)
   assert(seconds >= 0)
-  return seconds
+  return 0
 end
 
 wpull_hook.callbacks.finish_statistics = function(start_time, end_time, num_urls, bytes_downloaded)
