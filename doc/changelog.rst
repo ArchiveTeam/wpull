@@ -2,11 +2,6 @@
 What's New
 ==========
 
-0.XX (2014-04-DD)
-==================
-
-* Fixes XHTML documents not properly extracted for links.
-* If a server responds with content declared as Gzip, the content is checked to see if it starts with the Gzip magic number. This check avoids misreading text as Gzip streams.
 * Support for extracting links from JavaScript segments and files.
 
 * API:
@@ -20,6 +15,13 @@ What's New
 * Scripting:
 
   * Adds new `wait_time()` callback hook function.
+
+
+0.32.1 (2014-04-20)
+===================
+
+* Fixes XHTML documents not properly extracted for links.
+* If a server responds with content declared as Gzip, the content is checked to see if it starts with the Gzip magic number. This check avoids misreading text as Gzip streams.
 
 
 0.32 (2014-04-17)
