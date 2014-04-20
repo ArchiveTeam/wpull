@@ -17,6 +17,10 @@ What's New
   * Moves ``to_bytes``, ``to_str``, ``normalize_codec_name``, ``detect_encoding``, ``try_decoding``, ``format_size``, ``printable_bytes``, ``coerce_str_to_ascii`` from ``util`` to ``string``.
   * Removes ``extended`` module.
 
+* Scripting:
+
+  * Adds new `wait_time()` callback hook function.
+
 
 0.32 (2014-04-17)
 ==================

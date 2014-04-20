@@ -411,6 +411,9 @@ class TestApp(GoodAppTestCase):
         engine = builder.factory['Engine']
         self.assertEqual(2, engine.concurrent)
 
+        stats = builder.factory['Statistics']
+        self.assertGreater(1.0, stats.duration)
+
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_python_script_api_2(self):
         arg_parser = AppArgumentParser()
@@ -433,6 +436,9 @@ class TestApp(GoodAppTestCase):
 
         engine = builder.factory['Engine']
         self.assertEqual(2, engine.concurrent)
+
+        stats = builder.factory['Statistics']
+        self.assertGreater(1.0, stats.duration)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_python_script_stop(self):
@@ -473,6 +479,9 @@ class TestApp(GoodAppTestCase):
         engine = builder.factory['Engine']
         self.assertEqual(2, engine.concurrent)
 
+        stats = builder.factory['Statistics']
+        self.assertGreater(1.0, stats.duration)
+
     @unittest.skipIf(sys.version_info[0:2] == (3, 2),
         'lua module not working in this python version')
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
@@ -497,6 +506,9 @@ class TestApp(GoodAppTestCase):
 
         engine = builder.factory['Engine']
         self.assertEqual(2, engine.concurrent)
+
+        stats = builder.factory['Statistics']
+        self.assertGreater(1.0, stats.duration)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_iri_handling(self):
