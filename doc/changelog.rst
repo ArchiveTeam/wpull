@@ -2,6 +2,7 @@
 What's New
 ==========
 
+* Fixes crash on empty page.
 * Support for extracting links from JavaScript segments and files.
 
 * API:

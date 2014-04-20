@@ -455,13 +455,15 @@ class HTMLReader(BaseDocumentReader):
         else:
             lxml_encoding = encoding
 
-        parser = lxml.etree.XMLParser(encoding=lxml_encoding, recover=True)
-        tree = lxml.etree.parse(
-            io.BytesIO(wpull.util.peek_file(file)), parser=parser
-        )
-
-        if tree.getroot() is not None:
-            return wpull.string.to_str(tree.docinfo.doctype)
+        try:
+            parser = lxml.etree.XMLParser(encoding=lxml_encoding, recover=True)
+            tree = lxml.etree.parse(
+                io.BytesIO(wpull.util.peek_file(file)), parser=parser
+            )
+            if tree.getroot() is not None:
+                return wpull.string.to_str(tree.docinfo.doctype)
+        except lxml.etree.LxmlError:
+            pass
 
     @classmethod
     def detect_parser_type(cls, file, encoding=None):
