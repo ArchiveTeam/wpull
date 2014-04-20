@@ -2,8 +2,8 @@
 What's New
 ==========
 
-0.XX (2014-04-DD)
-==================
+0.32.1 (2014-04-20)
+===================
 
 * Fixes XHTML documents not properly extracted for links.
 * If a server responds with content declared as Gzip, the content is checked to see if it starts with the Gzip magic number. This check avoids misreading text as Gzip streams.
