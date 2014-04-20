@@ -3,9 +3,10 @@
 import timeit
 
 from wpull.backport.testing import unittest
-from wpull.url import (URLInfo, schemes_similar, is_subdir, unquote, unquote_plus,
+from wpull.url import (URLInfo, schemes_similar, is_subdir, unquote,
+    unquote_plus,
     quote, quote_plus, split_query, uppercase_percent_encoding, urljoin,
-    flatten_path)
+    flatten_path, is_likely_link, is_unlikely_link)
 
 
 class TestURL(unittest.TestCase):
@@ -478,3 +479,37 @@ class TestURL(unittest.TestCase):
             '/dog/doc/index.html',
             flatten_path('/dog/../dog/./cat/../doc/././../doc/index.html')
         )
+
+    def test_is_likely_link(self):
+        self.assertTrue(is_likely_link('image.png'))
+        self.assertTrue(is_likely_link('video.mp4'))
+        self.assertTrue(is_likely_link('/directory'))
+        self.assertTrue(is_likely_link('directory/'))
+        self.assertTrue(is_likely_link('/directory/'))
+        self.assertTrue(is_likely_link('../directory/'))
+        self.assertTrue(is_likely_link('http://example.com/'))
+        self.assertTrue(is_likely_link('https://example.com/'))
+        self.assertTrue(is_likely_link('ftp://example.com'))
+        self.assertTrue(is_likely_link('directory/index.html'))
+        self.assertTrue(is_likely_link('directory/another_directory'))
+        self.assertTrue(is_likely_link('application/windows.exe'))
+        self.assertTrue(is_likely_link('//example/admin'))
+        self.assertFalse(is_likely_link('12.0'))
+        self.assertFalse(is_likely_link('7'))
+        self.assertFalse(is_likely_link('horse'))
+        self.assertFalse(is_likely_link('application/json'))
+        self.assertFalse(is_likely_link('application/javascript'))
+        self.assertFalse(is_likely_link('text/javascript'))
+        self.assertFalse(is_likely_link('text/plain'))
+        self.assertFalse(is_likely_link(''))
+        self.assertFalse(is_likely_link('setTimeout(myTimer, 1000)'))
+
+    def test_is_unlikely_link(self):
+        self.assertTrue(is_unlikely_link('example.com+'))
+        self.assertTrue(is_unlikely_link('www.'))
+        self.assertTrue(is_unlikely_link(':example.com'))
+        self.assertTrue(is_unlikely_link(',example.com'))
+        self.assertTrue(is_unlikely_link('http:'))
+        self.assertFalse(is_unlikely_link('http://'))
+        self.assertFalse(is_unlikely_link('example'))
+        self.assertFalse(is_unlikely_link('example.com'))

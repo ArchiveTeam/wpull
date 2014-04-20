@@ -1,11 +1,9 @@
 # encoding=utf-8
-import itertools
 import sys
 
 from wpull.backport.testing import unittest
-from wpull.util import (datetime_str,
-     python_version, filter_pem,
-    parse_iso8601_str,)
+from wpull.util import (datetime_str, python_version, filter_pem,
+    parse_iso8601_str)
 
 
 DEFAULT_TIMEOUT = 30

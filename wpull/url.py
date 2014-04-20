@@ -4,6 +4,7 @@ import collections
 import fnmatch
 import functools
 import itertools
+import mimetypes
 import re
 import string
 import sys
@@ -497,3 +498,80 @@ def flatten_path(path, slashes=False):
             new_parts.pop()
 
     return '/'.join(new_parts)
+
+
+_mimetypes_db = mimetypes.MimeTypes()
+MIMETYPES = frozenset(
+    itertools.chain(
+        _mimetypes_db.types_map[0].values(),
+        _mimetypes_db.types_map[1].values(),
+        ['text/javascript']
+    )
+)
+ALPHANUMERIC_CHARS = frozenset(string.ascii_letters + string.digits)
+NUMERIC_CHARS = frozenset(string.digits)
+
+# These "likely link" functions are based from
+# https://github.com/internetarchive/heritrix3/
+# blob/339e6ec87a7041f49c710d1d0fb94be0ec972ee7/commons/src/
+# main/java/org/archive/util/UriUtils.java
+
+
+def is_likely_link(text):
+    '''Return whether the text is likely to be a link.
+
+    This function assumes that leading/trailing whitespace has already been
+    removed.
+
+    Returns:
+        bool
+    '''
+    text = text.lower()
+
+    # Check for absolute or relative URLs
+    if (
+        text.startswith('http://')
+        or text.startswith('https://')
+        or text.startswith('ftp://')
+        or text.startswith('/')
+        or text.startswith('//')
+        or text.endswith('/')
+        or text.startswith('../')
+    ):
+        return True
+
+    # Check if it has a alphanumeric file extension and not a decimal number
+    dummy, dot, file_extension = text.rpartition('.')
+
+    if dot and file_extension:
+        file_extension = frozenset(file_extension)
+
+        if file_extension \
+        and file_extension <= ALPHANUMERIC_CHARS \
+        and not file_extension <= NUMERIC_CHARS:
+            return True
+
+    # Forbid strings like mimetypes
+    if text in MIMETYPES:
+        return False
+
+    # I guess it's a URL?
+    if text != '/' and '/' in text:
+        return True
+
+
+def is_unlikely_link(text):
+    '''Return whether the text is likely to cause false positives.
+
+    This function assumes that leading/trailing whitespace has already been
+    removed.
+
+    Returns:
+        bool
+    '''
+    # Check for string concatenation in JavaScript
+    if text[:1] in ',;+:' or text[-1:] in '.,;+:':
+        return True
+
+    if text in ('/', '//'):
+        return True
