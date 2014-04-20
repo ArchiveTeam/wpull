@@ -169,6 +169,35 @@ class TestDocument(unittest.TestCase):
             linked_urls
         )
 
+    def test_xhtml(self):
+        scraper = HTMLScraper()
+        request = Request.new('http://example.com/')
+        response = Response('HTTP/1.0', 200, '')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'xhtml.html')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual(
+            {
+                'http://example.com/image.png',
+                'http://example.com/script.js',
+            },
+            inline_urls
+        )
+        self.assertEqual(
+            {
+                'http://example.com/link'
+            },
+            linked_urls
+        )
+
     def test_html_wrong_charset(self):
         scraper = HTMLScraper()
         request = Request.new('http://example.com/')

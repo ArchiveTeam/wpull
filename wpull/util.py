@@ -101,6 +101,39 @@ class ASCIIStreamWriter(codecs.StreamWriter):
             self.write(item)
 
 
+class GzipDecompressor(tornado.util.GzipDecompressor):
+    '''gzip decompressor with gzip header detection.
+
+    This class checks if the stream starts with the 2 byte gzip magic number.
+    If it is not present, it returns the bytes unchanged.
+    '''
+    def __init__(self):
+        super().__init__()
+        self.checked = False
+        self.is_ok = None
+
+    def decompress(self, value):
+        if self.checked:
+            if self.is_ok:
+                return super().decompress(value)
+            else:
+                return value
+        else:
+            self.checked = True
+            if value[:2] == b'\x1f\x8b':
+                self.is_ok = True
+                return super().decompress(value)
+            else:
+                self.is_ok = False
+                return value
+
+    def flush(self):
+        if self.is_ok:
+            return super().flush()
+        else:
+            return b''
+
+
 class DeflateDecompressor(tornado.util.GzipDecompressor):
     '''zlib decompressor with raw deflate detection.
 
