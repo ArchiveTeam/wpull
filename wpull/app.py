@@ -36,7 +36,7 @@ from wpull.recorder import (WARCRecorder, DemuxRecorder,
     WARCRecorderParams)
 from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper import (HTMLScraper, CSSScraper, DemuxDocumentScraper,
-    SitemapScraper)
+    SitemapScraper, JavaScriptScraper)
 from wpull.stats import Statistics
 from wpull.url import URLInfo
 from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, HTTPFilter,
@@ -84,6 +84,7 @@ class Builder(object):
             'HostConnectionPool': HostConnectionPool,
             'HTTPProxyServer': HTTPProxyServer,
             'HTMLScraper': HTMLScraper,
+            'JavaScriptScraper': JavaScriptScraper,
             'OutputDocumentRecorder': OutputDocumentRecorder,
             'PathNamer': PathNamer,
             'PhantomJSClient': PhantomJSClient,
@@ -463,6 +464,10 @@ class Builder(object):
             ),
             self._factory.new(
                 'CSSScraper',
+                encoding_override=self._args.remote_encoding,
+            ),
+            self._factory.new(
+                'JavaScriptScraper',
                 encoding_override=self._args.remote_encoding,
             ),
         ]

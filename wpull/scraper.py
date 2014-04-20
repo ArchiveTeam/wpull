@@ -5,12 +5,13 @@ import collections
 import gettext
 import itertools
 import logging
+import mimetypes
 import re
 
 import lxml.etree
 
 from wpull.document import (BaseDocumentReader, HTMLReader,
-    detect_response_encoding, CSSReader, SitemapReader)
+    detect_response_encoding, CSSReader, SitemapReader, JavaScriptReader)
 import wpull.url
 
 
@@ -112,6 +113,7 @@ Attributes:
         * ``list``: The link was found in a space separated list.
         * ``css``: The link was found in a CSS text.
         * ``refresh``: The link was found in a refresh meta string.
+        * ``script``: The link was found in JavaScript text.
 '''
 
 
@@ -331,6 +333,8 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             iterable = cls.iter_links_param_element(element)
         elif tag == 'style':
             iterable = cls.iter_links_style_element(element)
+        elif tag == 'script':
+            iterable = cls.iter_links_script_element(element)
         else:
             iterable = cls.iter_links_plain_element(element)
 
@@ -459,7 +463,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             )
 
     @classmethod
-    def iter_links_style_element(self, element):
+    def iter_links_style_element(cls, element):
         '''Iterate a ``style`` element.'''
         if element.text:
             link_iter = itertools.chain(
@@ -474,6 +478,26 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
                     None,
                     'css'
                 )
+
+    @classmethod
+    def iter_links_script_element(cls, element):
+        '''Iterate a ``script`` element.'''
+        if element.text:
+            link_iter = JavaScriptScraper.scrape_links(element.text)
+
+            for link in link_iter:
+                inline = is_likely_inline(link)
+
+                yield LinkInfo(
+                    element, element.tag, None,
+                    link,
+                    inline, not inline,
+                    None,
+                    'script'
+                )
+
+        for link in cls.iter_links_plain_element(element):
+            yield link
 
     @classmethod
     def iter_links_plain_element(cls, element):
@@ -561,6 +585,51 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
         return {
             'inline_urls': inline_urls,
             'linked_urls': (),
+            'encoding': encoding,
+        }
+
+    def iter_scrape(self, request, response):
+        if not self.is_supported(request=request, response=response):
+            return
+
+        base_url = request.url_info.url
+        encoding = self._encoding_override \
+            or detect_response_encoding(response)
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            for link in self.read_links(response.body.content_file, encoding):
+                link = urljoin_safe(base_url, link, allow_fragments=False)
+
+                if link:
+                    yield ScrapedLinkResult(link, True, encoding)
+
+
+class JavaScriptScraper(JavaScriptReader, BaseDocumentScraper):
+    '''Scrapes JavaScript documents.'''
+    def __init__(self, encoding_override=None):
+        super().__init__()
+        self._encoding_override = encoding_override
+
+    def scrape(self, request, response):
+        if not self.is_supported(request=request, response=response):
+            return
+
+        scraped_links = self.iter_scrape(request, response)
+        inline_urls = set()
+        linked_urls = set()
+        encoding = 'latin1'
+
+        for scraped_link in scraped_links:
+            encoding = scraped_link.encoding
+
+            if is_likely_inline(scraped_link.link):
+                inline_urls.add(scraped_link.link)
+            else:
+                linked_urls.add(scraped_link.link)
+
+        return {
+            'inline_urls': inline_urls,
+            'linked_urls': linked_urls,
             'encoding': encoding,
         }
 
@@ -687,3 +756,13 @@ def urljoin_safe(base_url, url, allow_fragments=True):
             _('Discarding malformed URL ‘{url}’: {error}.')\
             .format(url=url, error=error)
         )
+
+
+def is_likely_inline(link):
+    '''Return whether the link is likely to be inline.'''
+    file_type = mimetypes.guess_type(link, strict=False)[0]
+
+    if file_type:
+        prefix_type = file_type.split('/', 1)[0]
+
+        return prefix_type in ('image', 'video', 'audio')

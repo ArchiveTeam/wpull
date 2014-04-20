@@ -14,3 +14,5 @@ The mojibake and krokozyabry files are not UTF-8, so be sure that your editor do
 ``videogame_top.htm`` is from http://www.geocities.jp/gamehouse_grindcrusher2/videogame_top.htm which is a variant of shift_jis (shift_jis_2004 and shift_jisx0213 are able to decode it).
 
 ``rss.xml`` is from http://en.wikipedia.org/wiki/RSS
+
+``twitchplayspokemonfirered.html`` is from https://docs.google.com/document/d/1Vr1qicRf2WR24F0-zk4ozvPsM3CM1PScjQ0ySR_nAB0/preview downloaded on 2014-04-20T00:12:53Z.
