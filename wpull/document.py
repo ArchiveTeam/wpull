@@ -594,7 +594,7 @@ class JavaScriptReader(BaseDocumentReader):
     # Pattern based from https://github.com/internetarchive/heritrix3/
     # blob/ffd248f7800dbd4bff1cf8afaa57a0a3e945ed85/modules/src/
     # main/java/org/archive/modules/extractor/ExtractorJS.java
-    URL_PATTERN = r'''(\\{0,8}['"])([^\s'"]{1,500}|)(?:\1)'''
+    URL_PATTERN = r'''(\\{0,8}['"])(https?://[^'"]{1,500}|[^\s'"]{1,500})(?:\1)'''
     BUFFER_SIZE = 1048576
     STREAM_REWIND = 4096
 

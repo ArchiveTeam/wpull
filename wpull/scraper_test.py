@@ -83,6 +83,8 @@ class TestDocument(unittest.TestCase):
             'https://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080/ipv6',
             'http://example.com/document_write.html',
             'http://example.com/http_document_write.html',
+            'http://example.com/http_document_write2.html',
+            'http://example.com/http document write.html',
             'http://example.com/script_variable.html',
             'http://example.com/http_script_variable.html',
             'https://example.com/https_script_variable.html',
@@ -596,6 +598,8 @@ class TestDocument(unittest.TestCase):
         self.assertEqual({
             'http://example.com/document_write.html',
             'http://example.com/http_document_write.html',
+            'http://example.com/http_document_write2.html',
+            'http://example.com/http document write.html',
             'http://example.com/script_variable.html',
             'http://example.com/http_script_variable.html',
             'https://example.com/https_script_variable.html',

@@ -1,5 +1,7 @@
 document.write("<a href=\"document_write.html\">JS</a>");
 document.write("<a href=\"http://example.com/http_document_write.html\">JS</a>");
+document.write('<a href="http://example.com/http_document_write2.html">JS</a>');
+document.write('<a href="http://example.com/http document write.html">JS</a>');
 var link = "script_variable.html";
 link = "http://example.com/http_script_variable.html";
 link = "https://example.com/https_script_variable.html";
