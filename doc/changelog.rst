@@ -2,6 +2,7 @@
 What's New
 ==========
 
+* Fixes invalid XHTML documents not properly extracted for links.
 * Fixes crash on empty page.
 * Support for extracting links from JavaScript segments and files.
 * Doesn't discard extracted links if document can only be parsed partially.

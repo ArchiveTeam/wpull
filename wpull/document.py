@@ -436,9 +436,15 @@ class HTMLReader(BaseDocumentReader):
         Returns:
             iterable: class:`HTMLReadElement`
         '''
+        parser_type = self.detect_parser_type(file, encoding=encoding)
+
+        if parser_type == 'xhtml':
+            # Use the HTML parser because there exists XHTML soup
+            parser_type = 'html'
+
         elements = self.read_tree(
             file, encoding=encoding, target_class=HTMLLightParserTarget,
-            parser_type=self.detect_parser_type(file, encoding=encoding)
+            parser_type=parser_type
         )
 
         return elements
