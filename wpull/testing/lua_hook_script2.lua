@@ -102,6 +102,11 @@ wpull_hook.callbacks.get_urls = function(filename, url_info, document_info)
   return nil
 end
 
+wpull_hook.callbacks.wait_time = function(seconds)
+  assert(seconds >= 0)
+  return 0
+end
+
 wpull_hook.callbacks.finish_statistics = function(start_time, end_time, num_urls, bytes_downloaded)
   --  print('finish_statistics', start_time)
   assert(start_time)

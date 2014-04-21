@@ -58,10 +58,15 @@ class TestApp(GoodAppTestCase):
         cookiejar.debug = True
         super().setUp()
         tornado.ioloop.IOLoop.current().set_blocking_log_threshold(0.5)
+        self.original_loggers = list(logging.getLogger().handlers)
 
     def tearDown(self):
         GoodAppTestCase.tearDown(self)
         cookiejar.debug = self._original_cookiejar_debug
+
+        for handler in list(logging.getLogger().handlers):
+            if handler not in self.original_loggers:
+                logging.getLogger().removeHandler(handler)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_no_args(self):
@@ -406,6 +411,9 @@ class TestApp(GoodAppTestCase):
         engine = builder.factory['Engine']
         self.assertEqual(2, engine.concurrent)
 
+        stats = builder.factory['Statistics']
+        self.assertGreater(1.0, stats.duration)
+
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_python_script_api_2(self):
         arg_parser = AppArgumentParser()
@@ -428,6 +436,9 @@ class TestApp(GoodAppTestCase):
 
         engine = builder.factory['Engine']
         self.assertEqual(2, engine.concurrent)
+
+        stats = builder.factory['Statistics']
+        self.assertGreater(1.0, stats.duration)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_python_script_stop(self):
@@ -468,6 +479,9 @@ class TestApp(GoodAppTestCase):
         engine = builder.factory['Engine']
         self.assertEqual(2, engine.concurrent)
 
+        stats = builder.factory['Statistics']
+        self.assertGreater(1.0, stats.duration)
+
     @unittest.skipIf(sys.version_info[0:2] == (3, 2),
         'lua module not working in this python version')
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
@@ -492,6 +506,9 @@ class TestApp(GoodAppTestCase):
 
         engine = builder.factory['Engine']
         self.assertEqual(2, engine.concurrent)
+
+        stats = builder.factory['Statistics']
+        self.assertGreater(1.0, stats.duration)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_iri_handling(self):
@@ -1002,7 +1019,10 @@ class TestAppBad(BadAppTestCase):
     def test_bad_utf8(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            self.get_url('/utf8_then_binary'),
+            self.get_url('/utf8_then_binary/doc.html'),
+            self.get_url('/utf8_then_binary/doc.xml'),
+            self.get_url('/utf8_then_binary/doc.css'),
+            self.get_url('/utf8_then_binary/doc.js'),
             '--no-robots',
         ])
         builder = Builder(args)
@@ -1012,4 +1032,4 @@ class TestAppBad(BadAppTestCase):
             exit_code = yield engine()
 
         self.assertEqual(0, exit_code)
-        self.assertEqual(1, builder.factory['Statistics'].files)
+        self.assertEqual(4, builder.factory['Statistics'].files)

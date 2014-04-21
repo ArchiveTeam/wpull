@@ -5,7 +5,7 @@ import shutil
 from wpull.backport.testing import unittest
 from wpull.http.request import Request, Response
 from wpull.scraper import (HTMLScraper, CSSScraper, clean_link_soup,
-    SitemapScraper, parse_refresh)
+    SitemapScraper, parse_refresh, JavaScriptScraper)
 import wpull.util
 
 
@@ -61,6 +61,7 @@ class TestDocument(unittest.TestCase):
             'http://example.com/object/object_archive.dat',
             'http://example.com/param_ref_value.php',
             'http://example.com/overlay_src.html',
+            'http://example.com/script_variable.png',
             },
             inline_urls
         )
@@ -80,6 +81,19 @@ class TestDocument(unittest.TestCase):
             'http://a-double-slash.example',
             'http://example.com/header_refresh.html',
             'https://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080/ipv6',
+            'http://example.com/document_write.html',
+            'http://example.com/http_document_write.html',
+            'http://example.com/http_document_write2.html',
+            'http://example.com/http document write.html',
+            'http://example.com/script_variable.html',
+            'http://example.com/http_script_variable.html',
+            'https://example.com/https_script_variable.html',
+            'ftp://example.com/ftp_script_variable.html',
+            'http://example.com/end_dir_script_variable/',
+            'http://example.com/start_dir_script_variable',
+            'http://example.com/../relative_dir_script_variable',
+            'http://example.com/script_json.html',
+            'http://example.com/http_script_json.html?a=b',
             },
             linked_urls
         )
@@ -198,6 +212,35 @@ class TestDocument(unittest.TestCase):
             linked_urls
         )
 
+    def test_xhtml_invalid(self):
+        scraper = HTMLScraper()
+        request = Request.new('http://example.com/')
+        response = Response('HTTP/1.0', 200, '')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'xhtml_invalid.html')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual(
+            {
+                'http://example.com/image.png',
+                'http://example.com/script.js',
+            },
+            inline_urls
+        )
+        self.assertEqual(
+            {
+                'http://example.com/link'
+            },
+            linked_urls
+        )
+
     def test_html_wrong_charset(self):
         scraper = HTMLScraper()
         request = Request.new('http://example.com/')
@@ -222,14 +265,19 @@ class TestDocument(unittest.TestCase):
                 'http://example.com/Lline.gif',
                 'http://example.com/Sline.gif',
                 'http://example.com/korean01.gif',
+                'http://example.com/korean02.gif',
                 'http://example.com/english01.gif',
+                'http://example.com/english02.gif',
+                'http://example.com/Tongsinkage.gif',
+                'http://example.com/Knewskage.gif',
             },
             inline_urls
         )
         self.assertEqual(
             {
                 'http://example.com/index-k.htm',
-                'http://example.com/index-e.htm'
+                'http://example.com/index-e.htm',
+                'http://example.com/Mozilla/3',  # JS false positive
             },
             linked_urls
         )
@@ -554,7 +602,80 @@ class TestDocument(unittest.TestCase):
             )
 
         scrape_info = scraper.scrape(request, response)
-        self.assertFalse(scrape_info)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual({
+            'http://www.example.com/',
+            },
+            linked_urls
+        )
+        self.assertFalse(inline_urls)
+
+    def test_javascript_scraper(self):
+        scraper = JavaScriptScraper()
+        request = Request.new('http://example.com/script.js')
+        response = Response('HTTP/1.0', 200, 'OK')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'script.js')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual({
+            'http://example.com/script_variable.png',
+            },
+            inline_urls
+        )
+        self.assertEqual({
+            'http://example.com/document_write.html',
+            'http://example.com/http_document_write.html',
+            'http://example.com/http_document_write2.html',
+            'http://example.com/http document write.html',
+            'http://example.com/script_variable.html',
+            'http://example.com/http_script_variable.html',
+            'https://example.com/https_script_variable.html',
+            'ftp://example.com/ftp_script_variable.html',
+            'http://example.com/end_dir_script_variable/',
+            'http://example.com/start_dir_script_variable',
+            'http://example.com/../relative_dir_script_variable',
+            'http://example.com/script_json.html',
+            'http://example.com/http_script_json.html?a=b',
+            },
+            linked_urls
+        )
+
+    def test_javascript_heavy_inline_monstrosity(self):
+        scraper = HTMLScraper()
+        request = Request.new('http://example.com/')
+        response = Response('HTTP/1.0', 200, 'OK')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'twitchplayspokemonfirered.html')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertIn(
+            'http://cdn.bulbagarden.net/upload/archive/a/a4/'
+                '20090718115357%21195Quagsire.png',
+            inline_urls
+        )
+        self.assertIn(
+            'http://www.google.com/url?q=http%3A%2F%2Fwww.reddit.com%2F'
+                'user%2FGoldenSandslash15&sa=D&sntz=1&'
+                'usg=AFQjCNElFBxZYdNm5mWoRSncf5tbdIJQ-A',
+            linked_urls
+        )
 
     def test_clean_link_soup(self):
         self.assertEqual(

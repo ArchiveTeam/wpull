@@ -1,16 +1,16 @@
 # encoding=utf-8
 '''Python and Lua scripting supprt.'''
-import contextlib
 import itertools
 import logging
 import sys
+
 import tornado.gen
 
 from wpull.database import Status
 from wpull.engine import Engine
 from wpull.network import Resolver
 from wpull.processor import WebProcessor, WebProcessorSession
-import wpull.util
+import wpull.string
 
 
 _logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ def to_lua_type(instance):
 def to_lua_string(instance):
     '''If Lua, convert to bytes.'''
     if sys.version_info[0] == 2:
-        return wpull.util.to_bytes(instance)
+        return wpull.string.to_bytes(instance)
     else:
         return instance
 
@@ -322,6 +322,18 @@ class Callbacks(LegacyCallbacks):
         return None
 
     @staticmethod
+    def wait_time(seconds):
+        '''Return the wait time between requests.
+
+        Args:
+            seconds (float): The original time in seconds.
+
+        Returns:
+            float: The time in seconds.
+        '''
+        return seconds
+
+    @staticmethod
     def finishing_statistics(start_time, end_time, num_urls, bytes_downloaded):
         '''Callback containing final statistics.
 
@@ -548,6 +560,10 @@ class HookedWebProcessorSessionMixin(object):
             self._url_item.add_inline_url_infos([url_info], **kwargs)
         else:
             self._url_item.add_linked_url_infos([url_info], **kwargs)
+
+    def _get_wait_time(self):
+        wait_time = self._to_script_native_type(super()._get_wait_time())
+        return self.callbacks_hook.wait_time(wait_time)
 
     def _get_from_native_dict(self, instance, key, default=None):
         '''Try to get from the mapping a value.

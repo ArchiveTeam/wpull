@@ -7,14 +7,16 @@ import io
 import logging
 import os.path
 import random
+import re
 import socket
 import socketserver
 import struct
 import threading
 import time
+import zlib
+
 import tornado.gen
 from tornado.testing import AsyncTestCase
-import zlib
 
 from wpull.backport.gzip import GzipFile
 from wpull.http.connection import Connection, ConnectionParams
@@ -81,7 +83,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         _logger.debug('do_GET here. path={0}'.format(self.path))
-        route = self._routes[self.path.split('?', 1)[0]]
+        path = re.match(r'(/[a-zA-Z0-9_]*)', self.path).group(1)
+        _logger.debug('do_GET parse path={0}'.format(path))
+        route = self._routes[path]
         route()
         _logger.debug('do_GET done. path={0}'.format(self.path))
 
@@ -526,7 +530,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def utf8_then_binary(self):
         self.send_response(200)
-        self.send_header('Content-Type', 'text/html; charset=utf8')
+
+        if self.path.endswith('js'):
+            self.send_header(
+                'Content-Type', 'application/javascript; charset=utf8')
+        elif self.path.endswith('xml'):
+            self.send_header(
+                'Content-Type', 'text/xml; charset=utf8')
+        elif self.path.endswith('css'):
+            self.send_header(
+                'Content-Type', 'text/css; charset=utf8')
+        else:
+            self.send_header('Content-Type', 'text/html; charset=utf8')
+
         self.end_headers()
 
         data = (

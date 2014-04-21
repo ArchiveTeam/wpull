@@ -2,6 +2,28 @@
 What's New
 ==========
 
+
+0.33 (2014-04-21)
+===================
+
+* Fixes invalid XHTML documents not properly extracted for links.
+* Fixes crash on empty page.
+* Support for extracting links from JavaScript segments and files.
+* Doesn't discard extracted links if document can only be parsed partially.
+
+* API:
+
+  * Moves ``OrderedDefaultDict`` from ``util`` to ``collections``.
+  * Moves ``DeflateDecompressor``, ``gzip_decompress`` from ``util`` to ``decompression``.
+  * Moves ``sleep``, ``TimedOut``, ``wait_future``, ``AdjustableSemaphore`` from ``util`` to ``async``.
+  * Moves ``to_bytes``, ``to_str``, ``normalize_codec_name``, ``detect_encoding``, ``try_decoding``, ``format_size``, ``printable_bytes``, ``coerce_str_to_ascii`` from ``util`` to ``string``.
+  * Removes ``extended`` module.
+
+* Scripting:
+
+  * Adds new `wait_time()` callback hook function.
+
+
 0.32.1 (2014-04-20)
 ===================
 
@@ -21,8 +43,8 @@ What's New
 
 * API:
 
-  * `document.detect_response_encoding()` default peek argument is lowered to reduce hanging.
-  * `document.BaseDocumentDetector` is now a base class for document type detection.
+  * ``document.detect_response_encoding()`` default peek argument is lowered to reduce hanging.
+  * ``document.BaseDocumentDetector`` is now a base class for document type detection.
 
 
 0.31 (2014-04-14)

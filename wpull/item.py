@@ -1,10 +1,10 @@
 # encoding=utf-8
 '''URL items.'''
 import collections
+import gettext
 import logging
 
 from wpull.url import URLInfo
-import gettext
 
 
 _ = gettext.gettext

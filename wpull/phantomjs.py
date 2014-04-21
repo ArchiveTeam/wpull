@@ -7,6 +7,8 @@ import json
 import logging
 import subprocess
 import time
+import uuid
+
 import tornado.gen
 import tornado.httpserver
 import tornado.process
@@ -14,7 +16,6 @@ import tornado.testing
 import tornado.web
 import tornado.websocket
 import toro
-import uuid
 
 import wpull.actor
 

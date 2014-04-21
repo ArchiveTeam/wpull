@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`extended` Module
-======================
+:mod:`async` Module
+===================
 
-.. automodule:: wpull.extended
+.. automodule:: wpull.async
     :members:
     :show-inheritance:
     :private-members:

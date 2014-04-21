@@ -184,6 +184,9 @@ class TestDocument(unittest.TestCase):
             )
         )
         self.assertFalse(HTMLReader.parse_doctype(io.BytesIO(b'hello world!')))
+        self.assertFalse(HTMLReader.parse_doctype(io.BytesIO(b'')))
+        self.assertFalse(HTMLReader.parse_doctype(io.BytesIO(b'\x00')))
+        self.assertFalse(HTMLReader.parse_doctype(io.BytesIO(b'A\xfe')))
 
     def test_html_encoding(self):
         reader = HTMLReader()

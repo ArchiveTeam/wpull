@@ -92,6 +92,11 @@ def get_urls(filename, url_info, document_info):
     return None
 
 
+def wait_time(seconds):
+    assert seconds >= 0
+    return 0
+
+
 def finish_statistics(start_time, end_time, num_urls, bytes_downloaded):
     print('finish_statistics', start_time)
     assert start_time
@@ -111,5 +116,6 @@ wpull_hook.callbacks.accept_url = accept_url
 wpull_hook.callbacks.handle_response = handle_response
 wpull_hook.callbacks.handle_error = handle_error
 wpull_hook.callbacks.get_urls = get_urls
+wpull_hook.callbacks.wait_time = wait_time
 wpull_hook.callbacks.finish_statistics = finish_statistics
 wpull_hook.callbacks.exit_status = exit_status

@@ -15,13 +15,14 @@ from tempfile import NamedTemporaryFile
 import tempfile
 import time
 
+import namedlist
+
 import wpull.backport.gzip
 from wpull.namevalue import NameValueRecord
 from wpull.network import BandwidthMeter
 import wpull.util
 import wpull.version
 from wpull.warc import WARCRecord
-import namedlist
 
 
 _logger = logging.getLogger(__name__)
@@ -800,7 +801,7 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
         self._print(']')
 
     def _print_size_downloaded(self):
-        self._print(wpull.util.format_size(self._bytes_received))
+        self._print(wpull.string.format_size(self._bytes_received))
 
     def _print_duration(self):
         duration = int(time.time() - self._start_time)
@@ -810,7 +811,7 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
         if self._bandwidth_meter.num_samples:
             speed = self._bandwidth_meter.speed()
             speed_str = _('{preformatted_file_size}/s').format(
-                preformatted_file_size=wpull.util.format_size(speed)
+                preformatted_file_size=wpull.string.format_size(speed)
             )
         else:
             speed_str = _('-- B/s')

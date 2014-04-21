@@ -17,16 +17,17 @@ wpull Package
 .. toctree::
    api/actor
    api/app
+   api/async
    api/cache
    api/cookie
    api/collections
    api/conversation
    api/converter
    api/database
+   api/decompression
    api/document
    api/engine
    api/errors
-   api/extended
    api/factory
    api/hook
    api/http
@@ -47,6 +48,7 @@ wpull Package
    api/robotstxt
    api/scraper
    api/stats
+   api/string
    api/url
    api/urlfilter
    api/util
