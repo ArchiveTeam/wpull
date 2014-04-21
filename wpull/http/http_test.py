@@ -394,7 +394,7 @@ class TestConnection(BadAppTestCase):
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_mock_request_socket_error(self):
         @tornado.gen.coroutine
-        def mock_func(dummy):
+        def mock_func():
             if sys.version_info < (3, 3):
                 raise socket.error(123, 'Mock error')
             else:
@@ -410,7 +410,7 @@ class TestConnection(BadAppTestCase):
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_mock_request_ssl_error(self):
         @tornado.gen.coroutine
-        def mock_func(dummy):
+        def mock_func():
             if sys.version_info < (3, 3):
                 raise socket.error(123, 'Mock error')
             else:
@@ -559,7 +559,7 @@ class TestHTTP(unittest.TestCase):
             (b'GET /robots.txt HTTP/1.1\r\n'
             b'Host: example.com\r\n'
             b'\r\n'),
-            request.header()
+            request.to_bytes()
         )
 
     def test_request_port(self):
@@ -568,7 +568,7 @@ class TestHTTP(unittest.TestCase):
             (b'GET /robots.txt HTTP/1.1\r\n'
             b'Host: example.com:4567\r\n'
             b'\r\n'),
-            request.header()
+            request.to_bytes()
         )
 
     def test_parse_charset(self):
@@ -598,37 +598,51 @@ class TestHTTP(unittest.TestCase):
         )
 
     def test_parse_status_line(self):
-        version, code, msg = Response.parse_status_line(b'HTTP/1.0 200 OK')
+        version, code, msg, encoding = Response.parse_status_line(
+            b'HTTP/1.0 200 OK'
+        )
         self.assertEqual('HTTP/1.0', version)
         self.assertEqual(200, code)
         self.assertEqual('OK', msg)
+        self.assertEqual('utf-8', encoding)
 
-        version, code, msg = Response.parse_status_line(
-            b'HTTP/1.0 404 Not Found')
+        version, code, msg, encoding = Response.parse_status_line(
+            b'HTTP/1.0 404 Not Found'
+        )
         self.assertEqual('HTTP/1.0', version)
         self.assertEqual(404, code)
         self.assertEqual('Not Found', msg)
+        self.assertEqual('utf-8', encoding)
 
-        version, code, msg = Response.parse_status_line(b'HTTP/1.1  200   OK')
+        version, code, msg, encoding = Response.parse_status_line(
+            b'HTTP/1.1  200   OK'
+        )
         self.assertEqual('HTTP/1.1', version)
         self.assertEqual(200, code)
         self.assertEqual('OK', msg)
+        self.assertEqual('utf-8', encoding)
 
-        version, code, msg = Response.parse_status_line(b'HTTP/1.1  200')
+        version, code, msg, encoding = Response.parse_status_line(
+            b'HTTP/1.1  200'
+        )
+        self.assertEqual('HTTP/1.1', version)
+        self.assertEqual(200, code)
+        self.assertEqual('', msg)
+        self.assertEqual('utf-8', encoding)
+
+        version, code, msg, encoding = Response.parse_status_line(
+            b'HTTP/1.1  200  '
+        )
         self.assertEqual('HTTP/1.1', version)
         self.assertEqual(200, code)
         self.assertEqual('', msg)
 
-        version, code, msg = Response.parse_status_line(b'HTTP/1.1  200  ')
-        self.assertEqual('HTTP/1.1', version)
-        self.assertEqual(200, code)
-        self.assertEqual('', msg)
-
-        version, code, msg = Response.parse_status_line(
+        version, code, msg, encoding = Response.parse_status_line(
             'HTTP/1.1 200 ððð'.encode('latin-1'))
         self.assertEqual('HTTP/1.1', version)
         self.assertEqual(200, code)
         self.assertEqual('ððð', msg)
+        self.assertEqual('latin-1', encoding)
 
         self.assertRaises(
             ProtocolError,
@@ -639,11 +653,12 @@ class TestHTTP(unittest.TestCase):
             Response.parse_status_line, b'HTTP/2.0'
         )
 
-        version, code, msg = Response.parse_status_line(
+        version, code, msg, encoding = Response.parse_status_line(
             b'HTTP/1.0 404 N\x99t \x0eounz\r\n')
         self.assertEqual('HTTP/1.0', version)
         self.assertEqual(404, code)
         self.assertEqual(b'N\x99t \x0eounz'.decode('latin-1'), msg)
+        self.assertEqual('latin-1', encoding)
 
     def test_connection_should_close(self):
         self.assertTrue(Connection.should_close('HTTP/1.0', None))

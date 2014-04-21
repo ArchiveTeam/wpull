@@ -274,7 +274,7 @@ class WebProcessorSession(object):
 
         try:
             response = yield self._rich_client_session.fetch(
-                response_factory=self._new_response_factory()
+                pre_response_callback=self._pre_response_callback
             )
         except (NetworkError, ProtocolError) as error:
             _logger.error(
@@ -388,20 +388,13 @@ class WebProcessorSession(object):
         with wpull.util.reset_file_offset(request.body.content_file):
             request.body.content_file.write(data)
 
-    def _new_response_factory(self):
+    def _pre_response_callback(self, response):
         '''Return a new Response factory.'''
-        def factory(*args, **kwargs):
-            # TODO: Response should be dependency injected
-            response = Response(*args, **kwargs)
-            root = self._processor.root_path
-            response.body.content_file = Body.new_temp_file(root)
+        root = self._processor.root_path
+        response.body.content_file = Body.new_temp_file(root)
 
-            if self._file_writer_session:
-                self._file_writer_session.process_response(response)
-
-            return response
-
-        return factory
+        if self._file_writer_session:
+            self._file_writer_session.process_response(response)
 
     def _handle_response(self, response):
         '''Process the response.'''

@@ -229,10 +229,11 @@ class RichClientSession(object):
         '''Fetch the request.
 
         Args:
-            kwargs: Extra arguments passed to :func:`Client.fetch`.
+            kwargs: Extra arguments passed to
+                :meth:`.http.client.Client.fetch`.
 
         Returns:
-            Response: An instance of :class:`Response`.
+            Response: An instance of :class:`.http.request.Response`.
         '''
         request = self.next_request
         assert request

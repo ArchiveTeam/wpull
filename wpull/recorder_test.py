@@ -55,10 +55,10 @@ class RecorderTest(unittest.TestCase):
 
         with warc_recorder.session() as session:
             session.pre_request(request)
-            session.request_data(request.header())
+            session.request_data(request.to_bytes())
             session.request(request)
             session.pre_response(response)
-            session.response_data(response.header())
+            session.response_data(response.to_bytes())
             session.response_data(response.body.content)
             session.response(response)
 
@@ -160,10 +160,10 @@ class RecorderTest(unittest.TestCase):
 
         with warc_recorder.session() as session:
             session.pre_request(request)
-            session.request_data(request.header())
+            session.request_data(request.to_bytes())
             session.request(request)
             session.pre_response(response)
-            session.response_data(response.header())
+            session.response_data(response.to_bytes())
             session.response_data(response.body.content)
             session.response(response)
 
@@ -176,10 +176,10 @@ class RecorderTest(unittest.TestCase):
 
         with warc_recorder.session() as session:
             session.pre_request(request)
-            session.request_data(request.header())
+            session.request_data(request.to_bytes())
             session.request(request)
             session.pre_response(response)
-            session.response_data(response.header())
+            session.response_data(response.to_bytes())
             session.response_data(response.body.content)
             session.response(response)
 
@@ -242,7 +242,7 @@ class RecorderTest(unittest.TestCase):
 
         with warc_recorder.session() as session:
             session.pre_request(request)
-            session.request_data(request.header())
+            session.request_data(request.to_bytes())
 
             class BadRecord(WARCRecord):
                 def __init__(self, original_record):
@@ -288,17 +288,17 @@ class RecorderTest(unittest.TestCase):
         request = Request.new('http://example.com/fennec')
         request.address = ('0.0.0.0', 80)
         response = Response('HTTP/1.1', '200', 'OK')
-        revisit_response_header_size = len(response.header())
+        revisit_response_header_size = len(response.to_bytes())
 
         with wpull.util.reset_file_offset(response.body.content_file):
             response.body.content_file.write(b'kitbit')
 
         with warc_recorder.session() as session:
             session.pre_request(request)
-            session.request_data(request.header())
+            session.request_data(request.to_bytes())
             session.request(request)
             session.pre_response(response)
-            session.response_data(response.header())
+            session.response_data(response.to_bytes())
             session.response_data(response.body.content)
             session.response(response)
 
@@ -311,10 +311,10 @@ class RecorderTest(unittest.TestCase):
 
         with warc_recorder.session() as session:
             session.pre_request(request)
-            session.request_data(request.header())
+            session.request_data(request.to_bytes())
             session.request(request)
             session.pre_response(response)
-            session.response_data(response.header())
+            session.response_data(response.to_bytes())
             session.response_data(response.body.content)
             session.response(response)
 

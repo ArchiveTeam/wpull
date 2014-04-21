@@ -38,8 +38,9 @@ class Client(BaseClient):
         '''Fetch a document.
 
         Args:
-            request (Request): An instance of :class:`Request`.
-            kwargs: Any keyword arguments to pass to :func:`Connection.fetch`.
+            request (Request): An instance of :class:`.http.request.Request`.
+            kwargs: Any keyword arguments to pass to
+                :meth:`.http.connection.Connection.fetch`.
 
         Returns:
             Response: An instance of :class:`Response`.

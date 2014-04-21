@@ -190,13 +190,15 @@ class Connection(object):
             _logger.debug('Connected.')
 
     @tornado.gen.coroutine
-    def fetch(self, request, recorder=None, response_factory=Response):
+    def fetch(self, request, recorder=None, pre_response_callback=None):
         '''Fetch a document.
 
         Args:
             request: :class:`Request`
             recorder: :class:`.recorder.BaseRecorder`
-            response_factory: a callable object that makes a :class:`Response`.
+            pre_response_callback: A function that will be called with an
+                instance of :class:`.http.request.Response` as soon as
+                the HTTP header is received.
 
         If an exception occurs, this function will close the connection
         automatically.
@@ -218,10 +220,10 @@ class Connection(object):
                 with recorder.session() as recorder_session:
                     self._events.attach(recorder_session)
                     response = yield self._process_request(request,
-                        response_factory)
+                        pre_response_callback)
             else:
                 response = yield self._process_request(request,
-                    response_factory)
+                    pre_response_callback)
 
             response.url_info = request.url_info
         except:
@@ -241,7 +243,7 @@ class Connection(object):
         raise tornado.gen.Return(response)
 
     @tornado.gen.coroutine
-    def _process_request(self, request, response_factory):
+    def _process_request(self, request, pre_response_callback):
         '''Fulfill a single request.
 
         Returns:
@@ -265,7 +267,11 @@ class Connection(object):
             yield self._send_request_body(request)
             self._events.request.fire(request)
 
-            response = yield self._read_response_header(response_factory)
+            response = yield self._read_response_header()
+
+            if pre_response_callback:
+                pre_response_callback(response)
+
             # TODO: handle 100 Continue
 
             yield self._read_response_body(request, response)
@@ -298,7 +304,7 @@ class Connection(object):
     def _send_request_header(self, request):
         '''Send the request's HTTP status line and header fields.'''
         _logger.debug('Sending headers.')
-        data = request.header()
+        data = request.to_bytes()
         self._events.request_data.fire(data)
         yield self._io_stream.write(data)
 
@@ -311,7 +317,7 @@ class Connection(object):
             yield self._io_stream.write(data)
 
     @tornado.gen.coroutine
-    def _read_response_header(self, response_factory):
+    def _read_response_header(self):
         '''Read the response's HTTP status line and header fields.'''
         _logger.debug('Reading header.')
 
@@ -322,9 +328,8 @@ class Connection(object):
         self._events.response_data.fire(response_header_data)
 
         status_line, header = response_header_data.split(b'\n', 1)
-        version, status_code, status_reason = Response.parse_status_line(
-            status_line)
-        response = response_factory(version, status_code, status_reason)
+        response = Response()
+        response.parse(status_line)
         response.fields.parse(header, strict=False)
         self._events.pre_response.fire(response)
 

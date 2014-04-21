@@ -482,7 +482,7 @@ class WARCRecorderSession(BaseRecorderSession):
         self._request_record.block_file.write(data)
 
     def request(self, request):
-        payload_offset = len(request.header())
+        payload_offset = len(request.to_bytes())
 
         self._request_record.block_file.seek(0)
         self._recorder.set_length_and_maybe_checksums(
@@ -503,7 +503,7 @@ class WARCRecorderSession(BaseRecorderSession):
         self._response_temp_file.write(data)
 
     def response(self, response):
-        payload_offset = len(response.header())
+        payload_offset = len(response.to_bytes())
 
         self._response_record.block_file.seek(0)
         self._recorder.set_length_and_maybe_checksums(
@@ -589,7 +589,7 @@ class PrintServerResponseRecorder(BaseRecorder):
 class PrintServerResponseRecorderSession(BaseRecorderSession):
     '''Print Server Response Recorder Session.'''
     def response(self, response):
-        print(response.header().decode())
+        print(response.to_str())
 
 
 class ProgressRecorder(BaseRecorder):

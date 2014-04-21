@@ -2,43 +2,29 @@
 '''HTTP conversation objects.'''
 import re
 
-from wpull.conversation import BaseRequest, Body, BaseResponse
+from wpull.conversation import BaseRequest, BaseResponse
 from wpull.errors import ProtocolError
-from wpull.namevalue import NameValueRecord
 import wpull.string
 from wpull.url import URLInfo
-import wpull.util
 
 
 class Request(BaseRequest):
-    '''Represents an HTTP request.
+    '''Represents an HTTP request.'''
+    def __init__(self, method=None, resource_name=None, version='HTTP/1.1'):
+        super().__init__(version, method, resource_name)
 
-    Attributes:
-        method (str): The HTTP method in the status line. For example, ``GET``,
-            ``POST``.
-        resource_url (str): The "path" in the status line.
-        url_info (URLInfo): An instance of :class:`.url.URLInfo` for the
-            request.
-        version (str): The HTTP version in the status line. For example,
-            ``HTTP/1.0``.
-        fields (NameValueRecord): An instance of
-            :class:`.namevalue.NameValueRecord` representing  the fields in
-            the HTTP header.
-        body (Body): An instance of :class:`.conversation.Body`.
-        address (tuple): An address tuple suitable for :func:`socket.connect`.
-    '''
-    def __init__(self, method, resource_url, version='HTTP/1.1'):
-        self.method = method
-        self.resource_url = resource_url
-        self.url_info = None
-        self.version = version
-        self.fields = NameValueRecord()
-        self.body = Body()
-        self.address = None
+    @property
+    def version(self):
+        '''An alias of :attr:`protocol`.'''
+        return self.protocol
+
+    @version.setter
+    def version(self, new_ver):
+        self.protocol = new_ver
 
     @classmethod
     def new(cls, url, method='GET', url_encoding='utf-8'):
-        '''Create a new request from the URL string.
+        '''Create a new request from a URL string.
 
         Args:
             url (str): The URL.
@@ -58,16 +44,18 @@ class Request(BaseRequest):
         request = Request(method.upper(), resource_path)
         request.url_info = url_info
         request.fields['Host'] = url_info.hostname_with_port
+        request.encoding = 'utf-8'
 
         return request
 
     @classmethod
-    def parse_status_line(cls, string):
+    def parse_status_line(cls, string, encoding='utf-8',
+    fallback_encoding='latin-1'):
         '''Parse the status line bytes.
 
         Returns:
-            tuple: An tuple representing the method, resource path, and
-            version.
+            tuple: An tuple representing the method, resource name,
+            version, and character encoding of the resource name.
         '''
         match = re.match(
             br'([a-zA-Z]+)[ \t]+([^ \t]+)[ \t]+(HTTP/1\.[01])',
@@ -76,54 +64,67 @@ class Request(BaseRequest):
         if match:
             groups = match.groups()
             if len(groups) == 3:
-                return wpull.string.to_str(
-                    (groups[0], groups[1], groups[2]),
-                    encoding='latin-1',
-                )
+                try:
+                    return wpull.string.to_str(
+                        (groups[0], groups[1], groups[2], encoding),
+                        encoding=encoding
+                    )
+                except UnicodeError:
+                    return wpull.string.to_str(
+                        (groups[0], groups[1], groups[2], fallback_encoding),
+                        encoding=fallback_encoding
+                    )
 
         raise ProtocolError('Error parsing status line ‘{0}’'.format(string))
 
-    def header(self):
-        '''Return the HTTP header as bytes.'''
+    def parse(self, data):
+        '''Parse the HTTP status line.'''
+        (
+            self.method,
+            self.resource_name,
+            self.version,
+            self.encoding
+        ) = self.parse_status_line(data)
+
+    def to_str(self):
+        '''Return the HTTP status line as a string.'''
         return '{0} {1} {2}\r\n{3}\r\n'.format(
             self.method, self.resource_url, self.version, str(self.fields)
-        ).encode('utf-8')
-
-    def __repr__(self):
-        return '<Request({method}, {url}, {version})>'.format(
-            method=self.method, url=self.resource_url, version=self.version
         )
+
+    def to_bytes(self):
+        '''Return the HTTP status line as bytes.'''
+        status_line = '{0} {1} {2}\r\n'.format(
+            self.method, self.resource_name, self.version
+        ).encode(self.encoding)
+        fields = '{0}\r\n'.format(str(self.fields))\
+            .encode(self.fields.encoding)
+
+        return status_line + fields
 
 
 class Response(BaseResponse):
-    '''Represents the HTTP response.
+    '''Represents the HTTP response.'''
+    def __init__(self, version=None, status_code=None, status_reason=None):
+        super().__init__(version, status_code, status_reason)
 
-    Attributes:
-        version (str): The HTTP version in the status line. For example,
-            ``HTTP/1.1``.
-        status_code (int): The status code in the status line.
-        status_reason (str): The status reason string in the status line.
-        fields (NameValueRecord): An instance of
-            :class:`.namevalue.NameValueRecord` containing the HTTP header
-            (and trailer, if present) fields.
-        body (Body): An instance of :class:`.conversation.Body`.
-        url_info (URLInfo): An instance of :class:`.url.URLInfo` for the
-            of the corresponding request.
-    '''
-    def __init__(self, version, status_code, status_reason):
-        self.version = version
-        self.status_code = status_code
-        self.status_reason = status_reason
-        self.fields = NameValueRecord()
-        self.body = Body()
-        self.url_info = None
+    @property
+    def version(self):
+        '''An alias of :attr:`protocol`.'''
+        return self.protocol
+
+    @version.setter
+    def version(self, new_ver):
+        self.protocol = new_ver
 
     @classmethod
-    def parse_status_line(cls, string):
+    def parse_status_line(cls, string, encoding='utf-8',
+    fallback_encoding='latin-1'):
         '''Parse the status line bytes.
 
         Returns:
-            tuple: An tuple representing the version, code, and reason.
+            tuple: An tuple representing the version, status code,
+            status reason, and character encoding of the status reason.
         '''
         match = re.match(
             br'(HTTP/1\.[01])[ \t]+([0-9]{1,3})[ \t]*([^\r\n]*)',
@@ -132,34 +133,50 @@ class Response(BaseResponse):
         if match:
             groups = match.groups()
             if len(groups) == 3:
-                return wpull.string.to_str(
-                    (groups[0], int(groups[1]), groups[2]),
-                    encoding='latin-1',
-                )
+                try:
+                    return wpull.string.to_str(
+                        (groups[0], int(groups[1]), groups[2], encoding),
+                        encoding=encoding
+                    )
+                except UnicodeError:
+                    return wpull.string.to_str(
+                        (groups[0], int(groups[1]), groups[2],
+                            fallback_encoding),
+                        encoding=fallback_encoding
+                    )
 
         raise ProtocolError("Error parsing status line '{0}'".format(string))
 
-    def header(self):
-        '''Return the HTTP header as bytes.'''
+    def parse(self, data):
+        '''Parse the HTTP status line.'''
+        (
+            self.version,
+            self.status_code,
+            self.status_reason,
+            self.encoding
+        ) = self.parse_status_line(data)
+
+    def to_str(self):
+        '''Return the HTTP status line as a string.'''
         return '{0} {1} {2}\r\n{3}\r\n'.format(
             self.version,
             self.status_code,
             self.status_reason,
             str(self.fields)
-        ).encode('utf-8')
-
-    def __repr__(self):
-        return '<Response({version}, {code}, {reason})>'.format(
-            version=self.version, code=self.status_code,
-            reason=self.status_reason
         )
 
+    def to_bytes(self):
+        '''Return the HTTP status line as bytes.'''
+        status_line = '{0} {1} {2}\r\n'.format(
+            self.version,
+            self.status_code,
+            self.status_reason,
+        ).encode(self.encoding)
+        fields = '{0}\r\n'.format(str(self.fields))\
+            .encode(self.fields.encoding)
+        return status_line + fields
+
     def to_dict(self):
-        '''Convert the response to a :class:`dict`.'''
-        return {
-            'version': self.version,
-            'status_code': self.status_code,
-            'status_reason': self.status_reason,
-            'body': self.body.to_dict(),
-            'url_info': self.url_info.to_dict() if self.url_info else None
-        }
+        info_dict = super().to_dict()
+        info_dict['version'] = self.version
+        return info_dict

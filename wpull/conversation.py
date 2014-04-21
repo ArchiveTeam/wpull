@@ -4,23 +4,132 @@ import abc
 import os
 import tempfile
 
+from wpull.namevalue import NameValueRecord
 import wpull.util
 
 
 class BaseRequest(object, metaclass=abc.ABCMeta):
-    '''Base class for Requests.
+    '''Abstract representation of a request.
 
-    This class has no purpose yet.
+    Attributes:
+        protocol (str): The protocol name and maybe version. For HTTP, the
+            value is typically ``HTTP/1.0`` or ``HTTP/1.1. For FTP, the value
+            is typically ``FTP``.
+        method (str): The name of the command for an operation. For example,
+            ``GET``, ``POST``, ``CWD``.
+        resource_name (str): The name of the resource. This can be a path or
+            a URL depending on the protocol.
+        encoding (str): The character encoding of the `resource_name`.
+        fields (:class:`.namevalue.NameValueRecord`): The fields in the
+            HTTP header. For other protocols, this may be empty.
+        body (:class:`Body`): The optional payload of the request.
+        url_info (:class:`.url.URLInfo`): The complete URL for the request.
+        address (tuple): An address tuple suitable for :func:`socket.connect`.
     '''
-    pass
+    def __init__(self, protocol=None, method=None, resource_name=None):
+        self.protocol = protocol
+        self.method = method
+        self.resource_name = resource_name
+        self.encoding = 'utf-8'
+        self.fields = NameValueRecord()
+        self.body = Body()
+        self.url_info = None
+        self.address = None
+
+    @abc.abstractmethod
+    def parse(self, data):
+        '''Parse the request.'''
+        pass
+
+    @abc.abstractmethod
+    def to_str(self):
+        '''Format the request to a string.
+
+        Returns:
+            str
+        '''
+        pass
+
+    @abc.abstractmethod
+    def to_bytes(self):
+        '''Format the request to bytes.
+
+        Returns:
+            bytes
+        '''
+        pass
+
+    def __repr__(self):
+        return '<Request({protocol}, {method}, {resource})>'.format(
+            protocol=self.protocol, method=self.method,
+            resource=self.resource_name
+        )
 
 
 class BaseResponse(object, metaclass=abc.ABCMeta):
-    '''Base class for Response.
+    '''Abstract representation of a response.
 
-    This class has no purpose yet.
+     Attributes:
+        protocol (str): The protocol name and maybe version. For HTTP, the
+            value is typically ``HTTP/1.0`` or ``HTTP/1.1. For FTP, the value
+            is typically ``FTP``.
+        status_code (int): The status code in the status line.
+        status_reason (str): The status reason string in the status line.
+        encoding (str): The character encoding of the `status_reason`.
+        fields (:class:`.namevalue.NameValueRecord`): The fields in the
+            HTTP header (and trailers if present).
+            For other protocols, this may be empty.
+        body (:class:`Body`): The optional payload of the response.
+        url_info (:class:`.url.URLInfo`): The complete URL for the response.
     '''
-    pass
+    def __init__(self, protocol=None, status_code=None, status_reason=None):
+        self.protocol = protocol
+        self.status_code = status_code
+        self.status_reason = status_reason
+        self.encoding = 'utf-8'
+        self.fields = NameValueRecord()
+        self.body = Body()
+        self.url_info = None
+
+    @abc.abstractmethod
+    def parse(self, data):
+        '''Parse the response.'''
+        pass
+
+    @abc.abstractmethod
+    def to_str(self):
+        '''Format the request to a string.
+
+        Returns:
+            str
+        '''
+        pass
+
+    @abc.abstractmethod
+    def to_bytes(self):
+        '''Format the request to bytes.
+
+        Returns:
+            bytes
+        '''
+        pass
+
+    def __repr__(self):
+        return '<Response({protocol}, {code}, {reason})>'.format(
+            protocol=self.protocol, code=self.status_code,
+            reason=self.status_reason
+        )
+
+    def to_dict(self):
+        '''Convert the response to a :class:`dict`.'''
+        return {
+            'protocol': self.protocol,
+            'status_code': self.status_code,
+            'status_reason': self.status_reason,
+            'body': self.body.to_dict() if self.body else None,
+            'url_info': self.url_info.to_dict() if self.url_info else None,
+            'encoding': self.encoding,
+        }
 
 
 class Body(object, metaclass=abc.ABCMeta):

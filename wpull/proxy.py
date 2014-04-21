@@ -143,7 +143,7 @@ class HTTPProxyHandler(object):
         request_header_data = yield self._io_stream.read_until_regex(
             br'\r?\n\r?\n')
         status_line, header = request_header_data.split(b'\n', 1)
-        method, url, version = Request.parse_status_line(status_line)
+        method, url, version, dummy = Request.parse_status_line(status_line)
 
         if method == 'CONNECT':
             _logger.warning('Proxy does not support CONNECT.')

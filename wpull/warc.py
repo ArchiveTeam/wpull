@@ -169,11 +169,10 @@ class WARCRecord(object):
         status_line, dummy, field_str = match.group(1).partition(b'\n')
 
         try:
-            version, code, reason = Response.parse_status_line(status_line)
+            response = Response()
+            response.parse(status_line)
         except ValueError:
             return
-
-        response = Response(version, code, reason)
 
         try:
             response.fields.parse(field_str, strict=False)
