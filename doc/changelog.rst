@@ -2,6 +2,10 @@
 What's New
 ==========
 
+
+0.33 (2014-04-21)
+===================
+
 * Fixes invalid XHTML documents not properly extracted for links.
 * Fixes crash on empty page.
 * Support for extracting links from JavaScript segments and files.
