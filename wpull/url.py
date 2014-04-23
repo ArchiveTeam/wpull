@@ -543,7 +543,7 @@ def is_likely_link(text):
     # Check if it has a alphanumeric file extension and not a decimal number
     dummy, dot, file_extension = text.rpartition('.')
 
-    if dot and file_extension:
+    if dot and file_extension and len(file_extension) <= 4:
         file_extension = frozenset(file_extension)
 
         if file_extension \
@@ -573,5 +573,17 @@ def is_unlikely_link(text):
     if text[:1] in ',;+:' or text[-1:] in '.,;+:':
         return True
 
+    if text[:1] == '.' \
+    and not text.startswith('./') \
+    and not text.startswith('../'):
+        return True
+
+    # Check for unusual characters
+    if re.search(r'''[$()'"[\]{}|]''', text):
+        return True
+
     if text in ('/', '//'):
+        return True
+
+    if '//' in text and '://' not in text and not text.startswith('//'):
         return True

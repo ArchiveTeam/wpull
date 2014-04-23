@@ -2,6 +2,8 @@
 What's New
 ==========
 
+* Uses more rules for link extraction from JavaScript to reduce false positives.
+
 
 0.33 (2014-04-21)
 ===================
