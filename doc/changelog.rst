@@ -2,6 +2,7 @@
 What's New
 ==========
 
+* Fixes ``--bind_address`` option not working. The option was never functional since the first release.
 * Uses more rules for link extraction from JavaScript to reduce false positives.
 
 

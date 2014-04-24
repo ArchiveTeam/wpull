@@ -180,6 +180,7 @@ class TestApp(GoodAppTestCase):
             '--user-agent', 'ΑΒΓαβγ',
             '--remote-encoding', 'latin1',
             '--http-compression',
+            '--bind-address', '127.0.0.1',
         ])
         with cd_tempdir():
             builder = Builder(args)
