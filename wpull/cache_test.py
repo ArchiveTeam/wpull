@@ -36,7 +36,7 @@ class TestCache(unittest.TestCase):
 
         self.assertNotIn('a', cache)
 
-    def test_lru_size(self):
+    def test_lru_size_1(self):
         cache = LRUCache(max_items=2)
 
         cache['a'] = 1
@@ -47,9 +47,32 @@ class TestCache(unittest.TestCase):
         self.assertIn('b', cache)
         self.assertEqual(2, cache['b'])
 
-        # Touch!
+        # Touch by access!
         time.sleep(0.01)
         dummy = cache['a']
+
+        cache['c'] = 3
+
+        self.assertIn('c', cache)
+        self.assertEqual(3, cache['c'])
+        self.assertNotIn('b', cache)
+        self.assertIn('a', cache)
+        self.assertEqual(1, cache['a'])
+
+    def test_lru_size_2(self):
+        cache = LRUCache(max_items=2)
+
+        cache['a'] = 1
+        cache['b'] = 2
+
+        self.assertIn('a', cache)
+        self.assertEqual(1, cache['a'])
+        self.assertIn('b', cache)
+        self.assertEqual(2, cache['b'])
+
+        # Touch by assignment!
+        time.sleep(0.01)
+        cache['a'] = 1
 
         cache['c'] = 3
 
