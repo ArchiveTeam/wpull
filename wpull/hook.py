@@ -508,9 +508,9 @@ class HookedWebProcessorSessionMixin(object):
         super()._scrape_document(request, response)
 
         to_native = self._to_script_native_type
-        filename = to_native(response.body.content_file.name)
         url_info_dict = to_native(self._request.url_info.to_dict())
         document_info_dict = to_native(response.body.to_dict())
+        filename = to_native(response.body.content_file.name)
 
         new_url_dicts = self.callbacks_hook.get_urls(
             filename, url_info_dict, document_info_dict)
