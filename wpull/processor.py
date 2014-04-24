@@ -607,7 +607,14 @@ class WebProcessorSession(object):
     def _new_phantomjs_response(self, response, content):
         '''Return a new mock Response with the content.'''
         mock_response = copy.copy(response)
-        mock_response.body.content_file = io.BytesIO(content.encode('utf-8'))
+
+        # tempfile needed for scripts that need a on-disk filename
+        mock_response.body.content_file = tempfile.SpooledTemporaryFile(
+            max_size=999999999)
+
+        mock_response.body.content_file.write(content.encode('utf-8'))
+        mock_response.body.content_file.seek(0)
+
         mock_response.fields = NameValueRecord()
 
         for name, value in response.fields.get_all():
