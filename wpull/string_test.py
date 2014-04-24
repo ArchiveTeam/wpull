@@ -10,12 +10,20 @@ class TestString(unittest.TestCase):
     def test_to_bytes(self):
         self.assertEqual(b'hi', to_bytes('hi'))
         self.assertEqual([b'hi'], to_bytes(['hi']))
+        self.assertEqual((b'hi', b'hello'), to_bytes(('hi', 'hello')))
         self.assertEqual({b'hi': b'hello'}, to_bytes({'hi': 'hello'}))
+
+        object1 = object()
+        self.assertEqual(object1, to_bytes(object1))
 
     def test_to_str(self):
         self.assertEqual('hi', to_str(b'hi'))
         self.assertEqual(['hi'], to_str([b'hi']))
+        self.assertEqual(('hi', 'hello'), to_str((b'hi', b'hello')))
         self.assertEqual({'hi': 'hello'}, to_str({b'hi': b'hello'}))
+
+        object1 = object()
+        self.assertEqual(object1, to_str(object1))
 
     def test_detect_encoding(self):
         mojibake = b'\x95\xb6\x8e\x9a\x89\xbb\x82\xaf'
