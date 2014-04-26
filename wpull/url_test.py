@@ -106,12 +106,27 @@ class TestURL(unittest.TestCase):
             'http://example.com/',
             URLInfo.parse('http://example.com:80').url
         )
+
+        # URL parsing is really different in each version of Python...
         self.assertRaises(ValueError, URLInfo.parse, '')
         self.assertRaises(ValueError, URLInfo.parse, '#')
         self.assertRaises(ValueError, URLInfo.parse, 'http://')
         self.assertRaises(ValueError, URLInfo.parse, 'example....com')
         self.assertRaises(ValueError, URLInfo.parse, 'http://example....com')
         self.assertRaises(ValueError, URLInfo.parse, 'http://example…com')
+#         self.assertRaises(ValueError, URLInfo.parse, 'http://[34.4kf]::4')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://[34.4kf::4')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://dmn3]:3a:45')
+        self.assertRaises(ValueError, URLInfo.parse, ':38/3')
+#         self.assertRaises(ValueError, URLInfo.parse, 'http://[[aa]]:4:]6')
+        self.assertNotIn('[', URLInfo.parse('http://[a]').hostname)
+        self.assertNotIn(']', URLInfo.parse('http://[a]').hostname)
+        self.assertNotIn('[', URLInfo.parse('http://[[a]').hostname)
+        self.assertNotIn(']', URLInfo.parse('http://[[a]').hostname)
+        self.assertNotIn('[', URLInfo.parse('http://[[a]]a]').hostname)
+        self.assertNotIn(']', URLInfo.parse('http://[[a]]a]').hostname)
+        self.assertNotIn('[', URLInfo.parse('http://[[a:a]]').hostname)
+        self.assertNotIn(']', URLInfo.parse('http://[[a:a]]').hostname)
 
         self.assertEqual(
             'http://example.com/blah',
@@ -261,6 +276,42 @@ class TestURL(unittest.TestCase):
             'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6',
             URLInfo.parse(
                 'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6'
+            ).url
+        )
+        self.assertEqual(
+            'http://[33.4.1]/',
+            URLInfo.parse(
+                '[[33.4.1]'
+            ).url
+        )
+        self.assertEqual(
+            'http://[33.4.1]/',
+            URLInfo.parse(
+                'http://a@[[33.4.1]'
+            ).url
+        )
+        self.assertEqual(
+            'http://[33.4.1]:123/',
+            URLInfo.parse(
+                'http://[[33.4.1]:123'
+            ).url
+        )
+        self.assertEqual(
+            'http://[aa]/',
+            URLInfo.parse(
+                'http://[[aa]]'
+            ).url
+        )
+        self.assertEqual(
+            'http://[aa]:46/',
+            URLInfo.parse(
+                'http://[[aa]]]:46'
+            ).url
+        )
+        self.assertEqual(
+            'http://[xn--1-oga]:46/',
+            URLInfo.parse(
+                'http://[[ð1]ð2]]:46'
             ).url
         )
 
@@ -491,18 +542,19 @@ class TestURL(unittest.TestCase):
         self.assertTrue(is_likely_link('https://example.com/'))
         self.assertTrue(is_likely_link('ftp://example.com'))
         self.assertTrue(is_likely_link('directory/index.html'))
-        self.assertTrue(is_likely_link('directory/another_directory'))
+        self.assertFalse(is_likely_link('directory/another_directory'))
         self.assertTrue(is_likely_link('application/windows.exe'))
-        self.assertTrue(is_likely_link('//example/admin'))
+        self.assertTrue(is_likely_link('//example.com/admin'))
         self.assertFalse(is_likely_link('12.0'))
         self.assertFalse(is_likely_link('7'))
         self.assertFalse(is_likely_link('horse'))
-        self.assertFalse(is_likely_link('application/json'))
-        self.assertFalse(is_likely_link('application/javascript'))
-        self.assertFalse(is_likely_link('text/javascript'))
-        self.assertFalse(is_likely_link('text/plain'))
         self.assertFalse(is_likely_link(''))
         self.assertFalse(is_likely_link('setTimeout(myTimer, 1000)'))
+        self.assertFalse(is_likely_link('comment.delete'))
+        self.assertFalse(is_likely_link('example.com'))
+        self.assertFalse(is_likely_link('example.net'))
+        self.assertFalse(is_likely_link('example.org'))
+        self.assertFalse(is_likely_link('example.edu'))
 
     def test_is_unlikely_link(self):
         self.assertTrue(is_unlikely_link('example.com+'))
@@ -510,6 +562,17 @@ class TestURL(unittest.TestCase):
         self.assertTrue(is_unlikely_link(':example.com'))
         self.assertTrue(is_unlikely_link(',example.com'))
         self.assertTrue(is_unlikely_link('http:'))
+        self.assertTrue(is_unlikely_link('.example.com'))
+        self.assertTrue(is_unlikely_link('doc[0]'))
+        self.assertTrue(is_unlikely_link('/'))
+        self.assertTrue(is_unlikely_link('//'))
+        self.assertTrue(is_unlikely_link('application/json'))
+        self.assertTrue(is_unlikely_link('application/javascript'))
+        self.assertTrue(is_unlikely_link('text/javascript'))
+        self.assertTrue(is_unlikely_link('text/plain'))
         self.assertFalse(is_unlikely_link('http://'))
         self.assertFalse(is_unlikely_link('example'))
         self.assertFalse(is_unlikely_link('example.com'))
+        self.assertFalse(is_unlikely_link('//example.com/assets/image.css'))
+        self.assertFalse(is_unlikely_link('./image.css'))
+        self.assertFalse(is_unlikely_link('../image.css'))

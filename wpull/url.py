@@ -183,7 +183,8 @@ class URLInfo(_URLInfoType):
         '''Normalize the hostname.'''
         if hostname:
             # Double encodes to work around issue #82 (Python #21103).
-            return hostname.encode('idna').decode('ascii')\
+            return hostname.replace('[', '')\
+                .encode('idna').decode('ascii')\
                 .encode('idna').decode('ascii')
         else:
             return hostname
@@ -261,12 +262,19 @@ class URLInfo(_URLInfoType):
         if self.scheme in self.DEFAULT_PORTS:
             return self.DEFAULT_PORTS[self.scheme] == self.port
 
+    def is_ipv6(self):
+        '''Return whether the URL is IPv6.'''
+        host_part = self.netloc.rsplit('@', 1)[-1]
+        return '[' in host_part
+
     @property
     def hostname_with_port(self):
         '''Return the hostname with port.'''
         hostname = self.hostname or ''
+        assert '[' not in hostname
+        assert ']' not in hostname
 
-        if ':' in hostname:
+        if self.is_ipv6():
             hostname = '[{0}]'.format(hostname)
 
         if self.is_port_default() or not self.port:
@@ -510,6 +518,8 @@ MIMETYPES = frozenset(
 )
 ALPHANUMERIC_CHARS = frozenset(string.ascii_letters + string.digits)
 NUMERIC_CHARS = frozenset(string.digits)
+COMMON_TLD = frozenset(['com', 'org', 'net', 'int', 'edu', 'gov', 'mil'])
+
 
 # These "likely link" functions are based from
 # https://github.com/internetarchive/heritrix3/
@@ -543,21 +553,21 @@ def is_likely_link(text):
     # Check if it has a alphanumeric file extension and not a decimal number
     dummy, dot, file_extension = text.rpartition('.')
 
-    if dot and file_extension:
-        file_extension = frozenset(file_extension)
+    if dot and file_extension and len(file_extension) <= 4:
+        file_extension_set = frozenset(file_extension)
 
-        if file_extension \
-        and file_extension <= ALPHANUMERIC_CHARS \
-        and not file_extension <= NUMERIC_CHARS:
-            return True
+        if file_extension_set \
+        and file_extension_set <= ALPHANUMERIC_CHARS \
+        and not file_extension_set <= NUMERIC_CHARS:
+            if file_extension in COMMON_TLD:
+                return False
 
-    # Forbid strings like mimetypes
-    if text in MIMETYPES:
-        return False
+            file_type = mimetypes.guess_type(text, strict=False)[0]
 
-    # I guess it's a URL?
-    if text != '/' and '/' in text:
-        return True
+            if file_type:
+                return True
+            else:
+                return False
 
 
 def is_unlikely_link(text):
@@ -573,5 +583,21 @@ def is_unlikely_link(text):
     if text[:1] in ',;+:' or text[-1:] in '.,;+:':
         return True
 
+    if text[:1] == '.' \
+    and not text.startswith('./') \
+    and not text.startswith('../'):
+        return True
+
+    # Check for unusual characters
+    if re.search(r'''[$()'"[\]{}|]''', text):
+        return True
+
     if text in ('/', '//'):
+        return True
+
+    if '//' in text and '://' not in text and not text.startswith('//'):
+        return True
+
+    # Forbid strings like mimetypes
+    if text in MIMETYPES:
         return True

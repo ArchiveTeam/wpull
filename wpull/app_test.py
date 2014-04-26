@@ -180,6 +180,7 @@ class TestApp(GoodAppTestCase):
             '--user-agent', 'ΑΒΓαβγ',
             '--remote-encoding', 'latin1',
             '--http-compression',
+            '--bind-address', '127.0.0.1',
         ])
         with cd_tempdir():
             builder = Builder(args)
@@ -742,6 +743,8 @@ class TestApp(GoodAppTestCase):
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_phantomjs(self):
         arg_parser = AppArgumentParser()
+        script_filename = os.path.join(os.path.dirname(__file__),
+            'testing', 'boring_script.py')
         args = arg_parser.parse_args([
             self.get_url('/static/simple_javascript.html'),
             '--warc-file', 'test',
@@ -752,6 +755,7 @@ class TestApp(GoodAppTestCase):
             '--phantomjs-wait', '0.1',
             '--phantomjs-scroll', '2',
             '--header', 'accept-language: dragon',
+            '--python-script', script_filename,
         ])
         builder = Builder(args)
         with cd_tempdir():

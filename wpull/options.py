@@ -917,6 +917,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         group.add_argument(
             '--warc-tempdir',
             metavar='DIRECTORY',
+            default=os.curdir,
             help=_('use temporary DIRECTORY for preparing WARC files'),
         )
 

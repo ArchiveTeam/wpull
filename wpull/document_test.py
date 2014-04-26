@@ -430,13 +430,13 @@ class TestDocument(unittest.TestCase):
         self.assertTrue(SitemapReader.is_file(
             io.BytesIO('<?xml > <urlset >'.encode('utf-16le'))
         ))
-        self.assertFalse(XMLDetector.is_file(
+        self.assertFalse(SitemapReader.is_file(
             io.BytesIO('<!DOCTYPE html><html><body>'.encode('utf-16le'))
         ))
-        self.assertFalse(XMLDetector.is_file(
+        self.assertFalse(SitemapReader.is_file(
             io.BytesIO(b'<html><body>hello<urlset>')
         ))
-        self.assertTrue(XMLDetector.is_file(
+        self.assertTrue(SitemapReader.is_file(
             io.BytesIO(b'<?xml version> <urlset>')
         ))
 
