@@ -277,7 +277,6 @@ class TestDocument(unittest.TestCase):
             {
                 'http://example.com/index-k.htm',
                 'http://example.com/index-e.htm',
-                'http://example.com/Mozilla/3',  # JS false positive
             },
             linked_urls
         )
