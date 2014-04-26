@@ -112,6 +112,11 @@ class TestURL(unittest.TestCase):
         self.assertRaises(ValueError, URLInfo.parse, 'example....com')
         self.assertRaises(ValueError, URLInfo.parse, 'http://example....com')
         self.assertRaises(ValueError, URLInfo.parse, 'http://example…com')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://[34.4kf]::4')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://[34.4kf::4')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://dmn3]:3a:45')
+        self.assertRaises(ValueError, URLInfo.parse, ':38/3')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://[[aa]]:4:]6')
 
         self.assertEqual(
             'http://example.com/blah',
@@ -261,6 +266,42 @@ class TestURL(unittest.TestCase):
             'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6',
             URLInfo.parse(
                 'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6'
+            ).url
+        )
+        self.assertEqual(
+            'http://[33.4.1]/',
+            URLInfo.parse(
+                '[[33.4.1]'
+            ).url
+        )
+        self.assertEqual(
+            'http://[33.4.1]/',
+            URLInfo.parse(
+                'http://a@[[33.4.1]'
+            ).url
+        )
+        self.assertEqual(
+            'http://[33.4.1]:123/',
+            URLInfo.parse(
+                'http://[[33.4.1]:123'
+            ).url
+        )
+        self.assertEqual(
+            'http://[aa]/',
+            URLInfo.parse(
+                'http://[[aa]]'
+            ).url
+        )
+        self.assertEqual(
+            'http://[aa]:46/',
+            URLInfo.parse(
+                'http://[[aa]]]:46'
+            ).url
+        )
+        self.assertEqual(
+            'http://[xn--1-oga]:46/',
+            URLInfo.parse(
+                'http://[[ð1]ð2]]:46'
             ).url
         )
 

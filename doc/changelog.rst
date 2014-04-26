@@ -5,6 +5,7 @@ What's New
 * Fixes ``--bind_address`` option not working. The option was never functional since the first release.
 * Fixes AttributeError crash when ``--phantom-js`` and ``--X-script`` options were used. Thanks to yipdw for reporting.
 * Fixes ``--warc-tempdir`` to use the current directory by default.
+* Fixes bad formatting and crash on links with malformed IPv6 addresses.
 * Uses more rules for link extraction from JavaScript to reduce false positives.
 
 

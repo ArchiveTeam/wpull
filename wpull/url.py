@@ -183,7 +183,8 @@ class URLInfo(_URLInfoType):
         '''Normalize the hostname.'''
         if hostname:
             # Double encodes to work around issue #82 (Python #21103).
-            return hostname.encode('idna').decode('ascii')\
+            return re.sub(r'[[\]]', '', hostname)\
+                .encode('idna').decode('ascii')\
                 .encode('idna').decode('ascii')
         else:
             return hostname
@@ -261,12 +262,17 @@ class URLInfo(_URLInfoType):
         if self.scheme in self.DEFAULT_PORTS:
             return self.DEFAULT_PORTS[self.scheme] == self.port
 
+    def is_ipv6(self):
+        '''Return whether the URL is IPv6.'''
+        host_part = self.netloc.rsplit('@', 1)[-1]
+        return '[' in host_part
+
     @property
     def hostname_with_port(self):
         '''Return the hostname with port.'''
         hostname = self.hostname or ''
 
-        if ':' in hostname:
+        if self.is_ipv6():
             hostname = '[{0}]'.format(hostname)
 
         if self.is_port_default() or not self.port:
