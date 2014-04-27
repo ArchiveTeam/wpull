@@ -11,6 +11,7 @@ import os.path
 import ssl
 import sys
 import tempfile
+
 import tornado.ioloop
 import tornado.testing
 
@@ -29,7 +30,8 @@ from wpull.namevalue import NameValueRecord
 from wpull.network import Resolver
 from wpull.phantomjs import PhantomJSClient
 from wpull.processor import (WebProcessor, PhantomJSController,
-    WebProcessorFetchParams, WebProcessorInstances)
+    WebProcessorFetchParams, WebProcessorInstances, FTPProcessor,
+    ProcessorDelegator)
 from wpull.proxy import HTTPProxyServer
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
     PrintServerResponseRecorder, ProgressRecorder, OutputDocumentRecorder,
@@ -81,6 +83,7 @@ class Builder(object):
             'DemuxRecorder': DemuxRecorder,
             'DemuxURLFilter': DemuxURLFilter,
             'Engine': Engine,
+            'FTPProcessor': FTPProcessor,
             'HostConnectionPool': HostConnectionPool,
             'HTTPProxyServer': HTTPProxyServer,
             'HTMLScraper': HTMLScraper,
@@ -90,6 +93,7 @@ class Builder(object):
             'PhantomJSClient': PhantomJSClient,
             'PhantomJSController': PhantomJSController,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
+            'ProcessorDelegator': ProcessorDelegator,
             'ProgressRecorder': ProgressRecorder,
             'RedirectTracker': RedirectTracker,
             'Request': Request,
@@ -612,6 +616,14 @@ class Builder(object):
         Returns:
             Processor: An instance of :class:`.processor.BaseProcessor`.
         '''
+        return self._factory.new(
+            'ProcessorDelegator',
+            self._build_web_processor(),
+            self._build_ftp_processor()
+        )
+
+    def _build_web_processor(self):
+        '''Create the web processor.'''
         args = self._args
         url_filter = self._factory.new('DemuxURLFilter',
             self._build_url_filters())
@@ -657,6 +669,11 @@ class Builder(object):
             web_processor_instances
         )
 
+        return processor
+
+    def  _build_ftp_processor(self):
+        '''Create the FTP processor.'''
+        processor = self._factory.new('FTPProcessor')
         return processor
 
     def _build_file_writer(self):

@@ -56,11 +56,36 @@ class BaseProcessor(object, metaclass=abc.ABCMeta):
         It must call one of :meth:`.engine.URLItem.set_status` or
         :meth:`.engine.URLItem.skip`.
         '''
-        pass
+        raise NotImplementedError()
 
     def close(self):
         '''Run any clean up actions.'''
         pass
+
+
+class ProcessorDelegator(BaseProcessor):
+    '''Delegates processing to Web or FTP processors.
+
+    Args:
+        web_processor: The Web processor.
+        ftp_processor: The FTP processor.
+    '''
+    def __init__(self, web_processor, ftp_processor):
+        self._web_processor = web_processor
+        self._ftp_processor = ftp_processor
+
+    @tornado.gen.coroutine
+    def process(self, url_item):
+        if url_item.url_info.scheme in ('http', 'https'):
+            yield self._web_processor.process(url_item)
+        elif url_item.url_info.scheme == 'ftp':
+            yield self._web_processor.process(url_item)
+        else:
+            raise Exception('No processor to handle item.')
+
+    def close(self):
+        self._web_processor.close()
+        self._ftp_processor.close()
 
 
 WebProcessorFetchParams = namedlist.namedtuple(
@@ -876,3 +901,7 @@ class PhantomJSController(object):
 
         self._warc_recorder.set_length_and_maybe_checksums(record)
         self._warc_recorder.write_record(record)
+
+
+class FTPProcessor(BaseProcessor):
+    '''FTP processor.'''
