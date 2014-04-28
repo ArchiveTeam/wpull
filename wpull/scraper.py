@@ -221,11 +221,17 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         robots_check_needed = self._robots
         robots_no_follow = False
         inject_refresh = True
+        doc_base_url = None
 
         for element in elements:
             if robots_check_needed and self.robots_cannot_follow(element):
                 robots_check_needed = False
                 robots_no_follow = True
+
+            if not doc_base_url and element.tag == 'base':
+                doc_base_url = urljoin_safe(
+                    base_url, clean_link_soup(element.attrib.get('href', ''))
+                )
 
             link_infos = self.iter_links_element(element)
 
@@ -253,7 +259,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
                 if not self._is_accepted(link_info.tag):
                     continue
 
-                element_base_url = base_url
+                element_base_url = doc_base_url or base_url
 
                 if link_info.base_link:
                     clean_base_url = clean_link_soup(link_info.base_link)

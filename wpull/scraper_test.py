@@ -183,6 +183,40 @@ class TestDocument(unittest.TestCase):
             linked_urls
         )
 
+    def test_html_scraper_links_base_href(self):
+        scraper = HTMLScraper()
+        request = Request.new('http://example.com/')
+        response = Response('HTTP/1.0', 200, 'OK')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            html_file_path = os.path.join(os.path.dirname(__file__),
+                'testing', 'samples', 'basehref.html')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body.content_file)
+
+        scrape_info = scraper.scrape(request, response)
+        inline_urls = scrape_info['inline_urls']
+        linked_urls = scrape_info['linked_urls']
+
+        self.assertEqual('utf-8', scrape_info['encoding'])
+
+        self.assertEqual({
+            'http://cdn.example.com/stylesheet1.css',
+            'http://www.example.com/stylesheet2.css',
+            'http://example.com/a/stylesheet3.css',
+            'http://example.com/a/dir/image1.png',
+            'http://example.com/dir/image2.png',
+            'http://example.net/image3.png',
+            'http://example.com/dir/image4.png',
+            },
+            inline_urls
+        )
+        self.assertEqual({
+            'http://example.com/a/'
+            },
+            linked_urls
+        )
+
     def test_xhtml(self):
         scraper = HTMLScraper()
         request = Request.new('http://example.com/')

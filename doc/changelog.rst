@@ -2,6 +2,9 @@
 What's New
 ==========
 
+* Fixes links not resolved correctly when document includes ``<base href="...">`` element.
+
+
 0.33.1 (2014-04-26)
 ===================
 
