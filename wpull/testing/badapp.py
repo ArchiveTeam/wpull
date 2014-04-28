@@ -619,7 +619,7 @@ class BadAppTestCase(AsyncTestCase):
     @tornado.gen.coroutine
     def fetch(self, path):
         response = yield self.connection.fetch(Request.new(self.get_url(path)),
-            DebugPrintRecorder())
+            recorder=DebugPrintRecorder())
         raise tornado.gen.Return(response)
 
     def get_http_port(self):

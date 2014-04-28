@@ -1,11 +1,26 @@
 # encoding=utf-8
 '''Protocol interaction session elements.'''
 import abc
+import errno
+import logging
 import os
+import socket
+import ssl
+import sys
 import tempfile
 
+import tornado.gen
+from tornado.iostream import StreamClosedError
+
+from wpull.errors import SSLVerficationError, ConnectionRefused, NetworkError, \
+    ProtocolError
+from wpull.iostream import SSLIOStream, IOStream, BufferFullError
 from wpull.namevalue import NameValueRecord
+from wpull.network import Resolver
 import wpull.util
+
+
+_logger = logging.getLogger(__name__)
 
 
 class BaseRequest(object, metaclass=abc.ABCMeta):
@@ -216,6 +231,207 @@ class Body(object, metaclass=abc.ABCMeta):
             'filename': self.content_file.name,
             'content_size': self.content_size,
         }
+
+
+class RecorderEvent(object):
+    def __init__(self):
+        self._recorder_sessions = []
+
+    def add(self, recorder_session):
+        self._recorder_sessions.append(recorder_session)
+
+    def clear(self):
+        self._recorder_sessions = []
+
+    def pre_request(self, request):
+        for session in self._recorder_sessions:
+            session.pre_request(request)
+
+    def request(self, request):
+        for session in self._recorder_sessions:
+            session.request(request)
+
+    def pre_response(self, response):
+        for session in self._recorder_sessions:
+            session.pre_response(response)
+
+    def response(self, response):
+        for session in self._recorder_sessions:
+            session.response(response)
+
+    def request_data(self, data):
+        for session in self._recorder_sessions:
+            session.request_data(data)
+
+    def response_data(self, data):
+        for session in self._recorder_sessions:
+            session.response_data(data)
+
+
+class BaseConnection(object, metaclass=abc.ABCMeta):
+    '''Base class for connections.'''
+    def __init__(self, address, resolver=None):
+        self._original_address = address
+        self._resolver = resolver or Resolver()
+        self._resolved_address = None
+        self._address_family = None
+        self._active = False
+        self._recorder_event = RecorderEvent()
+
+    @tornado.gen.coroutine
+    def _resolve_address(self):
+        '''Resolve the address.'''
+        host, port = self._original_address
+        result = yield self._resolver.resolve(host, port)
+        self._address_family, self._resolved_address = result
+
+    def _new_socket(self, bind_address=None):
+        '''Return a new socket bound to resolved address.'''
+        socket_obj = socket.socket(self._address_family, socket.SOCK_STREAM)
+
+        _logger.debug(
+            'Socket to {0}/{1}.'.format(
+                self._address_family, self._resolved_address)
+        )
+
+        if bind_address:
+            _logger.debug('Binding socket to {0}'.format(bind_address))
+            socket_obj.bind(bind_address)
+
+        return socket_obj
+
+    def _new_iostream(self, socket_obj, timeout=None, max_buffer_size=1048576,
+    ssl_options=None):
+        '''Return a new IOStream.'''
+        if ssl_options is not None:
+            return SSLIOStream(
+                socket_obj,
+                max_buffer_size=max_buffer_size,
+                rw_timeout=timeout,
+                ssl_options=ssl_options or {},
+                server_hostname=self._original_address[0],
+            )
+        else:
+            return IOStream(
+                socket_obj,
+                rw_timeout=timeout,
+                max_buffer_size=max_buffer_size,
+            )
+
+    @tornado.gen.coroutine
+    def _connect_io_stream(self, address, io_stream, timeout=None):
+        '''Connect the IOStream.'''
+        _logger.debug('Connecting IO stream to {0}.'.format(address))
+
+        try:
+            yield io_stream.connect(address, timeout=timeout)
+        except (
+            tornado.netutil.SSLCertificateError, SSLVerficationError
+        ) as error:
+            raise SSLVerficationError('Certificate error: {error}'.format(
+                error=error)) from error
+        except (ssl.SSLError, socket.error) as error:
+            if error.errno == errno.ECONNREFUSED:
+                raise ConnectionRefused('Connection refused: {error}'.format(
+                    error=error)) from error
+            else:
+                raise NetworkError('Connection error: {error}'.format(
+                    error=error)) from error
+        else:
+            _logger.debug('Connected IO stream.')
+
+    def active(self):
+        '''Return whether the connection is in use due to a fetch in progress.
+        '''
+        return self._active
+
+    @abc.abstractmethod
+    def connected(self):
+        '''Return whether the connection is connected.'''
+
+    @abc.abstractmethod
+    def close(self):
+        '''Close the connection if open.'''
+
+    @tornado.gen.coroutine
+    def fetch(self, request, pre_response_callback=None, recorder=None):
+        '''Fetch a document.
+
+        Args:
+            request (:class:`BaseRequest`): The request.
+            pre_response_callback: A function that will be called with an
+                instance of :class:`BaseResponse` as soon as
+                the HTTP header or FTP data is received.
+            recorder (:class:`.recorder.BaseRecorder`): The Recorder.
+
+        If an exception occurs, this function will close the connection
+        automatically.
+
+        Returns:
+            Response: An instance of :class:`BaseResponse`
+
+        Raises:
+            Exception: Exceptions specified in :mod:`.errors`.
+        '''
+        _logger.debug('Request {0}.'.format(request))
+
+        assert not self._active
+
+        self._active = True
+
+        yield self._connect()
+
+        if sys.version_info < (3, 3):
+            error_class = (socket.error, StreamClosedError, ssl.SSLError)
+        else:
+            error_class = (ConnectionError, StreamClosedError, ssl.SSLError)
+
+        try:
+            if recorder:
+                with recorder.session() as session:
+                    self._recorder_event.add(session)
+                    response = yield self._process_request(
+                        request, pre_response_callback
+                    )
+            else:
+                response = yield self._process_request(
+                    request, pre_response_callback
+                )
+
+            response.url_info = request.url_info
+        except error_class as error:
+            self.close()
+            raise NetworkError('Network error: {0}'.format(error)) from error
+        except BufferFullError as error:
+            self.close()
+            raise ProtocolError(*error.args) from error
+        except Exception:
+            _logger.debug('Unknown fetch exception.')
+            self.close()
+            raise
+        finally:
+            self._recorder_event.clear()
+            self._active = False
+
+        _logger.debug('Fetching done.')
+
+        raise tornado.gen.Return(response)
+
+    @abc.abstractmethod
+    @tornado.gen.coroutine
+    def _connect(self):
+        '''Connect or reconnect.'''
+        pass
+
+    @abc.abstractmethod
+    @tornado.gen.coroutine
+    def _process_request(self, request, pre_response_callback):
+        '''Fulfill a single request.
+
+        Returns:
+            Response
+        '''
+        pass
 
 
 class BaseClient(object, metaclass=abc.ABCMeta):

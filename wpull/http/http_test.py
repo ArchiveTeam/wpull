@@ -4,6 +4,7 @@ import os.path
 import socket
 import ssl
 import sys
+
 import tornado.testing
 import tornado.web
 
@@ -14,7 +15,7 @@ from wpull.http.client import Client
 from wpull.http.connection import (Connection, ConnectionPool, HostConnectionPool,
     ConnectionParams)
 from wpull.http.request import Request, Response
-from wpull.http.util import parse_charset
+from wpull.http.util import parse_charset, is_connection_close
 from wpull.recorder import DebugPrintRecorder
 from wpull.testing.badapp import BadAppTestCase
 
@@ -317,7 +318,7 @@ class TestConnection(BadAppTestCase):
     def test_head_no_content(self):
         yield self.connection.fetch(
             Request.new(self.get_url('/no_content'), method='HEAD'),
-            DebugPrintRecorder()
+            recorder=DebugPrintRecorder()
         )
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
@@ -661,17 +662,17 @@ class TestHTTP(unittest.TestCase):
         self.assertEqual('latin-1', encoding)
 
     def test_connection_should_close(self):
-        self.assertTrue(Connection.should_close('HTTP/1.0', None))
-        self.assertTrue(Connection.should_close('HTTP/1.0', 'wolf'))
-        self.assertTrue(Connection.should_close('HTTP/1.0', 'close'))
-        self.assertTrue(Connection.should_close('HTTP/1.0', 'ClOse'))
-        self.assertFalse(Connection.should_close('HTTP/1.0', 'keep-Alive'))
-        self.assertFalse(Connection.should_close('HTTP/1.0', 'keepalive'))
-        self.assertTrue(Connection.should_close('HTTP/1.1', 'close'))
-        self.assertTrue(Connection.should_close('HTTP/1.1', 'ClOse'))
-        self.assertFalse(Connection.should_close('HTTP/1.1', 'dragons'))
-        self.assertFalse(Connection.should_close('HTTP/1.1', 'keep-alive'))
-        self.assertTrue(Connection.should_close('HTTP/1.2', 'close'))
+        self.assertTrue(is_connection_close('HTTP/1.0', None))
+        self.assertTrue(is_connection_close('HTTP/1.0', 'wolf'))
+        self.assertTrue(is_connection_close('HTTP/1.0', 'close'))
+        self.assertTrue(is_connection_close('HTTP/1.0', 'ClOse'))
+        self.assertFalse(is_connection_close('HTTP/1.0', 'keep-Alive'))
+        self.assertFalse(is_connection_close('HTTP/1.0', 'keepalive'))
+        self.assertTrue(is_connection_close('HTTP/1.1', 'close'))
+        self.assertTrue(is_connection_close('HTTP/1.1', 'ClOse'))
+        self.assertFalse(is_connection_close('HTTP/1.1', 'dragons'))
+        self.assertFalse(is_connection_close('HTTP/1.1', 'keep-alive'))
+        self.assertTrue(is_connection_close('HTTP/1.2', 'close'))
 
 
 class SimpleHandler(tornado.web.RequestHandler):

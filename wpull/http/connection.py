@@ -1,31 +1,25 @@
 # encoding=utf-8
 '''HTTP connection handling.'''
 import collections
-import errno
 import gettext
 import http.client
 import itertools
 import logging
 import re
-import socket
-import ssl
 import sys
 import traceback
 import zlib
 
 import namedlist
 import tornado.gen
-from tornado.iostream import StreamClosedError
 import toro
 
 from wpull.actor import Event
+from wpull.conversation import BaseConnection
 import wpull.decompression
-from wpull.errors import (SSLVerficationError, ConnectionRefused, NetworkError,
-    ProtocolError)
+from wpull.errors import    ProtocolError
 from wpull.http.request import Response
-from wpull.iostream import SSLIOStream, IOStream, BufferFullError
-from wpull.network import Resolver
-
+import wpull.http.util
 
 _ = gettext.gettext
 _logger = logging.getLogger(__name__)
@@ -75,7 +69,7 @@ Args:
 '''
 
 
-class Connection(object):
+class Connection(BaseConnection):
     '''A single HTTP connection.
 
     Args:
@@ -86,204 +80,71 @@ class Connection(object):
             connection.
 
     '''
-    class ConnectionEvents(object):
-        def __init__(self):
-            self.pre_request = Event()
-            self.request = Event()
-            self.pre_response = Event()
-            self.response = Event()
-            self.request_data = Event()
-            self.response_data = Event()
-
-        def attach(self, recorder_session):
-            self.pre_request.handle(recorder_session.pre_request)
-            self.request.handle(recorder_session.request)
-            self.pre_response.handle(recorder_session.pre_response)
-            self.response.handle(recorder_session.response)
-            self.request_data.handle(recorder_session.request_data)
-            self.response_data.handle(recorder_session.response_data)
-
-        def clear(self):
-            self.pre_request.clear()
-            self.request.clear()
-            self.pre_response.clear()
-            self.response.clear()
-            self.request_data.clear()
-            self.response_data.clear()
-
     def __init__(self, address, resolver=None, ssl_enable=False, params=None):
-        self._original_address = address
-        self._resolver = resolver or Resolver()
+        super().__init__(address, resolver=resolver)
         self._ssl = ssl_enable
         self._params = params or ConnectionParams()
-        self._resolved_address = None
-        self._socket = None
         self._io_stream = None
-        self._events = Connection.ConnectionEvents()
-        self._active = False
         self._decompressor = None
 
-    @tornado.gen.coroutine
-    def _make_socket(self):
+    def _make_socket_and_io_stream(self):
         '''Make and wrap the socket with an IOStream.'''
-        host, port = self._original_address
 
-        family, self._resolved_address = yield self._resolver.resolve(
-            host, port)
-
-        self._socket = socket.socket(family, socket.SOCK_STREAM)
-
-        _logger.debug(
-            'Socket to {0}/{1}.'.format(family, self._resolved_address)
-        )
-
-        if self._params.bind_address:
-            _logger.debug(
-                'Binding socket to {0}'.format(self._params.bind_address)
-            )
-            self._socket.bind(self._params.bind_address)
+        socket_obj = self._new_socket(self._params.bind_address)
 
         if self._ssl:
-            self._io_stream = SSLIOStream(
-                self._socket,
-                max_buffer_size=self._params.buffer_size,
-                rw_timeout=self._params.read_timeout,
-                ssl_options=self._params.ssl_options or {},
-                server_hostname=host,
-            )
+            ssl_options = self._params.ssl_options or {}
         else:
-            self._io_stream = IOStream(
-                self._socket,
-                rw_timeout=self._params.read_timeout,
-                max_buffer_size=self._params.buffer_size,
-            )
+            ssl_options = None
+
+        self._io_stream = self._new_iostream(
+            socket_obj,
+            timeout=self._params.read_timeout,
+            max_buffer_size=self._params.buffer_size,
+            ssl_options=ssl_options
+        )
 
         self._io_stream.set_close_callback(self._stream_closed_callback)
 
     @tornado.gen.coroutine
     def _connect(self):
         '''Connect the socket if not already connected.'''
-        if self.connected:
+        if self.connected():
             # Reset the callback so the context does not leak to another
             self._io_stream.set_close_callback(self._stream_closed_callback)
             return
 
-        yield self._make_socket()
-
-        _logger.debug('Connecting to {0}.'.format(self._resolved_address))
-        try:
-            yield self._io_stream.connect(
-                self._resolved_address, timeout=self._params.connect_timeout
-            )
-        except (tornado.netutil.SSLCertificateError,
-        SSLVerficationError) as error:
-            raise SSLVerficationError('Certificate error: {error}'.format(
-                error=error)) from error
-        except (ssl.SSLError, socket.error) as error:
-            if error.errno == errno.ECONNREFUSED:
-                raise ConnectionRefused('Connection refused: {error}'.format(
-                    error=error)) from error
-            else:
-                raise NetworkError('Connection error: {error}'.format(
-                    error=error)) from error
-        else:
-            _logger.debug('Connected.')
-
-    @tornado.gen.coroutine
-    def fetch(self, request, recorder=None, pre_response_callback=None):
-        '''Fetch a document.
-
-        Args:
-            request: :class:`Request`
-            recorder: :class:`.recorder.BaseRecorder`
-            pre_response_callback: A function that will be called with an
-                instance of :class:`.http.request.Response` as soon as
-                the HTTP header is received.
-
-        If an exception occurs, this function will close the connection
-        automatically.
-
-        Returns:
-            Response: An instance of :class:`Response`
-
-        Raises:
-            Exception: Exceptions specified in :mod:`.errors`.
-        '''
-        _logger.debug('Request {0}.'.format(request))
-
-        assert not self._active
-
-        self._active = True
-
-        try:
-            if recorder:
-                with recorder.session() as recorder_session:
-                    self._events.attach(recorder_session)
-                    response = yield self._process_request(request,
-                        pre_response_callback)
-            else:
-                response = yield self._process_request(request,
-                    pre_response_callback)
-
-            response.url_info = request.url_info
-        except:
-            _logger.debug('Fetch exception.')
-            self.close()
-            raise
-        finally:
-            self._events.clear()
-            self._active = False
-
-        if not self._params.keep_alive and self.connected:
-            _logger.debug('Not keep-alive. Closing connection.')
-            self.close()
-
-        _logger.debug('Fetching done.')
-
-        raise tornado.gen.Return(response)
+        yield self._resolve_address()
+        self._make_socket_and_io_stream()
+        yield self._connect_io_stream(
+            self._resolved_address, self._io_stream,
+            timeout=self._params.connect_timeout
+        )
 
     @tornado.gen.coroutine
     def _process_request(self, request, pre_response_callback):
-        '''Fulfill a single request.
-
-        Returns:
-            Response
-        '''
-        yield self._connect()
-
         request.address = self._resolved_address
-        self._events.pre_request(request)
-
-        if sys.version_info < (3, 3):
-            error_class = (socket.error, StreamClosedError, ssl.SSLError)
-        else:
-            error_class = (ConnectionError, StreamClosedError, ssl.SSLError)
+        self._recorder_event.pre_request(request)
 
         if not self._params.keep_alive and 'Connection' not in request.fields:
             request.fields['Connection'] = 'close'
 
-        try:
-            yield self._send_request_header(request)
-            yield self._send_request_body(request)
-            self._events.request.fire(request)
+        yield self._send_request_header(request)
+        yield self._send_request_body(request)
+        self._recorder_event.request(request)
 
-            response = yield self._read_response_header()
+        response = yield self._read_response_header()
 
-            if pre_response_callback:
-                pre_response_callback(response)
+        if pre_response_callback:
+            pre_response_callback(response)
 
-            # TODO: handle 100 Continue
+        # TODO: handle 100 Continue
 
-            yield self._read_response_body(request, response)
-        except error_class as error:
-            raise NetworkError('Network error: {0}'.format(error)) from error
-        except BufferFullError as error:
-            raise ProtocolError(*error.args) from error
+        yield self._read_response_body(request, response)
 
-        self._events.response.fire(response)
+        self._recorder_event.response(response)
 
-        if self.should_close(
-        request.version, response.fields.get('Connection')):
+        if self._should_close(request, response):
             _logger.debug('HTTP connection close.')
             self.close()
         else:
@@ -291,21 +152,22 @@ class Connection(object):
 
         raise tornado.gen.Return(response)
 
-    @classmethod
-    def should_close(cls, http_version, connection_field):
-        connection_field = (connection_field or '').lower()
+    def _should_close(self, request, response):
+        '''Return whether the connection should be closed.'''
+        if wpull.http.util.is_connection_close(
+            request.version, response.fields.get('Connection')
+        ):
+            return True
 
-        if http_version == 'HTTP/1.0':
-            return connection_field.replace('-', '') != 'keepalive'
-        else:
-            return connection_field == 'close'
+        if not self._params.keep_alive and self.connected():
+            return True
 
     @tornado.gen.coroutine
     def _send_request_header(self, request):
         '''Send the request's HTTP status line and header fields.'''
         _logger.debug('Sending headers.')
         data = request.to_bytes()
-        self._events.request_data.fire(data)
+        self._recorder_event.request_data(data)
         yield self._io_stream.write(data)
 
     @tornado.gen.coroutine
@@ -313,7 +175,7 @@ class Connection(object):
         '''Send the request's content body.'''
         _logger.debug('Sending body.')
         for data in request.body or ():
-            self._events.request_data.fire(data)
+            self._recorder_event.request_data(data)
             yield self._io_stream.write(data)
 
     @tornado.gen.coroutine
@@ -325,13 +187,13 @@ class Connection(object):
             br'\r?\n\r?\n'
         )
 
-        self._events.response_data.fire(response_header_data)
+        self._recorder_event.response_data(response_header_data)
 
         status_line, header = response_header_data.split(b'\n', 1)
         response = Response()
         response.parse(status_line)
         response.fields.parse(header, strict=False)
-        self._events.pre_response.fire(response)
+        self._recorder_event.pre_response(response)
 
         raise tornado.gen.Return(response)
 
@@ -414,7 +276,7 @@ class Connection(object):
             return
 
         def callback(data):
-            self._events.response_data.fire(data)
+            self._recorder_event.response_data(data)
             response.body.content_file.write(self._decompress_data(data))
 
         yield self._io_stream.read_bytes(
@@ -427,7 +289,7 @@ class Connection(object):
     def _read_response_by_chunk(self, response):
         '''Read the connection using chunked transfer encoding.'''
         stream_reader = ChunkedTransferStreamReader(self._io_stream)
-        stream_reader.data_event.handle(self._events.response_data.fire)
+        stream_reader.data_event.handle(self._recorder_event.response_data)
         stream_reader.content_event.handle(
             lambda data:
                 response.body.content_file.write(self._decompress_data(data))
@@ -450,20 +312,18 @@ class Connection(object):
         _logger.debug('Reading body until close.')
 
         def callback(data):
-            self._events.response_data.fire(data)
+            self._recorder_event.response_data(data)
             response.body.content_file.write(self._decompress_data(data))
 
         yield self._io_stream.read_until_close(streaming_callback=callback)
 
         response.body.content_file.write(self._flush_decompressor())
 
-    @property
     def active(self):
         '''Return whether the connection is in use due to a fetch in progress.
         '''
         return self._active
 
-    @property
     def connected(self):
         '''Return whether the connection is connected.'''
         return self._io_stream and not self._io_stream.closed()
@@ -477,7 +337,7 @@ class Connection(object):
         _logger.debug(
             'Stream closed. active={0} connected={1} closed={2}'.format(
                 self._active,
-                self.connected,
+                self.connected(),
                 self._io_stream.closed(),
             )
         )
@@ -587,11 +447,10 @@ class HostConnectionPool(collections.Set):
         )
         self._cleaner_timer.start()
 
-    @property
     def active(self):
         '''Return whether connections are active or items are queued.'''
         for connection in self._connections:
-            if connection.active:
+            if connection.active():
                 return True
 
         return self._request_queue.qsize() > 0
@@ -652,7 +511,7 @@ class HostConnectionPool(collections.Set):
         _logger.debug('Getting a connection.')
 
         for connection in self._connections:
-            if not connection.active:
+            if not connection.active():
                 _logger.debug('Found a unused connection.')
                 return connection
 
@@ -699,8 +558,8 @@ class HostConnectionPool(collections.Set):
     def clean(self, force_close=False):
         '''Remove connections not in use.'''
         for connection in tuple(self._connections):
-            if not connection.active \
-            and (force_close or not connection.connected):
+            if not connection.active() \
+            and (force_close or not connection.connected()):
                 connection.close()
                 self._connections.remove(connection)
                 _logger.debug('Cleaned connection {0}'.format(connection))
@@ -758,7 +617,7 @@ class ConnectionPool(collections.Mapping):
 
             pool.clean()
 
-            if not pool.active:
+            if not pool.active():
                 pool.stop()
                 del self._pools[key]
                 _logger.debug('Cleaned host pool {0}.'.format(pool))

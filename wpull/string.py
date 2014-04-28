@@ -130,3 +130,15 @@ def coerce_str_to_ascii(string):
     Anything not ASCII will be replaced with with a replacement character.
     '''
     return string.encode('ascii', 'replace').decode('ascii')
+
+
+def fallback_decode(data, encoding='utf-8', fallback_encoding='latin-1'):
+    '''Decode string with fallback encoding.
+
+    Returns:
+        tuple: First item is the text. Second item is the encoding name.
+    '''
+    try:
+        return (data.decode(encoding), encoding)
+    except UnicodeError:
+        return (data.decode(fallback_encoding), encoding)

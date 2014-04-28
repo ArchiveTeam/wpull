@@ -75,12 +75,11 @@ class Request(BaseRequest):
                         encoding=fallback_encoding
                     )
 
-        raise ProtocolError('Error parsing status line ‘{0}’'.format(string))
+        raise ProtocolError('Error parsing status line.')
 
     def parse(self, data):
         '''Parse the HTTP status line.'''
-        (
-            self.method,
+        (self.method,
             self.resource_name,
             self.version,
             self.encoding
@@ -89,7 +88,7 @@ class Request(BaseRequest):
     def to_str(self):
         '''Return the HTTP status line as a string.'''
         return '{0} {1} {2}\r\n{3}\r\n'.format(
-            self.method, self.resource_url, self.version, str(self.fields)
+            self.method, self.resource_name, self.version, str(self.fields)
         )
 
     def to_bytes(self):
@@ -145,12 +144,11 @@ class Response(BaseResponse):
                         encoding=fallback_encoding
                     )
 
-        raise ProtocolError("Error parsing status line '{0}'".format(string))
+        raise ProtocolError('Error parsing status line.')
 
     def parse(self, data):
         '''Parse the HTTP status line.'''
-        (
-            self.version,
+        (self.version,
             self.status_code,
             self.status_reason,
             self.encoding
