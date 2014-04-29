@@ -641,10 +641,16 @@ class WebProcessorSession(object):
             self._processor.instances.statistics.increment(
                 response.get('bodySize', 0)
             )
+
+            url = response['url']
+
+            if url.endswith('/WPULLHTTPS'):
+                url = url[:-11].replace('http://', 'https://', 1)
+
             _logger.info(
                 _('PhantomJS fetched ‘{url}’: {status_code} {reason}. '
                     'Length: {content_length} [{content_type}].').format(
-                    url=response['url'],
+                    url=url,
                     status_code=response['status'],
                     reason=response['statusText'],
                     content_length=response.get('bodySize'),
