@@ -2,6 +2,9 @@
 What's New
 ==========
 
+0.33.2 (2014-04-29)
+===================
+
 * Fixes links not resolved correctly when document includes ``<base href="...">`` element.
 * Different proxy URL rewriting for PhantomJS option.
 
