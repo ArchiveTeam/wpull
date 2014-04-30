@@ -28,7 +28,7 @@ Install
 
 Requires:
 
-* `Python 2.6, 2.7, 3.2, 3.3, 3.4 (or newer) <http://python.org/download/>`_
+* `Python 2.6, 2.7, 3.2, 3.3 (or newer) <http://python.org/download/>`_
 * `Tornado <https://pypi.python.org/pypi/tornado>`_
 * `Toro <https://pypi.python.org/pypi/toro>`_
 * `lxml <https://pypi.python.org/pypi/lxml>`_
