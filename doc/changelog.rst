@@ -2,6 +2,7 @@
 What's New
 ==========
 
+* Fixes file descriptor leak with ``--phantomjs`` and ``--delete-after``.
 * More link extraction on HTML pages with elements with ``onclick``, ``onkeyX``, ``onmouseX``, and ``data-`` attributes.
 
 

@@ -694,12 +694,20 @@ class WebProcessorSession(object):
         files_to_del = []
 
         if not html_path:
-            html_path = tempfile.mkstemp('.html')[1]
+            temp_file = tempfile.NamedTemporaryFile(
+                dir=self._processor.root_path, delete=False, suffix='.html'
+            )
+            html_path = temp_file.name
             files_to_del.append(html_path)
+            temp_file.close()
 
         if not pdf_path:
-            pdf_path = tempfile.mkstemp('.pdf')[1]
+            temp_file = tempfile.NamedTemporaryFile(
+                dir=self._processor.root_path, delete=False, suffix='.pdf'
+            )
+            pdf_path = temp_file.name
             files_to_del.append(pdf_path)
+            temp_file.close()
 
         yield controller.snapshot(remote, html_path, pdf_path)
 
