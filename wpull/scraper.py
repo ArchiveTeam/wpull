@@ -525,8 +525,13 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
     def iter_links_plain_element(cls, element):
         '''Iterate any element for links using generic rules.'''
         for attrib_name, link in cls.iter_links_by_attrib(element):
-            inline = cls.is_link_inline(element.tag, attrib_name)
-            linked = cls.is_html_link(element.tag, attrib_name)
+            if attrib_name in cls.LINK_ATTRIBUTES:
+                inline = cls.is_link_inline(element.tag, attrib_name)
+                linked = cls.is_html_link(element.tag, attrib_name)
+            else:
+                inline = is_likely_inline(link)
+                linked = not inline
+
             yield LinkInfo(
                 element, element.tag, attrib_name,
                 link,
@@ -539,8 +544,33 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
     def iter_links_by_attrib(cls, element):
         '''Iterate an element by looking at its attributes for links.'''
         for attrib_name in element.attrib.keys():
+            attrib_value = element.attrib.get(attrib_name)
+
             if attrib_name in cls.LINK_ATTRIBUTES:
-                yield attrib_name, element.attrib.get(attrib_name)
+                if attrib_value.lstrip().startswith('javascript:'):
+                    for link in cls.iter_links_by_js_attrib(attrib_name,
+                    attrib_value):
+                        yield link
+                else:
+                    yield attrib_name, attrib_value
+
+            elif attrib_name[:5] in ('onkey', 'oncli', 'onmou'):
+                for link in cls.iter_links_by_js_attrib(attrib_name,
+                attrib_value):
+                    yield link
+
+            elif attrib_name.startswith('data-'):
+                if wpull.url.is_likely_link(attrib_value) \
+                and not wpull.url.is_unlikely_link(attrib_value):
+                    yield attrib_name, attrib_value
+
+    @classmethod
+    def iter_links_by_js_attrib(cls, attrib_name, attrib_value):
+        '''Iterate links of a JavaScript pseudo-link attribute.'''
+        links = JavaScriptScraper.scrape_links(attrib_value)
+
+        for link in links:
+            yield attrib_name, link
 
     @classmethod
     def is_link_inline(cls, tag, attribute):

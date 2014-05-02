@@ -2,6 +2,9 @@
 What's New
 ==========
 
+* More link extraction on HTML pages with elements with ``onclick``, ``onkeyX``, ``onmouseX``, and ``data-`` attributes.
+
+
 0.33.2 (2014-04-29)
 ===================
 

@@ -38,7 +38,8 @@
 	<form action="form_action.html"></form>
 	<frame src="frame_src.html">
 	<iframe src="iframe_src.html"></iframe>
-	<img href="img_href.png" lowsrc="img_lowsrc.png" src="img_src.png">
+	<img href="img_href.png" lowsrc="img_lowsrc.png" src="img_src.png" 
+		data-src="img_data.png">
 	<input src="input_src.png">
 	<layer src="layer_src.png" />
 	<object codebase="/object/" data="object_data.swf"
@@ -70,5 +71,7 @@
 			blah2: "http://example.com/http_script_json.html?a\u003db"
 		};
 	</script>
+	<a href="javascript: openWindow('/a_javascript_link.html');"
+		OnClIcK="openWindow('/a_onclick_link.html')">JS link</a>
 </body>
 </html>
