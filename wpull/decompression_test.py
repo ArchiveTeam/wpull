@@ -1,9 +1,11 @@
 # encoding=utf-8
+import gzip
 import hashlib
+import io
 import zlib
 
 from wpull.backport.testing import unittest
-from wpull.decompression import DeflateDecompressor
+from wpull.decompression import DeflateDecompressor, GzipDecompressor
 
 
 class TestDecompression(unittest.TestCase):
@@ -33,3 +35,24 @@ class TestDecompression(unittest.TestCase):
             + decompressor.flush()
 
         self.assertEqual(input_data, test_data)
+
+    def test_gzip_decompressor(self):
+        file_buffer = io.BytesIO()
+        gzip_file = gzip.GzipFile(mode='wb', fileobj=file_buffer)
+        gzip_file.write(b'HELLO KITTEN')
+        gzip_file.close()
+
+        decompressor = GzipDecompressor()
+        data = decompressor.decompress(file_buffer.getvalue()[:5])
+        data += decompressor.decompress(file_buffer.getvalue()[5:])
+        data += decompressor.flush()
+
+        self.assertEqual(b'HELLO KITTEN', data)
+
+    def test_gzip_decompressor_not_gzip(self):
+        decompressor = GzipDecompressor()
+        data = decompressor.decompress(b'LAMMA ')
+        data += decompressor.decompress(b'JUMP')
+        data += decompressor.flush()
+
+        self.assertEqual(b'LAMMA JUMP', data)

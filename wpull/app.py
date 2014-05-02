@@ -805,6 +805,11 @@ class Builder(object):
             cache_enabled=args.dns_cache,
         )
 
+        if self._args.bind_address:
+            bind_address = (self._args.bind_address, 0)
+        else:
+            bind_address = None
+
         def connection_factory(*args, **kwargs):
             return self._factory.new('Connection',
                 *args,
@@ -818,6 +823,7 @@ class Builder(object):
                     ),
                     ssl_options=self._build_ssl_options(),
                     ignore_length=self._args.ignore_length,
+                    bind_address=bind_address,
                 ),
                 **kwargs)
 

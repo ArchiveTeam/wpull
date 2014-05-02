@@ -150,15 +150,8 @@ class HTTPProxyHandler(object):
             self._io_stream.close()
             return
 
-        if self._rewrite and url.startswith('http://wpull.invalid'):
-            match = re.match(r'http://wpull\.invalid__([a-zA-Z]+)__(.*)', url)
-            scheme = match.group(1)
-            munged_url = match.group(2)
-
-            if munged_url.startswith('wpull.invalid'):
-                munged_url = munged_url.split('__', 2)[-1]
-
-            url = '{0}://{1}'.format(scheme, munged_url)
+        if self._rewrite and url.endswith('/WPULLHTTPS'):
+            url = url[:-11].replace('http://', 'https://', 1)
 
         request = Request.new(url, method, url_encoding='latin-1')
         request.version = version

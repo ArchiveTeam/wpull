@@ -2,6 +2,26 @@
 What's New
 ==========
 
+0.33.2 (2014-04-29)
+===================
+
+* Fixes links not resolved correctly when document includes ``<base href="...">`` element.
+* Different proxy URL rewriting for PhantomJS option.
+
+
+0.33.1 (2014-04-26)
+===================
+
+* Fixes ``--bind_address`` option not working. The option was never functional since the first release.
+* Fixes AttributeError crash when ``--phantomjs`` and ``--X-script`` options were used. Thanks to yipdw for reporting.
+* Fixes ``--warc-tempdir`` to use the current directory by default.
+* Fixes bad formatting and crash on links with malformed IPv6 addresses.
+* Uses more rules for link extraction from JavaScript to reduce false positives.
+
+
+0.33 (2014-04-21)
+===================
+
 * Fixes invalid XHTML documents not properly extracted for links.
 * Fixes crash on empty page.
 * Support for extracting links from JavaScript segments and files.

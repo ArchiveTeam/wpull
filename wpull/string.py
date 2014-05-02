@@ -20,7 +20,8 @@ def to_bytes(instance, encoding='utf-8', error='strict'):
         return dict(
             [(to_bytes(key, encoding, error), to_bytes(value, encoding, error))
                 for key, value in instance.items()])
-    return instance
+    else:
+        return instance
 
 
 def to_str(instance, encoding='utf-8'):
@@ -37,7 +38,8 @@ def to_str(instance, encoding='utf-8'):
         return dict(
             [(to_str(key, encoding), to_str(value, encoding))
                 for key, value in instance.items()])
-    return instance
+    else:
+        return instance
 
 
 def normalize_codec_name(name):

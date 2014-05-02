@@ -184,16 +184,17 @@ function setupEvents() {
 		}
 
 		var url = requestData['url'];
-		var chopRegex = /^([a-zA-Z]+):\/\//g;
-		var match = chopRegex.exec(url);
 
-		if (!match) {
+		if (url.indexOf('https://') !== 0) {
 			return;
 		}
 
+		// TODO: Despite the documentation, can't use this yet:
+		// networkRequest.setHeader('X-Wpull-Orig-Url', url);
+
 		// Oh yeah!
-		networkRequest.changeUrl('http://wpull.invalid__' + match[1] + '__'
-				+ requestData['url'].slice(chopRegex.lastIndex));
+		networkRequest.changeUrl(url.replace('https://', 'http://')
+				+ '/WPULLHTTPS');
 	};
 
 	page.onUrlChanged = function(targetUrl) {

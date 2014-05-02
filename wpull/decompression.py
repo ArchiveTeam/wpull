@@ -23,6 +23,7 @@ class GzipDecompressor(tornado.util.GzipDecompressor):
             else:
                 return value
         else:
+            # FIXME: don't assume that we receive 2 bytes or more on!
             self.checked = True
             if value[:2] == b'\x1f\x8b':
                 self.is_ok = True

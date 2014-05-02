@@ -625,7 +625,14 @@ class WebProcessorSession(object):
     def _new_phantomjs_response(self, response, content):
         '''Return a new mock Response with the content.'''
         mock_response = copy.copy(response)
-        mock_response.body.content_file = io.BytesIO(content.encode('utf-8'))
+
+        # tempfile needed for scripts that need a on-disk filename
+        mock_response.body.content_file = tempfile.SpooledTemporaryFile(
+            max_size=999999999)
+
+        mock_response.body.content_file.write(content.encode('utf-8'))
+        mock_response.body.content_file.seek(0)
+
         mock_response.fields = NameValueRecord()
 
         for name, value in response.fields.get_all():
@@ -652,10 +659,16 @@ class WebProcessorSession(object):
             self._processor.instances.statistics.increment(
                 response.get('bodySize', 0)
             )
+
+            url = response['url']
+
+            if url.endswith('/WPULLHTTPS'):
+                url = url[:-11].replace('http://', 'https://', 1)
+
             _logger.info(
                 _('PhantomJS fetched ‘{url}’: {status_code} {reason}. '
                     'Length: {content_length} [{content_type}].').format(
-                    url=response['url'],
+                    url=url,
                     status_code=response['status'],
                     reason=response['statusText'],
                     content_length=response.get('bodySize'),
