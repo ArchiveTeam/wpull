@@ -43,12 +43,16 @@ class DemuxURLFilter(BaseURLFilter):
             * ``verdict`` (bool): Whether all the tests passed.
             * ``passed`` (set): A set of URLFilters that passed.
             * ``failed`` (set): A set of URLFilters that failed.
+            * ``map`` (dict): A mapping from URLFilter class name (str) to
+              the verdict (bool).
         '''
         passed = set()
         failed = set()
+        test_dict = dict()
 
         for url_filter in self._url_filters:
             result = url_filter.test(url_info, url_table_record)
+            test_dict[url_filter.__class__.__name__] = result
 
             if result:
                 passed.add(url_filter)
@@ -59,6 +63,7 @@ class DemuxURLFilter(BaseURLFilter):
             'verdict': len(failed) == 0,
             'passed': passed,
             'failed': failed,
+            'map': test_dict,
         }
 
         return info

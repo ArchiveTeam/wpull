@@ -173,7 +173,6 @@ class TestApp(GoodAppTestCase):
             '--secure-protocol', 'TLSv1',
             '--convert-links', '--backup-converted',
             '--accept', '*',
-            '--no-strong-robots',
             '--restrict-file-names', 'windows,lower',
             '--quota', '10m',
             '--max-filename-length', '100',

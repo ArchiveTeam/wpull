@@ -3,6 +3,8 @@ What's New
 ==========
 
 * Fixes file descriptor leak with ``--phantomjs`` and ``--delete-after``.
+* Fixes case where robots.txt file was stuck in download loop if server was offline.
+* Removes unneeded ``--no-strong-robots`` (superseded with ``--no-strong-redirects``.)
 * More link extraction on HTML pages with elements with ``onclick``, ``onkeyX``, ``onmouseX``, and ``data-`` attributes.
 
 

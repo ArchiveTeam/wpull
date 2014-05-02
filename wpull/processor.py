@@ -69,7 +69,6 @@ WebProcessorFetchParams = namedlist.namedtuple(
         ('retry_connrefused', False),
         ('retry_dns_error', False),
         ('post_data', None),
-        ('strong_robots', True),
         ('strong_redirects', True),
         ('content_on_error', False),
     ]
@@ -84,8 +83,6 @@ Args:
     post_data (str): If provided, all requests will be POSTed with the
         given `post_data`. `post_data` must be in percent-encoded
         query format ("application/x-www-form-urlencoded").
-    strong_robots (bool): If True, robots.txt files are downloaded
-        unconditionally.
     strong_redirects (bool): If True, redirects are allowed to span hosts.
 '''
 
@@ -338,19 +335,13 @@ class WebProcessorSession(object):
         if test_info['verdict']:
             return True, 'filters'
 
-        elif url_info.path == '/robots.txt' \
-        and self._processor.fetch_params.strong_robots:
-            return True, 'robots'
-
         elif self._processor.fetch_params.strong_redirects \
         and self._rich_client_session \
         and self._rich_client_session.redirect_tracker \
         and self._rich_client_session.redirect_tracker.is_redirect \
         and len(test_info['failed']) == 1 \
-        and all([
-            isinstance(url_filter, SpanHostsFilter)
-            for url_filter in test_info['failed']
-        ]):
+        and 'SpanHostsFilter' in test_info['map'] \
+        and not test_info['map']['SpanHostsFilter']:
             return True, 'redirect'
 
         else:

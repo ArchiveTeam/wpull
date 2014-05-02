@@ -1097,13 +1097,6 @@ class AppArgumentParser(argparse.ArgumentParser):
             help=_('don’t follow to parent directories on URL path'),
         )
         group.add_argument(
-            '--no-strong-robots',
-            dest='strong_robots',
-            action='store_false',
-            default=True,
-            help=_('don’t ignore filters for robots.txt'),
-        )
-        group.add_argument(
             '--no-strong-redirects',
             dest='strong_redirects',
             action='store_false',

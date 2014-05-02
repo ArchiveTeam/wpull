@@ -645,7 +645,6 @@ class Builder(object):
             retry_connrefused=args.retry_connrefused,
             retry_dns_error=args.retry_dns_error,
             post_data=post_data,
-            strong_robots=args.strong_robots,
             strong_redirects=args.strong_redirects,
             content_on_error=args.content_on_error,
         )
