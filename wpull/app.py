@@ -939,6 +939,7 @@ class Builder(object):
             num_scrolls=self._args.phantomjs_scroll,
             warc_recorder=self.factory.get('WARCRecorder'),
             smart_scroll=self._args.phantomjs_smart_scroll,
+            snapshot=self._args.phantomjs_snapshot,
         )
 
         return phantomjs_controller
