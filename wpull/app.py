@@ -4,7 +4,7 @@ import atexit
 import codecs
 import functools
 import gettext
-from http.cookiejar import CookieJar, MozillaCookieJar
+from http.cookiejar import CookieJar
 import itertools
 import logging
 import os.path
@@ -16,7 +16,7 @@ import tornado.ioloop
 import tornado.testing
 
 from wpull.converter import BatchDocumentConverter
-from wpull.cookie import CookieLimitsPolicy
+from wpull.cookie import CookieLimitsPolicy, RelaxedMozillaCookieJar
 from wpull.database import URLTable
 from wpull.debug import DebugConsoleHandler
 from wpull.engine import Engine
@@ -870,7 +870,7 @@ class Builder(object):
             return
 
         if self._args.load_cookies or self._args.save_cookies:
-            self._factory.set('CookieJar', MozillaCookieJar)
+            self._factory.set('CookieJar', RelaxedMozillaCookieJar)
 
             cookie_jar = self._factory.new('CookieJar')
 

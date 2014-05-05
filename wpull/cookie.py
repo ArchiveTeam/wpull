@@ -1,6 +1,7 @@
 # encoding=utf-8
 '''HTTP Cookies.'''
-from http.cookiejar import DefaultCookiePolicy
+from http.cookiejar import DefaultCookiePolicy, MozillaCookieJar
+import re
 
 
 class CookieLimitsPolicy(DefaultCookiePolicy):
@@ -42,3 +43,8 @@ class CookieLimitsPolicy(DefaultCookiePolicy):
             )
         else:
             return 0
+
+
+class RelaxedMozillaCookieJar(MozillaCookieJar):
+    '''MozillaCookieJar that ignores file header checks.'''
+    magic_re = re.compile(r'.')
