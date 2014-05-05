@@ -241,6 +241,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=self.int_0_inf,
             help=_('run at most N downloads at the same time'),
         )
+        group.add_argument(
+            '--debug-console-port',
+            metavar='PORT',
+            type=int,
+            help=_('run a web debug console at given port number')
+        )
 
     def _add_log_and_input_args(self):
         group = self.add_argument_group(_('logging and input'))

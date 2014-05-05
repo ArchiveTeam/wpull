@@ -4,7 +4,8 @@ Brief Option Overview
 ::
 
   usage: __main__.py [-h] [-V] [--python-script FILE | --lua-script FILE]
-                     [--database FILE] [--concurrent N] [-o FILE | -a FILE]
+                     [--database FILE] [--concurrent N]
+                     [--debug-console-port PORT] [-o FILE | -a FILE]
                      [-d | -q | -v | -nv] [--ascii-print] [-i FILE] [-F]
                      [-B URL] [-t NUMBER] [--retry-connrefused]
                      [--retry-dns-error] [-O FILE] [-nc] [-c]
@@ -65,6 +66,8 @@ Brief Option Overview
     --database FILE       save database tables into FILE instead of memory
                           (default: :memory:)
     --concurrent N        run at most N downloads at the same time (default: 1)
+    --debug-console-port PORT
+                          run a web debug console at given port number
 
   logging and input:
     -o FILE, --output-file FILE

@@ -11,12 +11,14 @@ import os.path
 import ssl
 import sys
 import tempfile
+
 import tornado.ioloop
 import tornado.testing
 
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import CookieLimitsPolicy
 from wpull.database import URLTable
+from wpull.debug import DebugConsoleHandler
 from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
@@ -129,6 +131,7 @@ class Builder(object):
         self._setup_logging()
         self._setup_console_logger()
         self._setup_file_logger()
+        self._setup_debug_console()
         self._install_script_hooks()
         self._warn_unsafe_options()
         self._warn_silly_options()
@@ -324,6 +327,22 @@ class Builder(object):
         self._factory.set('WebProcessor',
             hook_environment.web_processor_factory)
         self._factory.set('Resolver', hook_environment.resolver_factory)
+
+    def _setup_debug_console(self):
+        if not self._args.debug_console_port:
+            return
+
+        _logger.warning(
+            _('Opened a debug console at localhost:{port}.')\
+            .format(port=self._args.debug_console_port)
+        )
+
+        application = tornado.web.Application(
+            [(r'/', DebugConsoleHandler)],
+            builder=self
+        )
+        http_server = tornado.httpserver.HTTPServer(application)
+        http_server.listen(self._args.debug_console_port, address='localhost')
 
     def _build_input_urls(self, default_scheme='http'):
         '''Read the URLs provided by the user.'''
