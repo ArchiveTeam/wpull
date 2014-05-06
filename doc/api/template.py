@@ -12,6 +12,7 @@ MODULES = [
     'conversation',
     'converter',
     'database',
+    'debug',
     'decompression',
     'document',
     'engine',

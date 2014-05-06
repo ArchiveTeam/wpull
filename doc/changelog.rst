@@ -2,6 +2,19 @@
 What's New
 ==========
 
+
+0.34 (2014-05-06)
+=================
+
+* Fixes file descriptor leak with ``--phantomjs`` and ``--delete-after``.
+* Fixes case where robots.txt file was stuck in download loop if server was offline.
+* Fixes loading of cookies file from Wget. Cookie file header checks are disabled.
+* Removes unneeded ``--no-strong-robots`` (superseded with ``--no-strong-redirects``.)
+* Fixes ``--no-phantomjs-snapshot`` option not respected.
+* More link extraction on HTML pages with elements with ``onclick``, ``onkeyX``, ``onmouseX``, and ``data-`` attributes.
+* Adds web-based debugging console with ``--debug-console-port``.
+
+
 0.33.2 (2014-04-29)
 ===================
 

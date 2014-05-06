@@ -419,9 +419,12 @@ class HookedWebProcessorSessionMixin(object):
 
         record_info_dict = url_record.to_dict()
         record_info_dict = self._to_script_native_type(record_info_dict)
+        test_info = self._processor.instances.url_filter.test_info(
+            url_info, url_record
+        )
 
         reasons = {
-            'filters': self._get_filter_info(url_info, url_record),
+            'filters': test_info['map'],
             'reason': reason_slug,
         }
         reasons = self._to_script_native_type(reasons)
@@ -432,23 +435,6 @@ class HookedWebProcessorSessionMixin(object):
         _logger.debug('Hooked should fetch returned %s', verdict)
 
         return verdict, reason_slug
-
-    def _get_filter_info(self, url_info, url_record):
-        filter_info_dict = {}
-
-        test_info = self._processor.instances.url_filter.test_info(
-            url_info, url_record
-        )
-
-        for filter_instance in test_info['passed']:
-            name = filter_instance.__class__.__name__
-            filter_info_dict[name] = True
-
-        for filter_instance in test_info['failed']:
-            name = filter_instance.__class__.__name__
-            filter_info_dict[name] = False
-
-        return filter_info_dict
 
     def _handle_response(self, response):
         url_info_dict = self._to_script_native_type(

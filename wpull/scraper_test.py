@@ -54,6 +54,7 @@ class TestDocument(unittest.TestCase):
             'http://example.com/img_href.png',
             'http://example.com/img_lowsrc.png',
             'http://example.com/img_src.png',
+            'http://example.com/img_data.png',
             'http://example.com/input_src.png',
             'http://example.com/layer_src.png',
             'http://example.com/object/',  # returned by lxml
@@ -94,6 +95,8 @@ class TestDocument(unittest.TestCase):
             'http://example.com/../relative_dir_script_variable',
             'http://example.com/script_json.html',
             'http://example.com/http_script_json.html?a=b',
+            'http://example.com/a_javascript_link.html',
+            'http://example.com/a_onclick_link.html',
             },
             linked_urls
         )

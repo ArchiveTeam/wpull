@@ -173,7 +173,6 @@ class TestApp(GoodAppTestCase):
             '--secure-protocol', 'TLSv1',
             '--convert-links', '--backup-converted',
             '--accept', '*',
-            '--no-strong-robots',
             '--restrict-file-names', 'windows,lower',
             '--quota', '10m',
             '--max-filename-length', '100',
@@ -525,7 +524,7 @@ class TestApp(GoodAppTestCase):
         arg_parser = AppArgumentParser()
 
         with tempfile.NamedTemporaryFile() as in_file:
-            in_file.write(b'# Netscape HTTP Cookie File\n')
+            in_file.write(b'# Kittens\n')
             in_file.write(b'localhost.local')
             in_file.write(b'\tFALSE\t/\tFALSE\t\ttest\tno\n')
             in_file.flush()
