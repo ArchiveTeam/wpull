@@ -2,6 +2,10 @@
 What's New
 ==========
 
+
+0.34 (2014-05-06)
+=================
+
 * Fixes file descriptor leak with ``--phantomjs`` and ``--delete-after``.
 * Fixes case where robots.txt file was stuck in download loop if server was offline.
 * Fixes loading of cookies file from Wget. Cookie file header checks are disabled.
