@@ -91,6 +91,8 @@ class URLInfo(_URLInfoType):
     percent-encoding sequences.
 
     This class will convert hostnames to the proper IDNA ASCII sequences.
+
+    This class is currently only specialized for HTTP protocols.
     '''
     DEFAULT_PORTS = {
         'http': 80,
@@ -182,8 +184,13 @@ class URLInfo(_URLInfoType):
     def normalize_hostname(cls, hostname):
         '''Normalize the hostname.'''
         if hostname:
+            if '[' in hostname \
+            or ']' in hostname:
+                # XXX: Python lib IPv6 checking can't get it right.
+                raise ValueError('Failed to parse IPv6 URL correctly.')
+
             # Double encodes to work around issue #82 (Python #21103).
-            return hostname.replace('[', '')\
+            return hostname\
                 .encode('idna').decode('ascii')\
                 .encode('idna').decode('ascii')
         else:
