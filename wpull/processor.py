@@ -435,6 +435,8 @@ class WebProcessorSession(object):
         '''
         try:
             url_info = URLInfo.parse(url, encoding=encoding)
+            # FIXME: workaround detection of bad URL unsplit. See issue #132.
+            URLInfo.parse(url_info.url, encoding=encoding)
         except ValueError as error:
             _logger.warning(_('Discarding malformed URL ‘{url}’: {error}.')\
                 .format(url=url, error=error))
