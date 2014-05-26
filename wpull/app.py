@@ -1075,7 +1075,6 @@ class Builder(object):
         * ``--no-iri``
         * ``--output-document``
         '''
-        # TODO: Add output-document once implemented
         enabled_options = []
 
         for option_name in self.UNSAFE_OPTIONS:

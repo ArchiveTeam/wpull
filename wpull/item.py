@@ -240,7 +240,3 @@ class URLItem(object):
             post_data,  # post_data
             None  # filename
         )
-
-    def add_url_item(self, url_info, request):
-        # TODO: the request should be serialized into the url_table
-        raise NotImplementedError()

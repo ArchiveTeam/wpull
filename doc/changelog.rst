@@ -2,6 +2,11 @@
 What's New
 ==========
 
+0.34.1 (2015-05-26)
+===================
+
+* Fixes crash when a URL is incorrectly formatted by Wpull. (The incorrect formatting is not fixed yet however.)
+
 
 0.34 (2014-05-06)
 =================
