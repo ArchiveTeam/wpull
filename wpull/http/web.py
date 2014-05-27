@@ -30,7 +30,7 @@ class RedirectTracker(object):
     REPEAT_REDIRECT_CODES = (307, 308)
 
     def __init__(self, max_redirects=20, codes=REDIRECT_CODES,
-    repeat_codes=REPEAT_REDIRECT_CODES):
+                 repeat_codes=REPEAT_REDIRECT_CODES):
         self._max_redirects = max_redirects
         self._codes = codes
         self._repeat_codes = repeat_codes
@@ -114,8 +114,9 @@ class RichClient(BaseClient):
             :class:`.wrapper.CookieJarWrapper`.
     '''
     def __init__(self, http_client, robots_txt_pool=None,
-    request_factory=Request.new, redirect_tracker_factory=RedirectTracker,
-    cookie_jar=None):
+                 request_factory=Request.new,
+                 redirect_tracker_factory=RedirectTracker,
+                 cookie_jar=None):
         super().__init__()
         self._http_client = http_client
         self._robots_txt_pool = robots_txt_pool
