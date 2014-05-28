@@ -1,5 +1,5 @@
 # encoding=utf-8
-'''Application support.'''
+'''Application building.'''
 import atexit
 import codecs
 import functools
@@ -15,6 +15,7 @@ import tempfile
 import tornado.ioloop
 import tornado.testing
 
+from wpull.app import Application
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import CookieLimitsPolicy, RelaxedMozillaCookieJar
 from wpull.database import URLTable
@@ -71,6 +72,7 @@ class Builder(object):
             wpull.version.__version__)
         self._args = args
         self._factory = Factory({
+            'Application': Application,
             'BatchDocumentConverter': BatchDocumentConverter,
             'Client': Client,
             'CookieJar': CookieJar,
@@ -152,6 +154,8 @@ class Builder(object):
 
         self._setup_file_logger_close(engine)
         self._setup_console_logger_close(engine)
+
+        self._factory.new('Application', self)
 
         return engine
 

@@ -5,6 +5,7 @@ What's New
 * API:
 
   * `Builder` moved into new module `builder`
+  * Adds `Application` class intended for different UI in the future.
 
 
 0.34.1 (2015-05-26)
