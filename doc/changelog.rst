@@ -2,6 +2,11 @@
 What's New
 ==========
 
+* API:
+
+  * `Builder` moved into new module `builder`
+
+
 0.34.1 (2015-05-26)
 ===================
 

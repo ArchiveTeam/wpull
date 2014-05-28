@@ -4,7 +4,7 @@ import os.path
 import tornado.testing
 import unittest
 
-from wpull.app import Builder
+from wpull.builder import Builder
 from wpull.app_test import cd_tempdir
 from wpull.options import AppArgumentParser
 from wpull.testing.goodapp import GoodAppTestCase

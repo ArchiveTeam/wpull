@@ -8,7 +8,7 @@ import sys
 import tempfile
 import tornado.testing
 
-from wpull.app import Builder
+from wpull.builder import Builder
 from wpull.backport.testing import unittest
 from wpull.errors import ExitStatus
 from wpull.network import Resolver

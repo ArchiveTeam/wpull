@@ -7,7 +7,7 @@ import sys
 import time
 import tornado.ioloop
 
-from wpull.app import Builder
+from wpull.builder import Builder
 from wpull.options import AppArgumentParser
 
 
