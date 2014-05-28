@@ -4,9 +4,9 @@ import timeit
 
 from wpull.backport.testing import unittest
 from wpull.url import (URLInfo, schemes_similar, is_subdir, unquote,
-    unquote_plus,
-    quote, quote_plus, split_query, uppercase_percent_encoding, urljoin,
-    flatten_path, is_likely_link, is_unlikely_link)
+                       unquote_plus, quote, quote_plus, split_query,
+                       uppercase_percent_encoding, urljoin,
+                       flatten_path, is_likely_link, is_unlikely_link)
 
 
 class TestURL(unittest.TestCase):
@@ -160,10 +160,10 @@ class TestURL(unittest.TestCase):
         )
 
         url_info = URLInfo.parse('example.com/文字化け/?blah=文字化け',
-            encoding='shift_jis')
+                                 encoding='shift_jis')
         self.assertEqual(
             'http://example.com/%95%B6%8E%9A%89%BB%82%AF/'
-                '?blah=%95%B6%8E%9A%89%BB%82%AF',
+            '?blah=%95%B6%8E%9A%89%BB%82%AF',
             url_info.url
         )
         self.assertEqual(
@@ -181,30 +181,31 @@ class TestURL(unittest.TestCase):
 
         self.assertEqual(
             'http://example.com/%95%B6%8E%9A%89%BB%82%AF/'
-                '?blah=%95%B6%8E%9A%89%BB%82%AF',
+            '?blah=%95%B6%8E%9A%89%BB%82%AF',
             URLInfo.parse('example.com/%95%B6%8E%9A%89%BB%82%AF/'
-                '?blah=%95%B6%8E%9A%89%BB%82%AF', encoding='shift_jis').url
+                          '?blah=%95%B6%8E%9A%89%BB%82%AF',
+                          encoding='shift_jis').url
         )
         self.assertEqual(
             'http://example.com/%95%B6%8E%9A%89%BB%82%AF/'
-                '?blah=%95%B6%8E%9A%89%BB%82%AF',
+            '?blah=%95%B6%8E%9A%89%BB%82%AF',
             URLInfo.parse('example.com/%95%B6%8E%9A%89%BB%82%AF/'
-                '?blah=%95%B6%8E%9A%89%BB%82%AF').url
+                          '?blah=%95%B6%8E%9A%89%BB%82%AF').url
         )
 
         self.assertEqual(
             'http://example.com/'
-                '?blah=http://example.com/?fail=true',
+            '?blah=http://example.com/?fail=true',
             URLInfo.parse(
                 'http://example.com/'
-                    '?blah=http%3A%2F%2Fexample.com%2F%3Ffail%3Dtrue').url
+                '?blah=http%3A%2F%2Fexample.com%2F%3Ffail%3Dtrue').url
         )
         self.assertEqual(
             'http://example.com/'
-                '?blah=http://example.com/?fail=true',
+            '?blah=http://example.com/?fail=true',
             URLInfo.parse(
                 'http://example.com/'
-                    '?blah=http://example.com/?fail%3Dtrue').url
+                '?blah=http://example.com/?fail%3Dtrue').url
         )
 
         self.assertEqual(
@@ -283,7 +284,7 @@ class TestURL(unittest.TestCase):
             'example.com:81?blah=%c3%B0',
             'http://example.com/a/../../b/style.css',
             'http://example.com/'
-                '?blah=http%3A%2F%2Fexample.com%2F%3Ffail%3Dtrue',
+            '?blah=http%3A%2F%2Fexample.com%2F%3Ffail%3Dtrue',
             'http://example.com/??blah=blah[0:]=bl%61h?blah"&d%26_',
             'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6',
         ]
@@ -361,8 +362,6 @@ class TestURL(unittest.TestCase):
         self.assertEqual(443, url_info_dict['port'])
         self.assertEqual('utf-8', url_info_dict['encoding'])
 
-
-
     def test_schemes_simialar(self):
         self.assertTrue(schemes_similar('http', 'http'))
         self.assertTrue(schemes_similar('https', 'http'))
@@ -377,34 +376,34 @@ class TestURL(unittest.TestCase):
         self.assertFalse(is_subdir('/profile/blog', '/profile/photo'))
 
         self.assertTrue(is_subdir('/profile/blog', '/profile/blog/123',
-            trailing_slash=True))
+                                  trailing_slash=True))
         self.assertTrue(is_subdir('/profile/blog/', '/profile/blog/123',
-            trailing_slash=True))
+                                  trailing_slash=True))
         self.assertFalse(is_subdir('/profile/blog/', '/profile/photo',
-            trailing_slash=True))
+                                   trailing_slash=True))
         self.assertTrue(is_subdir('/profile/blog', '/profile/photo',
-            trailing_slash=True))
+                                  trailing_slash=True))
 
         self.assertTrue(is_subdir('/profile/blog-*-', '/profile/blog-1-/',
-            wildcards=True))
+                                  wildcards=True))
         self.assertFalse(is_subdir('/profile/blog-*-', '/profile/blog/',
-            wildcards=True))
+                                   wildcards=True))
         self.assertFalse(is_subdir('/profile/blog-*-', '/profile/',
-            wildcards=True))
+                                   wildcards=True))
 
     def test_split_query(self):
         self.assertEqual([],
-            split_query('&'))
+                         split_query('&'))
         self.assertEqual([('a', 'ð')],
-            split_query('a=ð'))
+                         split_query('a=ð'))
         self.assertEqual([('a', 'ð')],
-            split_query('a=ð&b'))
+                         split_query('a=ð&b'))
         self.assertEqual([('a', 'ð')],
-            split_query('a=ð&b='))
+                         split_query('a=ð&b='))
         self.assertEqual([('a', 'ð'), ('b', '')],
-            split_query('a=ð&b=', keep_blank_values=True))
+                         split_query('a=ð&b=', keep_blank_values=True))
         self.assertEqual([('a', 'ð'), ('b', '%2F')],
-            split_query('a=ð&b=%2F'))
+                         split_query('a=ð&b=%2F'))
 
     def test_url_quote(self):
         self.assertEqual('a ', unquote('a%20'))

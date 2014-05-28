@@ -571,7 +571,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 class ConcurrentHTTPServer(socketserver.ThreadingMixIn,
-http.server.HTTPServer):
+                           http.server.HTTPServer):
     def __init__(self, *args, **kwargs):
         http.server.HTTPServer.__init__(self, *args, **kwargs)
 #         self.daemon_threads = True
@@ -619,7 +619,7 @@ class BadAppTestCase(AsyncTestCase):
     @tornado.gen.coroutine
     def fetch(self, path):
         response = yield self.connection.fetch(Request.new(self.get_url(path)),
-            DebugPrintRecorder())
+                                               DebugPrintRecorder())
         raise tornado.gen.Return(response)
 
     def get_http_port(self):

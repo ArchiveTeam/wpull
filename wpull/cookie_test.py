@@ -81,13 +81,13 @@ class TestCookie(unittest.TestCase):
 
             if key < 50:
                 self.assertTrue(
-                    cookie_jar._cookies['example.com']['/']\
-                        .get('k{0}'.format(key))
+                    cookie_jar._cookies['example.com']['/']
+                    .get('k{0}'.format(key))
                 )
             else:
                 self.assertFalse(
-                    cookie_jar._cookies['example.com']['/']\
-                        .get('k{0}'.format(key))
+                    cookie_jar._cookies['example.com']['/']
+                    .get('k{0}'.format(key))
                 )
 
         response = FakeResponse(

@@ -23,34 +23,36 @@ from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
 from wpull.http.client import Client
-from wpull.http.connection import (Connection, ConnectionPool, HostConnectionPool,
-    ConnectionParams)
+from wpull.http.connection import (Connection, ConnectionPool,
+                                   HostConnectionPool, ConnectionParams)
 from wpull.http.request import Request
 from wpull.http.web import RedirectTracker, RichClient
 from wpull.namevalue import NameValueRecord
 from wpull.network import Resolver
 from wpull.phantomjs import PhantomJSClient
 from wpull.processor import (WebProcessor, PhantomJSController,
-    WebProcessorFetchParams, WebProcessorInstances)
+                             WebProcessorFetchParams, WebProcessorInstances)
 from wpull.proxy import HTTPProxyServer
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
-    PrintServerResponseRecorder, ProgressRecorder, OutputDocumentRecorder,
-    WARCRecorderParams)
+                            PrintServerResponseRecorder, ProgressRecorder,
+                            OutputDocumentRecorder, WARCRecorderParams)
 from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper import (HTMLScraper, CSSScraper, DemuxDocumentScraper,
-    SitemapScraper, JavaScriptScraper)
+                           SitemapScraper, JavaScriptScraper)
 from wpull.stats import Statistics
 from wpull.url import URLInfo
 from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, HTTPFilter,
-    BackwardDomainFilter, HostnameFilter, TriesFilter, RecursiveFilter, LevelFilter,
-    SpanHostsFilter, RegexFilter, DirectoryFilter, BackwardFilenameFilter,
-    ParentFilter)
+                             BackwardDomainFilter, HostnameFilter, TriesFilter,
+                             RecursiveFilter, LevelFilter,
+                             SpanHostsFilter, RegexFilter, DirectoryFilter,
+                             BackwardFilenameFilter, ParentFilter)
 from wpull.util import ASCIIStreamWriter
 import wpull.version
 from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
-    IgnoreFileWriter, TimestampingFileWriter, AntiClobberFileWriter)
+                          IgnoreFileWriter, TimestampingFileWriter,
+                          AntiClobberFileWriter)
 
 
 # Module lua is imported later on demand.
@@ -144,11 +146,10 @@ class Builder(object):
         processor = self._build_processor()
 
         engine = self._factory.new('Engine',
-            url_table,
-            processor,
-            statistics,
-            concurrent=self._args.concurrent,
-        )
+                                   url_table,
+                                   processor,
+                                   statistics,
+                                   concurrent=self._args.concurrent,)
 
         self._setup_file_logger_close(engine)
         self._setup_console_logger_close(engine)
@@ -197,8 +198,8 @@ class Builder(object):
             min_level = logging.WARNING
 
         if self._args.verbosity == logging.INFO \
-        or self._args.warc_file \
-        or self._args.output_file or self._args.append_output:
+           or self._args.warc_file \
+           or self._args.output_file or self._args.append_output:
             min_level = logging.INFO
 
         if self._args.verbosity == logging.DEBUG:
@@ -207,8 +208,8 @@ class Builder(object):
         if current_level > min_level:
             root_logger.setLevel(min_level)
             root_logger.debug(
-                'Wpull needs the root logger level set to {0}.'\
-                    .format(min_level)
+                'Wpull needs the root logger level set to {0}.'
+                .format(min_level)
             )
 
     def _setup_console_logger(self):
@@ -325,7 +326,7 @@ class Builder(object):
         '''
         self._factory.set('Engine', hook_environment.engine_factory)
         self._factory.set('WebProcessor',
-            hook_environment.web_processor_factory)
+                          hook_environment.web_processor_factory)
         self._factory.set('Resolver', hook_environment.resolver_factory)
 
     def _setup_debug_console(self):
@@ -333,7 +334,7 @@ class Builder(object):
             return
 
         _logger.warning(
-            _('Opened a debug console at localhost:{port}.')\
+            _('Opened a debug console at localhost:{port}.')
             .format(port=self._args.debug_console_port)
         )
 
@@ -374,14 +375,16 @@ class Builder(object):
 
             if self._args.sitemaps:
                 sitemap_url_infos.update((
-                     URLInfo.parse(
-                         '{0}://{1}/robots.txt'.format(url_info.scheme,
-                             url_info.hostname_with_port)
-                     ),
-                     URLInfo.parse(
-                         '{0}://{1}/sitemap.xml'.format(url_info.scheme,
-                             url_info.hostname_with_port)
-                     )
+                    URLInfo.parse(
+                        '{0}://{1}/robots.txt'.format(
+                            url_info.scheme,
+                            url_info.hostname_with_port)
+                    ),
+                    URLInfo.parse(
+                        '{0}://{1}/sitemap.xml'.format(
+                            url_info.scheme,
+                            url_info.hostname_with_port)
+                    )
                 ))
 
         for url_info in sitemap_url_infos:
@@ -538,21 +541,20 @@ class Builder(object):
 
             recorders.append(
                 self._factory.new('WARCRecorder',
-                    args.warc_file,
-                    params=WARCRecorderParams(
-                        compress=not args.no_warc_compression,
-                        extra_fields=extra_fields,
-                        temp_dir=args.warc_tempdir,
-                        log=args.warc_log,
-                        appending=args.warc_append,
-                        digests=args.warc_digests,
-                        cdx=args.warc_cdx,
-                        max_size=args.warc_max_size,
-                        url_table=self._factory['URLTable'] if args.warc_dedup
-                            else None,
-                        software_string=software_string,
-                    ),
-                )
+                                  args.warc_file,
+                                  params=WARCRecorderParams(
+                                      compress=not args.no_warc_compression,
+                                      extra_fields=extra_fields,
+                                      temp_dir=args.warc_tempdir,
+                                      log=args.warc_log,
+                                      appending=args.warc_append,
+                                      digests=args.warc_digests,
+                                      cdx=args.warc_cdx,
+                                      max_size=args.warc_max_size,
+                                      url_table=(self._factory['URLTable']
+                                                 if args.warc_dedup else None),
+                                      software_string=software_string,
+                                  ), )
             )
 
         if args.server_response:
@@ -569,7 +571,8 @@ class Builder(object):
                 bar_style = False
 
             recorders.append(self._factory.new('ProgressRecorder',
-                bar_style=bar_style, stream=stream))
+                                               bar_style=bar_style,
+                                               stream=stream))
 
         if args.warc_dedup:
             self._populate_visits()
@@ -633,9 +636,9 @@ class Builder(object):
         '''
         args = self._args
         url_filter = self._factory.new('DemuxURLFilter',
-            self._build_url_filters())
+                                       self._build_url_filters())
         document_scraper = self._factory.new('DemuxDocumentScraper',
-            self._build_document_scrapers())
+                                             self._build_document_scrapers())
         file_writer = self._build_file_writer()
         post_data = self._get_post_data()
         converter = self._build_document_converter()
@@ -643,10 +646,9 @@ class Builder(object):
         phantomjs_controller = self._build_phantomjs_controller()
 
         waiter = self._factory.new('Waiter',
-            wait=args.wait,
-            random_wait=args.random_wait,
-            max_wait=args.waitretry
-        )
+                                   wait=args.wait,
+                                   random_wait=args.random_wait,
+                                   max_wait=args.waitretry)
 
         web_processor_instances = self._factory.new(
             'WebProcessorInstances',
@@ -669,11 +671,10 @@ class Builder(object):
         )
 
         processor = self._factory.new('WebProcessor',
-            rich_http_client,
-            args.directory_prefix,
-            web_processor_fetch_params,
-            web_processor_instances
-        )
+                                      rich_http_client,
+                                      args.directory_prefix,
+                                      web_processor_fetch_params,
+                                      web_processor_instances)
 
         return processor
 
@@ -688,8 +689,8 @@ class Builder(object):
         if args.delete_after or args.output_document:
             return NullWriter()
 
-        use_dir = (len(args.urls) != 1 or args.page_requisites \
-            or args.recursive)
+        use_dir = (len(args.urls) != 1 or args.page_requisites
+                   or args.recursive)
 
         if args.use_directories == 'force':
             use_dir = True
@@ -697,7 +698,7 @@ class Builder(object):
             use_dir = False
 
         os_type = 'windows' if 'windows' in args.restrict_file_names \
-            else 'unix'
+                  else 'unix'
         ascii_only = 'ascii' in args.restrict_file_names
         no_control = 'nocontrol' not in args.restrict_file_names
 
@@ -709,18 +710,17 @@ class Builder(object):
             case = None
 
         path_namer = self._factory.new('PathNamer',
-            args.directory_prefix,
-            index=args.default_page,
-            use_dir=use_dir,
-            cut=args.cut_dirs,
-            protocol=args.protocol_directories,
-            hostname=args.host_directories,
-            os_type=os_type,
-            ascii_only=ascii_only,
-            no_control=no_control,
-            case=case,
-            max_filename_length=args.max_filename_length,
-        )
+                                       args.directory_prefix,
+                                       index=args.default_page,
+                                       use_dir=use_dir,
+                                       cut=args.cut_dirs,
+                                       protocol=args.protocol_directories,
+                                       hostname=args.host_directories,
+                                       os_type=os_type,
+                                       ascii_only=ascii_only,
+                                       no_control=no_control,
+                                       case=case,
+                                       max_filename_length=args.max_filename_length,)
 
         if args.recursive or args.page_requisites or args.continue_download:
             if args.clobber_method == 'disable':
@@ -800,11 +800,10 @@ class Builder(object):
             families = [Resolver.IPv4, Resolver.IPv6]
 
         resolver = self._factory.new('Resolver',
-            families=families,
-            timeout=dns_timeout,
-            rotate=args.rotate_dns,
-            cache_enabled=args.dns_cache,
-        )
+                                     families=families,
+                                     timeout=dns_timeout,
+                                     rotate=args.rotate_dns,
+                                     cache_enabled=args.dns_cache,)
 
         if self._args.bind_address:
             bind_address = (self._args.bind_address, 0)
@@ -813,31 +812,34 @@ class Builder(object):
 
         def connection_factory(*args, **kwargs):
             return self._factory.new('Connection',
-                *args,
-                resolver=resolver,
-                params=ConnectionParams(
-                    connect_timeout=connect_timeout,
-                    read_timeout=read_timeout,
-                    keep_alive=(
-                        self._args.http_keep_alive
-                        and not self._args.ignore_length
-                    ),
-                    ssl_options=self._build_ssl_options(),
-                    ignore_length=self._args.ignore_length,
-                    bind_address=bind_address,
-                ),
-                **kwargs)
+                                     *args,
+                                     resolver=resolver,
+                                     params=ConnectionParams(
+                                         connect_timeout=connect_timeout,
+                                         read_timeout=read_timeout,
+                                         keep_alive=(
+                                             self._args.http_keep_alive
+                                             and not self._args.ignore_length
+                                         ),
+                                         ssl_options=self._build_ssl_options(),
+                                         ignore_length=self._args.ignore_length,
+                                         bind_address=bind_address,
+                                     ),
+                                     **kwargs)
 
         def host_connection_pool_factory(*args, **kwargs):
-            return self._factory.new('HostConnectionPool',
+            return self._factory.new(
+                'HostConnectionPool',
                 *args, connection_factory=connection_factory, **kwargs)
 
-        connection_pool = self._factory.new('ConnectionPool',
+        connection_pool = self._factory.new(
+            'ConnectionPool',
             host_connection_pool_factory=host_connection_pool_factory)
         recorder = self._build_recorder()
 
         return self._factory.new('Client',
-            connection_pool=connection_pool, recorder=recorder)
+                                 connection_pool=connection_pool,
+                                 recorder=recorder)
 
     def _build_rich_http_client(self):
         '''Build Rich Client.'''
@@ -1053,17 +1055,17 @@ class Builder(object):
     def _warn_silly_options(self):
         '''Print warnings about any options that may be silly.'''
         if 'page-requisites' in self._args.span_hosts_allow \
-        and not self._args.page_requisites:
+           and not self._args.page_requisites:
             _logger.warning(
                 _('Spanning hosts is allowed for page requisites, '
-                'but the page requisites option is not on.')
+                  'but the page requisites option is not on.')
             )
 
         if 'linked-pages' in self._args.span_hosts_allow \
-        and not self._args.recursive:
+           and not self._args.recursive:
             _logger.warning(
                 _('Spanning hosts is allowed for linked pages, '
-                'but the recursive option is not on.')
+                  'but the recursive option is not on.')
             )
 
     def _warn_unsafe_options(self):
@@ -1083,7 +1085,7 @@ class Builder(object):
 
         if enabled_options:
             _logger.warning(
-                _('The following unsafe options are enabled: {list}.')\
+                _('The following unsafe options are enabled: {list}.')
                 .format(list=enabled_options)
             )
             _logger.warning(

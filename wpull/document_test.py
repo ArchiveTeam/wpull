@@ -354,7 +354,7 @@ class TestDocument(unittest.TestCase):
         css_data = b'\n'.join(
             [
                 'url(blah{0});'.format(num).encode('ascii')
-                    for num in range(100000)
+                for num in range(100000)
             ]
         )
         reader = CSSReader()
@@ -363,8 +363,8 @@ class TestDocument(unittest.TestCase):
 
         links = set()
 
-        for link in \
-        reader.read_links(io.BytesIO(css_data), encoding='ascii'):
+        for link in reader.read_links(
+                io.BytesIO(css_data), encoding='ascii'):
             links.add(link)
 
         self.assertEqual(len(links), 100000)
@@ -373,7 +373,7 @@ class TestDocument(unittest.TestCase):
         css_data = b'\n'.join(
             [
                 'url(blah{0});'.format(num).encode('ascii')
-                    for num in range(200000)
+                for num in range(200000)
             ]
         )
         reader = CSSReader()
@@ -382,8 +382,8 @@ class TestDocument(unittest.TestCase):
 
         links = set()
 
-        for link in \
-        reader.read_links(io.BytesIO(css_data), encoding='ascii'):
+        for link in reader.read_links(
+                io.BytesIO(css_data), encoding='ascii'):
             links.add(link)
 
         self.assertEqual(len(links), 200000)

@@ -67,11 +67,14 @@ class TestUtilAsync(tornado.testing.AsyncTestCase):
     def test_adjustable_semaphore(self):
         semaphore = AdjustableSemaphore(value=2)
 
-        yield semaphore.acquire(deadline=datetime.timedelta(seconds=0.1))  # value = 1
-        yield semaphore.acquire(deadline=datetime.timedelta(seconds=0.1))  # value = 2
+        yield semaphore.acquire(
+            deadline=datetime.timedelta(seconds=0.1))  # value = 1
+        yield semaphore.acquire(
+            deadline=datetime.timedelta(seconds=0.1))  # value = 2
 
         try:
-            yield semaphore.acquire(deadline=datetime.timedelta(seconds=0.1))
+            yield semaphore.acquire(
+                deadline=datetime.timedelta(seconds=0.1))
         except toro.Timeout:
             pass
         else:
@@ -80,7 +83,8 @@ class TestUtilAsync(tornado.testing.AsyncTestCase):
         semaphore.set_max(3)
         self.assertEqual(3, semaphore.max)
 
-        yield semaphore.acquire(deadline=datetime.timedelta(seconds=0.1))  # value = 3
+        yield semaphore.acquire(
+            deadline=datetime.timedelta(seconds=0.1))  # value = 3
 
         try:
             yield semaphore.acquire(deadline=datetime.timedelta(seconds=0.1))

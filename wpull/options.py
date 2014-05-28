@@ -70,7 +70,7 @@ class AppHelpFormatter(argparse.HelpFormatter):
 
         if '%(default)' not in action.help:
             if action.default and not isinstance(action.default, bool) \
-            and action.default is not argparse.SUPPRESS:
+               and action.default is not argparse.SUPPRESS:
                 defaulting_nargs = [argparse.OPTIONAL, argparse.ZERO_OR_MORE]
                 if action.option_strings or action.nargs in defaulting_nargs:
                     help += _(' (default: %(default)s)')
@@ -1173,8 +1173,8 @@ class AppArgumentParser(argparse.ArgumentParser):
         for option_name in option_names:
             if vars(args).get(option_name):
                 self.error(
-                    _('WARC output cannot be combined with {option_name}.') \
-                        .format(option_name=option_name)
+                    _('WARC output cannot be combined with {option_name}.')
+                    .format(option_name=option_name)
                 )
 
     def _post_ssl_args(self, args):

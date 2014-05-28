@@ -55,7 +55,7 @@ class PhantomJSRemote(object):
     The messages passed are in the JSON format.
     '''
     def __init__(self, exe_path='phantomjs', extra_args=None,
-    page_settings=None, default_headers=None):
+                 page_settings=None, default_headers=None):
         script_path = wpull.util.get_package_filename('phantomjs.js')
         self._in_queue = toro.Queue()
         self._out_queue = toro.Queue()
@@ -316,8 +316,8 @@ class PhantomJSRemote(object):
 
         if event_name == 'resource_requested':
             self.resource_counter.pending += 1
-        elif event_name == 'resource_received' \
-        and rpc_info['response']['stage'] == 'end':
+        elif (event_name == 'resource_received'
+              and rpc_info['response']['stage'] == 'end'):
             self.resource_counter.pending -= 1
             self.resource_counter.loaded += 1
         elif event_name == 'resource_error':
@@ -388,7 +388,7 @@ class PhantomJSClient(object):
     are used.
     '''
     def __init__(self, proxy_address, exe_path='phantomjs', extra_args=None,
-    page_settings=None, default_headers=None):
+                 page_settings=None, default_headers=None):
         self._remotes_ready = set()
         self._remotes_busy = set()
         self._exe_path = exe_path
