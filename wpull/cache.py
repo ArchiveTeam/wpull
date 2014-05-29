@@ -157,7 +157,7 @@ class CacheItem(object):
                 key=self.key, value=self.value,
                 ttl=self.time_to_live,
                 access_time=self.access_time, id=id(self)
-            )
+        )
 
     def __hash__(self):
         return hash(self.key)

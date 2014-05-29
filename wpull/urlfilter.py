@@ -180,13 +180,13 @@ class ParentFilter(BaseURLFilter):
             top_url_info = url_info
 
         if schemes_similar(url_info.scheme, top_url_info.scheme) \
-        and url_info.hostname == top_url_info.hostname \
-        and (
-            url_info.scheme != top_url_info.scheme or
-            url_info.port == top_url_info.port
+           and url_info.hostname == top_url_info.hostname \
+           and (
+               url_info.scheme != top_url_info.scheme or
+               url_info.port == top_url_info.port
         ):
             return is_subdir(top_url_info.path, url_info.path,
-                trailing_slash=True)
+                             trailing_slash=True)
 
         return True
 
@@ -194,7 +194,7 @@ class ParentFilter(BaseURLFilter):
 class SpanHostsFilter(BaseURLFilter):
     '''Filter URLs that go to other hostnames.'''
     def __init__(self, input_url_infos, enabled=False,
-    page_requisites=False, linked_pages=False):
+                 page_requisites=False, linked_pages=False):
         self._enabled = enabled
         self._page_requisites = page_requisites
         self._linked_pages = linked_pages
@@ -213,7 +213,7 @@ class SpanHostsFilter(BaseURLFilter):
             return True
 
         if self._linked_pages and url_table_record.referrer \
-        and url_table_record.referrer_info.hostname in self._base_urls:
+           and url_table_record.referrer_info.hostname in self._base_urls:
             return True
 
 

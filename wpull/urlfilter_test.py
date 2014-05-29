@@ -3,8 +3,10 @@
 from wpull.backport.testing import unittest
 from wpull.url import URLInfo
 from wpull.urlfilter import (HTTPFilter, HTTPSOnlyFilter, BackwardDomainFilter,
-    HostnameFilter, RecursiveFilter, LevelFilter, TriesFilter, ParentFilter,
-    SpanHostsFilter, RegexFilter, DirectoryFilter, BackwardFilenameFilter)
+                             HostnameFilter, RecursiveFilter, LevelFilter,
+                             TriesFilter, ParentFilter, SpanHostsFilter,
+                             RegexFilter, DirectoryFilter,
+                             BackwardFilenameFilter)
 
 
 class MockURLTableRecord(object):
@@ -232,8 +234,8 @@ class TestURLFilter(unittest.TestCase):
         mock_record.url = 'http://example.com'
 
         url_filter = SpanHostsFilter([
-                URLInfo.parse('http://example.com/blog/'),
-            ],
+            URLInfo.parse('http://example.com/blog/'),
+        ],
             enabled=False
         )
 
@@ -247,8 +249,8 @@ class TestURLFilter(unittest.TestCase):
         ))
 
         url_filter = SpanHostsFilter([
-                URLInfo.parse('http://example.com/blog/'),
-            ],
+            URLInfo.parse('http://example.com/blog/'),
+        ],
             enabled=True
         )
         self.assertTrue(url_filter.test(
@@ -261,8 +263,8 @@ class TestURLFilter(unittest.TestCase):
         ))
 
         url_filter = SpanHostsFilter([
-                URLInfo.parse('http://example.com/blog/'),
-            ],
+            URLInfo.parse('http://example.com/blog/'),
+        ],
             page_requisites=True
         )
         mock_record = MockURLTableRecord()
@@ -275,8 +277,8 @@ class TestURLFilter(unittest.TestCase):
         ))
 
         url_filter = SpanHostsFilter([
-                URLInfo.parse('http://example.com/blog/'),
-            ],
+            URLInfo.parse('http://example.com/blog/'),
+        ],
             linked_pages=True,
         )
         mock_record = MockURLTableRecord()

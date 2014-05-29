@@ -16,7 +16,6 @@ class TestCollections(unittest.TestCase):
             list(mapping.items())
         )
 
-
     def test_linked_list(self):
         linked_list = LinkedList()
 

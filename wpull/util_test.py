@@ -3,7 +3,7 @@ import sys
 
 from wpull.backport.testing import unittest
 from wpull.util import (datetime_str, python_version, filter_pem,
-    parse_iso8601_str)
+                        parse_iso8601_str)
 
 
 DEFAULT_TIMEOUT = 30
@@ -24,15 +24,14 @@ class TestUtil(unittest.TestCase):
 
     def test_filter_pem(self):
         unclean = (b'Kitten\n'
-            b'-----BEGIN CERTIFICATE-----\n'
-            b'ABCDEFG\n'
-            b'-----END CERTIFICATE-----\n'
-            b'Puppy\n'
-            b'-----BEGIN CERTIFICATE-----\n'
-            b'QWERTY\n'
-            b'-----END CERTIFICATE-----\n'
-            b'Kit\n'
-        )
+                   b'-----BEGIN CERTIFICATE-----\n'
+                   b'ABCDEFG\n'
+                   b'-----END CERTIFICATE-----\n'
+                   b'Puppy\n'
+                   b'-----BEGIN CERTIFICATE-----\n'
+                   b'QWERTY\n'
+                   b'-----END CERTIFICATE-----\n'
+                   b'Kit\n')
         clean = set([
             (
                 b'-----BEGIN CERTIFICATE-----\n'

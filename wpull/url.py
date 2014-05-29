@@ -103,7 +103,7 @@ class URLInfo(_URLInfoType):
 
     @classmethod
     def parse(cls, string, default_scheme='http', encoding='utf8',
-    normalization_params=None, use_cache=True):
+              normalization_params=None, use_cache=True):
         '''Parse and return a new info from the given URL.
 
         Args:
@@ -146,8 +146,8 @@ class URLInfo(_URLInfoType):
         if url_split_result.scheme in ('http', 'https'):
             if string.startswith('//'):
                 url_split_result = urllib.parse.urlsplit(
-                '{0}:{1}'.format(url_split_result.scheme, string)
-            )
+                    '{0}:{1}'.format(url_split_result.scheme, string)
+                )
 
             elif not url_split_result.hostname:
                 raise ValueError('Missing hostname for HTTP protocol.')
@@ -185,7 +185,7 @@ class URLInfo(_URLInfoType):
         '''Normalize the hostname.'''
         if hostname:
             if '[' in hostname \
-            or ']' in hostname:
+               or ']' in hostname:
                 # XXX: Python lib IPv6 checking can't get it right.
                 raise ValueError('Failed to parse IPv6 URL correctly.')
 
@@ -213,7 +213,7 @@ class URLInfo(_URLInfoType):
 
     @classmethod
     def normalize_query(cls, query, encoding='utf8',
-    sort=False, always_delim=False):
+                        sort=False, always_delim=False):
         '''Normalize the query.
 
         Args:
@@ -564,8 +564,8 @@ def is_likely_link(text):
         file_extension_set = frozenset(file_extension)
 
         if file_extension_set \
-        and file_extension_set <= ALPHANUMERIC_CHARS \
-        and not file_extension_set <= NUMERIC_CHARS:
+           and file_extension_set <= ALPHANUMERIC_CHARS \
+           and not file_extension_set <= NUMERIC_CHARS:
             if file_extension in COMMON_TLD:
                 return False
 
@@ -591,8 +591,8 @@ def is_unlikely_link(text):
         return True
 
     if text[:1] == '.' \
-    and not text.startswith('./') \
-    and not text.startswith('../'):
+       and not text.startswith('./') \
+       and not text.startswith('../'):
         return True
 
     # Check for unusual characters
