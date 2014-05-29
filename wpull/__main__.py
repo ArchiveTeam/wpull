@@ -3,8 +3,6 @@ import os
 import sys
 import time
 
-import tornado.ioloop
-
 from wpull.builder import Builder
 from wpull.options import AppArgumentParser
 
@@ -12,13 +10,13 @@ from wpull.options import AppArgumentParser
 def main(exit=True):
     arg_parser = AppArgumentParser()
     args = arg_parser.parse_args()
+
     builder = Builder(args)
-    io_loop = tornado.ioloop.IOLoop.current()
-
     builder.build()
-    builder.factory['Application'].setup_signal_handlers()
 
-    exit_code = io_loop.run_sync(builder.factory['Engine'])
+    application = builder.factory['Application']
+    application.setup_signal_handlers()
+    exit_code = application.run_sync()
 
     if exit:
         sys.exit(exit_code)

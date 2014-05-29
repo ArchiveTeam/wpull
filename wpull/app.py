@@ -58,3 +58,13 @@ class Application(object):
 
         signal.signal(signal.SIGINT, graceful_stop_handler)
         signal.signal(signal.SIGTERM, forceful_stop_handler)
+
+    def run_sync(self):
+        '''Run the application.
+
+        This function is blocking.
+
+        Returns:
+            int: The exit status.
+        '''
+        return self._io_loop.run_sync(self._builder.factory['Engine'])
