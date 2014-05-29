@@ -11,7 +11,8 @@ import re
 import lxml.etree
 
 from wpull.document import (BaseDocumentReader, HTMLReader,
-    detect_response_encoding, CSSReader, SitemapReader, JavaScriptReader)
+                            detect_response_encoding, CSSReader,
+                            SitemapReader, JavaScriptReader)
 import wpull.url
 
 
@@ -162,7 +163,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
     '''Mapping of element tag names to attributes containing links.'''
 
     def __init__(self, followed_tags=None, ignored_tags=None, robots=False,
-    only_relative=False, encoding_override=None):
+                 only_relative=False, encoding_override=None):
         super().__init__()
         self._robots = robots
         self._only_relative = only_relative
@@ -201,7 +202,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
 
         except (UnicodeError, lxml.etree.LxmlError) as error:
             _logger.warning(
-                _('Failed to read document at ‘{url}’: {error}')\
+                _('Failed to read document at ‘{url}’: {error}')
                 .format(url=request.url_info.url, error=error)
             )
             result_meta_info = {}
@@ -217,7 +218,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         }
 
     def _process_elements(self, elements, response, base_url, linked_urls,
-    inline_urls):
+                          inline_urls):
         robots_check_needed = self._robots
         robots_no_follow = False
         inject_refresh = True
@@ -549,19 +550,19 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             if attrib_name in cls.LINK_ATTRIBUTES:
                 if attrib_value.lstrip().startswith('javascript:'):
                     for link in cls.iter_links_by_js_attrib(attrib_name,
-                    attrib_value):
+                                                            attrib_value):
                         yield link
                 else:
                     yield attrib_name, attrib_value
 
             elif attrib_name[:5] in ('onkey', 'oncli', 'onmou'):
                 for link in cls.iter_links_by_js_attrib(attrib_name,
-                attrib_value):
+                                                        attrib_value):
                     yield link
 
             elif attrib_name.startswith('data-'):
                 if wpull.url.is_likely_link(attrib_value) \
-                and not wpull.url.is_unlikely_link(attrib_value):
+                   and not wpull.url.is_unlikely_link(attrib_value):
                     yield attrib_name, attrib_value
 
     @classmethod
@@ -576,7 +577,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
     def is_link_inline(cls, tag, attribute):
         '''Return whether the link is likely to be inline object.'''
         if tag in cls.TAG_ATTRIBUTES \
-        and attribute in cls.TAG_ATTRIBUTES[tag]:
+           and attribute in cls.TAG_ATTRIBUTES[tag]:
             attr_flags = cls.TAG_ATTRIBUTES[tag][attribute]
             return attr_flags & cls.ATTR_INLINE
 
@@ -586,7 +587,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
     def is_html_link(cls, tag, attribute):
         '''Return whether the link is likely to be external object.'''
         if tag in cls.TAG_ATTRIBUTES \
-        and attribute in cls.TAG_ATTRIBUTES[tag]:
+           and attribute in cls.TAG_ATTRIBUTES[tag]:
             attr_flags = cls.TAG_ATTRIBUTES[tag][attribute]
             return attr_flags & cls.ATTR_HTML
 
@@ -597,7 +598,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         element_tag = element_tag.lower()
 
         if self._ignored_tags is not None \
-        and element_tag in self._ignored_tags:
+           and element_tag in self._ignored_tags:
             return False
 
         if self._followed_tags is not None:
@@ -637,7 +638,7 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
 
         except UnicodeError as error:
             _logger.warning(
-                _('Failed to read document at ‘{url}’: {error}')\
+                _('Failed to read document at ‘{url}’: {error}')
                 .format(url=request.url_info.url, error=error)
             )
 
@@ -689,7 +690,7 @@ class JavaScriptScraper(JavaScriptReader, BaseDocumentScraper):
 
         except UnicodeError as error:
             _logger.warning(
-                _('Failed to read document at ‘{url}’: {error}')\
+                _('Failed to read document at ‘{url}’: {error}')
                 .format(url=request.url_info.url, error=error)
             )
 
@@ -747,7 +748,7 @@ class SitemapScraper(SitemapReader, BaseDocumentScraper):
 
         except (UnicodeError, lxml.etree.LxmlError) as error:
             _logger.warning(
-                _('Failed to read document at ‘{url}’: {error}')\
+                _('Failed to read document at ‘{url}’: {error}')
                 .format(url=request.url_info.url, error=error)
             )
 
@@ -818,7 +819,7 @@ def urljoin_safe(base_url, url, allow_fragments=True):
         )
     except ValueError as error:
         _logger.warning(
-            _('Discarding malformed URL ‘{url}’: {error}.')\
+            _('Discarding malformed URL ‘{url}’: {error}.')
             .format(url=url, error=error)
         )
 

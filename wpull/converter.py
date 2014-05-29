@@ -63,16 +63,16 @@ class BatchDocumentConverter(object):
         else:
             with open(filename, 'rb') as in_file:
                 if HTMLScraper.is_supported(
-                file=in_file, url_info=url_record.url_info):
+                        file=in_file, url_info=url_record.url_info):
                     link_type = 'html'
                 elif CSSScraper.is_supported(
-                file=in_file, url_info=url_record.url_info):
+                        file=in_file, url_info=url_record.url_info):
                     link_type = 'css'
                 else:
                     link_type = None
 
         _logger.info(
-            _('Converting links in file ‘{filename}’ (type={type}).')\
+            _('Converting links in file ‘{filename}’ (type={type}).')
             .format(filename=filename, type=link_type)
         )
 
@@ -247,7 +247,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
         url_record = self._url_table.get(url_info.url)
 
         if url_record \
-        and url_record.status == Status.done and url_record.filename:
+           and url_record.status == Status.done and url_record.filename:
             new_url = url_record.filename
         else:
             new_url = url_info.url
@@ -285,7 +285,7 @@ class CSSConverter(CSSScraper, BaseDocumentConverter):
             url_record = self._url_table.get(url)
 
             if url_record \
-            and url_record.status == Status.done and url_record.filename:
+               and url_record.status == Status.done and url_record.filename:
                 new_url = url_record.filename
             else:
                 new_url = url

@@ -28,7 +28,7 @@ class BaseDocumentDetector(object, metaclass=abc.ABCMeta):
 
     @classmethod
     def is_supported(cls, file=None, request=None, response=None,
-    url_info=None):
+                     url_info=None):
         '''Given the hints, return whether the document is supported.
 
         Args:
@@ -148,7 +148,8 @@ class HTMLLightParserTarget(object):
             track of text.
     '''
     def __init__(self, callback,
-    text_elements=frozenset(['style', 'script', 'link', 'url', 'icon'])):
+                 text_elements=frozenset(
+                     ['style', 'script', 'link', 'url', 'icon'])):
         self.callback = callback
         self.text_elements = text_elements
         self.tag = None
@@ -342,16 +343,16 @@ class HTMLReader(BaseDocumentReader):
             wpull.util.peek_file(file)).lower()
 
         if b'<!doctype html' in peeked_data \
-        or b'<head' in peeked_data \
-        or b'<title' in peeked_data \
-        or b'<html' in peeked_data \
-        or b'<script' in peeked_data \
-        or b'<table' in peeked_data \
-        or b'<a href' in peeked_data:
+           or b'<head' in peeked_data \
+           or b'<title' in peeked_data \
+           or b'<html' in peeked_data \
+           or b'<script' in peeked_data \
+           or b'<table' in peeked_data \
+           or b'<a href' in peeked_data:
             return True
 
     def read_tree(self, file, encoding=None, target_class=HTMLParserTarget,
-    parser_type='html'):
+                  parser_type='html'):
         '''Return an iterator of elements found in the document.
 
         Args:
@@ -377,7 +378,7 @@ class HTMLReader(BaseDocumentReader):
             elements.append(HTMLReadElement(
                 wpull.string.to_str(tag),
                 wpull.string.to_str(dict(attrib))
-                    if attrib is not None else None,
+                if attrib is not None else None,
                 wpull.string.to_str(text),
                 wpull.string.to_str(tail),
                 end
@@ -517,7 +518,7 @@ class CSSReader(BaseDocumentReader):
         if response.body:
             # Stylesheet mistakenly served as HTML
             if 'html' in response.fields.get('content-type', '').lower() \
-            and cls.is_file(response.body.content_file):
+               and cls.is_file(response.body.content_file):
                 return True
 
     @classmethod
@@ -530,7 +531,7 @@ class CSSReader(BaseDocumentReader):
             return False
 
         if re.search(br'@import |color:|background[a-z-]*:|font[a-z-]*:',
-        peeked_data):
+                     peeked_data):
             return True
 
     def read_links(self, file, encoding=None):
@@ -633,7 +634,7 @@ class JavaScriptReader(BaseDocumentReader):
             return False
 
         if re.search(br'var|function|setTimeout|jQuery\(',
-        peeked_data):
+                     peeked_data):
             return True
 
     def read_links(self, file, encoding=None):
@@ -685,7 +686,7 @@ class JavaScriptReader(BaseDocumentReader):
             text = match.group(2)
 
             if wpull.url.is_likely_link(text) \
-            and not wpull.url.is_unlikely_link(text):
+               and not wpull.url.is_unlikely_link(text):
                 try:
                     yield json.loads('"{0}"'.format(text))
                 except ValueError:
@@ -794,7 +795,7 @@ class SitemapReader(BaseDocumentReader):
         peeked_data = wpull.string.printable_bytes(peeked_data)
 
         if b'<?xml' in peeked_data \
-        and (b'<sitemapindex' in peeked_data or b'<urlset' in peeked_data):
+           and (b'<sitemapindex' in peeked_data or b'<urlset' in peeked_data):
             return True
 
     def read_links(self, file, encoding=None):

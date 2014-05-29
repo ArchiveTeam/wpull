@@ -248,7 +248,7 @@ class Callbacks(LegacyCallbacks):
         '''Call the correct :meth:`handle_response`.'''
 
         if self.version >= 2 \
-        or self.original_handle_response == self.handle_response:
+           or self.original_handle_response == self.handle_response:
             return self.handle_response(url_info, record_info, http_info)
         else:
             return self.handle_response(url_info, http_info)
@@ -282,7 +282,7 @@ class Callbacks(LegacyCallbacks):
         '''Call the correct :meth:`handle_error`.'''
 
         if self.version >= 2 \
-        or self.original_handle_error == self.handle_error:
+           or self.original_handle_error == self.handle_error:
             return self.handle_error(url_info, record_info, error_info)
         else:
             return self.handle_error(url_info, error_info)
@@ -577,7 +577,7 @@ class HookedWebProcessorSessionMixin(object):
 
 
 class HookedWebProcessorSession(HookedWebProcessorSessionMixin,
-WebProcessorSession):
+                                WebProcessorSession):
     '''Hooked Web Processor Session.'''
     pass
 
@@ -653,7 +653,7 @@ class HookEnvironment(object):
         '''Return a :class:`HookedResolver`.'''
         return HookedResolver(
             *args,
-             hook_env=self,
+            hook_env=self,
             **kwargs
         )
 

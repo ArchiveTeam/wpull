@@ -281,7 +281,7 @@ class WARCRecorder(BaseRecorder):
         yield recorder_session
 
         if self._params.max_size is not None \
-        and os.path.getsize(self._warc_filename) > self._params.max_size:
+           and os.path.getsize(self._warc_filename) > self._params.max_size:
             self._sequence_num += 1
 
             _logger.debug('Starting new warc file due to max size.')
@@ -320,7 +320,7 @@ class WARCRecorder(BaseRecorder):
                     out_file.write(data)
         except (OSError, IOError) as error:
             _logger.info(
-                _('Rolling back file {filename} to length {length}.')\
+                _('Rolling back file {filename} to length {length}.')
                 .format(filename=self._warc_filename, length=before_offset)
             )
             with open(self._warc_filename, mode='wb') as out_file:
@@ -389,8 +389,8 @@ class WARCRecorder(BaseRecorder):
     def _write_cdx_field(self, record, raw_file_record_size, raw_file_offset):
         '''Write the CDX field if needed.'''
         if record.fields[WARCRecord.WARC_TYPE] != WARCRecord.RESPONSE \
-        or not re.match(r'application/http; *msgtype *= *response',
-        record.fields[WARCRecord.CONTENT_TYPE]):
+           or not re.match(r'application/http; *msgtype *= *response',
+                           record.fields[WARCRecord.CONTENT_TYPE]):
             return
 
         url = record.fields['WARC-Target-URI']
@@ -711,7 +711,7 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
         self._throbber_iter = itertools.cycle(
             itertools.chain(
                 range(bar_width), reversed(range(1, bar_width - 1))
-        ))
+            ))
         self._bandwidth_meter = BandwidthMeter()
         self._start_time = time.time()
 
@@ -721,8 +721,8 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
         if response.status_code == http.client.PARTIAL_CONTENT:
             match = re.search(
                 r'bytes +([0-9]+)-([0-9]+)/([0-9]+)',
-                 response.fields.get('Content-Range', '')
-             )
+                response.fields.get('Content-Range', '')
+            )
 
             if match:
                 self._bytes_continued = int(match.group(1))
@@ -792,8 +792,8 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
 
             if position_bytes < self._bytes_continued:
                 self._print('+')
-            elif position_bytes <= \
-            self._bytes_continued + self._bytes_received:
+            elif (position_bytes <=
+                  self._bytes_continued + self._bytes_received):
                 self._print('=')
             else:
                 self._print(' ')
@@ -820,7 +820,7 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
 
     def _print_percent(self):
         fraction_done = ((self._bytes_continued + self._bytes_received) /
-            self._total_size)
+                         self._total_size)
 
         self._print('{fraction_done:.1%}'.format(fraction_done=fraction_done))
 

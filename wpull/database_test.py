@@ -44,7 +44,7 @@ class TestDatabase(unittest.TestCase):
         self.assertEqual(Status.in_progress, url_record.status)
 
         url_table.update(url_record.url, status=Status.done,
-            increment_try_count=True, status_code=200)
+                         increment_try_count=True, status_code=200)
 
         url_record = url_table[url_record.url]
 

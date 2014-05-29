@@ -75,7 +75,7 @@ class RecorderTest(unittest.TestCase):
         self.assertTrue(warc_file_content.startswith(b'WARC/1.0'))
         self.assertIn(b'WARC-Type: warcinfo\r\n', warc_file_content)
         self.assertIn(b'Content-Type: application/warc-fields',
-            warc_file_content)
+                      warc_file_content)
         self.assertIn(b'WARC-Date: ', warc_file_content)
         self.assertIn(b'WARC-Record-ID: <urn:uuid:', warc_file_content)
         self.assertIn(b'WARC-Block-Digest: sha1:', warc_file_content)
@@ -83,11 +83,11 @@ class RecorderTest(unittest.TestCase):
         self.assertIn(b'WARC-Type: request\r\n', warc_file_content)
         self.assertIn(b'WARC-Target-URI: http://', warc_file_content)
         self.assertIn(b'Content-Type: application/http;msgtype=request',
-            warc_file_content)
+                      warc_file_content)
         self.assertIn(b'WARC-Type: response', warc_file_content)
         self.assertIn(b'WARC-Concurrent-To: <urn:uuid:', warc_file_content)
         self.assertIn(b'Content-Type: application/http;msgtype=response',
-            warc_file_content)
+                      warc_file_content)
         self.assertIn(
             'Wpull/{0}'.format(wpull.version.__version__).encode('utf-8'),
             warc_file_content
@@ -332,18 +332,18 @@ class RecorderTest(unittest.TestCase):
         self.assertIn(b'WARC-Type: revisit\r\n', warc_file_content)
         self.assertIn(
             b'WARC-Refers-To: '
-                b'<urn:uuid:8a534d31-bd06-4056-8a0f-bdc5fd611036>\r\n',
+            b'<urn:uuid:8a534d31-bd06-4056-8a0f-bdc5fd611036>\r\n',
             warc_file_content
         )
         self.assertIn(b'WARC-Truncated: length\r\n', warc_file_content)
         self.assertIn(
             b'WARC-Profile: http://netpreserve.org/warc/1.0/revisit/'
-                b'identical-payload-digest\r\n',
+            b'identical-payload-digest\r\n',
             warc_file_content
         )
         self.assertIn(
             b'Content-Length: ' +
-                str(revisit_response_header_size).encode('ascii') + b'\r\n',
+            str(revisit_response_header_size).encode('ascii') + b'\r\n',
             warc_file_content
         )
         self.assertIn(

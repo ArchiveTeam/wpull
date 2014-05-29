@@ -168,7 +168,7 @@ class HTTPProxyHandler(object):
             request.fields['Host'] = old_host_value
 
         if self._rewrite \
-        and request.fields['Host'].startswith('wpull.invalid'):
+           and request.fields['Host'].startswith('wpull.invalid'):
             request.fields['Host'] = request.url_info.hostname_with_port
             assert request.fields['Host']
 
