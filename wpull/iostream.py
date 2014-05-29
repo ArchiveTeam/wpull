@@ -277,7 +277,7 @@ class IOStream(object):
             self.close()
             raise NetworkError(
                 'Failed to update handler: {error}'.format(error=error)
-                ) from error
+            ) from error
 
     def _raise_socket_error(self):
         '''Get the error from the socket and raise an error.'''

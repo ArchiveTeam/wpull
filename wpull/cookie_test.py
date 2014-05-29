@@ -14,7 +14,8 @@ class FakeResponse(object):
         headers: list of RFC822-style 'Key: value' strings
         """
         if sys.version_info[0] == 2:
-            import mimetools, StringIO
+            import mimetools
+            import StringIO
             f = StringIO.StringIO("\n".join(headers))
             self._headers = mimetools.Message(f)
         else:

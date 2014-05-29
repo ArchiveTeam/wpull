@@ -709,18 +709,20 @@ class Builder(object):
         else:
             case = None
 
-        path_namer = self._factory.new('PathNamer',
-                                       args.directory_prefix,
-                                       index=args.default_page,
-                                       use_dir=use_dir,
-                                       cut=args.cut_dirs,
-                                       protocol=args.protocol_directories,
-                                       hostname=args.host_directories,
-                                       os_type=os_type,
-                                       ascii_only=ascii_only,
-                                       no_control=no_control,
-                                       case=case,
-                                       max_filename_length=args.max_filename_length,)
+        path_namer = self._factory.new(
+            'PathNamer',
+            args.directory_prefix,
+            index=args.default_page,
+            use_dir=use_dir,
+            cut=args.cut_dirs,
+            protocol=args.protocol_directories,
+            hostname=args.host_directories,
+            os_type=os_type,
+            ascii_only=ascii_only,
+            no_control=no_control,
+            case=case,
+            max_filename_length=args.max_filename_length,
+        )
 
         if args.recursive or args.page_requisites or args.continue_download:
             if args.clobber_method == 'disable':
@@ -811,21 +813,20 @@ class Builder(object):
             bind_address = None
 
         def connection_factory(*args, **kwargs):
-            return self._factory.new('Connection',
-                                     *args,
-                                     resolver=resolver,
-                                     params=ConnectionParams(
-                                         connect_timeout=connect_timeout,
-                                         read_timeout=read_timeout,
-                                         keep_alive=(
-                                             self._args.http_keep_alive
-                                             and not self._args.ignore_length
-                                         ),
-                                         ssl_options=self._build_ssl_options(),
-                                         ignore_length=self._args.ignore_length,
-                                         bind_address=bind_address,
-                                     ),
-                                     **kwargs)
+            return self._factory.new(
+                'Connection',
+                *args,
+                resolver=resolver,
+                params=ConnectionParams(
+                    connect_timeout=connect_timeout,
+                    read_timeout=read_timeout,
+                    keep_alive=(
+                        self._args.http_keep_alive and not self._args.ignore_length),
+                    ssl_options=self._build_ssl_options(),
+                    ignore_length=self._args.ignore_length,
+                    bind_address=bind_address,
+                ),
+                **kwargs)
 
         def host_connection_pool_factory(*args, **kwargs):
             return self._factory.new(

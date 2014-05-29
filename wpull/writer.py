@@ -551,10 +551,10 @@ class PercentEncoder(collections.defaultdict):
         char_num = ord(char)
 
         if ((self.unix and char == b'/')
-           or (self.control and
-               (0 <= char_num <= 31 or 128 <= char_num <= 159))
-           or (self.windows and char in br'\|/:?"*<>')
-           or (self.ascii and char_num > 127)):
+                or (self.control and
+                    (0 <= char_num <= 31 or 128 <= char_num <= 159))
+                or (self.windows and char in br'\|/:?"*<>')
+                or (self.ascii and char_num > 127)):
             value = b'%' + base64.b16encode(char)
         else:
             value = char

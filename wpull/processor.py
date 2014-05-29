@@ -342,7 +342,7 @@ class WebProcessorSession(object):
               and len(test_info['failed']) == 1
               and 'SpanHostsFilter' in test_info['map']
               and not test_info['map']['SpanHostsFilter']):
-                return True, 'redirect'
+            return True, 'redirect'
 
         else:
             # _logger.debug(

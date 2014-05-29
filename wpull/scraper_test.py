@@ -64,7 +64,7 @@ class TestDocument(unittest.TestCase):
             'http://example.com/param_ref_value.php',
             'http://example.com/overlay_src.html',
             'http://example.com/script_variable.png',
-            },
+        },
             inline_urls
         )
         self.assertEqual({
@@ -98,7 +98,7 @@ class TestDocument(unittest.TestCase):
             'http://example.com/http_script_json.html?a=b',
             'http://example.com/a_javascript_link.html',
             'http://example.com/a_onclick_link.html',
-            },
+        },
             linked_urls
         )
 
@@ -215,12 +215,12 @@ class TestDocument(unittest.TestCase):
             'http://example.com/dir/image2.png',
             'http://example.net/image3.png',
             'http://example.com/dir/image4.png',
-            },
+        },
             inline_urls
         )
         self.assertEqual({
             'http://example.com/a/'
-            },
+        },
             linked_urls
         )
 
@@ -447,7 +447,7 @@ class TestDocument(unittest.TestCase):
             'chrome://communicator/skin/',
             'landscape.css',
             'cool.css'
-            },
+        },
             urls
         )
 
@@ -462,7 +462,7 @@ class TestDocument(unittest.TestCase):
             'landscape.css',
             'cool.css',
             'warm.css',
-            },
+        },
             urls
         )
 
@@ -484,7 +484,7 @@ class TestDocument(unittest.TestCase):
         self.assertEqual({
             'http://example.com/mobile.css',
             'http://example.com/images/star.gif',
-            },
+        },
             inline_urls
         )
         self.assertFalse(linked_urls)
@@ -506,7 +506,7 @@ class TestDocument(unittest.TestCase):
 
         self.assertEqual({
             'http://example.com/文字化け.png',
-            },
+        },
             inline_urls
         )
         self.assertFalse(linked_urls)
@@ -529,7 +529,7 @@ class TestDocument(unittest.TestCase):
 
         self.assertEqual({
             'http://example.com/Кракозябры.png',
-            },
+        },
             inline_urls
         )
         self.assertFalse(linked_urls)
@@ -550,7 +550,7 @@ class TestDocument(unittest.TestCase):
 
         self.assertEqual({
             'http://example.com/sitemap00.xml',
-            },
+        },
             linked_urls
         )
         self.assertFalse(inline_urls)
@@ -596,7 +596,7 @@ class TestDocument(unittest.TestCase):
 
         self.assertEqual({
             'http://www.example.com/sitemap1.xml.gz',
-            },
+        },
             linked_urls
         )
         self.assertFalse(inline_urls)
@@ -626,7 +626,7 @@ class TestDocument(unittest.TestCase):
 
         self.assertEqual({
             'http://www.example.com/',
-            },
+        },
             linked_urls
         )
         self.assertFalse(inline_urls)
@@ -651,7 +651,7 @@ class TestDocument(unittest.TestCase):
 
         self.assertEqual({
             'http://www.example.com/',
-            },
+        },
             linked_urls
         )
         self.assertFalse(inline_urls)
@@ -673,7 +673,7 @@ class TestDocument(unittest.TestCase):
 
         self.assertEqual({
             'http://example.com/script_variable.png',
-            },
+        },
             inline_urls
         )
         self.assertEqual({
@@ -690,7 +690,7 @@ class TestDocument(unittest.TestCase):
             'http://example.com/../relative_dir_script_variable',
             'http://example.com/script_json.html',
             'http://example.com/http_script_json.html?a=b',
-            },
+        },
             linked_urls
         )
 

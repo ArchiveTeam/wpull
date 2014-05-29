@@ -549,7 +549,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '᚛᚛ᚉᚑᚅᚔᚉᚉᚔᚋ ᚔᚈᚔ ᚍᚂᚐᚅᚑ ᚅᚔᚋᚌᚓᚅᚐ᚜'
             'Je peux manger du verre, ça ne me fait pas mal.'
             "Dw i'n gallu bwyta gwydr, 'dyw e ddim yn gwneud dolur i mi."
-            ).encode('utf8')
+        ).encode('utf8')
 
         for dummy in range(8000):
             self.wfile.write(data)
