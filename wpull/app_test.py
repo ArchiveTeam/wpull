@@ -392,7 +392,7 @@ class TestApp(GoodAppTestCase):
     def test_app_python_script(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
-            'testing', 'py_hook_script.py')
+                                'testing', 'py_hook_script.py')
         args = arg_parser.parse_args([
             self.get_url('/'),
             'localhost:1',
@@ -418,7 +418,7 @@ class TestApp(GoodAppTestCase):
     def test_app_python_script_api_2(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
-            'testing', 'py_hook_script2.py')
+                                'testing', 'py_hook_script2.py')
         args = arg_parser.parse_args([
             self.get_url('/'),
             'localhost:1',
@@ -444,7 +444,7 @@ class TestApp(GoodAppTestCase):
     def test_app_python_script_stop(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
-            'testing', 'py_hook_script_stop.py')
+                                'testing', 'py_hook_script_stop.py')
         args = arg_parser.parse_args([
             self.get_url('/'),
             '--python-script', filename,
@@ -455,12 +455,12 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(1, exit_code)
 
     @unittest.skipIf(sys.version_info[0:2] == (3, 2),
-        'lua module not working in this python version')
+                     'lua module not working in this python version')
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_lua_script(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
-            'testing', 'lua_hook_script.lua')
+                                'testing', 'lua_hook_script.lua')
         args = arg_parser.parse_args([
             self.get_url('/'),
             'localhost:1',
@@ -483,12 +483,12 @@ class TestApp(GoodAppTestCase):
         self.assertGreater(1.0, stats.duration)
 
     @unittest.skipIf(sys.version_info[0:2] == (3, 2),
-        'lua module not working in this python version')
+                     'lua module not working in this python version')
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_app_lua_script_api_2(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
-            'testing', 'lua_hook_script2.lua')
+                                'testing', 'lua_hook_script2.lua')
         args = arg_parser.parse_args([
             self.get_url('/'),
             'localhost:1',
@@ -743,7 +743,7 @@ class TestApp(GoodAppTestCase):
     def test_app_phantomjs(self):
         arg_parser = AppArgumentParser()
         script_filename = os.path.join(os.path.dirname(__file__),
-            'testing', 'boring_script.py')
+                                       'testing', 'boring_script.py')
         args = arg_parser.parse_args([
             self.get_url('/static/simple_javascript.html'),
             '--warc-file', 'test',

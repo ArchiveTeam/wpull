@@ -8,12 +8,12 @@ from wpull.hook import to_lua_string, to_lua_type
 
 class TestHook(unittest.TestCase):
     @unittest.skipIf(sys.version_info[0:2] == (3, 2),
-        'lua module not working in this python version')
+                     'lua module not working in this python version')
     def test_lua_type_sanity(self):
         import lua
 
         test_filename = os.path.join(os.path.dirname(__file__),
-            'testing', 'type_test.lua')
+                                     'testing', 'type_test.lua')
 
         lua_globals = lua.globals()
         lua_globals.text1 = to_lua_string('hi')

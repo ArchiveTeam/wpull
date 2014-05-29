@@ -181,7 +181,7 @@ class URLItem(object):
         self._url_table.update(self._url, **kwargs)
 
     def add_inline_url_infos(self, url_infos, encoding=None, link_type=None,
-    post_data=None):
+                             post_data=None):
         '''Add inline links scraped from the document.
 
         Args:
@@ -201,7 +201,7 @@ class URLItem(object):
         )
 
     def add_linked_url_infos(self, url_infos, encoding=None, link_type=None,
-    post_data=None):
+                             post_data=None):
         '''Add linked links scraped from the document.
 
         Args:
@@ -221,7 +221,7 @@ class URLItem(object):
         )
 
     def child_url_record(self, url_info, inline=False, encoding=None,
-    link_type=None, post_data=None):
+                         link_type=None, post_data=None):
         '''Return a child URLRecord.
 
         This function is useful for testing filters before adding to table.

@@ -18,7 +18,7 @@ import tornado.stack_context
 import toro
 
 from wpull.errors import (NetworkError, SSLVerficationError, NetworkTimedOut,
-    ConnectionRefused)
+                          ConnectionRefused)
 
 
 WRITE = tornado.ioloop.IOLoop.WRITE
@@ -198,7 +198,7 @@ class IOStream(object):
         rw_timeout (float): Timeout in seconds for reads and writes.
     '''
     def __init__(self, socket_obj, ioloop=None, chunk_size=4096,
-    max_buffer_size=1048576, rw_timeout=None):
+                 max_buffer_size=1048576, rw_timeout=None):
         self._socket = socket_obj
         self._ioloop = ioloop or tornado.ioloop.IOLoop.current()
         self._chunk_size = chunk_size
@@ -277,13 +277,13 @@ class IOStream(object):
             self.close()
             raise NetworkError(
                 'Failed to update handler: {error}'.format(error=error)
-                ) from error
+            ) from error
 
     def _raise_socket_error(self):
         '''Get the error from the socket and raise an error.'''
         error_code = self._socket.getsockopt(
-                socket.SOL_SOCKET, socket.SO_ERROR
-            )
+            socket.SOL_SOCKET, socket.SO_ERROR
+        )
 
         self.close()
 
@@ -367,7 +367,7 @@ class IOStream(object):
                         raise
                 except IOError as error:
                     if error.errno not in (
-                    errno.EWOULDBLOCK, errno.EINPROGRESS):
+                            errno.EWOULDBLOCK, errno.EINPROGRESS):
                         raise
                 else:
                     if not bytes_sent:
@@ -639,7 +639,7 @@ class SSLIOStream(IOStream):
         yield self._do_handshake(timeout)
 
         if self._ssl_options \
-        and self._ssl_options.get('cert_reqs', None) != ssl.CERT_NONE:
+           and self._ssl_options.get('cert_reqs', None) != ssl.CERT_NONE:
             self._verify_certificates()
 
     @tornado.gen.coroutine

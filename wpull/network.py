@@ -39,7 +39,7 @@ class Resolver(object):
     '''The cache for resolved addresses.'''
 
     def __init__(self, cache_enabled=True, families=(IPv4, IPv6),
-    timeout=None, rotate=False):
+                 timeout=None, rotate=False):
         if cache_enabled:
             self._cache = self.global_cache
         else:
@@ -90,7 +90,7 @@ class Resolver(object):
 
         if not addresses:
             raise DNSNotFound(
-                "DNS resolution for '{0}' did not return any results."\
+                "DNS resolution for '{0}' did not return any results."
                 .format(wpull.string.coerce_str_to_ascii(host))
             )
 

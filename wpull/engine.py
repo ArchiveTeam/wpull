@@ -11,8 +11,9 @@ import wpull.actor
 from wpull.async import AdjustableSemaphore
 import wpull.async
 from wpull.database import NotFound
-from wpull.errors import (ExitStatus, ServerError, ConnectionRefused, DNSNotFound,
-    SSLVerficationError, ProtocolError, NetworkError)
+from wpull.errors import (ExitStatus, ServerError,
+                          ConnectionRefused, DNSNotFound,
+                          SSLVerficationError, ProtocolError, NetworkError)
 from wpull.item import Status, URLItem
 import wpull.string
 from wpull.url import URLInfo
@@ -65,7 +66,7 @@ class Engine(object):
     '''Mapping of error types to exit status.'''
 
     def __init__(self, url_table, processor, statistics,
-    concurrent=1):
+                 concurrent=1):
         self._url_table = url_table
         self._processor = processor
         self._statistics = statistics
@@ -322,4 +323,4 @@ class Engine(object):
         '''Print an invalid SSL certificate warning.'''
         _logger.info(_('A SSL certificate could not be verified.'))
         _logger.info(_('To ignore and proceed insecurely, '
-            'use ‘--no-check-certificate’.'))
+                       'use ‘--no-check-certificate’.'))

@@ -262,7 +262,7 @@ class BaseSQLURLTable(BaseURLTable):
                     .filter(
                         URL.status == status,
                         URL.level < level,
-                    ).first()
+                ).first()
 
             if not url_record:
                 raise NotFound()

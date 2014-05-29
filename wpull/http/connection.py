@@ -21,7 +21,7 @@ import toro
 from wpull.actor import Event
 import wpull.decompression
 from wpull.errors import (SSLVerficationError, ConnectionRefused, NetworkError,
-    ProtocolError)
+                          ProtocolError)
 from wpull.http.request import Response
 from wpull.iostream import SSLIOStream, IOStream, BufferFullError
 from wpull.network import Resolver
@@ -176,7 +176,7 @@ class Connection(object):
                 self._resolved_address, timeout=self._params.connect_timeout
             )
         except (tornado.netutil.SSLCertificateError,
-        SSLVerficationError) as error:
+                SSLVerficationError) as error:
             raise SSLVerficationError('Certificate error: {error}'.format(
                 error=error)) from error
         except (ssl.SSLError, socket.error) as error:
@@ -218,10 +218,10 @@ class Connection(object):
                 with recorder.session() as recorder_session:
                     self._events.attach(recorder_session)
                     response = yield self._process_request(request,
-                        response_factory)
+                                                           response_factory)
             else:
                 response = yield self._process_request(request,
-                    response_factory)
+                                                       response_factory)
 
             response.url_info = request.url_info
         except:
@@ -276,8 +276,8 @@ class Connection(object):
 
         self._events.response.fire(response)
 
-        if self.should_close(
-        request.version, response.fields.get('Connection')):
+        if self.should_close(request.version,
+                             response.fields.get('Connection')):
             _logger.debug('HTTP connection close.')
             self.close()
         else:
@@ -334,20 +334,20 @@ class Connection(object):
     def _read_response_body(self, request, response):
         '''Read the response's content body.'''
         if 'Content-Length' not in response.fields \
-        and 'Transfer-Encoding' not in response.fields \
-        and (
-            response.status_code in self._params.no_content_codes \
-            or request.method.upper() == 'HEAD'
-        ):
+           and 'Transfer-Encoding' not in response.fields \
+           and (
+               response.status_code in self._params.no_content_codes
+               or request.method.upper() == 'HEAD'
+           ):
             return
 
         self._setup_decompressor(response)
 
         if re.match(r'chunked($|;)',
-        response.fields.get('Transfer-Encoding', '')):
+                    response.fields.get('Transfer-Encoding', '')):
             yield self._read_response_by_chunk(response)
         elif 'Content-Length' in response.fields \
-        and not self._params.ignore_length:
+             and not self._params.ignore_length:
             yield self._read_response_by_length(response)
         else:
             yield self._read_response_until_close(response)
@@ -562,7 +562,7 @@ class ChunkedTransferStreamReader(object):
 class HostConnectionPool(collections.Set):
     '''A Connection pool to a particular server.'''
     def __init__(self, address, ssl_enable=False, max_count=6,
-    connection_factory=Connection):
+                 connection_factory=Connection):
         assert isinstance(address[0], str)
         assert isinstance(address[1], int) and address[1]
         self._address = address
@@ -634,8 +634,8 @@ class HostConnectionPool(collections.Set):
         try:
             response = yield connection.fetch(request, **kwargs)
         except Exception as error:
-            _logger.debug('Host pool got an error from fetch: {error}'\
-                .format(error=error))
+            _logger.debug('Host pool got an error from fetch: {error}'
+                          .format(error=error))
             _logger.debug(traceback.format_exc())
             async_result.set(error)
         else:
@@ -695,7 +695,7 @@ class HostConnectionPool(collections.Set):
         '''Remove connections not in use.'''
         for connection in tuple(self._connections):
             if not connection.active \
-            and (force_close or not connection.connected):
+               and (force_close or not connection.connected):
                 connection.close()
                 self._connections.remove(connection)
                 _logger.debug('Cleaned connection {0}'.format(connection))

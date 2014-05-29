@@ -14,7 +14,8 @@ class FakeResponse(object):
         headers: list of RFC822-style 'Key: value' strings
         """
         if sys.version_info[0] == 2:
-            import mimetools, StringIO
+            import mimetools
+            import StringIO
             f = StringIO.StringIO("\n".join(headers))
             self._headers = mimetools.Message(f)
         else:
@@ -81,13 +82,13 @@ class TestCookie(unittest.TestCase):
 
             if key < 50:
                 self.assertTrue(
-                    cookie_jar._cookies['example.com']['/']\
-                        .get('k{0}'.format(key))
+                    cookie_jar._cookies['example.com']['/']
+                    .get('k{0}'.format(key))
                 )
             else:
                 self.assertFalse(
-                    cookie_jar._cookies['example.com']['/']\
-                        .get('k{0}'.format(key))
+                    cookie_jar._cookies['example.com']['/']
+                    .get('k{0}'.format(key))
                 )
 
         response = FakeResponse(

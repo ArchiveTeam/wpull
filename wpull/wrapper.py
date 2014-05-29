@@ -63,7 +63,7 @@ class CookieJarWrapper(object):
             saving to file.
     '''
     def __init__(self, cookie_jar, save_filename=None,
-    keep_session_cookies=False):
+                 keep_session_cookies=False):
         self._cookie_jar = cookie_jar
         self._save_filename = save_filename
         self._keep_session_cookies = keep_session_cookies

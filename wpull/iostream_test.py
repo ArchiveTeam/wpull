@@ -154,4 +154,3 @@ class TestSSLIOStream(tornado.testing.AsyncHTTPSTestCase):
             pass
         else:
             self.fail()
-
