@@ -11,13 +11,14 @@ import tornado.gen
 import wpull.async
 from wpull.cache import FIFOCache
 from wpull.errors import NetworkError, DNSNotFound
+from wpull.hook import HookableMixin, HookDisconnected
 import wpull.string
 
 
 _logger = logging.getLogger(__name__)
 
 
-class Resolver(object):
+class Resolver(HookableMixin):
     '''Asynchronous resolver with cache and timeout.
 
     Args:
@@ -40,6 +41,8 @@ class Resolver(object):
 
     def __init__(self, cache_enabled=True, families=(IPv4, IPv6),
                  timeout=None, rotate=False):
+        super().__init__()
+
         if cache_enabled:
             self._cache = self.global_cache
         else:
@@ -49,6 +52,8 @@ class Resolver(object):
         self._timeout = timeout
         self._rotate = rotate
         self._tornado_resolver = tornado.netutil.ThreadedResolver()
+
+        self.register_hook('resolve_dns')
 
     @tornado.gen.coroutine
     def resolve(self, host, port):
@@ -69,24 +74,15 @@ class Resolver(object):
         '''
         _logger.debug('Lookup address {0} {1}.'.format(host, port))
 
-        addresses = []
+        results = self._resolve_internally(host, port)
 
-        for family in self._families:
-            results = self._get_cache(host, port, family)
+        if results is None:
+            results = yield self._resolve_from_network(host, port)
 
-            if results is not None:
-                _logger.debug('DNS cache hit.')
-                addresses.extend(results)
-                continue
+        if self._cache:
+            self._put_cache(host, port, results)
 
-            future = self._resolve_tornado(host, port, family)
-            try:
-                results = yield wpull.async.wait_future(future, self._timeout)
-            except wpull.async.TimedOut as error:
-                raise NetworkError('DNS resolve timed out') from error
-
-            addresses.extend(results)
-            self._put_cache(host, port, family, results)
+        addresses = list([result[0:2] for result in results])
 
         if not addresses:
             raise DNSNotFound(
@@ -104,21 +100,63 @@ class Resolver(object):
 
         raise tornado.gen.Return(address)
 
+    def _resolve_internally(self, host, port):
+        '''Resolve the address using callback hook or cache.'''
+        results = None
+
+        try:
+            hook_host = self.call_hook('resolve_dns', host)
+
+            if hook_host:
+                results = [(hook_host, port)]
+        except HookDisconnected:
+            pass
+
+        if self._cache and results is None:
+            results = self._get_cache(host, port, self._families)
+
+        return results
+
     @tornado.gen.coroutine
-    def _resolve_tornado(self, host, port, family):
+    def _resolve_from_network(self, host, port):
         '''Resolve the address using Tornado.
 
         Returns:
             list: A list of tuples.
         '''
-        _logger.debug('Resolving {0} {1} {2}.'.format(host, port, family))
+        _logger.debug(
+            'Resolving {0} {1} {2}.'.format(host, port, self._families)
+        )
+
         try:
-            results = yield self._tornado_resolver.resolve(host, port, family)
+            future = self._getaddrinfo_implementation(host, port)
+            results = yield wpull.async.wait_future(future, self._timeout)
+        except wpull.async.TimedOut as error:
+            raise NetworkError('DNS resolve timed out.') from error
+        except socket.error as error:
+            if error.errno in (socket.EAI_FAIL, socket.EAI_NODATA, socket.EAI_NONAME):
+                raise DNSNotFound(
+                    'DNS resolution failed: {error}'.format(error=error)
+                ) from error
+            else:
+                raise NetworkError(
+                    'DNS resolution error: {error}'.format(error=error)
+                ) from error
+        else:
             raise tornado.gen.Return(results)
-        except socket.error:
-            _logger.debug(
-                'Failed to resolve {0} {1} {2}.'.format(host, port, family))
-            raise tornado.gen.Return(())
+
+    @tornado.gen.coroutine
+    def _getaddrinfo_implementation(self, host, port):
+        '''Call getaddrinfo.'''
+        if len(self._families) == 2:
+            family_flags = self._families[0] | self._families[1]
+        else:
+            family_flags = self._families[0]
+
+        results = yield self._tornado_resolver.resolve(
+            host, port, family_flags
+        )
+        raise tornado.gen.Return(results)
 
     def _get_cache(self, host, port, family):
         '''Return the address from cache.
@@ -135,9 +173,9 @@ class Resolver(object):
         if key in self._cache:
             return self._cache[key]
 
-    def _put_cache(self, host, port, family, results):
+    def _put_cache(self, host, port, results):
         '''Put the address in the cache.'''
-        key = (host, port, family)
+        key = (host, port, self._families)
         self._cache[key] = results
 
 
