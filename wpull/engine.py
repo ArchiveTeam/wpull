@@ -122,6 +122,7 @@ class Engine(HookableMixin):
 
         try:
             self._exit_code = self.call_hook('exit_status', self._exit_code)
+            assert self._exit_code is not None
         except HookDisconnected:
             pass
 

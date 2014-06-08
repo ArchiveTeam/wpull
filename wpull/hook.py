@@ -116,7 +116,7 @@ class HookableMixin(object):
     def call_hook(self, name, *args, **kwargs):
         '''Invoke the callback.'''
         if self.callback_hooks[name]:
-            self.callback_hooks[name](*args, **kwargs)
+            return self.callback_hooks[name](*args, **kwargs)
         else:
             raise HookDisconnected('No callback is connected.')
 
@@ -692,6 +692,30 @@ class HookEnvironment(object):
             return to_lua_type(instance)
         return instance
 
+    def get_from_native_dict(self, instance, key, default=None):
+        '''Try to get from the mapping a value.
+
+        This method will try to determine whether a Lua table or
+        ``dict`` is given.
+        '''
+        try:
+            instance.attribute_should_not_exist
+        except AttributeError:
+            return instance.get(key, default)
+        else:
+            # Check if key exists in Lua table
+            value_1 = instance[self.to_script_native_type(key)]
+
+            if value_1 is not None:
+                return value_1
+
+            value_2 = getattr(instance, self.to_script_native_type(key))
+
+            if value_1 is None and value_2 is None:
+                return default
+            else:
+                return value_1
+
     def connect_hooks(self):
         '''Connect callbacks to hooks.'''
 
@@ -703,8 +727,9 @@ class HookEnvironment(object):
         )
         self.factory['WebProcessor'].connect_hook('wait_time', self._wait_time)
         self.factory['WebProcessor'].connect_hook('should_fetch', self._should_fetch)
-
-        # TODO: hookup handle_response and handle_error
+        self.factory['WebProcessor'].connect_hook('handle_response', self._handle_response)
+        self.factory['WebProcessor'].connect_hook('handle_error', self._handle_error)
+        self.factory['WebProcessor'].connect_hook('scrape_document', self._scrape_document)
 
     def _resolve_dns(self, host, port):
         answer = self.callbacks.resolve_dns(to_lua_type(host))
@@ -754,6 +779,117 @@ class HookEnvironment(object):
         _logger.debug('Hooked should fetch returned %s', verdict)
 
         return verdict
+
+    def _handle_response(self, request, response, url_item):
+        url_info_dict = self.to_script_native_type(
+            request.url_info.to_dict()
+        )
+        url_record_dict = self.to_script_native_type(
+            url_item.url_record.to_dict()
+        )
+        response_info_dict = self.to_script_native_type(response.to_dict())
+        action = self.callbacks.call_handle_response(
+            url_info_dict, url_record_dict, response_info_dict
+        )
+
+        _logger.debug('Hooked response returned {0}'.format(action))
+
+        if action == Actions.NORMAL:
+            return 'normal'
+        elif action == Actions.RETRY:
+            return False
+        elif action == Actions.FINISH:
+            url_item.set_status(Status.done)
+            return True
+        elif action == Actions.STOP:
+            raise HookStop()
+        else:
+            raise NotImplementedError()
+
+    def _handle_error(self, request, url_item, error):
+        url_info_dict = self.to_script_native_type(
+            request.url_info.to_dict()
+        )
+        url_record_dict = self.to_script_native_type(
+            url_item.url_record.to_dict()
+        )
+        error_info_dict = self.to_script_native_type({
+            'error': error.__class__.__name__,
+        })
+        action = self.callbacks.call_handle_error(
+            url_info_dict, url_record_dict, error_info_dict
+        )
+
+        _logger.debug('Hooked error returned {0}'.format(action))
+
+        if action == Actions.NORMAL:
+            return 'normal'
+        elif action == Actions.RETRY:
+            return False
+        elif action == Actions.FINISH:
+            url_item.set_status(Status.done)
+            return True
+        elif action == Actions.STOP:
+            raise HookStop('Script requested immediate stop.')
+        else:
+            raise NotImplementedError()
+
+    def _scrape_document(self, request, response, url_item):
+        to_native = self.to_script_native_type
+        url_info_dict = to_native(request.url_info.to_dict())
+        document_info_dict = to_native(response.body.to_dict())
+        filename = to_native(response.body.content_file.name)
+
+        new_url_dicts = self.callbacks.get_urls(
+            filename, url_info_dict, document_info_dict)
+
+        _logger.debug('Hooked scrape returned {0}'.format(new_url_dicts))
+
+        if not new_url_dicts:
+            return
+
+        if to_native(1) in new_url_dicts:
+            # Lua doesn't have sequences
+            for i in itertools.count(1):
+                new_url_dict = new_url_dicts[to_native(i)]
+
+                _logger.debug('Got lua new url info {0}'.format(new_url_dict))
+
+                if new_url_dict is None:
+                    break
+
+                self._add_hooked_url(url_item, new_url_dict)
+        else:
+            for new_url_dict in new_url_dicts:
+                self._add_hooked_url(url_item, new_url_dict)
+
+    def _add_hooked_url(self, url_item, new_url_dict):
+        '''Process the ``dict`` from the script and add the URLs.'''
+        to_native = self.to_script_native_type
+        url = new_url_dict[to_native('url')]
+        link_type = self.get_from_native_dict(new_url_dict, 'link_type')
+        inline = self.get_from_native_dict(new_url_dict, 'inline')
+        post_data = self.get_from_native_dict(new_url_dict, 'post_data')
+        replace = self.get_from_native_dict(new_url_dict, 'replace')
+
+        assert url
+
+        # FIXME: resolve circular imports
+        from wpull.processor import WebProcessorSession
+        url_info = WebProcessorSession.parse_url(url, 'utf-8')
+
+        if not url_info:
+            return
+
+        kwargs = dict(link_type=link_type, post_data=post_data)
+
+        if replace:
+            url_item.url_table.remove([url])
+
+        if inline:
+            url_item.add_inline_url_infos([url_info], **kwargs)
+        else:
+            url_item.add_linked_url_infos([url_info], **kwargs)
 
 #     def resolver_factory(self, *args, **kwargs):
 #         '''Return a :class:`HookedResolver`.'''

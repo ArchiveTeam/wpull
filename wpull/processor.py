@@ -422,12 +422,15 @@ class WebProcessorSession(object):
         '''Process the response.'''
         self._url_item.set_value(status_code=response.status_code)
 
-        callback_result = self._processor.call_hook(
-            'handle_response', self._request, response
-        )
-
-        if isinstance(callback_result, bool):
-            return callback_result
+        try:
+            callback_result = self._processor.call_hook(
+                'handle_response', self._request, response, self._url_item,
+            )
+        except HookDisconnected:
+            pass
+        else:
+            if isinstance(callback_result, bool):
+                return callback_result
 
         if self._rich_client_session.redirect_tracker.is_redirect():
             return self._handle_redirect(response)
@@ -496,12 +499,15 @@ class WebProcessorSession(object):
         self._processor.instances.statistics.errors[type(error)] += 1
         self._processor.instances.waiter.increment()
 
-        callback_result = self._processor.call_hook(
-            'handle_error', self._request, error
-        )
-
-        if isinstance(callback_result, bool):
-            return callback_result
+        try:
+            callback_result = self._processor.call_hook(
+                'handle_error', self._request, self._url_item, error
+            )
+        except HookDisconnected:
+            pass
+        else:
+            if isinstance(callback_result, bool):
+                return callback_result
 
         if isinstance(error, ConnectionRefused) \
            and not self._processor.fetch_params.retry_connrefused:
@@ -537,6 +543,13 @@ class WebProcessorSession(object):
         _logger.debug('Found URLs: inline={0} linked={1}'.format(
             num_inline_urls, num_linked_urls
         ))
+
+        try:
+            self._processor.call_hook(
+                'scrape_document', request, response, self._url_item
+            )
+        except HookDisconnected:
+            pass
 
     def _process_scrape_info(self, scraper, scrape_info):
         '''Collect the URLs from the scrape info dict.'''
