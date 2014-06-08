@@ -32,6 +32,7 @@ import wpull.util
 from wpull.waiter import LinearWaiter
 from wpull.warc import WARCRecord
 from wpull.writer import NullWriter
+from wpull.hook import HookableMixin, HookDisconnected
 
 
 _logger = logging.getLogger(__name__)
@@ -114,7 +115,7 @@ Args:
 '''
 
 
-class WebProcessor(BaseProcessor):
+class WebProcessor(BaseProcessor, HookableMixin):
     '''HTTP processor.
 
     Args:
@@ -133,11 +134,19 @@ class WebProcessor(BaseProcessor):
     '''Default status codes considered a permanent error.'''
 
     def __init__(self, rich_client, root_path, fetch_params, instances):
+        super().__init__()
+
         self._rich_client = rich_client
         self._root_path = root_path
         self._fetch_params = fetch_params
         self._instances = instances
         self._session_class = WebProcessorSession
+
+        self.register_hook(
+            'should_fetch', 'scrape_document',
+            'handle_response', 'handle_error',
+            'wait_time'
+        )
 
     @property
     def rich_client(self):
@@ -333,7 +342,8 @@ class WebProcessorSession(object):
         )
 
         if test_info['verdict']:
-            return True, 'filters'
+            verdict = True
+            reason = 'filters'
 
         elif (self._processor.fetch_params.strong_redirects
               and self._rich_client_session
@@ -342,7 +352,8 @@ class WebProcessorSession(object):
               and len(test_info['failed']) == 1
               and 'SpanHostsFilter' in test_info['map']
               and not test_info['map']['SpanHostsFilter']):
-            return True, 'redirect'
+            verdict = True
+            reason = 'redirect'
 
         else:
             # _logger.debug(
@@ -361,7 +372,19 @@ class WebProcessorSession(object):
                 test_info['failed']
             )
 
-            return False, 'filters'
+            verdict = False
+            reason = 'filters'
+
+        try:
+            verdict = self._processor.call_hook(
+                'should_fetch', url_info, url_record, verdict, reason,
+                test_info,
+            )
+            reason = 'callback_hook'
+        except HookDisconnected:
+            pass
+
+        return verdict, reason
 
     def _add_post_data(self, request):
         if self._url_item.url_record.post_data:
@@ -398,6 +421,16 @@ class WebProcessorSession(object):
     def _handle_response(self, response):
         '''Process the response.'''
         self._url_item.set_value(status_code=response.status_code)
+
+        try:
+            callback_result = self._processor.call_hook(
+                'handle_response', self._request, response, self._url_item,
+            )
+        except HookDisconnected:
+            pass
+        else:
+            if isinstance(callback_result, bool):
+                return callback_result
 
         if self._rich_client_session.redirect_tracker.is_redirect():
             return self._handle_redirect(response)
@@ -466,6 +499,16 @@ class WebProcessorSession(object):
         self._processor.instances.statistics.errors[type(error)] += 1
         self._processor.instances.waiter.increment()
 
+        try:
+            callback_result = self._processor.call_hook(
+                'handle_error', self._request, self._url_item, error
+            )
+        except HookDisconnected:
+            pass
+        else:
+            if isinstance(callback_result, bool):
+                return callback_result
+
         if isinstance(error, ConnectionRefused) \
            and not self._processor.fetch_params.retry_connrefused:
             self._url_item.set_status(Status.skipped)
@@ -500,6 +543,13 @@ class WebProcessorSession(object):
         _logger.debug('Found URLs: inline={0} linked={1}'.format(
             num_inline_urls, num_linked_urls
         ))
+
+        try:
+            self._processor.call_hook(
+                'scrape_document', request, response, self._url_item
+            )
+        except HookDisconnected:
+            pass
 
     def _process_scrape_info(self, scraper, scrape_info):
         '''Collect the URLs from the scrape info dict.'''
@@ -560,7 +610,11 @@ class WebProcessorSession(object):
 
     def _get_wait_time(self):
         '''Return the wait time.'''
-        return self._processor.instances.waiter.get()
+        seconds = self._processor.instances.waiter.get()
+        try:
+            return self._processor.call_hook('wait_time', seconds)
+        except HookDisconnected:
+            return seconds
 
     @tornado.gen.coroutine
     def _process_phantomjs(self, request, response):

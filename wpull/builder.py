@@ -54,6 +54,7 @@ from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
                           IgnoreFileWriter, TimestampingFileWriter,
                           AntiClobberFileWriter)
+import socket
 
 
 # Module lua is imported later on demand.
@@ -136,7 +137,6 @@ class Builder(object):
         self._setup_console_logger()
         self._setup_file_logger()
         self._setup_debug_console()
-        self._install_script_hooks()
         self._warn_unsafe_options()
         self._warn_silly_options()
 
@@ -156,6 +156,7 @@ class Builder(object):
         self._setup_file_logger_close(engine)
         self._setup_console_logger_close(engine)
 
+        self._install_script_hooks()
         self._factory.new('Application', self)
 
         return engine
@@ -299,7 +300,7 @@ class Builder(object):
 
         hook_environment = HookEnvironment(self._factory)
 
-        self._setup_hook_environment(hook_environment)
+        hook_environment.connect_hooks()
 
         with open(filename, 'rb') as in_file:
             code = compile(in_file.read(), filename, 'exec')
@@ -314,24 +315,13 @@ class Builder(object):
         lua = wpull.hook.load_lua()
         hook_environment = HookEnvironment(self._factory, is_lua=True)
 
-        self._setup_hook_environment(hook_environment)
+        hook_environment.connect_hooks()
 
         lua_globals = lua.globals()
         lua_globals.wpull_hook = hook_environment
 
         with open(filename, 'rb') as in_file:
             lua.execute(in_file.read())
-
-    def _setup_hook_environment(self, hook_environment):
-        '''Override the classes needed for script hooks.
-
-        Args:
-            hook_environment: A :class:`.hook.HookEnvironment` instance
-        '''
-        self._factory.set('Engine', hook_environment.engine_factory)
-        self._factory.set('WebProcessor',
-                          hook_environment.web_processor_factory)
-        self._factory.set('Resolver', hook_environment.resolver_factory)
 
     def _setup_debug_console(self):
         if not self._args.debug_console_port:
@@ -797,16 +787,16 @@ class Builder(object):
             dns_timeout = connect_timeout = read_timeout = args.timeout
 
         if args.inet_family == 'IPv4':
-            families = [Resolver.IPv4]
+            family = socket.AF_INET
         elif args.inet_family == 'IPv6':
-            families = [Resolver.IPv6]
+            family = socket.AF_INET6
         elif args.prefer_family == 'IPv6':
-            families = [Resolver.IPv6, Resolver.IPv4]
+            family = Resolver.PREFER_IPv6
         else:
-            families = [Resolver.IPv4, Resolver.IPv6]
+            family = Resolver.PREFER_IPv4
 
         resolver = self._factory.new('Resolver',
-                                     families=families,
+                                     family=family,
                                      timeout=dns_timeout,
                                      rotate=args.rotate_dns,
                                      cache_enabled=args.dns_cache,)

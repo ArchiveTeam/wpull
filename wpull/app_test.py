@@ -4,12 +4,14 @@ import hashlib
 from http import cookiejar
 import logging
 import os
+import socket
 import sys
 import tempfile
+
 import tornado.testing
 
-from wpull.builder import Builder
 from wpull.backport.testing import unittest
+from wpull.builder import Builder
 from wpull.errors import ExitStatus
 from wpull.network import Resolver
 from wpull.options import AppArgumentParser
@@ -38,7 +40,7 @@ class MockDNSResolver(Resolver):
     @tornado.gen.coroutine
     def resolve(self, host, port):
         self.hosts_touched.add(host)
-        raise tornado.gen.Return((Resolver.IPv4, ('127.0.0.1', port)))
+        raise tornado.gen.Return((socket.AF_INET, ('127.0.0.1', port)))
 
 
 @contextlib.contextmanager
