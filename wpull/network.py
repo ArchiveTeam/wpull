@@ -1,6 +1,7 @@
 # encoding=utf-8
 '''Networking.'''
 import collections
+import itertools
 import logging
 import random
 import socket
@@ -165,7 +166,8 @@ class Resolver(HookableMixin):
             host, port, family_flags
         )
 
-        # FIXME: sort by preference
+        if self._family in (self.PREFER_IPv4, self.PREFER_IPv6):
+            self.sort_results(results, self._family)
 
         raise tornado.gen.Return(results)
 
@@ -188,6 +190,19 @@ class Resolver(HookableMixin):
         '''Put the address in the cache.'''
         key = (host, port, self._family)
         self._cache[key] = results
+
+    @classmethod
+    def sort_results(cls, results, preference):
+        '''Sort getaddrinfo results based on preference.'''
+        ipv4_results = [
+            result for result in results if result[0] == socket.AF_INET]
+        ipv6_results = [
+            result for result in results if result[0] == socket.AF_INET6]
+
+        if preference == cls.PREFER_IPv6:
+            return list(itertools.chain(ipv6_results, ipv4_results))
+        else:
+            return list(itertools.chain(ipv4_results, ipv6_results))
 
 
 class BandwidthMeter(object):
