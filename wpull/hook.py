@@ -402,266 +402,6 @@ class Callbacks(LegacyCallbacks):
         '''
         return exit_code
 
-#
-# class HookedResolver(Resolver):
-#     '''A Resolver containing overridden functions.'''
-#     def __init__(self, *args, **kwargs):
-#         self._hook_env = kwargs.pop('hook_env')
-#         self._callbacks_hook = self._hook_env.callbacks
-#         super().__init__(*args, **kwargs)
-#
-#     @tornado.gen.coroutine
-#     def resolve(self, host, port):
-#         answer = self._callbacks_hook.resolve_dns(to_lua_type(host))
-#
-#         _logger.debug('Resolve hook returned {0}'.format(answer))
-#
-#         if answer:
-#             family = 10 if ':' in answer else 2
-#             raise tornado.gen.Return((family, (answer, port)))
-#
-#         raise tornado.gen.Return((yield super().resolve(host, port)))
-
-
-# class HookedWebProcessor(WebProcessor):
-#     '''A Web Processor containing overridden functions.'''
-#     def __init__(self, *args, **kwargs):
-#         self._hook_env = kwargs.pop('hook_env')
-#         self._callbacks_hook = self._hook_env.callbacks
-#
-#         super().__init__(*args, **kwargs)
-#
-#         self._session_class = HookedWebProcessorSession
-#
-#     @tornado.gen.coroutine
-#     def process(self, url_item):
-#         session = self._session_class(self, url_item)
-#         session.hook_env = self._hook_env
-#         session.callbacks_hook = self._callbacks_hook
-#
-#         raise tornado.gen.Return((yield session.process()))
-#
-#
-# class HookedWebProcessorSessionMixin(object):
-#     '''Hooked Web Processor Session Mixin.'''
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.hook_env = NotImplemented
-#         self.callbacks_hook = NotImplemented
-#
-#     def _to_script_native_type(self, instance):
-#         '''Convert the instance to script's native types.'''
-#         return self.hook_env.to_script_native_type(instance)
-#
-#     def _should_fetch_reason(self, url_info, url_record):
-#         verdict, reason_slug = super()._should_fetch_reason(
-#             url_info, url_record
-#         )
-#
-#         url_info_dict = self._to_script_native_type(url_info.to_dict())
-#
-#         record_info_dict = url_record.to_dict()
-#         record_info_dict = self._to_script_native_type(record_info_dict)
-#         test_info = self._processor.instances.url_filter.test_info(
-#             url_info, url_record
-#         )
-#
-#         reasons = {
-#             'filters': test_info['map'],
-#             'reason': reason_slug,
-#         }
-#         reasons = self._to_script_native_type(reasons)
-#
-#         verdict = self.callbacks_hook.accept_url(
-#             url_info_dict, record_info_dict, verdict, reasons)
-#
-#         _logger.debug('Hooked should fetch returned %s', verdict)
-#
-#         return verdict, reason_slug
-#
-#     def _handle_response(self, response):
-#         url_info_dict = self._to_script_native_type(
-#             self._request.url_info.to_dict()
-#         )
-#         url_record_dict = self._to_script_native_type(
-#             self._url_item.url_record.to_dict()
-#         )
-#         response_info_dict = self._to_script_native_type(response.to_dict())
-#         action = self.callbacks_hook.call_handle_response(
-#             url_info_dict, url_record_dict, response_info_dict
-#         )
-#
-#         _logger.debug('Hooked response returned {0}'.format(action))
-#
-#         if action == Actions.NORMAL:
-#             return super()._handle_response(response)
-#         elif action == Actions.RETRY:
-#             return False
-#         elif action == Actions.FINISH:
-#             self._url_item.set_status(Status.done)
-#             return True
-#         elif action == Actions.STOP:
-#             raise HookStop()
-#         else:
-#             raise NotImplementedError()
-#
-#     def _handle_error(self, error):
-#         url_info_dict = self._to_script_native_type(
-#             self._request.url_info.to_dict()
-#         )
-#         url_record_dict = self._to_script_native_type(
-#             self._url_item.url_record.to_dict()
-#         )
-#         error_info_dict = self._to_script_native_type({
-#             'error': error.__class__.__name__,
-#         })
-#         action = self.callbacks_hook.call_handle_error(
-#             url_info_dict, url_record_dict, error_info_dict
-#         )
-#
-#         _logger.debug('Hooked error returned {0}'.format(action))
-#
-#         if action == Actions.NORMAL:
-#             return super()._handle_error(error)
-#         elif action == Actions.RETRY:
-#             return False
-#         elif action == Actions.FINISH:
-#             self._url_item.set_status(Status.done)
-#             return True
-#         elif action == Actions.STOP:
-#             raise HookStop('Script requested immediate stop.')
-#         else:
-#             raise NotImplementedError()
-#
-#     def _scrape_document(self, request, response):
-#         super()._scrape_document(request, response)
-#
-#         to_native = self._to_script_native_type
-#         url_info_dict = to_native(self._request.url_info.to_dict())
-#         document_info_dict = to_native(response.body.to_dict())
-#         filename = to_native(response.body.content_file.name)
-#
-#         new_url_dicts = self.callbacks_hook.get_urls(
-#             filename, url_info_dict, document_info_dict)
-#
-#         _logger.debug('Hooked scrape returned {0}'.format(new_url_dicts))
-#
-#         if not new_url_dicts:
-#             return
-#
-#         if to_native(1) in new_url_dicts:
-#             # Lua doesn't have sequences
-#             for i in itertools.count(1):
-#                 new_url_dict = new_url_dicts[to_native(i)]
-#
-#                 _logger.debug('Got lua new url info {0}'.format(new_url_dict))
-#
-#                 if new_url_dict is None:
-#                     break
-#
-#                 self._add_hooked_url(new_url_dict)
-#         else:
-#             for new_url_dict in new_url_dicts:
-#                 self._add_hooked_url(new_url_dict)
-#
-#     def _add_hooked_url(self, new_url_dict):
-#         '''Process the ``dict`` from the script and add the URLs.'''
-#         to_native = self._to_script_native_type
-#         url = new_url_dict[to_native('url')]
-#         link_type = self._get_from_native_dict(new_url_dict, 'link_type')
-#         inline = self._get_from_native_dict(new_url_dict, 'inline')
-#         post_data = self._get_from_native_dict(new_url_dict, 'post_data')
-#         replace = self._get_from_native_dict(new_url_dict, 'replace')
-#
-#         assert url
-#
-#         url_info = self.parse_url(url, 'utf-8')
-#
-#         if not url_info:
-#             return
-#
-#         kwargs = dict(link_type=link_type, post_data=post_data)
-#
-#         if replace:
-#             self._url_item.url_table.remove([url])
-#
-#         if inline:
-#             self._url_item.add_inline_url_infos([url_info], **kwargs)
-#         else:
-#             self._url_item.add_linked_url_infos([url_info], **kwargs)
-#
-#     def _get_wait_time(self):
-#         wait_time = self._to_script_native_type(super()._get_wait_time())
-#         return self.callbacks_hook.wait_time(wait_time)
-#
-#     def _get_from_native_dict(self, instance, key, default=None):
-#         '''Try to get from the mapping a value.
-#
-#         This method will try to determine whether a Lua table or
-#         ``dict`` is given.
-#         '''
-#         try:
-#             instance.attribute_should_not_exist
-#         except AttributeError:
-#             return instance.get(key, default)
-#         else:
-#             # Check if key exists in Lua table
-#             value_1 = instance[self._to_script_native_type(key)]
-#
-#             if value_1 is not None:
-#                 return value_1
-#
-#             value_2 = getattr(instance, self._to_script_native_type(key))
-#
-#             if value_1 is None and value_2 is None:
-#                 return default
-#             else:
-#                 return value_1
-#
-#
-# class HookedWebProcessorSession(HookedWebProcessorSessionMixin,
-#                                 WebProcessorSession):
-#     '''Hooked Web Processor Session.'''
-#     pass
-#
-#
-# class HookedEngine(Engine):
-#     '''Hooked Engine.'''
-#     def __init__(self, *args, **kwargs):
-#         self._hook_env = kwargs.pop('hook_env')
-#         self._callbacks_hook = self._hook_env.callbacks
-#         super().__init__(*args, **kwargs)
-#
-#     @tornado.gen.coroutine
-#     def __call__(self):
-#         self._callbacks_hook.engine_run()
-#
-#         raise tornado.gen.Return((yield super().__call__()))
-#
-#     def _compute_exit_code_from_stats(self):
-#         super()._compute_exit_code_from_stats()
-#         exit_code = self._callbacks_hook.exit_status(
-#             self._hook_env.to_script_native_type(self._exit_code)
-#         )
-#
-#         _logger.debug('Hooked exit returned {0}.'.format(exit_code))
-#
-#         self._exit_code = exit_code
-#
-#     def _print_stats(self):
-#         super()._print_stats()
-#
-#         _logger.debug('Hooked print stats.')
-#
-#         stats = self._statistics
-#
-#         self._callbacks_hook.finishing_statistics(
-#             to_lua_type(stats.start_time),
-#             to_lua_type(stats.stop_time),
-#             to_lua_type(stats.files),
-#             to_lua_type(stats.size),
-#         )
-
 
 class HookEnvironment(object):
     '''The global instance used by scripts.
@@ -726,10 +466,18 @@ class HookEnvironment(object):
             'finishing_statistics', self._finishing_statistics
         )
         self.factory['WebProcessor'].connect_hook('wait_time', self._wait_time)
-        self.factory['WebProcessor'].connect_hook('should_fetch', self._should_fetch)
-        self.factory['WebProcessor'].connect_hook('handle_response', self._handle_response)
-        self.factory['WebProcessor'].connect_hook('handle_error', self._handle_error)
-        self.factory['WebProcessor'].connect_hook('scrape_document', self._scrape_document)
+        self.factory['WebProcessor'].connect_hook(
+            'should_fetch',
+            self._should_fetch)
+        self.factory['WebProcessor'].connect_hook(
+            'handle_response',
+            self._handle_response)
+        self.factory['WebProcessor'].connect_hook(
+            'handle_error',
+            self._handle_error)
+        self.factory['WebProcessor'].connect_hook(
+            'scrape_document',
+            self._scrape_document)
 
     def _resolve_dns(self, host, port):
         answer = self.callbacks.resolve_dns(to_lua_type(host))
@@ -761,7 +509,7 @@ class HookEnvironment(object):
         return self.callbacks.wait_time(seconds)
 
     def _should_fetch(self, url_info, url_record, verdict, reason_slug,
-            test_info):
+                      test_info):
         url_info_dict = self.to_script_native_type(url_info.to_dict())
 
         record_info_dict = url_record.to_dict()
@@ -890,27 +638,3 @@ class HookEnvironment(object):
             url_item.add_inline_url_infos([url_info], **kwargs)
         else:
             url_item.add_linked_url_infos([url_info], **kwargs)
-
-#     def resolver_factory(self, *args, **kwargs):
-#         '''Return a :class:`HookedResolver`.'''
-#         return HookedResolver(
-#             *args,
-#             hook_env=self,
-#             **kwargs
-#         )
-#
-#     def web_processor_factory(self, *args, **kwargs):
-#         '''Return a :class:`HookedWebProcessor`.'''
-#         return HookedWebProcessor(
-#             *args,
-#             hook_env=self,
-#             **kwargs
-#         )
-#
-#     def engine_factory(self, *args, **kwargs):
-#         '''Return a :class:`HookedEngine`.'''
-#         return HookedEngine(
-#             *args,
-#             hook_env=self,
-#             **kwargs
-#         )

@@ -140,7 +140,6 @@ class Engine(HookableMixin):
         self._url_table.close()
         self.stop_event.fire()
 
-
         raise tornado.gen.Return(self._exit_code)
 
     def _release_in_progress(self):

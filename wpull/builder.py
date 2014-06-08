@@ -323,17 +323,6 @@ class Builder(object):
         with open(filename, 'rb') as in_file:
             lua.execute(in_file.read())
 
-#     def _setup_hook_environment(self, hook_environment):
-#         '''Override the classes needed for script hooks.
-#
-#         Args:
-#             hook_environment: A :class:`.hook.HookEnvironment` instance
-#         '''
-#         self._factory.set('Engine', hook_environment.engine_factory)
-#         self._factory.set('WebProcessor',
-#                           hook_environment.web_processor_factory)
-#         self._factory.set('Resolver', hook_environment.resolver_factory)
-
     def _setup_debug_console(self):
         if not self._args.debug_console_port:
             return
