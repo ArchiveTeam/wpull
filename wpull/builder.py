@@ -54,6 +54,7 @@ from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
                           IgnoreFileWriter, TimestampingFileWriter,
                           AntiClobberFileWriter)
+import socket
 
 
 # Module lua is imported later on demand.
@@ -797,16 +798,18 @@ class Builder(object):
             dns_timeout = connect_timeout = read_timeout = args.timeout
 
         if args.inet_family == 'IPv4':
-            families = [Resolver.IPv4]
+            family = socket.AF_INET
         elif args.inet_family == 'IPv6':
-            families = [Resolver.IPv6]
+            family = socket.AF_INET6
         elif args.prefer_family == 'IPv6':
-            families = [Resolver.IPv6, Resolver.IPv4]
+            family = Resolver.PREFER_IPv6
+        elif args.prefer_family == 'IPv4':
+            family = Resolver.PREFER_IPv4
         else:
-            families = [Resolver.IPv4, Resolver.IPv6]
+            family = socket.AF_UNSPEC
 
         resolver = self._factory.new('Resolver',
-                                     families=families,
+                                     family=family,
                                      timeout=dns_timeout,
                                      rotate=args.rotate_dns,
                                      cache_enabled=args.dns_cache,)
