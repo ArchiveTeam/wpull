@@ -167,7 +167,7 @@ class Resolver(HookableMixin):
         )
 
         if self._family in (self.PREFER_IPv4, self.PREFER_IPv6):
-            self.sort_results(results, self._family)
+            results = self.sort_results(results, self._family)
 
         raise tornado.gen.Return(results)
 
