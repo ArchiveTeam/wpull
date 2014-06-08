@@ -493,7 +493,8 @@ class HookEnvironment(object):
         self.callbacks.engine_run()
 
     def _exit_status(self, exit_status):
-        return self.callbacks.exit_status(exit_status)
+        return self.callbacks.exit_status(
+            self.to_script_native_type(exit_status))
 
     def _finishing_statistics(self, start_time, stop_time, files, size):
         self.callbacks.finishing_statistics(
