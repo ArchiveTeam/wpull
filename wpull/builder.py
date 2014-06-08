@@ -792,10 +792,8 @@ class Builder(object):
             family = socket.AF_INET6
         elif args.prefer_family == 'IPv6':
             family = Resolver.PREFER_IPv6
-        elif args.prefer_family == 'IPv4':
-            family = Resolver.PREFER_IPv4
         else:
-            family = socket.AF_UNSPEC
+            family = Resolver.PREFER_IPv4
 
         resolver = self._factory.new('Resolver',
                                      family=family,
