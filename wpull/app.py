@@ -548,7 +548,7 @@ class Builder(object):
                         digests=args.warc_digests,
                         cdx=args.warc_cdx,
                         max_size=args.warc_max_size,
-                        move_to=args.move_warc_to,
+                        move_to=args.warc_move,
                         url_table=self._factory['URLTable'] if args.warc_dedup
                             else None,
                         software_string=software_string,
