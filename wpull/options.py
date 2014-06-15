@@ -891,6 +891,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             help=_('write sequential WARC files sized about NUMBER bytes')
         )
         group.add_argument(
+            '--move-warc-to',
+            metavar='DIRECTORY',
+            default=None,
+            help=_('once a sequential WARC file has reached its max size, move it to DIRECTORY')
+        )
+        group.add_argument(
             '--warc-cdx',
             action='store_true',
             help=_('write CDX file along with the WARC file')
