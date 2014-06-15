@@ -159,7 +159,7 @@ Args:
     cdx (bool): If True, a CDX file will be written.
     max_size (int): If provided, output files are named like
         ``name-00000.ext`` and the log file will be in ``name-meta.ext``.
-    move_to (str): If provided, completed sequential WARCs will be moved
+    move_to (str): If provided, completed WARC files and CDX files will be moved
         to the given directory
     url_table (:class:`.database.URLTable`): If given, then ``revist``
         records will be written.
@@ -289,16 +289,21 @@ class WARCRecorder(BaseRecorder):
             self._sequence_num += 1
 
             if self._params.move_to is not None:
-                if os.path.isdir(self._params.move_to):
-                    _logger.debug('Moved %s to %s.' % (self._warc_filename,
-                        self._params.move_to))
-                    shutil.move(self._warc_filename, self._params.move_to)
-                else:
-                    _logger.error('%s is not a directory; not moving %s.' %
-                            (self._params.move_to, self._warc_filename))
+                self._move_file_to_dest_dir(self._warc_filename)
 
             _logger.debug('Starting new warc file due to max size.')
             self._start_new_warc_file()
+
+    def _move_file_to_dest_dir(self, filename):
+        assert self._params.move_to
+
+        if os.path.isdir(self._params.move_to):
+            _logger.debug('Moved %s to %s.' % (self._warc_filename,
+                self._params.move_to))
+            shutil.move(filename, self._params.move_to)
+        else:
+            _logger.error('%s is not a directory; not moving %s.' %
+                    (self._params.move_to, filename))
 
     def set_length_and_maybe_checksums(self, record, payload_offset=None):
         '''Set the content length and possibly the checksums.'''
@@ -367,12 +372,21 @@ class WARCRecorder(BaseRecorder):
                 'urn:X-wpull:log'
 
             if self._params.max_size is not None:
+                if self._params.move_to is not None:
+                    self._move_file_to_dest_dir(self._warc_filename)
+
                 self._start_new_warc_file(meta=True)
 
             self.set_length_and_maybe_checksums(self._log_record)
             self.write_record(self._log_record)
 
             self._log_record.block_file.close()
+
+            if self._params.move_to is not None:
+                self._move_file_to_dest_dir(self._warc_filename)
+
+        if self._cdx_filename and self._params.move_to is not None:
+            self._move_file_to_dest_dir(self._cdx_filename)
 
     def _write_cdx_header(self):
         '''Write the CDX header.

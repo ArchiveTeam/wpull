@@ -359,3 +359,63 @@ class RecorderTest(unittest.TestCase):
         )
 
         self.assertIn(b'http://example.com/horse ', cdx_file_content)
+
+    def test_warc_move(self):
+        file_prefix = 'asdf'
+        warc_filename = 'asdf.warc'
+        cdx_filename = 'asdf.cdx'
+
+        os.mkdir('./blah/')
+
+        warc_recorder = WARCRecorder(
+            file_prefix,
+            params=WARCRecorderParams(
+                compress=False,
+                cdx=True,
+                move_to='./blah/'
+            ),
+        )
+
+        warc_recorder.close()
+
+        self.assertTrue(os.path.exists('./blah/' + warc_filename))
+        self.assertTrue(os.path.exists('./blah/' + cdx_filename))
+
+    def test_warc_move_max_size(self):
+        file_prefix = 'asdf'
+        cdx_filename = 'asdf.cdx'
+
+        os.mkdir('./blah/')
+
+        warc_recorder = WARCRecorder(
+            file_prefix,
+            params=WARCRecorderParams(
+                compress=False,
+                cdx=True,
+                move_to='./blah/',
+                max_size=1,
+            ),
+        )
+
+        request = Request.new('http://example.com/1')
+        request.address = ('0.0.0.0', 80)
+        response = Response('HTTP/1.1', '200', 'OK')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            response.body.content_file.write(b'BLAH')
+
+        with warc_recorder.session() as session:
+            session.pre_request(request)
+            session.request_data(request.header())
+            session.request(request)
+            session.pre_response(response)
+            session.response_data(response.header())
+            session.response_data(response.body.content)
+            session.response(response)
+
+        warc_recorder.close()
+
+        self.assertTrue(os.path.exists('./blah/asdf-00000.warc'))
+        self.assertTrue(os.path.exists('./blah/asdf-00001.warc'))
+        self.assertTrue(os.path.exists('./blah/asdf-meta.warc'))
+        self.assertTrue(os.path.exists('./blah/' + cdx_filename))
