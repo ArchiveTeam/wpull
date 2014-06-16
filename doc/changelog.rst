@@ -2,6 +2,9 @@
 What's New
 ==========
 
+0.35 (2014-06-16)
+=================
+
 * Adds ``--warc-move`` option.
 * Scripting:
 
@@ -15,7 +18,7 @@ What's New
   * Adds ``HookableMixin``. This removes the use of messy subclassing for scripting hooks.
 
 
-0.34.1 (2015-05-26)
+0.34.1 (2014-05-26)
 ===================
 
 * Fixes crash when a URL is incorrectly formatted by Wpull. (The incorrect formatting is not fixed yet however.)
