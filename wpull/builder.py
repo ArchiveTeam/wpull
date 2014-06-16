@@ -131,8 +131,10 @@ class Builder(object):
         '''Put the application together.
 
         Returns:
-            Engine: An instance of :class:`.engine.Engine`.
+            Application: An instance of :class:`.app.Application`.
         '''
+        self._factory.new('Application', self)
+
         self._setup_logging()
         self._setup_console_logger()
         self._setup_file_logger()
@@ -157,9 +159,8 @@ class Builder(object):
         self._setup_console_logger_close(engine)
 
         self._install_script_hooks()
-        self._factory.new('Application', self)
 
-        return engine
+        return self._factory['Application']
 
     def build_and_run(self):
         '''Build and run the application.
@@ -167,9 +168,8 @@ class Builder(object):
         Returns:
             int: The exit status.
         '''
-        io_loop = tornado.ioloop.IOLoop.current()
-        engine = self.build()
-        exit_code = io_loop.run_sync(engine)
+        app = self.build()
+        exit_code = app.run_sync()
         return exit_code
 
     def _new_encoded_stream(self, stream):

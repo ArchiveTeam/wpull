@@ -2,6 +2,11 @@
 What's New
 ==========
 
+* API:
+
+  * ``Builder.build()`` returns ``Application`` instead of ``Engine``.
+
+
 0.35 (2014-06-16)
 =================
 
