@@ -8,6 +8,7 @@ from http.cookiejar import CookieJar
 import itertools
 import logging
 import os.path
+import socket
 import ssl
 import sys
 import tempfile
@@ -15,6 +16,7 @@ import tempfile
 import tornado.ioloop
 import tornado.testing
 
+from wpull.app import Application
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import CookieLimitsPolicy, RelaxedMozillaCookieJar
 from wpull.database import URLTable
@@ -53,7 +55,6 @@ from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
                           IgnoreFileWriter, TimestampingFileWriter,
                           AntiClobberFileWriter)
-import socket
 
 
 # Module lua is imported later on demand.
