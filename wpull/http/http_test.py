@@ -9,10 +9,10 @@ import tornado.web
 
 from wpull.backport.testing import unittest
 from wpull.errors import (ConnectionRefused, SSLVerficationError, NetworkError,
-    ProtocolError, NetworkTimedOut)
+                          ProtocolError, NetworkTimedOut)
 from wpull.http.client import Client
-from wpull.http.connection import (Connection, ConnectionPool, HostConnectionPool,
-    ConnectionParams)
+from wpull.http.connection import (Connection, ConnectionPool,
+                                   HostConnectionPool, ConnectionParams)
 from wpull.http.request import Request, Response
 from wpull.http.util import parse_charset
 from wpull.recorder import DebugPrintRecorder
@@ -557,8 +557,8 @@ class TestHTTP(unittest.TestCase):
         request = Request.new('http://example.com/robots.txt')
         self.assertEqual(
             (b'GET /robots.txt HTTP/1.1\r\n'
-            b'Host: example.com\r\n'
-            b'\r\n'),
+             b'Host: example.com\r\n'
+             b'\r\n'),
             request.header()
         )
 
@@ -566,8 +566,8 @@ class TestHTTP(unittest.TestCase):
         request = Request.new('https://example.com:4567/robots.txt')
         self.assertEqual(
             (b'GET /robots.txt HTTP/1.1\r\n'
-            b'Host: example.com:4567\r\n'
-            b'\r\n'),
+             b'Host: example.com:4567\r\n'
+             b'\r\n'),
             request.header()
         )
 

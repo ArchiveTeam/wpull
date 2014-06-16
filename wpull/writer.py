@@ -100,7 +100,7 @@ class BaseFileWriter(BaseWriter):
             timestamp on downloaded files
     '''
     def __init__(self, path_namer, file_continuing=False,
-    headers_included=False, local_timestamping=True):
+                 headers_included=False, local_timestamping=True):
         self._path_namer = path_namer
         self._file_continuing = file_continuing
         self._headers_included = headers_included
@@ -127,7 +127,7 @@ class BaseFileWriter(BaseWriter):
 class BaseFileWriterSession(BaseWriterSession):
     '''Base class for File Writer Sessions.'''
     def __init__(self, path_namer, file_continuing,
-    headers_included, local_timestamping):
+                 headers_included, local_timestamping):
         self._path_namer = path_namer
         self._file_continuing = file_continuing
         self._headers_included = headers_included
@@ -247,8 +247,8 @@ class BaseFileWriterSession(BaseWriterSession):
             self.open_file(self._filename, response, mode='ab+')
         else:
             raise IOError(
-                _('Could not continue file download: {filename}.')\
-                    .format(filename=self._filename))
+                _('Could not continue file download: {filename}.')
+                .format(filename=self._filename))
 
     def save_document(self, response):
         if self._filename and os.path.exists(self._filename):
@@ -312,7 +312,7 @@ class AntiClobberFileWriterSession(BaseFileWriterSession):
         for suffix in itertools.count():
             if suffix:
                 candidate_filename = '{0}.{1}'.format(original_filename,
-                    suffix)
+                                                      suffix)
 
             if not os.path.exists(candidate_filename):
                 return candidate_filename
@@ -396,8 +396,9 @@ class PathNamer(BasePathNamer):
     :func:`safe_filename`.
     '''
     def __init__(self, root, index='index.html', use_dir=False, cut=None,
-    protocol=False, hostname=False, os_type='unix',
-    no_control=True, ascii_only=True, case=None, max_filename_length=None):
+                 protocol=False, hostname=False, os_type='unix',
+                 no_control=True, ascii_only=True,
+                 case=None, max_filename_length=None):
         self._root = root
         self._index = index
         self._cut = cut
@@ -483,7 +484,7 @@ def url_to_filename(url, index='index.html', alt_char=False):
 
 
 def url_to_dir_parts(url, include_protocol=False, include_hostname=False,
-alt_char=False):
+                     alt_char=False):
     '''Return a list of directory parts from a URL.
 
     Args:
@@ -549,10 +550,11 @@ class PercentEncoder(collections.defaultdict):
 
         char_num = ord(char)
 
-        if (self.unix and char == b'/')\
-        or (self.control and (0 <= char_num <= 31 or 128 <= char_num <= 159))\
-        or (self.windows and char in br'\|/:?"*<>')\
-        or (self.ascii and char_num > 127):
+        if ((self.unix and char == b'/')
+                or (self.control and
+                    (0 <= char_num <= 31 or 128 <= char_num <= 159))
+                or (self.windows and char in br'\|/:?"*<>')
+                or (self.ascii and char_num > 127)):
             value = b'%' + base64.b16encode(char)
         else:
             value = char
@@ -571,7 +573,7 @@ _encoder_cache = {}
 
 
 def safe_filename(filename, os_type='unix', no_control=True, ascii_only=True,
-case=None, encoding='utf8', max_length=None):
+                  case=None, encoding='utf8', max_length=None):
     '''Return a safe filename or path part.
 
     Args:

@@ -11,11 +11,13 @@ import wpull.actor
 from wpull.async import AdjustableSemaphore
 import wpull.async
 from wpull.database import NotFound
-from wpull.errors import (ExitStatus, ServerError, ConnectionRefused, DNSNotFound,
-    SSLVerficationError, ProtocolError, NetworkError)
+from wpull.errors import (ExitStatus, ServerError,
+                          ConnectionRefused, DNSNotFound,
+                          SSLVerficationError, ProtocolError, NetworkError)
 from wpull.item import Status, URLItem
 import wpull.string
 from wpull.url import URLInfo
+from wpull.hook import HookableMixin, HookDisconnected
 
 
 try:
@@ -27,7 +29,7 @@ _logger = logging.getLogger(__name__)
 _ = gettext.gettext
 
 
-class Engine(object):
+class Engine(HookableMixin):
     '''Manages and processes item.
 
     Args:
@@ -65,7 +67,9 @@ class Engine(object):
     '''Mapping of error types to exit status.'''
 
     def __init__(self, url_table, processor, statistics,
-    concurrent=1):
+                 concurrent=1):
+        super().__init__()
+
         self._url_table = url_table
         self._processor = processor
         self._statistics = statistics
@@ -75,6 +79,8 @@ class Engine(object):
         self._exit_code = 0
         self._stopping = False
         self.stop_event = wpull.actor.Event()
+
+        self.register_hook('engine_run', 'exit_status', 'finishing_statistics')
 
     @property
     def concurrent(self):
@@ -96,6 +102,11 @@ class Engine(object):
 
             .. seealso:: :class:`.errors.ExitStatus`
         '''
+        try:
+            self.call_hook('engine_run')
+        except HookDisconnected:
+            pass
+
         self._statistics.start()
         self._release_in_progress()
         self._run_workers()
@@ -108,6 +119,22 @@ class Engine(object):
             self._print_ssl_error()
 
         self._statistics.stop()
+
+        try:
+            self._exit_code = self.call_hook('exit_status', self._exit_code)
+            assert self._exit_code is not None
+        except HookDisconnected:
+            pass
+
+        try:
+            self.call_hook(
+                'finishing_statistics',
+                self._statistics.start_time, self._statistics.stop_time,
+                self._statistics.files, self._statistics.size
+            )
+        except HookDisconnected:
+            pass
+
         self._print_stats()
         self._processor.close()
         self._url_table.close()
@@ -322,4 +349,4 @@ class Engine(object):
         '''Print an invalid SSL certificate warning.'''
         _logger.info(_('A SSL certificate could not be verified.'))
         _logger.info(_('To ignore and proceed insecurely, '
-            'use ‘--no-check-certificate’.'))
+                       'use ‘--no-check-certificate’.'))

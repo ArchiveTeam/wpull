@@ -4,7 +4,7 @@ import tornado.testing
 import wpull.async
 from wpull.http.client import Client
 from wpull.phantomjs import (PhantomJSRemote, PhantomJSClient,
-    PhantomJSRPCTimedOut)
+                             PhantomJSRPCTimedOut)
 from wpull.proxy import HTTPProxyServer
 
 

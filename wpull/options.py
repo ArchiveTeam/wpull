@@ -70,7 +70,7 @@ class AppHelpFormatter(argparse.HelpFormatter):
 
         if '%(default)' not in action.help:
             if action.default and not isinstance(action.default, bool) \
-            and action.default is not argparse.SUPPRESS:
+               and action.default is not argparse.SUPPRESS:
                 defaulting_nargs = [argparse.OPTIONAL, argparse.ZERO_OR_MORE]
                 if action.option_strings or action.nargs in defaulting_nargs:
                     help += _(' (default: %(default)s)')
@@ -891,6 +891,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             help=_('write sequential WARC files sized about NUMBER bytes')
         )
         group.add_argument(
+            '--warc-move',
+            metavar='DIRECTORY',
+            default=None,
+            help=_('move WARC files to DIRECTORY as they complete')
+        )
+        group.add_argument(
             '--warc-cdx',
             action='store_true',
             help=_('write CDX file along with the WARC file')
@@ -1173,9 +1179,13 @@ class AppArgumentParser(argparse.ArgumentParser):
         for option_name in option_names:
             if vars(args).get(option_name):
                 self.error(
-                    _('WARC output cannot be combined with {option_name}.') \
-                        .format(option_name=option_name)
+                    _('WARC output cannot be combined with {option_name}.')
+                    .format(option_name=option_name)
                 )
+
+        if args.warc_move and not os.path.isdir(args.warc_move):
+            self.error('WARC destination {path} is not a directory.'
+                       .format(path=args.warc_move))
 
     def _post_ssl_args(self, args):
         if args.secure_protocol:

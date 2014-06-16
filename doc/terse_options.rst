@@ -35,13 +35,13 @@ Brief Option Overview
                      [--random-file FILE] [--edg-file FILE]
                      [--warc-file FILENAME] [--warc-append]
                      [--warc-header STRING] [--warc-max-size NUMBER]
-                     [--warc-cdx] [--warc-dedup FILE] [--no-warc-compression]
-                     [--no-warc-digests] [--no-warc-keep-log]
-                     [--warc-tempdir DIRECTORY] [-r] [-l NUMBER]
-                     [--delete-after] [-k] [-K] [-p] [--sitemaps] [-A LIST]
-                     [-R LIST] [--accept-regex REGEX] [--reject-regex REGEX]
-                     [--regex-type TYPE={posix}] [-D LIST]
-                     [--exclude-domains LIST] [--hostnames LIST]
+                     [--warc-move DIRECTORY] [--warc-cdx] [--warc-dedup FILE]
+                     [--no-warc-compression] [--no-warc-digests]
+                     [--no-warc-keep-log] [--warc-tempdir DIRECTORY] [-r]
+                     [-l NUMBER] [--delete-after] [-k] [-K] [-p] [--sitemaps]
+                     [-A LIST] [-R LIST] [--accept-regex REGEX]
+                     [--reject-regex REGEX] [--regex-type TYPE={posix}]
+                     [-D LIST] [--exclude-domains LIST] [--hostnames LIST]
                      [--exclude-hostnames LIST] [--follow-tags LIST]
                      [--ignore-tags LIST]
                      [-H | --span-hosts-allow LIST=<linked-pages,page-requisites>]
@@ -196,6 +196,8 @@ Brief Option Overview
     --warc-header STRING  include STRING in WARC file metadata
     --warc-max-size NUMBER
                           write sequential WARC files sized about NUMBER bytes
+    --warc-move DIRECTORY
+                          move WARC files to DIRECTORY as they complete
     --warc-cdx            write CDX file along with the WARC file
     --warc-dedup FILE     write revisit records using digests in FILE
     --no-warc-compression

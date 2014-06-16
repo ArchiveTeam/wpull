@@ -5,7 +5,7 @@ import shutil
 from wpull.backport.testing import unittest
 from wpull.http.request import Request, Response
 from wpull.scraper import (HTMLScraper, CSSScraper, clean_link_soup,
-    SitemapScraper, parse_refresh, JavaScriptScraper)
+                           SitemapScraper, parse_refresh, JavaScriptScraper)
 import wpull.util
 
 
@@ -18,7 +18,8 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
-                'testing', 'samples', 'many_urls.html')
+                                          'testing', 'samples',
+                                          'many_urls.html')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
@@ -63,7 +64,7 @@ class TestDocument(unittest.TestCase):
             'http://example.com/param_ref_value.php',
             'http://example.com/overlay_src.html',
             'http://example.com/script_variable.png',
-            },
+        },
             inline_urls
         )
         self.assertEqual({
@@ -97,7 +98,7 @@ class TestDocument(unittest.TestCase):
             'http://example.com/http_script_json.html?a=b',
             'http://example.com/a_javascript_link.html',
             'http://example.com/a_onclick_link.html',
-            },
+        },
             linked_urls
         )
 
@@ -112,7 +113,7 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
-                'testing', 'samples', 'soup.html')
+                                          'testing', 'samples', 'soup.html')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
@@ -140,7 +141,8 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
-                'testing', 'samples', 'mojibake.html')
+                                          'testing', 'samples',
+                                          'mojibake.html')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
@@ -167,7 +169,8 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
-                'testing', 'samples', 'krokozyabry.html')
+                                          'testing', 'samples',
+                                          'krokozyabry.html')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
@@ -193,7 +196,8 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
-                'testing', 'samples', 'basehref.html')
+                                          'testing', 'samples',
+                                          'basehref.html')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
@@ -211,12 +215,12 @@ class TestDocument(unittest.TestCase):
             'http://example.com/dir/image2.png',
             'http://example.net/image3.png',
             'http://example.com/dir/image4.png',
-            },
+        },
             inline_urls
         )
         self.assertEqual({
             'http://example.com/a/'
-            },
+        },
             linked_urls
         )
 
@@ -227,7 +231,7 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
-                'testing', 'samples', 'xhtml.html')
+                                          'testing', 'samples', 'xhtml.html')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
@@ -256,7 +260,8 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
-                'testing', 'samples', 'xhtml_invalid.html')
+                                          'testing', 'samples',
+                                          'xhtml_invalid.html')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
@@ -285,7 +290,7 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
-                'testing', 'samples', 'kcna.html')
+                                          'testing', 'samples', 'kcna.html')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
@@ -325,7 +330,8 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
-                'testing', 'samples', 'videogame_top.htm')
+                                          'testing', 'samples',
+                                          'videogame_top.htm')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
@@ -384,7 +390,8 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
-                'testing', 'samples', 'xkcd_1_evil.html')
+                                          'testing', 'samples',
+                                          'xkcd_1_evil.html')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
@@ -400,7 +407,7 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
-                'testing', 'samples', 'rss.xml')
+                                          'testing', 'samples', 'rss.xml')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
@@ -440,7 +447,7 @@ class TestDocument(unittest.TestCase):
             'chrome://communicator/skin/',
             'landscape.css',
             'cool.css'
-            },
+        },
             urls
         )
 
@@ -455,7 +462,7 @@ class TestDocument(unittest.TestCase):
             'landscape.css',
             'cool.css',
             'warm.css',
-            },
+        },
             urls
         )
 
@@ -466,7 +473,7 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
-                'testing', 'samples', 'styles.css')
+                                          'testing', 'samples', 'styles.css')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
@@ -477,7 +484,7 @@ class TestDocument(unittest.TestCase):
         self.assertEqual({
             'http://example.com/mobile.css',
             'http://example.com/images/star.gif',
-            },
+        },
             inline_urls
         )
         self.assertFalse(linked_urls)
@@ -489,7 +496,7 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
-                'testing', 'samples', 'mojibake.css')
+                                          'testing', 'samples', 'mojibake.css')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
@@ -499,7 +506,7 @@ class TestDocument(unittest.TestCase):
 
         self.assertEqual({
             'http://example.com/文字化け.png',
-            },
+        },
             inline_urls
         )
         self.assertFalse(linked_urls)
@@ -511,7 +518,8 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
-                'testing', 'samples', 'krokozyabry.css')
+                                          'testing', 'samples',
+                                          'krokozyabry.css')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
@@ -521,7 +529,7 @@ class TestDocument(unittest.TestCase):
 
         self.assertEqual({
             'http://example.com/Кракозябры.png',
-            },
+        },
             inline_urls
         )
         self.assertFalse(linked_urls)
@@ -542,7 +550,7 @@ class TestDocument(unittest.TestCase):
 
         self.assertEqual({
             'http://example.com/sitemap00.xml',
-            },
+        },
             linked_urls
         )
         self.assertFalse(inline_urls)
@@ -588,7 +596,7 @@ class TestDocument(unittest.TestCase):
 
         self.assertEqual({
             'http://www.example.com/sitemap1.xml.gz',
-            },
+        },
             linked_urls
         )
         self.assertFalse(inline_urls)
@@ -618,7 +626,7 @@ class TestDocument(unittest.TestCase):
 
         self.assertEqual({
             'http://www.example.com/',
-            },
+        },
             linked_urls
         )
         self.assertFalse(inline_urls)
@@ -643,7 +651,7 @@ class TestDocument(unittest.TestCase):
 
         self.assertEqual({
             'http://www.example.com/',
-            },
+        },
             linked_urls
         )
         self.assertFalse(inline_urls)
@@ -655,7 +663,7 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
-                'testing', 'samples', 'script.js')
+                                          'testing', 'samples', 'script.js')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
@@ -665,7 +673,7 @@ class TestDocument(unittest.TestCase):
 
         self.assertEqual({
             'http://example.com/script_variable.png',
-            },
+        },
             inline_urls
         )
         self.assertEqual({
@@ -682,7 +690,7 @@ class TestDocument(unittest.TestCase):
             'http://example.com/../relative_dir_script_variable',
             'http://example.com/script_json.html',
             'http://example.com/http_script_json.html?a=b',
-            },
+        },
             linked_urls
         )
 
@@ -693,7 +701,8 @@ class TestDocument(unittest.TestCase):
 
         with wpull.util.reset_file_offset(response.body.content_file):
             html_file_path = os.path.join(os.path.dirname(__file__),
-                'testing', 'samples', 'twitchplayspokemonfirered.html')
+                                          'testing', 'samples',
+                                          'twitchplayspokemonfirered.html')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body.content_file)
 
@@ -703,13 +712,13 @@ class TestDocument(unittest.TestCase):
 
         self.assertIn(
             'http://cdn.bulbagarden.net/upload/archive/a/a4/'
-                '20090718115357%21195Quagsire.png',
+            '20090718115357%21195Quagsire.png',
             inline_urls
         )
         self.assertIn(
             'http://www.google.com/url?q=http%3A%2F%2Fwww.reddit.com%2F'
-                'user%2FGoldenSandslash15&sa=D&sntz=1&'
-                'usg=AFQjCNElFBxZYdNm5mWoRSncf5tbdIJQ-A',
+            'user%2FGoldenSandslash15&sa=D&sntz=1&'
+            'usg=AFQjCNElFBxZYdNm5mWoRSncf5tbdIJQ-A',
             linked_urls
         )
 

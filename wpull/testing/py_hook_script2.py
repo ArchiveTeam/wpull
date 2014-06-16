@@ -27,7 +27,8 @@ def accept_url(url_info, record_info, verdict, reasons):
         assert not reasons['filters']['HTTPFilter']
     else:
         assert url_info['path'] in ('/robots.txt', '/', '/post/',
-            '/%95%B6%8E%9A%89%BB%82%AF/', '/static/style.css')
+                                    '/%95%B6%8E%9A%89%BB%82%AF/',
+                                    '/static/style.css')
         assert reasons['filters']['HTTPFilter']
 
     assert record_info['url']
@@ -78,16 +79,16 @@ def get_urls(filename, url_info, document_info):
 
     if url_info['path'] == '/':
         return [
-        {
-            'url':
+            {
+                'url':
                 'http://localhost:' + str(url_info['port']) + '/post/',
-            'inline': True,
-            'post_data': 'text=hello',
-            'replace': True,
-        },
-        {
-            'url': '..malformed',
-        }
+                'inline': True,
+                'post_data': 'text=hello',
+                'replace': True,
+            },
+            {
+                'url': '..malformed',
+            }
         ]
 
     return None

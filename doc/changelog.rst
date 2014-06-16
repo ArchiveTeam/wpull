@@ -2,7 +2,23 @@
 What's New
 ==========
 
-0.34.1 (2015-05-26)
+0.35 (2014-06-16)
+=================
+
+* Adds ``--warc-move`` option.
+* Scripting:
+
+  * Default scripting version is now 2.
+
+* API:
+
+  * `Builder` moved into new module `builder`
+  * Adds `Application` class intended for different UI in the future.
+  * ``Resolver`` ``families`` parameter renamed into ``family``. It accepts values from the module ``socket`` or ``PREFER_IPv4``/``PREFER_IPv6``.
+  * Adds ``HookableMixin``. This removes the use of messy subclassing for scripting hooks.
+
+
+0.34.1 (2014-05-26)
 ===================
 
 * Fixes crash when a URL is incorrectly formatted by Wpull. (The incorrect formatting is not fixed yet however.)

@@ -75,7 +75,7 @@ class RecorderTest(unittest.TestCase):
         self.assertTrue(warc_file_content.startswith(b'WARC/1.0'))
         self.assertIn(b'WARC-Type: warcinfo\r\n', warc_file_content)
         self.assertIn(b'Content-Type: application/warc-fields',
-            warc_file_content)
+                      warc_file_content)
         self.assertIn(b'WARC-Date: ', warc_file_content)
         self.assertIn(b'WARC-Record-ID: <urn:uuid:', warc_file_content)
         self.assertIn(b'WARC-Block-Digest: sha1:', warc_file_content)
@@ -83,11 +83,11 @@ class RecorderTest(unittest.TestCase):
         self.assertIn(b'WARC-Type: request\r\n', warc_file_content)
         self.assertIn(b'WARC-Target-URI: http://', warc_file_content)
         self.assertIn(b'Content-Type: application/http;msgtype=request',
-            warc_file_content)
+                      warc_file_content)
         self.assertIn(b'WARC-Type: response', warc_file_content)
         self.assertIn(b'WARC-Concurrent-To: <urn:uuid:', warc_file_content)
         self.assertIn(b'Content-Type: application/http;msgtype=response',
-            warc_file_content)
+                      warc_file_content)
         self.assertIn(
             'Wpull/{0}'.format(wpull.version.__version__).encode('utf-8'),
             warc_file_content
@@ -332,18 +332,18 @@ class RecorderTest(unittest.TestCase):
         self.assertIn(b'WARC-Type: revisit\r\n', warc_file_content)
         self.assertIn(
             b'WARC-Refers-To: '
-                b'<urn:uuid:8a534d31-bd06-4056-8a0f-bdc5fd611036>\r\n',
+            b'<urn:uuid:8a534d31-bd06-4056-8a0f-bdc5fd611036>\r\n',
             warc_file_content
         )
         self.assertIn(b'WARC-Truncated: length\r\n', warc_file_content)
         self.assertIn(
             b'WARC-Profile: http://netpreserve.org/warc/1.0/revisit/'
-                b'identical-payload-digest\r\n',
+            b'identical-payload-digest\r\n',
             warc_file_content
         )
         self.assertIn(
             b'Content-Length: ' +
-                str(revisit_response_header_size).encode('ascii') + b'\r\n',
+            str(revisit_response_header_size).encode('ascii') + b'\r\n',
             warc_file_content
         )
         self.assertIn(
@@ -359,3 +359,63 @@ class RecorderTest(unittest.TestCase):
         )
 
         self.assertIn(b'http://example.com/horse ', cdx_file_content)
+
+    def test_warc_move(self):
+        file_prefix = 'asdf'
+        warc_filename = 'asdf.warc'
+        cdx_filename = 'asdf.cdx'
+
+        os.mkdir('./blah/')
+
+        warc_recorder = WARCRecorder(
+            file_prefix,
+            params=WARCRecorderParams(
+                compress=False,
+                cdx=True,
+                move_to='./blah/'
+            ),
+        )
+
+        warc_recorder.close()
+
+        self.assertTrue(os.path.exists('./blah/' + warc_filename))
+        self.assertTrue(os.path.exists('./blah/' + cdx_filename))
+
+    def test_warc_move_max_size(self):
+        file_prefix = 'asdf'
+        cdx_filename = 'asdf.cdx'
+
+        os.mkdir('./blah/')
+
+        warc_recorder = WARCRecorder(
+            file_prefix,
+            params=WARCRecorderParams(
+                compress=False,
+                cdx=True,
+                move_to='./blah/',
+                max_size=1,
+            ),
+        )
+
+        request = Request.new('http://example.com/1')
+        request.address = ('0.0.0.0', 80)
+        response = Response('HTTP/1.1', '200', 'OK')
+
+        with wpull.util.reset_file_offset(response.body.content_file):
+            response.body.content_file.write(b'BLAH')
+
+        with warc_recorder.session() as session:
+            session.pre_request(request)
+            session.request_data(request.header())
+            session.request(request)
+            session.pre_response(response)
+            session.response_data(response.header())
+            session.response_data(response.body.content)
+            session.response(response)
+
+        warc_recorder.close()
+
+        self.assertTrue(os.path.exists('./blah/asdf-00000.warc'))
+        self.assertTrue(os.path.exists('./blah/asdf-00001.warc'))
+        self.assertTrue(os.path.exists('./blah/asdf-meta.warc'))
+        self.assertTrue(os.path.exists('./blah/' + cdx_filename))

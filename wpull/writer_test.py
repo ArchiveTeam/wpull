@@ -4,12 +4,12 @@ import os.path
 import tornado.testing
 import unittest
 
-from wpull.app import Builder
+from wpull.builder import Builder
 from wpull.app_test import cd_tempdir
 from wpull.options import AppArgumentParser
 from wpull.testing.goodapp import GoodAppTestCase
 from wpull.writer import (url_to_dir_parts, url_to_filename, safe_filename,
-    anti_clobber_dir_path)
+                          anti_clobber_dir_path)
 
 
 DEFAULT_TIMEOUT = 30
@@ -192,7 +192,7 @@ class TestWriterApp(GoodAppTestCase):
     def test_file_continue(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([self.get_url('/static/my_file.txt'),
-            '--continue', '--debug'])
+                                      '--continue', '--debug'])
 
         with cd_tempdir() as temp_dir:
             filename = os.path.join(temp_dir, 'my_file.txt')
@@ -209,7 +209,7 @@ class TestWriterApp(GoodAppTestCase):
                 data = in_file.read()
 
                 self.assertEqual('54388a281352fdb2cfa66009ac0e35dd8916af7c',
-                    hashlib.sha1(data).hexdigest())
+                                 hashlib.sha1(data).hexdigest())
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
     def test_timestamping_hit(self):

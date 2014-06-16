@@ -18,7 +18,7 @@ from wpull.conversation import Body
 from wpull.database import Status
 from wpull.document import HTMLReader
 from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
-    DNSNotFound, NetworkError)
+                          DNSNotFound, NetworkError)
 from wpull.http.request import Response
 from wpull.http.web import RichClientResponseType
 from wpull.item import LinkType
@@ -32,6 +32,7 @@ import wpull.util
 from wpull.waiter import LinearWaiter
 from wpull.warc import WARCRecord
 from wpull.writer import NullWriter
+from wpull.hook import HookableMixin, HookDisconnected
 
 
 _logger = logging.getLogger(__name__)
@@ -114,7 +115,7 @@ Args:
 '''
 
 
-class WebProcessor(BaseProcessor):
+class WebProcessor(BaseProcessor, HookableMixin):
     '''HTTP processor.
 
     Args:
@@ -133,11 +134,19 @@ class WebProcessor(BaseProcessor):
     '''Default status codes considered a permanent error.'''
 
     def __init__(self, rich_client, root_path, fetch_params, instances):
+        super().__init__()
+
         self._rich_client = rich_client
         self._root_path = root_path
         self._fetch_params = fetch_params
         self._instances = instances
         self._session_class = WebProcessorSession
+
+        self.register_hook(
+            'should_fetch', 'scrape_document',
+            'handle_response', 'handle_error',
+            'wait_time'
+        )
 
     @property
     def rich_client(self):
@@ -275,8 +284,8 @@ class WebProcessorSession(object):
             )
         except (NetworkError, ProtocolError) as error:
             _logger.error(
-                _('Fetching ‘{url}’ encountered an error: {error}')\
-                    .format(url=request.url_info.url, error=error)
+                _('Fetching ‘{url}’ encountered an error: {error}')
+                .format(url=request.url_info.url, error=error)
             )
 
             response = None
@@ -294,7 +303,7 @@ class WebProcessorSession(object):
             )
 
             if self._rich_client_session.response_type \
-            != RichClientResponseType.robots:
+               != RichClientResponseType.robots:
                 is_done = self._handle_response(response)
 
                 yield self._process_phantomjs(request, response)
@@ -333,25 +342,28 @@ class WebProcessorSession(object):
         )
 
         if test_info['verdict']:
-            return True, 'filters'
+            verdict = True
+            reason = 'filters'
 
-        elif self._processor.fetch_params.strong_redirects \
-        and self._rich_client_session \
-        and self._rich_client_session.redirect_tracker \
-        and self._rich_client_session.redirect_tracker.is_redirect \
-        and len(test_info['failed']) == 1 \
-        and 'SpanHostsFilter' in test_info['map'] \
-        and not test_info['map']['SpanHostsFilter']:
-            return True, 'redirect'
+        elif (self._processor.fetch_params.strong_redirects
+              and self._rich_client_session
+              and self._rich_client_session.redirect_tracker
+              and self._rich_client_session.redirect_tracker.is_redirect
+              and len(test_info['failed']) == 1
+              and 'SpanHostsFilter' in test_info['map']
+              and not test_info['map']['SpanHostsFilter']):
+            verdict = True
+            reason = 'redirect'
 
         else:
-#             _logger.debug(
-#                 'Rejecting {url} due to filters: '
-#                 'Passed={passed}. Failed={failed}.'.format(
-#                     url=url_info.url,
-#                     passed=test_info['passed'],
-#                     failed=test_info['failed']
-#             ))
+            # _logger.debug(
+            #     'Rejecting {url} due to filters: '
+            #     'Passed={passed}. Failed={failed}.'.format(
+            #         url=url_info.url,
+            #         passed=test_info['passed'],
+            #         failed=test_info['failed']
+            # )
+            # )
             _logger.debug(
                 'Rejecting %s due to filters: '
                 'Passed=%s. Failed=%s.',
@@ -360,7 +372,19 @@ class WebProcessorSession(object):
                 test_info['failed']
             )
 
-            return False, 'filters'
+            verdict = False
+            reason = 'filters'
+
+        try:
+            verdict = self._processor.call_hook(
+                'should_fetch', url_info, url_record, verdict, reason,
+                test_info,
+            )
+            reason = 'callback_hook'
+        except HookDisconnected:
+            pass
+
+        return verdict, reason
 
     def _add_post_data(self, request):
         if self._url_item.url_record.post_data:
@@ -398,10 +422,20 @@ class WebProcessorSession(object):
         '''Process the response.'''
         self._url_item.set_value(status_code=response.status_code)
 
+        try:
+            callback_result = self._processor.call_hook(
+                'handle_response', self._request, response, self._url_item,
+            )
+        except HookDisconnected:
+            pass
+        else:
+            if isinstance(callback_result, bool):
+                return callback_result
+
         if self._rich_client_session.redirect_tracker.is_redirect():
             return self._handle_redirect(response)
-        elif response.status_code in self._document_codes \
-        or self._processor.fetch_params.content_on_error:
+        elif (response.status_code in self._document_codes
+              or self._processor.fetch_params.content_on_error):
             return self._handle_document(response)
         elif response.status_code in self._no_document_codes:
             return self._handle_no_document(response)
@@ -438,8 +472,8 @@ class WebProcessorSession(object):
             # FIXME: workaround detection of bad URL unsplit. See issue #132.
             URLInfo.parse(url_info.url, encoding=encoding)
         except ValueError as error:
-            _logger.warning(_('Discarding malformed URL ‘{url}’: {error}.')\
-                .format(url=url, error=error))
+            _logger.warning(_('Discarding malformed URL ‘{url}’: {error}.')
+                            .format(url=url, error=error))
         else:
             return url_info
 
@@ -465,11 +499,21 @@ class WebProcessorSession(object):
         self._processor.instances.statistics.errors[type(error)] += 1
         self._processor.instances.waiter.increment()
 
+        try:
+            callback_result = self._processor.call_hook(
+                'handle_error', self._request, self._url_item, error
+            )
+        except HookDisconnected:
+            pass
+        else:
+            if isinstance(callback_result, bool):
+                return callback_result
+
         if isinstance(error, ConnectionRefused) \
-        and not self._processor.fetch_params.retry_connrefused:
+           and not self._processor.fetch_params.retry_connrefused:
             self._url_item.set_status(Status.skipped)
-        elif isinstance(error, DNSNotFound) \
-        and not self._processor.fetch_params.retry_dns_error:
+        elif (isinstance(error, DNSNotFound)
+              and not self._processor.fetch_params.retry_dns_error):
             self._url_item.set_status(Status.skipped)
         else:
             self._url_item.set_status(Status.error)
@@ -499,6 +543,13 @@ class WebProcessorSession(object):
         _logger.debug('Found URLs: inline={0} linked={1}'.format(
             num_inline_urls, num_linked_urls
         ))
+
+        try:
+            self._processor.call_hook(
+                'scrape_document', request, response, self._url_item
+            )
+        except HookDisconnected:
+            pass
 
     def _process_scrape_info(self, scraper, scrape_info):
         '''Collect the URLs from the scrape info dict.'''
@@ -553,13 +604,17 @@ class WebProcessorSession(object):
         the instance.
         '''
         if hasattr(instance, 'body') \
-        and hasattr(instance.body, 'content_file') \
-        and instance.body.content_file:
+           and hasattr(instance.body, 'content_file') \
+           and instance.body.content_file:
             instance.body.content_file.close()
 
     def _get_wait_time(self):
         '''Return the wait time.'''
-        return self._processor.instances.waiter.get()
+        seconds = self._processor.instances.waiter.get()
+        try:
+            return self._processor.call_hook('wait_time', seconds)
+        except HookDisconnected:
+            return seconds
 
     @tornado.gen.coroutine
     def _process_phantomjs(self, request, response):
@@ -621,7 +676,7 @@ class WebProcessorSession(object):
         '''Set up logging from PhantomJS to Wpull.'''
         def fetch_log(rpc_info):
             _logger.info(
-                _('PhantomJS fetching ‘{url}’.')\
+                _('PhantomJS fetching ‘{url}’.')
                 .format(url=rpc_info['request_data']['url'])
             )
 
@@ -655,7 +710,7 @@ class WebProcessorSession(object):
             resource_error = rpc_info['resource_error']
 
             _logger.error(
-                _('PhantomJS fetching ‘{url}’ encountered an error: {error}')\
+                _('PhantomJS fetching ‘{url}’ encountered an error: {error}')
                 .format(
                     url=resource_error['url'],
                     error=resource_error['errorString']
@@ -711,8 +766,8 @@ class WebProcessorSession(object):
 class PhantomJSController(object):
     '''PhantomJS Page Controller.'''
     def __init__(self, client, wait_time=1.0, num_scrolls=10, snapshot=True,
-    warc_recorder=None, viewport_size=(1200, 1920), paper_size=(2400, 3840),
-    smart_scroll=True):
+                 warc_recorder=None, viewport_size=(1200, 1920),
+                 paper_size=(2400, 3840), smart_scroll=True):
         self.client = client
         self._wait_time = wait_time
         self._num_scrolls = num_scrolls
@@ -779,7 +834,7 @@ class PhantomJSController(object):
             )
 
             if post_scroll_counter_values == pre_scroll_counter_values \
-            and self._smart_scroll:
+               and self._smart_scroll:
                 break
 
         for dummy in range(remote.resource_counter.pending):
@@ -811,14 +866,13 @@ class PhantomJSController(object):
 
         yield remote.set('page.scrollPosition', {'left': x, 'top': y})
         yield remote.set('page.evaluate',
-            '''
-            function() {{
-                if (window) {{
-                    window.scrollTo({0}, {1});
-                }}
-            }}
-            '''.format(x, y)
-        )
+                         '''
+                         function() {{
+                         if (window) {{
+                         window.scrollTo({0}, {1});
+                         }}
+                         }}
+                         '''.format(x, y))
         yield remote.call('page.sendEvent', 'keypress', page_down_key)
         yield remote.call('page.sendEvent', 'keydown', page_down_key)
         yield remote.call('page.sendEvent', 'keyup', page_down_key)

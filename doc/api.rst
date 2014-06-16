@@ -18,6 +18,7 @@ wpull Package
    api/actor
    api/app
    api/async
+   api/builder
    api/cache
    api/cookie
    api/collections

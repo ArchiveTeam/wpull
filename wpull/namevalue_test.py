@@ -6,19 +6,19 @@ from wpull.namevalue import guess_line_ending, unfold_lines, NameValueRecord, \
 
 class TestNameValue(unittest.TestCase):
     RECORD_STR_1 = ('entry:\r\n'
-        'who:   Gilbert, W.S. | Sullivan, Arthur\r\n'
-        'what:  The Yeomen of\r\n'
-        '       the Guard\r\n'
-        'when/created:  1888\r\n')
+                    'who:   Gilbert, W.S. | Sullivan, Arthur\r\n'
+                    'what:  The Yeomen of\r\n'
+                    '       the Guard\r\n'
+                    'when/created:  1888\r\n')
     RECORD_STR_2 = ('entry:\n'
-        'who:   Gilbert, W.S. | Sullivan, Arthur\n'
-        'what:  The Yeomen of\n'
-        '       the Guard\n'
-        'when/created:  1888\n')
+                    'who:   Gilbert, W.S. | Sullivan, Arthur\n'
+                    'what:  The Yeomen of\n'
+                    '       the Guard\n'
+                    'when/created:  1888\n')
     RECORD_STR_3 = ('entry:\r\n'
-        'who:   Gilbert, W.S. | Sullivan, Arthur\r\n'
-        'what:  The Yeomen of the Guard\r\n'
-        'when/created:  1888\r\n')
+                    'who:   Gilbert, W.S. | Sullivan, Arthur\r\n'
+                    'what:  The Yeomen of the Guard\r\n'
+                    'when/created:  1888\r\n')
 
     def test_guess_line_ending(self):
         self.assertEqual('\r\n', guess_line_ending(self.RECORD_STR_1))
@@ -51,9 +51,9 @@ class TestNameValue(unittest.TestCase):
         record.parse(self.RECORD_STR_1)
         self.assertEqual(
             ('Entry:\r\n'
-            'Who: Gilbert, W.S. | Sullivan, Arthur\r\n'
-            'What: The Yeomen of the Guard\r\n'
-            'When/Created: 1888\r\n'),
+             'Who: Gilbert, W.S. | Sullivan, Arthur\r\n'
+             'What: The Yeomen of the Guard\r\n'
+             'When/Created: 1888\r\n'),
             str(record)
         )
 
@@ -92,11 +92,11 @@ class TestNameValue(unittest.TestCase):
         self.assertEqual('Content-Type', normalize_name('ContEnt-TYPE'))
         self.assertEqual('Content-Type', normalize_name('content-type'))
         self.assertEqual('Content-Type',
-            normalize_name('content-type', ['Content-Type']))
+                         normalize_name('content-type', ['Content-Type']))
         self.assertEqual('content-type',
-            normalize_name('content-type', ['content-type']))
+                         normalize_name('content-type', ['content-type']))
         self.assertEqual('CoNTeNT-TYPe',
-            normalize_name('Content-Type', ['CoNTeNT-TYPe']))
+                         normalize_name('Content-Type', ['CoNTeNT-TYPe']))
 
     def test_with_normalize_overrides(self):
         record = NameValueRecord(normalize_overrides=['WARC-Type'])

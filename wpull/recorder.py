@@ -11,6 +11,7 @@ import logging
 import os.path
 import re
 import sys
+import shutil
 from tempfile import NamedTemporaryFile
 import tempfile
 import time
@@ -140,6 +141,7 @@ WARCRecorderParams = namedlist.namedtuple(
         ('digests', True),
         ('cdx', None),
         ('max_size', None),
+        ('move_to', None),
         ('url_table', None),
         ('software_string', None)
     ]
@@ -157,6 +159,8 @@ Args:
     cdx (bool): If True, a CDX file will be written.
     max_size (int): If provided, output files are named like
         ``name-00000.ext`` and the log file will be in ``name-meta.ext``.
+    move_to (str): If provided, completed WARC files and CDX files will be moved
+        to the given directory
     url_table (:class:`.database.URLTable`): If given, then ``revist``
         records will be written.
     software_string (str): The value for the ``software`` field in the
@@ -281,11 +285,26 @@ class WARCRecorder(BaseRecorder):
         yield recorder_session
 
         if self._params.max_size is not None \
-        and os.path.getsize(self._warc_filename) > self._params.max_size:
+           and os.path.getsize(self._warc_filename) > self._params.max_size:
             self._sequence_num += 1
+
+            if self._params.move_to is not None:
+                self._move_file_to_dest_dir(self._warc_filename)
 
             _logger.debug('Starting new warc file due to max size.')
             self._start_new_warc_file()
+
+    def _move_file_to_dest_dir(self, filename):
+        '''Move the file to the ``move_to` directory.'''
+        assert self._params.move_to
+
+        if os.path.isdir(self._params.move_to):
+            _logger.debug('Moved %s to %s.' % (self._warc_filename,
+                                               self._params.move_to))
+            shutil.move(filename, self._params.move_to)
+        else:
+            _logger.error('%s is not a directory; not moving %s.' %
+                          (self._params.move_to, filename))
 
     def set_length_and_maybe_checksums(self, record, payload_offset=None):
         '''Set the content length and possibly the checksums.'''
@@ -320,7 +339,7 @@ class WARCRecorder(BaseRecorder):
                     out_file.write(data)
         except (OSError, IOError) as error:
             _logger.info(
-                _('Rolling back file {filename} to length {length}.')\
+                _('Rolling back file {filename} to length {length}.')
                 .format(filename=self._warc_filename, length=before_offset)
             )
             with open(self._warc_filename, mode='wb') as out_file:
@@ -354,12 +373,21 @@ class WARCRecorder(BaseRecorder):
                 'urn:X-wpull:log'
 
             if self._params.max_size is not None:
+                if self._params.move_to is not None:
+                    self._move_file_to_dest_dir(self._warc_filename)
+
                 self._start_new_warc_file(meta=True)
 
             self.set_length_and_maybe_checksums(self._log_record)
             self.write_record(self._log_record)
 
             self._log_record.block_file.close()
+
+            if self._params.move_to is not None:
+                self._move_file_to_dest_dir(self._warc_filename)
+
+        if self._cdx_filename and self._params.move_to is not None:
+            self._move_file_to_dest_dir(self._cdx_filename)
 
     def _write_cdx_header(self):
         '''Write the CDX header.
@@ -389,8 +417,8 @@ class WARCRecorder(BaseRecorder):
     def _write_cdx_field(self, record, raw_file_record_size, raw_file_offset):
         '''Write the CDX field if needed.'''
         if record.fields[WARCRecord.WARC_TYPE] != WARCRecord.RESPONSE \
-        or not re.match(r'application/http; *msgtype *= *response',
-        record.fields[WARCRecord.CONTENT_TYPE]):
+           or not re.match(r'application/http; *msgtype *= *response',
+                           record.fields[WARCRecord.CONTENT_TYPE]):
             return
 
         url = record.fields['WARC-Target-URI']
@@ -711,7 +739,7 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
         self._throbber_iter = itertools.cycle(
             itertools.chain(
                 range(bar_width), reversed(range(1, bar_width - 1))
-        ))
+            ))
         self._bandwidth_meter = BandwidthMeter()
         self._start_time = time.time()
 
@@ -721,8 +749,8 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
         if response.status_code == http.client.PARTIAL_CONTENT:
             match = re.search(
                 r'bytes +([0-9]+)-([0-9]+)/([0-9]+)',
-                 response.fields.get('Content-Range', '')
-             )
+                response.fields.get('Content-Range', '')
+            )
 
             if match:
                 self._bytes_continued = int(match.group(1))
@@ -792,8 +820,8 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
 
             if position_bytes < self._bytes_continued:
                 self._print('+')
-            elif position_bytes <= \
-            self._bytes_continued + self._bytes_received:
+            elif (position_bytes <=
+                  self._bytes_continued + self._bytes_received):
                 self._print('=')
             else:
                 self._print(' ')
@@ -820,7 +848,7 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
 
     def _print_percent(self):
         fraction_done = ((self._bytes_continued + self._bytes_received) /
-            self._total_size)
+                         self._total_size)
 
         self._print('{fraction_done:.1%}'.format(fraction_done=fraction_done))
 

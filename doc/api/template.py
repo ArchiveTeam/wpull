@@ -6,6 +6,7 @@ MODULES = [
     'actor',
     'app',
     'async',
+    'builder',
     'cache',
     'cookie',
     'collections',
