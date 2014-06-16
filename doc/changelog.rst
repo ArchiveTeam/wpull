@@ -5,7 +5,8 @@ What's New
 * API:
 
   * ``Builder.build()`` returns ``Application`` instead of ``Engine``.
-
+  * Callback hooks ``exit_status`` and ``finishing_statistics`` now registered on ``Application`` instead of ``Engine``.
+  
 
 0.35 (2014-06-16)
 =================

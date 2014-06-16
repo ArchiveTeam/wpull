@@ -1,6 +1,5 @@
 # encoding=utf-8
 '''Item queue management and processing.'''
-import datetime
 import gettext
 import logging
 
@@ -11,19 +10,10 @@ import wpull.actor
 from wpull.async import AdjustableSemaphore
 import wpull.async
 from wpull.database import NotFound
-from wpull.errors import (ExitStatus, ServerError,
-                          ConnectionRefused, DNSNotFound,
-                          SSLVerficationError, ProtocolError, NetworkError)
 from wpull.item import Status, URLItem
-import wpull.string
 from wpull.url import URLInfo
 from wpull.hook import HookableMixin, HookDisconnected
 
-
-try:
-    from collections import OrderedDict
-except ImportError:
-    from wpull.backport.collections import OrderedDict
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
@@ -53,18 +43,6 @@ class Engine(HookableMixin):
 
     In the context of Wpull, URLs are the central part of items.
     '''
-    ERROR_CODE_MAP = OrderedDict([
-        (ServerError, ExitStatus.server_error),
-        (ProtocolError, ExitStatus.protocol_error),
-        (SSLVerficationError, ExitStatus.ssl_verification_error),
-        (DNSNotFound, ExitStatus.network_failure),
-        (ConnectionRefused, ExitStatus.network_failure),
-        (NetworkError, ExitStatus.network_failure),
-        (OSError, ExitStatus.file_io_error),
-        (IOError, ExitStatus.file_io_error),
-        (ValueError, ExitStatus.parser_error),
-    ])
-    '''Mapping of error types to exit status.'''
 
     def __init__(self, url_table, processor, statistics,
                  concurrent=1):
@@ -76,11 +54,11 @@ class Engine(HookableMixin):
         self._worker_semaphore = AdjustableSemaphore(concurrent)
         self._done_event = toro.Event()
         self._num_worker_busy = 0
-        self._exit_code = 0
         self._stopping = False
         self.stop_event = wpull.actor.Event()
+        self._worker_error = None
 
-        self.register_hook('engine_run', 'exit_status', 'finishing_statistics')
+        self.register_hook('engine_run')
 
     @property
     def concurrent(self):
@@ -107,40 +85,17 @@ class Engine(HookableMixin):
         except HookDisconnected:
             pass
 
-        self._statistics.start()
         self._release_in_progress()
         self._run_workers()
 
         yield self._done_event.wait()
 
-        self._compute_exit_code_from_stats()
-
-        if self._exit_code == ExitStatus.ssl_verification_error:
-            self._print_ssl_error()
-
-        self._statistics.stop()
-
-        try:
-            self._exit_code = self.call_hook('exit_status', self._exit_code)
-            assert self._exit_code is not None
-        except HookDisconnected:
-            pass
-
-        try:
-            self.call_hook(
-                'finishing_statistics',
-                self._statistics.start_time, self._statistics.stop_time,
-                self._statistics.files, self._statistics.size
-            )
-        except HookDisconnected:
-            pass
-
-        self._print_stats()
         self._processor.close()
         self._url_table.close()
         self.stop_event.fire()
 
-        raise tornado.gen.Return(self._exit_code)
+        if self._worker_error:
+            raise self._worker_error from self._worker_error
 
     def _release_in_progress(self):
         '''Release any items in progress.'''
@@ -227,11 +182,10 @@ class Engine(HookableMixin):
             assert url_item.is_processed
 
             self._statistics.mark_done(url_info)
-
         except Exception as error:
-            _logger.exception('Fatal exception.')
-            self._update_exit_code_from_error(error)
+            _logger.debug('Worker died from error.')
             self.stop(force=True)
+            self._worker_error = error
 
         if self._statistics.is_quota_exceeded:
             _logger.debug('Stopping due to quota.')
@@ -271,82 +225,3 @@ class Engine(HookableMixin):
 
         if force:
             self._done_event.set()
-
-    def _update_exit_code_from_error(self, error):
-        '''Set the exit code based on the error type.
-
-        Args:
-            error (:class:`Exception`): An exception instance.
-        '''
-        for error_type, exit_code in self.ERROR_CODE_MAP.items():
-            if isinstance(error, error_type):
-                self._update_exit_code(exit_code)
-                break
-        else:
-            self._update_exit_code(ExitStatus.generic_error)
-
-    def _update_exit_code(self, code):
-        '''Set the exit code if it is serious than before.
-
-        Args:
-            code (int): The exit code.
-        '''
-        if code:
-            if self._exit_code:
-                self._exit_code = min(self._exit_code, code)
-            else:
-                self._exit_code = code
-
-    def _compute_exit_code_from_stats(self):
-        '''Set the current exit code based on the Statistics.'''
-        for error_type in self._statistics.errors:
-            exit_code = self.ERROR_CODE_MAP.get(error_type)
-            if exit_code:
-                self._update_exit_code(exit_code)
-
-    def _print_stats(self):
-        '''Log the final statistics to the user.'''
-        stats = self._statistics
-        time_length = datetime.timedelta(
-            seconds=int(stats.stop_time - stats.start_time)
-        )
-        file_size = wpull.string.format_size(stats.size)
-
-        if stats.bandwidth_meter.num_samples:
-            speed_size_str = wpull.string.format_size(
-                stats.bandwidth_meter.speed()
-            )
-        else:
-            speed_size_str = _('-- B')
-
-        _logger.info(_('FINISHED.'))
-        _logger.info(
-            _(
-                'Duration: {preformatted_timedelta}. '
-                'Speed: {preformatted_speed_size}/s.'
-            ).format(
-                preformatted_timedelta=time_length,
-                preformatted_speed_size=speed_size_str,
-            )
-        )
-        _logger.info(
-            gettext.ngettext(
-                'Downloaded: {num_files} file, {preformatted_file_size}.',
-                'Downloaded: {num_files} files, {preformatted_file_size}.',
-                stats.files
-            ).format(
-                num_files=stats.files,
-                preformatted_file_size=file_size
-            )
-        )
-
-        if stats.is_quota_exceeded:
-            _logger.info(_('Download quota exceeded.'))
-
-        _logger.info(_('Exiting with status {0}.').format(self._exit_code))
-
-    def _print_ssl_error(self):
-        '''Print an invalid SSL certificate warning.'''
-        _logger.info(_('A SSL certificate could not be verified.'))
-        _logger.info(_('To ignore and proceed insecurely, '
-                       'use ‘--no-check-certificate’.'))

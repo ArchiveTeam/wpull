@@ -460,8 +460,10 @@ class HookEnvironment(object):
 
         self.factory['Resolver'].connect_hook('resolve_dns', self._resolve_dns)
         self.factory['Engine'].connect_hook('engine_run', self._engine_run)
-        self.factory['Engine'].connect_hook('exit_status', self._exit_status)
-        self.factory['Engine'].connect_hook(
+        self.factory['Application'].connect_hook(
+            'exit_status', self._exit_status
+        )
+        self.factory['Application'].connect_hook(
             'finishing_statistics', self._finishing_statistics
         )
         self.factory['WebProcessor'].connect_hook('wait_time', self._wait_time)
