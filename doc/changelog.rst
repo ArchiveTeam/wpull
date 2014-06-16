@@ -2,6 +2,7 @@
 What's New
 ==========
 
+* Adds ``--warc-move`` option.
 * API:
 
   * `Builder` moved into new module `builder`
