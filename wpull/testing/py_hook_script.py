@@ -4,6 +4,7 @@ import os.path
 
 wpull_hook = globals().get('wpull_hook')  # silence code checkers
 injected_url_found = False
+wpull_hook.callbacks.version = 1
 
 
 def engine_run():

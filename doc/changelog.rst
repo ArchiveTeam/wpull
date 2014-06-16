@@ -2,6 +2,10 @@
 What's New
 ==========
 
+* Scripting:
+
+  * Default scripting version is now 2.
+
 * API:
 
   * `Builder` moved into new module `builder`

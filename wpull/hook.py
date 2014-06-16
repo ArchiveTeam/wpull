@@ -195,14 +195,13 @@ class Callbacks(LegacyCallbacks):
     Attributes:
         AVAILABLE_VERSIONS (tuple): The available API versions.
         version (int): The current API version in use. You can set this.
-            Default: 1.
+            Default: 2.
 
-    .. note:: For deprecation purposes, the default is version 1.
     '''
     AVAILABLE_VERSIONS = to_lua_number((1, 2,))
 
     def __init__(self):
-        self._version = to_lua_number(1)
+        self._version = to_lua_number(2)
 
     @property
     def version(self):
