@@ -1185,7 +1185,7 @@ class AppArgumentParser(argparse.ArgumentParser):
 
         if args.warc_move and not os.path.isdir(args.warc_move):
             self.error('WARC destination {path} is not a directory.'
-                .format(path=args.warc_move))
+                       .format(path=args.warc_move))
 
     def _post_ssl_args(self, args):
         if args.secure_protocol:

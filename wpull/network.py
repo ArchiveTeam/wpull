@@ -142,7 +142,10 @@ class Resolver(HookableMixin):
         except wpull.async.TimedOut as error:
             raise NetworkError('DNS resolve timed out.') from error
         except socket.error as error:
-            if error.errno in (socket.EAI_FAIL, socket.EAI_NODATA, socket.EAI_NONAME):
+            if error.errno in (
+                    socket.EAI_FAIL,
+                    socket.EAI_NODATA,
+                    socket.EAI_NONAME):
                 raise DNSNotFound(
                     'DNS resolution failed: {error}'.format(error=error)
                 ) from error

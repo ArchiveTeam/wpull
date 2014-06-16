@@ -533,8 +533,11 @@ class Builder(object):
                     wpull.phantomjs.get_version()
                 )
 
+            url_table = self._factory['URLTable'] if args.warc_dedup else None
+
             recorders.append(
-                self._factory.new('WARCRecorder',
+                self._factory.new(
+                    'WARCRecorder',
                     args.warc_file,
                     params=WARCRecorderParams(
                         compress=not args.no_warc_compression,
@@ -545,12 +548,10 @@ class Builder(object):
                         digests=args.warc_digests,
                         cdx=args.warc_cdx,
                         max_size=args.warc_max_size,
-                        url_table=self._factory['URLTable'] if args.warc_dedup
-                            else None,
+                        url_table=url_table,
                         software_string=software_string,
                     ),
-                )
-            )
+                ))
 
         if args.server_response:
             recorders.append(self._factory.new('PrintServerResponseRecorder'))

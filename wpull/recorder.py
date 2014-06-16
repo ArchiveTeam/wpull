@@ -300,11 +300,11 @@ class WARCRecorder(BaseRecorder):
 
         if os.path.isdir(self._params.move_to):
             _logger.debug('Moved %s to %s.' % (self._warc_filename,
-                self._params.move_to))
+                                               self._params.move_to))
             shutil.move(filename, self._params.move_to)
         else:
             _logger.error('%s is not a directory; not moving %s.' %
-                    (self._params.move_to, filename))
+                          (self._params.move_to, filename))
 
     def set_length_and_maybe_checksums(self, record, payload_offset=None):
         '''Set the content length and possibly the checksums.'''
