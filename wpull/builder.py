@@ -1,5 +1,5 @@
 # encoding=utf-8
-'''Application building.'''
+'''Application support.'''
 import atexit
 import codecs
 import functools
@@ -15,7 +15,6 @@ import tempfile
 import tornado.ioloop
 import tornado.testing
 
-from wpull.app import Application
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import CookieLimitsPolicy, RelaxedMozillaCookieJar
 from wpull.database import URLTable
@@ -535,20 +534,21 @@ class Builder(object):
 
             recorders.append(
                 self._factory.new('WARCRecorder',
-                                  args.warc_file,
-                                  params=WARCRecorderParams(
-                                      compress=not args.no_warc_compression,
-                                      extra_fields=extra_fields,
-                                      temp_dir=args.warc_tempdir,
-                                      log=args.warc_log,
-                                      appending=args.warc_append,
-                                      digests=args.warc_digests,
-                                      cdx=args.warc_cdx,
-                                      max_size=args.warc_max_size,
-                                      url_table=(self._factory['URLTable']
-                                                 if args.warc_dedup else None),
-                                      software_string=software_string,
-                                  ), )
+                    args.warc_file,
+                    params=WARCRecorderParams(
+                        compress=not args.no_warc_compression,
+                        extra_fields=extra_fields,
+                        temp_dir=args.warc_tempdir,
+                        log=args.warc_log,
+                        appending=args.warc_append,
+                        digests=args.warc_digests,
+                        cdx=args.warc_cdx,
+                        max_size=args.warc_max_size,
+                        url_table=self._factory['URLTable'] if args.warc_dedup
+                            else None,
+                        software_string=software_string,
+                    ),
+                )
             )
 
         if args.server_response:

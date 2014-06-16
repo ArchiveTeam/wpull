@@ -2,6 +2,7 @@
 What's New
 ==========
 
+* Adds ``--warc-move`` option.
 * Scripting:
 
   * Default scripting version is now 2.
