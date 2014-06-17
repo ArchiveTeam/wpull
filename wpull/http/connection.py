@@ -20,11 +20,11 @@ import toro
 
 from wpull.actor import Event
 import wpull.decompression
+from wpull.dns import Resolver
 from wpull.errors import (SSLVerficationError, ConnectionRefused, NetworkError,
                           ProtocolError)
 from wpull.http.request import Response
 from wpull.iostream import SSLIOStream, IOStream, BufferFullError
-from wpull.network import Resolver
 
 
 _ = gettext.gettext

@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`network` Module
+:mod:`builder` Module
 =====================
 
-.. automodule:: wpull.network
+.. automodule:: wpull.builder
     :members:
     :show-inheritance:
     :private-members:

@@ -21,6 +21,7 @@ from wpull.converter import BatchDocumentConverter
 from wpull.cookie import CookieLimitsPolicy, RelaxedMozillaCookieJar
 from wpull.database import URLTable
 from wpull.debug import DebugConsoleHandler
+from wpull.dns import Resolver
 from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
@@ -30,7 +31,6 @@ from wpull.http.connection import (Connection, ConnectionPool,
 from wpull.http.request import Request
 from wpull.http.web import RedirectTracker, RichClient
 from wpull.namevalue import NameValueRecord
-from wpull.network import Resolver
 from wpull.phantomjs import PhantomJSClient
 from wpull.processor import (WebProcessor, PhantomJSController,
                              WebProcessorFetchParams, WebProcessorInstances)

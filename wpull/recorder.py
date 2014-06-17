@@ -10,8 +10,8 @@ import itertools
 import logging
 import os.path
 import re
-import sys
 import shutil
+import sys
 from tempfile import NamedTemporaryFile
 import tempfile
 import time
@@ -19,8 +19,8 @@ import time
 import namedlist
 
 import wpull.backport.gzip
+from wpull.bandwidth import BandwidthMeter
 from wpull.namevalue import NameValueRecord
-from wpull.network import BandwidthMeter
 import wpull.util
 import wpull.version
 from wpull.warc import WARCRecord

@@ -13,7 +13,7 @@ import tornado.testing
 from wpull.backport.testing import unittest
 from wpull.builder import Builder
 from wpull.errors import ExitStatus
-from wpull.network import Resolver
+from wpull.dns import Resolver
 from wpull.options import AppArgumentParser
 from wpull.testing.badapp import BadAppTestCase
 from wpull.testing.goodapp import GoodAppTestCase
