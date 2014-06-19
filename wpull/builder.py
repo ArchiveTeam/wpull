@@ -297,7 +297,7 @@ class Builder(object):
     def _install_python_script(self, filename):
         '''Load the Python script into an environment.'''
         _logger.info(__(_('Using Python hook script {filename}.'),
-            filename=filename))
+                        filename=filename))
 
         hook_environment = HookEnvironment(self._factory)
 
@@ -311,7 +311,7 @@ class Builder(object):
     def _install_lua_script(self, filename):
         '''Load the Lua script into an environment.'''
         _logger.info(__(_('Using Lua hook script {filename}.'),
-            filename=filename))
+                        filename=filename))
 
         lua = wpull.hook.load_lua()
         hook_environment = HookEnvironment(self._factory, is_lua=True)
@@ -811,6 +811,8 @@ class Builder(object):
             bind_address = None
 
         def connection_factory(*args, **kwargs):
+            keep_alive = (self._args.http_keep_alive
+                          and not self._args.ignore_length)
             return self._factory.new(
                 'Connection',
                 *args,
@@ -818,8 +820,7 @@ class Builder(object):
                 params=ConnectionParams(
                     connect_timeout=connect_timeout,
                     read_timeout=read_timeout,
-                    keep_alive=(
-                        self._args.http_keep_alive and not self._args.ignore_length),
+                    keep_alive=keep_alive,
                     ssl_options=self._build_ssl_options(),
                     ignore_length=self._args.ignore_length,
                     bind_address=bind_address,

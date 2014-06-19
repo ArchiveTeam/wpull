@@ -309,7 +309,7 @@ class WebProcessorSession(object):
                 yield self._process_phantomjs(request, response)
             else:
                 _logger.debug(__('Not handling response {0}.',
-                    self._rich_client_session.response_type))
+                                 self._rich_client_session.response_type))
                 is_done = False
 
             self._close_instance_body(response)
@@ -465,7 +465,7 @@ class WebProcessorSession(object):
             URLInfo.parse(url_info.url, encoding=encoding)
         except ValueError as error:
             _logger.warning(__(_('Discarding malformed URL ‘{url}’: {error}.'),
-                            url=url, error=error))
+                               url=url, error=error))
         else:
             return url_info
 
@@ -533,8 +533,8 @@ class WebProcessorSession(object):
             num_linked_urls += new_linked
 
         _logger.debug(__('Found URLs: inline={0} linked={1}',
-            num_inline_urls, num_linked_urls
-        ))
+                         num_inline_urls, num_linked_urls
+                         ))
 
         try:
             self._processor.call_hook(
@@ -690,11 +690,11 @@ class WebProcessorSession(object):
             _logger.info(__(
                 _('PhantomJS fetched ‘{url}’: {status_code} {reason}. '
                     'Length: {content_length} [{content_type}].'),
-                    url=url,
-                    status_code=response['status'],
-                    reason=response['statusText'],
-                    content_length=response.get('bodySize'),
-                    content_type=response.get('contentType'),
+                url=url,
+                status_code=response['status'],
+                reason=response['statusText'],
+                content_length=response.get('bodySize'),
+                content_type=response.get('contentType'),
             ))
 
         def fetch_error_log(rpc_info):
@@ -702,8 +702,8 @@ class WebProcessorSession(object):
 
             _logger.error(__(
                 _('PhantomJS fetching ‘{url}’ encountered an error: {error}'),
-                    url=resource_error['url'],
-                    error=resource_error['errorString']
+                url=resource_error['url'],
+                error=resource_error['errorString']
             ))
 
         def handle_page_event(rpc_info):
@@ -817,8 +817,8 @@ class PhantomJSController(object):
 
             _logger.debug(__(
                 'Counter values pre={0} post={1}',
-                    pre_scroll_counter_values,
-                    post_scroll_counter_values
+                pre_scroll_counter_values,
+                post_scroll_counter_values
             ))
 
             if post_scroll_counter_values == pre_scroll_counter_values \

@@ -470,9 +470,9 @@ class Connection(object):
     def _stream_closed_callback(self):
         _logger.debug(__(
             'Stream closed. active={0} connected={1} closed={2}',
-                self._active,
-                self.connected,
-                self._io_stream.closed(),
+            self._active,
+            self.connected,
+            self._io_stream.closed(),
         ))
 
 
@@ -601,7 +601,7 @@ class HostConnectionPool(collections.Set):
         while self._running or self._request_queue.qsize():
             _logger.debug(__(
                 'Host pool running (Addr={0} SSL={1}).',
-                    self._address, self._ssl
+                self._address, self._ssl
             ))
 
             yield self._max_count_semaphore.acquire()
@@ -633,7 +633,7 @@ class HostConnectionPool(collections.Set):
             response = yield connection.fetch(request, **kwargs)
         except Exception as error:
             _logger.debug(__('Host pool got an error from fetch: {error}',
-                          error=error))
+                             error=error))
             _logger.debug(traceback.format_exc())
             async_result.set(error)
         else:
@@ -661,7 +661,7 @@ class HostConnectionPool(collections.Set):
             return connection
 
         _logger.debug(__('Connections len={0} max={1}',
-            len(self._connections), self._max_count))
+                         len(self._connections), self._max_count))
 
         raise Exception('Impossibly ran out of unused connections.')
 

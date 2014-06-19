@@ -205,12 +205,12 @@ class Engine(HookableMixin):
         This function calls :meth:`.processor.BaseProcessor.process`.
         '''
         _logger.debug(__('Begin session for {0} {1}.',
-            url_item.url_record, url_item.url_info))
+                         url_item.url_record, url_item.url_info))
 
         yield self._processor.process(url_item)
 
         _logger.debug(__('End session for {0} {1}.',
-            url_item.url_record, url_item.url_info))
+                         url_item.url_record, url_item.url_info))
 
     def stop(self, force=False):
         '''Stop the engine.

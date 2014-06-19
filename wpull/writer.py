@@ -147,7 +147,7 @@ class BaseFileWriterSession(BaseWriterSession):
         This function will create the directories if not exist.
         '''
         _logger.debug(__('Saving file to {0}, mode={1}.',
-            filename, mode))
+                         filename, mode))
 
         dir_path = os.path.dirname(filename)
         if dir_path and not os.path.exists(dir_path):

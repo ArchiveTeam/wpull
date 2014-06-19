@@ -160,8 +160,8 @@ Args:
     cdx (bool): If True, a CDX file will be written.
     max_size (int): If provided, output files are named like
         ``name-00000.ext`` and the log file will be in ``name-meta.ext``.
-    move_to (str): If provided, completed WARC files and CDX files will be moved
-        to the given directory
+    move_to (str): If provided, completed WARC files and CDX files will be
+        moved to the given directory
     url_table (:class:`.database.URLTable`): If given, then ``revist``
         records will be written.
     software_string (str): The value for the ``software`` field in the
@@ -301,10 +301,10 @@ class WARCRecorder(BaseRecorder):
 
         if os.path.isdir(self._params.move_to):
             _logger.debug('Moved %s to %s.', self._warc_filename,
-                                               self._params.move_to)
+                          self._params.move_to)
             shutil.move(filename, self._params.move_to)
         else:
-            _logger.error('%s is not a directory; not moving %s.' ,
+            _logger.error('%s is not a directory; not moving %s.',
                           self._params.move_to, filename)
 
     def set_length_and_maybe_checksums(self, record, payload_offset=None):
@@ -322,7 +322,7 @@ class WARCRecorder(BaseRecorder):
             WARCRecord.WARC_RECORD_ID]
 
         _logger.debug(__('Writing WARC record {0}.',
-            record.fields['WARC-Type']))
+                         record.fields['WARC-Type']))
 
         if self._params.compress:
             open_func = wpull.backport.gzip.GzipFile
