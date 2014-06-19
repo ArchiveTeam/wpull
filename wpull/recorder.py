@@ -19,6 +19,7 @@ import time
 import namedlist
 
 import wpull.backport.gzip
+from wpull.backport.logging import BraceMessage as __
 from wpull.bandwidth import BandwidthMeter
 from wpull.namevalue import NameValueRecord
 import wpull.util
@@ -218,7 +219,7 @@ class WARCRecorder(BaseRecorder):
             self._prefix_filename, sequence_name, extension
         )
 
-        _logger.debug('WARC file at {0}'.format(self._warc_filename))
+        _logger.debug(__('WARC file at {0}', self._warc_filename))
 
         if not self._params.appending:
             wpull.util.truncate_file(self._warc_filename)
@@ -299,12 +300,12 @@ class WARCRecorder(BaseRecorder):
         assert self._params.move_to
 
         if os.path.isdir(self._params.move_to):
-            _logger.debug('Moved %s to %s.' % (self._warc_filename,
-                                               self._params.move_to))
+            _logger.debug('Moved %s to %s.', self._warc_filename,
+                                               self._params.move_to)
             shutil.move(filename, self._params.move_to)
         else:
-            _logger.error('%s is not a directory; not moving %s.' %
-                          (self._params.move_to, filename))
+            _logger.error('%s is not a directory; not moving %s.' ,
+                          self._params.move_to, filename)
 
     def set_length_and_maybe_checksums(self, record, payload_offset=None):
         '''Set the content length and possibly the checksums.'''
@@ -320,7 +321,7 @@ class WARCRecorder(BaseRecorder):
         record.fields['WARC-Warcinfo-ID'] = self._warcinfo_record.fields[
             WARCRecord.WARC_RECORD_ID]
 
-        _logger.debug('Writing WARC record {0}.'.format(
+        _logger.debug(__('Writing WARC record {0}.',
             record.fields['WARC-Type']))
 
         if self._params.compress:
@@ -338,10 +339,10 @@ class WARCRecorder(BaseRecorder):
                 for data in record:
                     out_file.write(data)
         except (OSError, IOError) as error:
-            _logger.info(
-                _('Rolling back file {filename} to length {length}.')
-                .format(filename=self._warc_filename, length=before_offset)
-            )
+            _logger.info(__(
+                _('Rolling back file {filename} to length {length}.'),
+                filename=self._warc_filename, length=before_offset
+            ))
             with open(self._warc_filename, mode='wb') as out_file:
                 out_file.truncate(before_offset)
             raise error
@@ -423,7 +424,7 @@ class WARCRecorder(BaseRecorder):
 
         url = record.fields['WARC-Target-URI']
 
-        _logger.debug('Writing CDX record {0}.'.format(url))
+        _logger.debug(__('Writing CDX record {0}.', url))
 
         http_header = record.get_http_header()
 

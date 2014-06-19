@@ -10,6 +10,7 @@ import re
 
 import lxml.etree
 
+from wpull.backport.logging import BraceMessage as __
 from wpull.document import (BaseDocumentReader, HTMLReader,
                             detect_response_encoding, CSSReader,
                             SitemapReader, JavaScriptReader)
@@ -201,10 +202,10 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
                 )
 
         except (UnicodeError, lxml.etree.LxmlError) as error:
-            _logger.warning(
-                _('Failed to read document at ‘{url}’: {error}')
-                .format(url=request.url_info.url, error=error)
-            )
+            _logger.warning(__(
+                _('Failed to read document at ‘{url}’: {error}'),
+                url=request.url_info.url, error=error
+            ))
             result_meta_info = {}
 
         if result_meta_info.get('robots_no_follow'):
@@ -637,10 +638,10 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
                 inline_urls.add(scraped_link.link)
 
         except UnicodeError as error:
-            _logger.warning(
-                _('Failed to read document at ‘{url}’: {error}')
-                .format(url=request.url_info.url, error=error)
-            )
+            _logger.warning(__(
+                _('Failed to read document at ‘{url}’: {error}'),
+                url=request.url_info.url, error=error
+            ))
 
         return {
             'inline_urls': inline_urls,
@@ -689,10 +690,10 @@ class JavaScriptScraper(JavaScriptReader, BaseDocumentScraper):
                     linked_urls.add(scraped_link.link)
 
         except UnicodeError as error:
-            _logger.warning(
-                _('Failed to read document at ‘{url}’: {error}')
-                .format(url=request.url_info.url, error=error)
-            )
+            _logger.warning(__(
+                _('Failed to read document at ‘{url}’: {error}'),
+                url=request.url_info.url, error=error
+            ))
 
         return {
             'inline_urls': inline_urls,
@@ -747,10 +748,10 @@ class SitemapScraper(SitemapReader, BaseDocumentScraper):
                         links.add(link)
 
         except (UnicodeError, lxml.etree.LxmlError) as error:
-            _logger.warning(
-                _('Failed to read document at ‘{url}’: {error}')
-                .format(url=request.url_info.url, error=error)
-            )
+            _logger.warning(__(
+                _('Failed to read document at ‘{url}’: {error}'),
+                url=request.url_info.url, error=error
+            ))
 
         return {
             'inline_urls': (),
@@ -818,10 +819,10 @@ def urljoin_safe(base_url, url, allow_fragments=True):
             base_url, url, allow_fragments=allow_fragments
         )
     except ValueError as error:
-        _logger.warning(
-            _('Discarding malformed URL ‘{url}’: {error}.')
-            .format(url=url, error=error)
-        )
+        _logger.warning(__(
+            _('Discarding malformed URL ‘{url}’: {error}.'),
+            url=url, error=error
+        ))
 
 
 def is_likely_inline(link):

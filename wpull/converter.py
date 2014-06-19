@@ -10,6 +10,7 @@ import shutil
 
 import lxml.html
 
+from wpull.backport.logging import BraceMessage as __
 from wpull.database import Status
 from wpull.scraper import HTMLScraper, CSSScraper
 import wpull.string
@@ -71,10 +72,10 @@ class BatchDocumentConverter(object):
                 else:
                     link_type = None
 
-        _logger.info(
-            _('Converting links in file ‘{filename}’ (type={type}).')
-            .format(filename=filename, type=link_type)
-        )
+        _logger.info(__(
+            _('Converting links in file ‘{filename}’ (type={type}).'),
+            filename=filename, type=link_type
+        ))
 
         if self._backup_enabled:
             shutil.copy2(filename, filename + '.orig')

@@ -17,6 +17,7 @@ import tornado.web
 import tornado.websocket
 import toro
 
+from wpull.backport.logging import BraceMessage as __
 import wpull.actor
 
 
@@ -112,7 +113,7 @@ class PhantomJSRemote(object):
 
     def _subprocess_exited_cb(self, exit_status):
         '''Callback when PhantomJS exits.'''
-        _logger.debug('phantomjs exited with status {0}.'.format(exit_status))
+        _logger.debug(__('phantomjs exited with status {0}.', exit_status))
 
     def _atexit_kill_subprocess(self):
         '''Terminate or kill the subprocess.
@@ -141,7 +142,7 @@ class PhantomJSRemote(object):
             )
 
             _logger.debug(
-                'PhantomJS: {0}'.format(message.decode('utf-8').rstrip())
+                __('PhantomJS: {0}', message.decode('utf-8').rstrip())
             )
 
     @tornado.gen.coroutine
@@ -359,7 +360,7 @@ class RPCHandler(tornado.websocket.WebSocketHandler):
 
     @tornado.gen.coroutine
     def on_message(self, message):
-        _logger.debug('Received message {0}.'.format(message))
+        _logger.debug(__('Received message {0}.', message))
 
         yield self.application.in_queue.put(message)
 
@@ -423,10 +424,10 @@ class PhantomJSClient(object):
             if self._extra_args:
                 extra_args.extend(self._extra_args)
 
-            _logger.debug(
-                'Creating new remote with proxy {0}'.format(
-                    self._proxy_address)
-            )
+            _logger.debug(__(
+                'Creating new remote with proxy {0}',
+                self._proxy_address
+            ))
 
             remote = PhantomJSRemote(
                 self._exe_path,

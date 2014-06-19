@@ -17,6 +17,7 @@ import tornado.ioloop
 import tornado.testing
 
 from wpull.app import Application
+from wpull.backport.logging import BraceMessage as __
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import CookieLimitsPolicy, RelaxedMozillaCookieJar
 from wpull.database import URLTable
@@ -295,7 +296,7 @@ class Builder(object):
 
     def _install_python_script(self, filename):
         '''Load the Python script into an environment.'''
-        _logger.info(_('Using Python hook script {filename}.').format(
+        _logger.info(__(_('Using Python hook script {filename}.'),
             filename=filename))
 
         hook_environment = HookEnvironment(self._factory)
@@ -309,7 +310,7 @@ class Builder(object):
 
     def _install_lua_script(self, filename):
         '''Load the Lua script into an environment.'''
-        _logger.info(_('Using Lua hook script {filename}.').format(
+        _logger.info(__(_('Using Lua hook script {filename}.'),
             filename=filename))
 
         lua = wpull.hook.load_lua()
@@ -327,10 +328,10 @@ class Builder(object):
         if not self._args.debug_console_port:
             return
 
-        _logger.warning(
-            _('Opened a debug console at localhost:{port}.')
-            .format(port=self._args.debug_console_port)
-        )
+        _logger.warning(__(
+            _('Opened a debug console at localhost:{port}.'),
+            port=self._args.debug_console_port
+        ))
 
         application = tornado.web.Application(
             [(r'/', DebugConsoleHandler)],
@@ -356,7 +357,7 @@ class Builder(object):
         base_url = self._args.base
 
         for url_string in url_string_iter:
-            _logger.debug('Parsing URL {0}'.format(url_string))
+            _logger.debug(__('Parsing URL {0}', url_string))
 
             if base_url:
                 url_string = wpull.url.urljoin(base_url, url_string)
@@ -364,7 +365,7 @@ class Builder(object):
             url_info = self._factory.class_map['URLInfo'].parse(
                 url_string, default_scheme=default_scheme)
 
-            _logger.debug('Parsed URL {0}'.format(url_info))
+            _logger.debug(__('Parsed URL {0}', url_info))
             yield url_info
 
             if self._args.sitemaps:
@@ -616,13 +617,14 @@ class Builder(object):
         url_table = self.factory['URLTable']
         url_table.add_visits(visits())
 
-        _logger.info(
+        _logger.info(__(
             gettext.ngettext(
                 'Loaded {num} record from CDX file.',
                 'Loaded {num} records from CDX file.',
                 nonlocal_var['counter']
-            ).format(num=nonlocal_var['counter'])
-        )
+            ),
+            num=nonlocal_var['counter']
+        ))
 
     def _build_processor(self):
         '''Create the Processor
@@ -882,7 +884,7 @@ class Builder(object):
 
         cookie_jar.set_policy(policy)
 
-        _logger.debug('Loaded cookies: {0}'.format(list(cookie_jar)))
+        _logger.debug(__('Loaded cookies: {0}', list(cookie_jar)))
 
         cookie_jar_wrapper = self._factory.new(
             'CookieJarWrapper',
@@ -1081,10 +1083,10 @@ class Builder(object):
                 enabled_options.append(option_name)
 
         if enabled_options:
-            _logger.warning(
-                _('The following unsafe options are enabled: {list}.')
-                .format(list=enabled_options)
-            )
+            _logger.warning(__(
+                _('The following unsafe options are enabled: {list}.'),
+                list=enabled_options
+            ))
             _logger.warning(
                 _('The use of unsafe options may lead to unexpected behavior '
                     'or file corruption.'))

@@ -9,10 +9,11 @@ import toro
 import wpull.actor
 from wpull.async import AdjustableSemaphore
 import wpull.async
+from wpull.backport.logging import BraceMessage as __
 from wpull.database import NotFound
+from wpull.hook import HookableMixin, HookDisconnected
 from wpull.item import Status, URLItem
 from wpull.url import URLInfo
-from wpull.hook import HookableMixin, HookDisconnected
 
 
 _logger = logging.getLogger(__name__)
@@ -139,7 +140,7 @@ class Engine(HookableMixin):
             except NotFound:
                 url_record = None
 
-        _logger.debug('Return record {0}.'.format(url_record))
+        _logger.debug(__('Return record {0}.', url_record))
 
         return url_record
 
@@ -203,12 +204,12 @@ class Engine(HookableMixin):
 
         This function calls :meth:`.processor.BaseProcessor.process`.
         '''
-        _logger.debug('Begin session for {0} {1}.'.format(
+        _logger.debug(__('Begin session for {0} {1}.',
             url_item.url_record, url_item.url_info))
 
         yield self._processor.process(url_item)
 
-        _logger.debug('End session for {0} {1}.'.format(
+        _logger.debug(__('End session for {0} {1}.',
             url_item.url_record, url_item.url_info))
 
     def stop(self, force=False):
@@ -219,7 +220,7 @@ class Engine(HookableMixin):
             stop the Engine immediately. If ``False``, the Engine will wait
             for all workers to finish.
         '''
-        _logger.debug('Stopping. force={0}'.format(force))
+        _logger.debug(__('Stopping. force={0}', force))
 
         self._stopping = True
 

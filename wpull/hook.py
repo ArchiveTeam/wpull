@@ -4,11 +4,8 @@ import itertools
 import logging
 import sys
 
-import tornado.gen
-
+from wpull.backport.logging import BraceMessage as __
 from wpull.database import Status
-# from wpull.engine import Engine
-# from wpull.processor import WebProcessor, WebProcessorSession
 import wpull.string
 
 
@@ -483,7 +480,7 @@ class HookEnvironment(object):
     def _resolve_dns(self, host, port):
         answer = self.callbacks.resolve_dns(to_lua_type(host))
 
-        _logger.debug('Resolve hook returned {0}'.format(answer))
+        _logger.debug(__('Resolve hook returned {0}', answer))
 
         if answer:
             return answer
@@ -542,7 +539,7 @@ class HookEnvironment(object):
             url_info_dict, url_record_dict, response_info_dict
         )
 
-        _logger.debug('Hooked response returned {0}'.format(action))
+        _logger.debug(__('Hooked response returned {0}', action))
 
         if action == Actions.NORMAL:
             return 'normal'
@@ -570,7 +567,7 @@ class HookEnvironment(object):
             url_info_dict, url_record_dict, error_info_dict
         )
 
-        _logger.debug('Hooked error returned {0}'.format(action))
+        _logger.debug(__('Hooked error returned {0}', action))
 
         if action == Actions.NORMAL:
             return 'normal'
@@ -593,7 +590,7 @@ class HookEnvironment(object):
         new_url_dicts = self.callbacks.get_urls(
             filename, url_info_dict, document_info_dict)
 
-        _logger.debug('Hooked scrape returned {0}'.format(new_url_dicts))
+        _logger.debug(__('Hooked scrape returned {0}', new_url_dicts))
 
         if not new_url_dicts:
             return
@@ -603,7 +600,7 @@ class HookEnvironment(object):
             for i in itertools.count(1):
                 new_url_dict = new_url_dicts[to_native(i)]
 
-                _logger.debug('Got lua new url info {0}'.format(new_url_dict))
+                _logger.debug(__('Got lua new url info {0}', new_url_dict))
 
                 if new_url_dict is None:
                     break

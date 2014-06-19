@@ -6,6 +6,7 @@ import os
 import ssl
 import sys
 
+from wpull.backport.logging import BraceMessage as __
 import wpull.string
 import wpull.version
 
@@ -144,7 +145,7 @@ class AppArgumentParser(argparse.ArgumentParser):
 
         encoding = self.get_argv_encoding(args)
 
-        _logger.debug('Encoding: {0}'.format(encoding))
+        _logger.debug(__('Encoding: {0}', encoding))
 
         args = super().parse_args(
             args=wpull.string.to_str(args, encoding=encoding),

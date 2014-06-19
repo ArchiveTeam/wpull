@@ -14,11 +14,13 @@ import namedlist
 import tornado.gen
 
 import wpull.async
+from wpull.backport.logging import BraceMessage as __
 from wpull.conversation import Body
 from wpull.database import Status
 from wpull.document import HTMLReader
 from wpull.errors import (ProtocolError, ServerError, ConnectionRefused,
                           DNSNotFound, NetworkError)
+from wpull.hook import HookableMixin, HookDisconnected
 from wpull.http.request import Response
 from wpull.http.web import RichClientResponseType
 from wpull.item import LinkType
@@ -32,7 +34,6 @@ import wpull.util
 from wpull.waiter import LinearWaiter
 from wpull.warc import WARCRecord
 from wpull.writer import NullWriter
-from wpull.hook import HookableMixin, HookDisconnected
 
 
 _logger = logging.getLogger(__name__)
@@ -283,24 +284,23 @@ class WebProcessorSession(object):
                 response_factory=self._new_response_factory()
             )
         except (NetworkError, ProtocolError) as error:
-            _logger.error(
-                _('Fetching ‘{url}’ encountered an error: {error}')
-                .format(url=request.url_info.url, error=error)
-            )
+            _logger.error(__(
+                _('Fetching ‘{url}’ encountered an error: {error}'),
+                url=request.url_info.url, error=error
+            ))
 
             response = None
             is_done = self._handle_error(error)
         else:
-            _logger.info(
+            _logger.info(__(
                 _('Fetched ‘{url}’: {status_code} {reason}. '
-                    'Length: {content_length} [{content_type}].').format(
-                    url=request.url_info.url,
-                    status_code=response.status_code,
-                    reason=response.status_reason,
-                    content_length=response.fields.get('Content-Length'),
-                    content_type=response.fields.get('Content-Type'),
-                )
-            )
+                    'Length: {content_length} [{content_type}].'),
+                url=request.url_info.url,
+                status_code=response.status_code,
+                reason=response.status_reason,
+                content_length=response.fields.get('Content-Length'),
+                content_type=response.fields.get('Content-Type'),
+            ))
 
             if self._rich_client_session.response_type \
                != RichClientResponseType.robots:
@@ -308,7 +308,7 @@ class WebProcessorSession(object):
 
                 yield self._process_phantomjs(request, response)
             else:
-                _logger.debug('Not handling response {0}.'.format(
+                _logger.debug(__('Not handling response {0}.',
                     self._rich_client_session.response_type))
                 is_done = False
 
@@ -356,21 +356,13 @@ class WebProcessorSession(object):
             reason = 'redirect'
 
         else:
-            # _logger.debug(
-            #     'Rejecting {url} due to filters: '
-            #     'Passed={passed}. Failed={failed}.'.format(
-            #         url=url_info.url,
-            #         passed=test_info['passed'],
-            #         failed=test_info['failed']
-            # )
-            # )
-            _logger.debug(
-                'Rejecting %s due to filters: '
-                'Passed=%s. Failed=%s.',
-                url_info.url,
-                test_info['passed'],
-                test_info['failed']
-            )
+            _logger.debug(__(
+                'Rejecting {url} due to filters: '
+                'Passed={passed}. Failed={failed}.',
+                url=url_info.url,
+                passed=test_info['passed'],
+                failed=test_info['failed']
+            ))
 
             verdict = False
             reason = 'filters'
@@ -398,7 +390,7 @@ class WebProcessorSession(object):
         request.fields['Content-Type'] = 'application/x-www-form-urlencoded'
         request.fields['Content-Length'] = str(len(data))
 
-        _logger.debug('Posting with data {0}.'.format(data))
+        _logger.debug(__('Posting with data {0}.', data))
 
         with wpull.util.reset_file_offset(request.body.content_file):
             request.body.content_file.write(data)
@@ -472,8 +464,8 @@ class WebProcessorSession(object):
             # FIXME: workaround detection of bad URL unsplit. See issue #132.
             URLInfo.parse(url_info.url, encoding=encoding)
         except ValueError as error:
-            _logger.warning(_('Discarding malformed URL ‘{url}’: {error}.')
-                            .format(url=url, error=error))
+            _logger.warning(__(_('Discarding malformed URL ‘{url}’: {error}.'),
+                            url=url, error=error))
         else:
             return url_info
 
@@ -540,7 +532,7 @@ class WebProcessorSession(object):
             num_inline_urls += new_inline
             num_linked_urls += new_linked
 
-        _logger.debug('Found URLs: inline={0} linked={1}'.format(
+        _logger.debug(__('Found URLs: inline={0} linked={1}',
             num_inline_urls, num_linked_urls
         ))
 
@@ -675,10 +667,10 @@ class WebProcessorSession(object):
     def _hook_phantomjs_logging(self, remote):
         '''Set up logging from PhantomJS to Wpull.'''
         def fetch_log(rpc_info):
-            _logger.info(
-                _('PhantomJS fetching ‘{url}’.')
-                .format(url=rpc_info['request_data']['url'])
-            )
+            _logger.info(__(
+                _('PhantomJS fetching ‘{url}’.'),
+                url=rpc_info['request_data']['url']
+            ))
 
         def fetched_log(rpc_info):
             if rpc_info['response']['stage'] != 'end':
@@ -695,27 +687,24 @@ class WebProcessorSession(object):
             if url.endswith('/WPULLHTTPS'):
                 url = url[:-11].replace('http://', 'https://', 1)
 
-            _logger.info(
+            _logger.info(__(
                 _('PhantomJS fetched ‘{url}’: {status_code} {reason}. '
-                    'Length: {content_length} [{content_type}].').format(
+                    'Length: {content_length} [{content_type}].'),
                     url=url,
                     status_code=response['status'],
                     reason=response['statusText'],
                     content_length=response.get('bodySize'),
                     content_type=response.get('contentType'),
-                )
-            )
+            ))
 
         def fetch_error_log(rpc_info):
             resource_error = rpc_info['resource_error']
 
-            _logger.error(
-                _('PhantomJS fetching ‘{url}’ encountered an error: {error}')
-                .format(
+            _logger.error(__(
+                _('PhantomJS fetching ‘{url}’ encountered an error: {error}'),
                     url=resource_error['url'],
                     error=resource_error['errorString']
-                )
-            )
+            ))
 
         def handle_page_event(rpc_info):
             name = rpc_info['event']
@@ -810,7 +799,7 @@ class PhantomJSController(object):
         total_scroll_count = 0
 
         for scroll_count in range(num_scrolls):
-            _logger.debug('Scrolling page. Count={0}.'.format(scroll_count))
+            _logger.debug(__('Scrolling page. Count={0}.', scroll_count))
 
             pre_scroll_counter_values = remote.resource_counter.values()
 
@@ -826,12 +815,11 @@ class PhantomJSController(object):
 
             post_scroll_counter_values = remote.resource_counter.values()
 
-            _logger.debug(
-                'Counter values pre={0} post={1}'.format(
+            _logger.debug(__(
+                'Counter values pre={0} post={1}',
                     pre_scroll_counter_values,
                     post_scroll_counter_values
-                )
-            )
+            ))
 
             if post_scroll_counter_values == pre_scroll_counter_values \
                and self._smart_scroll:
@@ -846,13 +834,13 @@ class PhantomJSController(object):
 
         yield self.scroll_to(remote, 0, 0)
 
-        _logger.info(
+        _logger.info(__(
             gettext.ngettext(
                 'Scrolled page {num} time.',
                 'Scrolled page {num} times.',
                 total_scroll_count,
-            ).format(num=total_scroll_count)
-        )
+            ), num=total_scroll_count
+        ))
 
         if self._warc_recorder:
             self._add_warc_action_log(url)
@@ -884,7 +872,7 @@ class PhantomJSController(object):
         url = yield remote.eval('page.url')
 
         if html_path:
-            _logger.debug('Saving snapshot to {0}.'.format(html_path))
+            _logger.debug(__('Saving snapshot to {0}.', html_path))
             dir_path = os.path.abspath(os.path.dirname(html_path))
 
             if not os.path.exists(dir_path):
@@ -897,7 +885,7 @@ class PhantomJSController(object):
                 self._add_warc_snapshot(html_path, 'text/html', url)
 
         if render_path:
-            _logger.debug('Saving snapshot to {0}.'.format(render_path))
+            _logger.debug(__('Saving snapshot to {0}.', render_path))
             yield remote.call('page.render', render_path)
 
             if self._warc_recorder:
@@ -926,7 +914,7 @@ class PhantomJSController(object):
 
     def _log_action(self, name, value):
         '''Add a action to the action log.'''
-        _logger.debug('Action: {0} {1}'.format(name, value))
+        _logger.debug(__('Action: {0} {1}', name, value))
 
         self._actions.append({
             'event': name,

@@ -17,6 +17,7 @@ import tornado.netutil
 import tornado.stack_context
 import toro
 
+from wpull.backport.logging import BraceMessage as __
 from wpull.errors import (NetworkError, SSLVerficationError, NetworkTimedOut,
                           ConnectionRefused)
 
@@ -242,7 +243,7 @@ class IOStream(object):
             self._event_result.set(events)
         else:
             _logger.debug(
-                'Spurious events: FD={0} Events=0x{1:x}.'.format(fd, events)
+                __('Spurious events: FD={0} Events=0x{1:x}.', fd, events)
             )
 
     @tornado.gen.coroutine

@@ -7,6 +7,7 @@ import signal
 
 import tornado.ioloop
 
+from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ServerError, ExitStatus, ProtocolError, \
     SSLVerficationError, DNSNotFound, ConnectionRefused, NetworkError
 from wpull.hook import HookableMixin, HookDisconnected
@@ -183,30 +184,28 @@ class Application(HookableMixin):
             speed_size_str = _('-- B')
 
         _logger.info(_('FINISHED.'))
-        _logger.info(
+        _logger.info(__(
             _(
                 'Duration: {preformatted_timedelta}. '
                 'Speed: {preformatted_speed_size}/s.'
-            ).format(
-                preformatted_timedelta=time_length,
-                preformatted_speed_size=speed_size_str,
-            )
-        )
-        _logger.info(
+            ),
+            preformatted_timedelta=time_length,
+            preformatted_speed_size=speed_size_str,
+        ))
+        _logger.info(__(
             gettext.ngettext(
                 'Downloaded: {num_files} file, {preformatted_file_size}.',
                 'Downloaded: {num_files} files, {preformatted_file_size}.',
                 stats.files
-            ).format(
-                num_files=stats.files,
-                preformatted_file_size=file_size
-            )
-        )
+            ),
+            num_files=stats.files,
+            preformatted_file_size=file_size
+        ))
 
         if stats.is_quota_exceeded:
             _logger.info(_('Download quota exceeded.'))
 
-        _logger.info(_('Exiting with status {0}.').format(self._exit_code))
+        _logger.info(__(_('Exiting with status {0}.'), self._exit_code))
 
     def _print_ssl_error(self):
         '''Print an invalid SSL certificate warning.'''

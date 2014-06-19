@@ -7,6 +7,7 @@ import socket
 
 import tornado.netutil
 
+from wpull.backport.logging import BraceMessage as __
 from wpull.cache import FIFOCache
 from wpull.errors import DNSNotFound, NetworkError
 from wpull.hook import HookableMixin, HookDisconnected
@@ -76,7 +77,7 @@ class Resolver(HookableMixin):
             family and the second item is the IP address. Note that
             IPv6 returns a tuple containing more items than 2.
         '''
-        _logger.debug('Lookup address {0} {1}.'.format(host, port))
+        _logger.debug(__('Lookup address {0} {1}.', host, port))
 
         results = self._resolve_internally(host, port)
 
@@ -92,7 +93,7 @@ class Resolver(HookableMixin):
                 .format(wpull.string.coerce_str_to_ascii(host))
             )
 
-        _logger.debug('Resolved addresses: {0}.'.format(results))
+        _logger.debug(__('Resolved addresses: {0}.', results))
 
         if self._rotate:
             result = random.choice(results)
@@ -100,7 +101,7 @@ class Resolver(HookableMixin):
             result = results[0]
 
         family, address = result
-        _logger.debug('Selected {0} as address.'.format(address))
+        _logger.debug(__('Selected {0} as address.', address))
 
         raise tornado.gen.Return((family, address))
 

@@ -5,6 +5,7 @@ import logging
 import tornado.gen
 import toro
 
+from wpull.backport.logging import BraceMessage as __
 from wpull.conversation import BaseClient
 from wpull.http.connection import ConnectionPool
 from wpull.recorder import DemuxRecorder
@@ -47,7 +48,7 @@ class Client(BaseClient):
         Raises:
             Exception: See :meth:`.http.connection.Connection.fetch`.
         '''
-        _logger.debug('Client fetch request {0}.'.format(request))
+        _logger.debug(__('Client fetch request {0}.', request))
 
         if 'recorder' not in kwargs:
             kwargs['recorder'] = self._recorder

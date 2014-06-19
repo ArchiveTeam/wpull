@@ -19,6 +19,7 @@ from tornado.iostream import StreamClosedError
 import toro
 
 from wpull.actor import Event
+from wpull.backport.logging import BraceMessage as __
 import wpull.decompression
 from wpull.dns import Resolver
 from wpull.errors import (SSLVerficationError, ConnectionRefused, NetworkError,
@@ -133,14 +134,12 @@ class Connection(object):
 
         self._socket = socket.socket(family, socket.SOCK_STREAM)
 
-        _logger.debug(
-            'Socket to {0}/{1}.'.format(family, self._resolved_address)
-        )
+        _logger.debug(__('Socket to {0}/{1}.', family, self._resolved_address))
 
         if self._params.bind_address:
-            _logger.debug(
-                'Binding socket to {0}'.format(self._params.bind_address)
-            )
+            _logger.debug(__(
+                'Binding socket to {0}', self._params.bind_address
+            ))
             self._socket.bind(self._params.bind_address)
 
         if self._ssl:
@@ -170,7 +169,7 @@ class Connection(object):
 
         yield self._make_socket()
 
-        _logger.debug('Connecting to {0}.'.format(self._resolved_address))
+        _logger.debug(__('Connecting to {0}.', self._resolved_address))
         try:
             yield self._io_stream.connect(
                 self._resolved_address, timeout=self._params.connect_timeout
@@ -207,7 +206,7 @@ class Connection(object):
         Raises:
             Exception: Exceptions specified in :mod:`.errors`.
         '''
-        _logger.debug('Request {0}.'.format(request))
+        _logger.debug(__('Request {0}.', request))
 
         assert not self._active
 
@@ -401,9 +400,9 @@ class Connection(object):
                 raise ValueError('Content length cannot be negative.')
 
         except ValueError as error:
-            _logger.warning(
-                _('Invalid content length: {error}').format(error=error)
-            )
+            _logger.warning(__(
+                _('Invalid content length: {error}'), error=error
+            ))
 
             yield self._read_response_until_close(response)
             return
@@ -469,13 +468,12 @@ class Connection(object):
             self._io_stream.close()
 
     def _stream_closed_callback(self):
-        _logger.debug(
-            'Stream closed. active={0} connected={1} closed={2}'.format(
+        _logger.debug(__(
+            'Stream closed. active={0} connected={1} closed={2}',
                 self._active,
                 self.connected,
                 self._io_stream.closed(),
-            )
-        )
+        ))
 
 
 class ChunkedTransferStreamReader(object):
@@ -512,7 +510,7 @@ class ChunkedTransferStreamReader(object):
         except ValueError as error:
             raise ProtocolError(error.args[0]) from error
 
-        _logger.debug('Getting chunk size={0}.'.format(chunk_size))
+        _logger.debug(__('Getting chunk size={0}.', chunk_size))
 
         if not chunk_size:
             raise tornado.gen.Return(chunk_size)
@@ -601,10 +599,10 @@ class HostConnectionPool(collections.Set):
     @tornado.gen.coroutine
     def _run_loop(self):
         while self._running or self._request_queue.qsize():
-            _logger.debug(
-                'Host pool running (Addr={0} SSL={1}).'.format(
-                    self._address, self._ssl)
-            )
+            _logger.debug(__(
+                'Host pool running (Addr={0} SSL={1}).',
+                    self._address, self._ssl
+            ))
 
             yield self._max_count_semaphore.acquire()
 
@@ -634,8 +632,8 @@ class HostConnectionPool(collections.Set):
         try:
             response = yield connection.fetch(request, **kwargs)
         except Exception as error:
-            _logger.debug('Host pool got an error from fetch: {error}'
-                          .format(error=error))
+            _logger.debug(__('Host pool got an error from fetch: {error}',
+                          error=error))
             _logger.debug(traceback.format_exc())
             async_result.set(error)
         else:
@@ -662,7 +660,7 @@ class HostConnectionPool(collections.Set):
 
             return connection
 
-        _logger.debug('Connections len={0} max={1}'.format(
+        _logger.debug(__('Connections len={0} max={1}',
             len(self._connections), self._max_count))
 
         raise Exception('Impossibly ran out of unused connections.')
@@ -686,7 +684,7 @@ class HostConnectionPool(collections.Set):
         self.stop()
 
         for connection in self._connections:
-            _logger.debug('Closing {0}.'.format(connection))
+            _logger.debug(__('Closing {0}.', connection))
             connection.close()
 
         self._connections.clear()
@@ -698,7 +696,7 @@ class HostConnectionPool(collections.Set):
                and (force_close or not connection.connected):
                 connection.close()
                 self._connections.remove(connection)
-                _logger.debug('Cleaned connection {0}'.format(connection))
+                _logger.debug(__('Cleaned connection {0}', connection))
 
 
 class ConnectionPool(collections.Mapping):
@@ -710,7 +708,7 @@ class ConnectionPool(collections.Mapping):
     @tornado.gen.coroutine
     def put(self, request, kwargs, async_result):
         '''Put a request into the queue.'''
-        _logger.debug('Connection pool queue request {0}'.format(request))
+        _logger.debug(__('Connection pool queue request {0}', request))
 
         if request.address:
             address = request.address
@@ -741,7 +739,7 @@ class ConnectionPool(collections.Mapping):
     def close(self):
         '''Close all the Host Connection Pools and remove them.'''
         for key in self._pools:
-            _logger.debug('Closing pool for {0}.'.format(key))
+            _logger.debug(__('Closing pool for {0}.', key))
             self._pools[key].close()
 
         self._pools.clear()
@@ -756,4 +754,4 @@ class ConnectionPool(collections.Mapping):
             if not pool.active:
                 pool.stop()
                 del self._pools[key]
-                _logger.debug('Cleaned host pool {0}.'.format(pool))
+                _logger.debug(__('Cleaned host pool {0}.', pool))
