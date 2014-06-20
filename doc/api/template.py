@@ -31,6 +31,7 @@ MODULES = [
     'iostream',
     'item',
     'namevalue',
+    'observer',
     'options',
     'phantomjs',
     'processor',

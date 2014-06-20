@@ -44,6 +44,7 @@ wpull Package
    api/item
    api/namevalue
    api/network
+   api/observer
    api/options
    api/phantomjs
    api/processor

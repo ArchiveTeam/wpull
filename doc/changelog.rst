@@ -8,6 +8,7 @@ What's New
   * Callback hooks ``exit_status`` and ``finishing_statistics`` now registered on ``Application`` instead of ``Engine``.
   * ``network`` module split into two modules ``bandwidth`` and ``dns``.
   
+  * Adds ``observer`` module.
 
 0.35 (2014-06-16)
 =================
