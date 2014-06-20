@@ -6,7 +6,6 @@ import logging
 import tornado.gen
 import toro
 
-import wpull.actor
 from wpull.async import AdjustableSemaphore
 import wpull.async
 from wpull.backport.logging import BraceMessage as __
@@ -56,7 +55,6 @@ class Engine(HookableMixin):
         self._done_event = toro.Event()
         self._num_worker_busy = 0
         self._stopping = False
-        self.stop_event = wpull.actor.Event()
         self._worker_error = None
 
         self.register_hook('engine_run')
@@ -93,7 +91,6 @@ class Engine(HookableMixin):
 
         self._processor.close()
         self._url_table.close()
-        self.stop_event.fire()
 
         if self._worker_error:
             raise self._worker_error from self._worker_error

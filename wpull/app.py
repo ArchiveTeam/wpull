@@ -48,6 +48,7 @@ class Application(HookableMixin):
         self._io_loop = tornado.ioloop.IOLoop.current()
         self._exit_code = 0
         self._statistics = None
+        self.stop_observer = wpull.observer.Observer()
 
         self.register_hook('exit_status', 'finishing_statistics')
 
@@ -133,6 +134,7 @@ class Application(HookableMixin):
             pass
 
         self._print_stats()
+        self.stop_observer.notify()
 
         raise tornado.gen.Return(self._exit_code)
 

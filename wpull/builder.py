@@ -156,8 +156,8 @@ class Builder(object):
                                    statistics,
                                    concurrent=self._args.concurrent,)
 
-        self._setup_file_logger_close(engine)
-        self._setup_console_logger_close(engine)
+        self._setup_file_logger_close(self.factory['Application'])
+        self._setup_console_logger_close(self.factory['Application'])
 
         self._install_script_hooks()
 
@@ -234,15 +234,15 @@ class Builder(object):
         handler.setLevel(self._args.verbosity or logging.INFO)
         logger.addHandler(handler)
 
-    def _setup_console_logger_close(self, engine):
-        '''Add routine to remove log handler when the engine stops.'''
+    def _setup_console_logger_close(self, app):
+        '''Add routine to remove log handler when the application stops.'''
         def remove_handler():
             logger = logging.getLogger()
             logger.removeHandler(self._console_log_handler)
             self._console_log_handler = None
 
         if self._console_log_handler:
-            engine.stop_event.handle(remove_handler)
+            app.stop_observer.add(remove_handler)
 
     def _setup_file_logger(self):
         '''Set up the file message logger.
@@ -276,8 +276,8 @@ class Builder(object):
         else:
             handler.setLevel(logging.INFO)
 
-    def _setup_file_logger_close(self, engine):
-        '''Add routine that removes the file log handler when the engine stops.
+    def _setup_file_logger_close(self, app):
+        '''Add routine that removes the file log handler when the app stops.
         '''
         def remove_handler():
             logger = logging.getLogger()
@@ -285,7 +285,7 @@ class Builder(object):
             self._file_log_handler = None
 
         if self._file_log_handler:
-            engine.stop_event.handle(remove_handler)
+            app.stop_observer.add(remove_handler)
 
     def _install_script_hooks(self):
         '''Set up the scripts if any.'''
