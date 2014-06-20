@@ -18,8 +18,7 @@ import tornado.websocket
 import toro
 
 from wpull.backport.logging import BraceMessage as __
-import wpull.actor
-
+import wpull.observer
 
 _logger = logging.getLogger(__name__)
 
@@ -48,9 +47,9 @@ class PhantomJSRemote(object):
     will automatically terminate the process on interpreter shutdown.
 
     Attributes:
-        page_event: An instance of :class:`.actor.Event` that is fired whenever
-            a page event occurs. The argument passed to the listener is a
-            RPC Info ``dict``.
+        page_observer: An instance of :class:`.observer.Observer` that is
+            fired whenever a page event occurs. The argument passed to the
+            listener is a RPC Info ``dict``.
         resource_counter: An instance of :class:`ResourceCounter()`.
 
     The messages passed are in the JSON format.
@@ -60,7 +59,7 @@ class PhantomJSRemote(object):
         script_path = wpull.util.get_package_filename('phantomjs.js')
         self._in_queue = toro.Queue()
         self._out_queue = toro.Queue()
-        self.page_event = wpull.actor.Event()
+        self.page_observer = wpull.observer.Observer()
         self.resource_counter = ResourceCounter()
         self._rpc_app = RPCApplication(self._out_queue, self._in_queue)
         self._http_server = tornado.httpserver.HTTPServer(self._rpc_app)
@@ -158,7 +157,7 @@ class PhantomJSRemote(object):
             else:
                 if 'event' in rpc_info:
                     self._process_resource_counter(rpc_info)
-                    self.page_event.fire(rpc_info)
+                    self.page_observer.notify(rpc_info)
                 else:
                     self._process_rpc_result(rpc_info)
 
@@ -242,7 +241,7 @@ class PhantomJSRemote(object):
             if rpc_info['event'] == event_name:
                 async_result.set(rpc_info)
 
-        self.page_event.handle(page_event_cb)
+        self.page_observer.add(page_event_cb)
 
         deadline = datetime.timedelta(seconds=timeout) if timeout else None
 
@@ -252,7 +251,7 @@ class PhantomJSRemote(object):
             raise PhantomJSRPCTimedOut('Waiting for event timed out.') \
                 from error
 
-        self.page_event.unhandle(page_event_cb)
+        self.page_observer.remove(page_event_cb)
 
         raise tornado.gen.Return(rpc_info)
 
@@ -450,7 +449,7 @@ class PhantomJSClient(object):
         try:
             yield remote
         finally:
-            remote.page_event.clear()
+            remote.page_observer.clear()
             remote.resource_counter.reset()
 
             def put_back_remote(future):

@@ -716,7 +716,7 @@ class WebProcessorSession(object):
             elif name == 'resource_error':
                 fetch_error_log(rpc_info)
 
-        remote.page_event.handle(handle_page_event)
+        remote.page_observer.add(handle_page_event)
 
     @tornado.gen.coroutine
     def _take_phantomjs_snapshot(self, controller, remote):
