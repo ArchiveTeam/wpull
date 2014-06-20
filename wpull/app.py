@@ -6,6 +6,8 @@ import logging
 import signal
 
 import tornado.ioloop
+from trollius import From
+import trollius
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ServerError, ExitStatus, ProtocolError, \
@@ -46,6 +48,7 @@ class Application(HookableMixin):
         super().__init__()
         self._builder = builder
         self._io_loop = tornado.ioloop.IOLoop.current()
+        self._event_loop = trollius.get_event_loop()
         self._exit_code = 0
         self._statistics = None
 
@@ -97,15 +100,16 @@ class Application(HookableMixin):
         Returns:
             int: The exit status.
         '''
-        return self._io_loop.run_sync(self.run)
+#         return self._io_loop.run_sync(self.run)
+        return self._event_loop.run_until_complete(self.run())
 
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def run(self):
         self._statistics = self._builder.factory['Statistics']
         self._statistics.start()
 
         try:
-            yield self._builder.factory['Engine']()
+            yield From(self._builder.factory['Engine']())
         except Exception as error:
             _logger.exception('Fatal exception.')
             self._update_exit_code_from_error(error)

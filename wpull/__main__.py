@@ -3,11 +3,16 @@ import os
 import sys
 import time
 
+import tornado.platform.asyncio
+
 from wpull.builder import Builder
 from wpull.options import AppArgumentParser
 
 
-def main(exit=True):
+def main(exit=True, install_tornado_bridge=True):
+    if install_tornado_bridge:
+        tornado.platform.asyncio.AsyncIOMainLoop().install()
+
     arg_parser = AppArgumentParser()
     args = arg_parser.parse_args()
 

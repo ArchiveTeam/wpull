@@ -11,7 +11,8 @@ import tempfile
 import time
 
 import namedlist
-import tornado.gen
+from trollius import From, Return
+import trollius
 
 import wpull.async
 from wpull.backport.logging import BraceMessage as __
@@ -45,7 +46,7 @@ class BaseProcessor(object, metaclass=abc.ABCMeta):
 
     Processors contain the logic for processing requests.
     '''
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def process(self, url_item):
         '''Process an URL Item.
 
@@ -169,10 +170,10 @@ class WebProcessor(BaseProcessor, HookableMixin):
         '''The fetch parameters.'''
         return self._fetch_params
 
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def process(self, url_item):
         session = self._session_class(self, url_item)
-        raise tornado.gen.Return((yield session.process()))
+        raise Return((yield From(session.process())))
 
     def close(self):
         '''Close the client and invoke document converter.'''
@@ -234,7 +235,7 @@ class WebProcessorSession(object):
         if url_record.referrer:
             request.fields['Referer'] = url_record.referrer
 
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def process(self):
         verdict = self._should_fetch_reason(
             self._next_url_info, self._url_item.url_record)[0]
@@ -255,13 +256,13 @@ class WebProcessorSession(object):
                 self._url_item.skip()
                 break
 
-            is_done = yield self._process_one()
+            is_done = yield From(self._process_one())
 
             wait_time = self._get_wait_time()
 
             if wait_time:
                 _logger.debug('Sleeping {0}.'.format(wait_time))
-                yield wpull.async.sleep(wait_time)
+                yield From(trollius.sleep(wait_time))
 
             if is_done:
                 break
@@ -273,16 +274,17 @@ class WebProcessorSession(object):
             _logger.debug('Was not processed. Skipping.')
             self._url_item.skip()
 
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def _process_one(self):
         self._request = request = self._rich_client_session.next_request
 
         _logger.info(_('Fetching ‘{url}’.').format(url=request.url_info.url))
 
         try:
-            response = yield self._rich_client_session.fetch(
-                response_factory=self._new_response_factory()
-            )
+            response = yield From(
+                self._rich_client_session.fetch(
+                    response_factory=self._new_response_factory()
+            ))
         except (NetworkError, ProtocolError) as error:
             _logger.error(__(
                 _('Fetching ‘{url}’ encountered an error: {error}'),
@@ -306,7 +308,7 @@ class WebProcessorSession(object):
                != RichClientResponseType.robots:
                 is_done = self._handle_response(response)
 
-                yield self._process_phantomjs(request, response)
+                yield From(self._process_phantomjs(request, response))
             else:
                 _logger.debug(__('Not handling response {0}.',
                                  self._rich_client_session.response_type))
@@ -314,7 +316,7 @@ class WebProcessorSession(object):
 
             self._close_instance_body(response)
 
-        raise tornado.gen.Return(is_done)
+        raise Return(is_done)
 
     @property
     def _next_url_info(self):
@@ -608,7 +610,7 @@ class WebProcessorSession(object):
         except HookDisconnected:
             return seconds
 
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def _process_phantomjs(self, request, response):
         '''Process PhantomJS.'''
         if not self._processor.instances.phantomjs_controller:
@@ -627,16 +629,16 @@ class WebProcessorSession(object):
         with controller.client.remote() as remote:
             self._hook_phantomjs_logging(remote)
 
-            yield controller.apply_page_size(remote)
-            yield remote.call('page.open', request.url_info.url)
-            yield remote.wait_page_event('load_finished')
-            yield controller.control(remote)
+            yield From(controller.apply_page_size(remote))
+            yield From(remote.call('page.open', request.url_info.url))
+            yield From(remote.wait_page_event('load_finished'))
+            yield From(controller.control(remote))
 
             # FIXME: not sure where the logic should fit in
             if controller._snapshot:
-                yield self._take_phantomjs_snapshot(controller, remote)
+                yield From(self._take_phantomjs_snapshot(controller, remote))
 
-            content = yield remote.eval('page.content')
+            content = yield From(remote.eval('page.content'))
 
         mock_response = self._new_phantomjs_response(response, content)
 
@@ -718,7 +720,7 @@ class WebProcessorSession(object):
 
         remote.page_observer.add(handle_page_event)
 
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def _take_phantomjs_snapshot(self, controller, remote):
         '''Take HTML and PDF snapshot.'''
         html_path = self._file_writer_session.extra_resource_path(
@@ -746,7 +748,7 @@ class WebProcessorSession(object):
             files_to_del.append(pdf_path)
             temp_file.close()
 
-        yield controller.snapshot(remote, html_path, pdf_path)
+        yield From(controller.snapshot(remote, html_path, pdf_path))
 
         for filename in files_to_del:
             os.remove(filename)
@@ -768,34 +770,34 @@ class PhantomJSController(object):
         self._actions = []
         self._action_warc_record = None
 
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def apply_page_size(self, remote):
         '''Apply page size.'''
-        yield remote.set(
+        yield From(remote.set(
             'page.viewportSize',
             {'width': self._viewport_size[0], 'height': self._viewport_size[1]}
-        )
-        yield remote.set(
+        ))
+        yield From(remote.set(
             'page.paperSize',
             {
                 'width': '{0}.px'.format(self._paper_size[0]),
                 'height': '{0}.px'.format(self._paper_size[1]),
                 'border': '0px'
             }
-        )
+        ))
 
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def control(self, remote):
         '''Scroll the page.'''
         num_scrolls = self._num_scrolls
 
         if self._smart_scroll:
-            is_page_dynamic = yield remote.call('isPageDynamic')
+            is_page_dynamic = yield From(remote.call('isPageDynamic'))
 
             if not is_page_dynamic:
                 num_scrolls = 0
 
-        url = yield remote.eval('page.url')
+        url = yield From(remote.eval('page.url'))
         total_scroll_count = 0
 
         for scroll_count in range(num_scrolls):
@@ -803,15 +805,15 @@ class PhantomJSController(object):
 
             pre_scroll_counter_values = remote.resource_counter.values()
 
-            scroll_position = yield remote.eval('page.scrollPosition')
+            scroll_position = yield From(remote.eval('page.scrollPosition'))
             scroll_position['top'] += self._viewport_size[1]
 
-            yield self.scroll_to(remote, 0, scroll_position['top'])
+            yield From(self.scroll_to(remote, 0, scroll_position['top']))
 
             total_scroll_count += 1
 
             self._log_action('wait', self._wait_time)
-            yield wpull.async.sleep(self._wait_time)
+            yield From(trollius.sleep(self._wait_time))
 
             post_scroll_counter_values = remote.resource_counter.values()
 
@@ -828,11 +830,11 @@ class PhantomJSController(object):
         for dummy in range(remote.resource_counter.pending):
             if remote.resource_counter.pending:
                 self._log_action('wait', self._wait_time)
-                yield wpull.async.sleep(self._wait_time)
+                yield From(trollius.sleep(self._wait_time))
             else:
                 break
 
-        yield self.scroll_to(remote, 0, 0)
+        yield From(self.scroll_to(remote, 0, 0))
 
         _logger.info(__(
             gettext.ngettext(
@@ -845,31 +847,31 @@ class PhantomJSController(object):
         if self._warc_recorder:
             self._add_warc_action_log(url)
 
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def scroll_to(self, remote, x, y):
-        page_down_key = yield remote.eval('page.event.key.PageDown')
+        page_down_key = yield From(remote.eval('page.event.key.PageDown'))
 
         self._log_action('set_scroll_left', x)
         self._log_action('set_scroll_top', y)
 
-        yield remote.set('page.scrollPosition', {'left': x, 'top': y})
-        yield remote.set('page.evaluate',
+        yield From(remote.set('page.scrollPosition', {'left': x, 'top': y}))
+        yield From(remote.set('page.evaluate',
                          '''
                          function() {{
                          if (window) {{
                          window.scrollTo({0}, {1});
                          }}
                          }}
-                         '''.format(x, y))
-        yield remote.call('page.sendEvent', 'keypress', page_down_key)
-        yield remote.call('page.sendEvent', 'keydown', page_down_key)
-        yield remote.call('page.sendEvent', 'keyup', page_down_key)
+                         '''.format(x, y)))
+        yield From(remote.call('page.sendEvent', 'keypress', page_down_key))
+        yield From(remote.call('page.sendEvent', 'keydown', page_down_key))
+        yield From(remote.call('page.sendEvent', 'keyup', page_down_key))
 
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def snapshot(self, remote, html_path=None, render_path=None):
         '''Take HTML and PDF snapshot.'''
-        content = yield remote.eval('page.content')
-        url = yield remote.eval('page.url')
+        content = yield From(remote.eval('page.content'))
+        url = yield From(remote.eval('page.url'))
 
         if html_path:
             _logger.debug(__('Saving snapshot to {0}.', html_path))
@@ -886,12 +888,12 @@ class PhantomJSController(object):
 
         if render_path:
             _logger.debug(__('Saving snapshot to {0}.', render_path))
-            yield remote.call('page.render', render_path)
+            yield From(remote.call('page.render', render_path))
 
             if self._warc_recorder:
                 self._add_warc_snapshot(render_path, 'application/pdf', url)
 
-        raise tornado.gen.Return(content)
+        raise Return(content)
 
     def _add_warc_snapshot(self, filename, content_type, url):
         '''Add the snaphot to the WARC file.'''

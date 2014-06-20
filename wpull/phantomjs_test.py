@@ -1,58 +1,61 @@
 # encoding=utf-8
 import tornado.testing
+from trollius import From
+import trollius
 
 import wpull.async
 from wpull.http.client import Client
 from wpull.phantomjs import (PhantomJSRemote, PhantomJSClient,
                              PhantomJSRPCTimedOut)
 from wpull.proxy import HTTPProxyServer
+import wpull.testing.async
 
 
 DEFAULT_TIMEOUT = 30
 
 
-class TestPhantomJS(tornado.testing.AsyncTestCase):
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+class TestPhantomJS(wpull.testing.async.AsyncTestCase):
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_rpc(self):
         remote = PhantomJSRemote()
 
-        result = yield remote.call('debugEcho', 'hello!')
+        result = yield From(remote.call('debugEcho', 'hello!'))
 
         self.assertEqual('hello!', result)
 
-        yield remote.eval('var myvalue;')
-        yield remote.set('myvalue', 123)
+        yield From(remote.eval('var myvalue;'))
+        yield From(remote.set('myvalue', 123))
 
-        result = yield remote.eval('myvalue')
+        result = yield From(remote.eval('myvalue'))
 
         self.assertEqual(123, result)
 
-        yield remote.set('myvalue', 'abc')
+        yield From(remote.set('myvalue', 'abc'))
 
-        result = yield remote.eval('myvalue')
+        result = yield From(remote.eval('myvalue'))
 
         self.assertEqual('abc', result)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_events(self):
         remote = PhantomJSRemote(
             page_settings={'userAgent': 'Blah'},
             default_headers={'Accept-Encoding': 'identity'},
         )
 
-        yield remote.call('page.open', 'http://example.invalid')
+        yield From(remote.call('page.open', 'http://example.invalid'))
 
-        rpc_info = yield remote.wait_page_event('load_finished')
+        rpc_info = yield From(remote.wait_page_event('load_finished'))
 
         self.assertEqual('fail', rpc_info['status'])
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_page_reset(self):
         remote = PhantomJSRemote()
 
-        yield remote.call('resetPage')
+        yield From(remote.call('resetPage'))
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_client(self):
         http_client = Client()
         proxy_server = HTTPProxyServer(http_client)
@@ -71,17 +74,17 @@ class TestPhantomJS(tornado.testing.AsyncTestCase):
             if test_remote in remote_client.remotes_ready:
                 break
 
-            yield wpull.async.sleep(0.1)
+            yield From(trollius.sleep(0.1))
 
         self.assertIn(test_remote, remote_client.remotes_ready)
         self.assertNotIn(test_remote, remote_client.remotes_busy)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_timeouts(self):
         remote = PhantomJSRemote()
 
         try:
-            yield remote.wait_page_event('invalid_event', timeout=0.1)
+            yield From(remote.wait_page_event('invalid_event', timeout=0.1))
         except PhantomJSRPCTimedOut:
             pass
         else:
@@ -90,7 +93,7 @@ class TestPhantomJS(tornado.testing.AsyncTestCase):
         try:
             future = remote.eval('blah', timeout=0.1)
             remote._rpc_reply_map.clear()
-            yield future
+            yield From(future)
         except PhantomJSRPCTimedOut:
             pass
         else:
@@ -99,7 +102,7 @@ class TestPhantomJS(tornado.testing.AsyncTestCase):
         try:
             future = remote.set('blah', 123, timeout=0.1)
             remote._rpc_reply_map.clear()
-            yield future
+            yield From(future)
         except PhantomJSRPCTimedOut:
             pass
         else:
@@ -108,7 +111,7 @@ class TestPhantomJS(tornado.testing.AsyncTestCase):
         try:
             future = remote.call('blah', timeout=0.1)
             remote._rpc_reply_map.clear()
-            yield future
+            yield From(future)
         except PhantomJSRPCTimedOut:
             pass
         else:
