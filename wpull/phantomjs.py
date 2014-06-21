@@ -225,7 +225,7 @@ class PhantomJSRemote(object):
         raise tornado.gen.Return(result)
 
     @tornado.gen.coroutine
-    def wait_page_event(self, event_name, timeout=900):
+    def wait_page_event(self, event_name, timeout=120):
         '''Wait until given event occurs.
 
         Args:

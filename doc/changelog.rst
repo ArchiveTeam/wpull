@@ -2,6 +2,7 @@
 What's New
 ==========
 
+* Works around ``PhantomJSRPCTimedOut`` errors.
 * API:
 
   * ``Builder.build()`` returns ``Application`` instead of ``Engine``.

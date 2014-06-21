@@ -34,6 +34,7 @@ import wpull.util
 from wpull.waiter import LinearWaiter
 from wpull.warc import WARCRecord
 from wpull.writer import NullWriter
+from wpull.phantomjs import PhantomJSRPCTimedOut
 
 
 _logger = logging.getLogger(__name__)
@@ -624,19 +625,27 @@ class WebProcessorSession(object):
 
         controller = self._processor.instances.phantomjs_controller
 
-        with controller.client.remote() as remote:
-            self._hook_phantomjs_logging(remote)
+        attempts = int(os.environ.get('WPULL_PHANTOMJS_TRIES', 5))
+        for dummy in range(attempts):
+            # FIXME: this is a quick hack for handling time outs. See #137.
+            try:
+                with controller.client.remote() as remote:
+                    self._hook_phantomjs_logging(remote)
 
-            yield controller.apply_page_size(remote)
-            yield remote.call('page.open', request.url_info.url)
-            yield remote.wait_page_event('load_finished')
-            yield controller.control(remote)
+                    yield controller.apply_page_size(remote)
+                    yield remote.call('page.open', request.url_info.url)
+                    yield remote.wait_page_event('load_finished')
+                    yield controller.control(remote)
 
-            # FIXME: not sure where the logic should fit in
-            if controller._snapshot:
-                yield self._take_phantomjs_snapshot(controller, remote)
+                    # FIXME: not sure where the logic should fit in
+                    if controller._snapshot:
+                        yield self._take_phantomjs_snapshot(controller, remote)
 
-            content = yield remote.eval('page.content')
+                    content = yield remote.eval('page.content')
+            except PhantomJSRPCTimedOut:
+                _logger.exception('PhantomJS timed out.')
+            else:
+                break
 
         mock_response = self._new_phantomjs_response(response, content)
 
