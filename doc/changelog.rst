@@ -3,6 +3,7 @@ What's New
 ==========
 
 * Works around ``PhantomJSRPCTimedOut`` errors.
+* Adds ``--phantomjs-exe`` option.
 * API:
 
   * ``Builder.build()`` returns ``Application`` instead of ``Engine``.

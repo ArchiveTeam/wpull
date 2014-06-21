@@ -531,7 +531,7 @@ class Builder(object):
 
             if args.phantomjs:
                 software_string += ' PhantomJS/{0}'.format(
-                    wpull.phantomjs.get_version()
+                    wpull.phantomjs.get_version(exe_path=args.phantomjs_exe)
                 )
 
             url_table = self._factory['URLTable'] if args.warc_dedup else None
@@ -950,6 +950,7 @@ class Builder(object):
             'localhost:{0}'.format(proxy_port),
             page_settings=page_settings,
             default_headers=default_headers,
+            exe_path=self._args.phantomjs_exe
         )
         phantomjs_client.test_client_exe()
 
