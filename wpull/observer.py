@@ -26,7 +26,7 @@ class Observer(object):
 
     def notify(self, *args, **kwargs):
         '''Call all the callback handlers with given arguments.'''
-        for handler in self.handlers:
+        for handler in tuple(self.handlers):
             handler(*args, **kwargs)
 
     def count(self):
