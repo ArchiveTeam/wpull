@@ -2,6 +2,21 @@
 What's New
 ==========
 
+0.36 (2014-06-23)
+=================
+
+* Works around ``PhantomJSRPCTimedOut`` errors.
+* Adds ``--phantomjs-exe`` option.
+* Supports extracting links from HTML ``img`` ``srcset`` attribute.
+* API:
+
+  * ``Builder.build()`` returns ``Application`` instead of ``Engine``.
+  * Callback hooks ``exit_status`` and ``finishing_statistics`` now registered on ``Application`` instead of ``Engine``.
+  * ``network`` module split into two modules ``bandwidth`` and ``dns``.
+  * Adds ``observer`` module.
+  * ``phantomjs.PhantomJSRemote.page_event`` renamed to ``page_observer``.
+
+
 0.35 (2014-06-16)
 =================
 

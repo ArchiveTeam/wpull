@@ -15,6 +15,7 @@ import shutil
 import time
 import urllib.parse
 
+from wpull.backport.logging import BraceMessage as __
 import wpull.util
 
 
@@ -145,8 +146,8 @@ class BaseFileWriterSession(BaseWriterSession):
 
         This function will create the directories if not exist.
         '''
-        _logger.debug('Saving file to {0}, mode={1}.'.format(
-            filename, mode))
+        _logger.debug(__('Saving file to {0}, mode={1}.',
+                         filename, mode))
 
         dir_path = os.path.dirname(filename)
         if dir_path and not os.path.exists(dir_path):
@@ -224,7 +225,7 @@ class BaseFileWriterSession(BaseWriterSession):
             size = os.path.getsize(self._filename)
             request.fields['Range'] = 'bytes={0}-'.format(size)
 
-            _logger.debug('Continue file from {0}.'.format(size))
+            _logger.debug(__('Continue file from {0}.', size))
         else:
             _logger.debug('No file to continue.')
 
@@ -338,7 +339,7 @@ class TimestampingFileWriterSession(BaseFileWriterSession):
         else:
             modified_time = None
 
-        _logger.debug('Checking for last modified={0}.'.format(modified_time))
+        _logger.debug(__('Checking for last modified={0}.', modified_time))
 
         if modified_time:
             date_str = email.utils.formatdate(modified_time)

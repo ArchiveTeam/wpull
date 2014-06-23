@@ -18,6 +18,7 @@ wpull Package
    api/actor
    api/app
    api/async
+   api/bandwidth
    api/builder
    api/cache
    api/cookie
@@ -28,6 +29,7 @@ wpull Package
    api/debug
    api/decompression
    api/document
+   api/dns
    api/engine
    api/errors
    api/factory
@@ -42,6 +44,7 @@ wpull Package
    api/item
    api/namevalue
    api/network
+   api/observer
    api/options
    api/phantomjs
    api/processor

@@ -13,6 +13,7 @@ import zlib
 import lxml.etree
 import lxml.html
 
+from wpull.backport.logging import BraceMessage as __
 import wpull.decompression
 import wpull.http.util
 import wpull.string
@@ -888,7 +889,7 @@ def detect_response_encoding(response, is_html=False, peek=131072):
         response.body.content_peek(peek), encoding=encoding, is_html=is_html
     )
 
-    _logger.debug('Got encoding: {0}'.format(encoding))
+    _logger.debug(__('Got encoding: {0}', encoding))
 
     return encoding
 

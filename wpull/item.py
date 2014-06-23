@@ -4,6 +4,7 @@ import collections
 import gettext
 import logging
 
+from wpull.backport.logging import BraceMessage as __
 from wpull.url import URLInfo
 
 
@@ -148,7 +149,7 @@ class URLItem(object):
 
     def skip(self):
         '''Mark the item as processed without download.'''
-        _logger.debug(_('Skipping ‘{url}’.').format(url=self._url))
+        _logger.debug(__(_('Skipping ‘{url}’.'), url=self._url))
         self._url_table.update(self._url, status=Status.skipped)
 
         self._processed = True
@@ -166,7 +167,7 @@ class URLItem(object):
         if increment_try_count:
             self._try_count_incremented = True
 
-        _logger.debug('Marking URL {0} status {1}.'.format(self._url, status))
+        _logger.debug(__('Marking URL {0} status {1}.', self._url, status))
         self._url_table.update(
             self._url,
             increment_try_count=increment_try_count,
@@ -189,7 +190,7 @@ class URLItem(object):
             encoding (str): The encoding of the document.
         '''
         inline_urls = tuple([info.url for info in url_infos])
-        _logger.debug('Adding inline URLs {0}'.format(inline_urls))
+        _logger.debug(__('Adding inline URLs {0}', inline_urls))
         self._url_table.add(
             inline_urls,
             inline=True,
@@ -209,7 +210,7 @@ class URLItem(object):
             encoding (str): The encoding of the document.
         '''
         linked_urls = tuple([info.url for info in url_infos])
-        _logger.debug('Adding linked URLs {0}'.format(linked_urls))
+        _logger.debug(__('Adding linked URLs {0}', linked_urls))
         self._url_table.add(
             linked_urls,
             level=self._url_record.level + 1,

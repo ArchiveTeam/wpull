@@ -4,6 +4,7 @@ import gettext
 import logging
 import tornado.gen
 
+from wpull.backport.logging import BraceMessage as __
 from wpull.conversation import BaseClient
 from wpull.errors import ProtocolError
 from wpull.http.request import Request
@@ -441,14 +442,14 @@ class RobotsTxtRichClientSession(RichClientSession):
                 url_info,
                 response.body.content_peek())
         except ValueError:
-            _logger.warning(
+            _logger.warning(__(
                 _('Failed to parse {url} for robots exclusion rules. '
-                    'Ignoring.').format(url_info.url))
+                    'Ignoring.'), url_info.url))
             self._accept_empty(url_info)
         else:
             _logger.debug('Got a good robots.txt for {0}.'.format(
                 url_info.url))
 
     def _accept_empty(self, url_info):
-        _logger.debug('Got empty robots.txt for {0}.'.format(url_info.url))
+        _logger.debug(__('Got empty robots.txt for {0}.', url_info.url))
         self._robots_txt_pool.load_robots_txt(url_info, '')

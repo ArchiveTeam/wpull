@@ -1,11 +1,9 @@
 # encoding=utf-8
-import time
-
-import tornado.testing
+import tornado.gen
 
 import wpull.async
+from wpull.dns import Resolver
 from wpull.errors import NetworkError, DNSNotFound
-from wpull.network import Resolver, BandwidthMeter
 
 
 DEFAULT_TIMEOUT = 30
@@ -46,13 +44,3 @@ class TestNetwork(tornado.testing.AsyncTestCase):
         else:
             self.assertFalse(address)
             self.assertTrue(False)
-
-    def test_bandwidth_meter(self):
-        meter = BandwidthMeter()
-
-        self.assertEqual(0, meter.speed())
-
-        time.sleep(0.2)
-        meter.feed(1000)
-
-        self.assertTrue(meter.speed())

@@ -12,6 +12,7 @@ from tornado.iostream import StreamClosedError
 import tornado.tcpserver
 import toro
 
+from wpull.backport.logging import BraceMessage as __
 from wpull.http.request import Request
 import wpull.iostream
 from wpull.recorder import BaseRecorder, BaseRecorderSession, ProgressRecorder
@@ -34,7 +35,7 @@ class HTTPProxyServer(tornado.tcpserver.TCPServer):
         self._rewrite = rewrite
 
     def handle_stream(self, stream, address):
-        _logger.debug('Handling stream from {0}.'.format(address))
+        _logger.debug(__('Handling stream from {0}.', address))
         # Re-wrap the socket
         if isinstance(stream, tornado.iostream.SSLIOStream):
             wpull_io_stream_class = functools.partial(

@@ -1,17 +1,15 @@
 # encoding=utf-8
-'''Networking.'''
-import collections
+'''DNS resolution.'''
 import itertools
 import logging
 import random
 import socket
-import time
 
-import tornado.gen
+import tornado.netutil
 
-import wpull.async
+from wpull.backport.logging import BraceMessage as __
 from wpull.cache import FIFOCache
-from wpull.errors import NetworkError, DNSNotFound
+from wpull.errors import DNSNotFound, NetworkError
 from wpull.hook import HookableMixin, HookDisconnected
 import wpull.string
 
@@ -79,7 +77,7 @@ class Resolver(HookableMixin):
             family and the second item is the IP address. Note that
             IPv6 returns a tuple containing more items than 2.
         '''
-        _logger.debug('Lookup address {0} {1}.'.format(host, port))
+        _logger.debug(__('Lookup address {0} {1}.', host, port))
 
         results = self._resolve_internally(host, port)
 
@@ -95,7 +93,7 @@ class Resolver(HookableMixin):
                 .format(wpull.string.coerce_str_to_ascii(host))
             )
 
-        _logger.debug('Resolved addresses: {0}.'.format(results))
+        _logger.debug(__('Resolved addresses: {0}.', results))
 
         if self._rotate:
             result = random.choice(results)
@@ -103,7 +101,7 @@ class Resolver(HookableMixin):
             result = results[0]
 
         family, address = result
-        _logger.debug('Selected {0} as address.'.format(address))
+        _logger.debug(__('Selected {0} as address.', address))
 
         raise tornado.gen.Return((family, address))
 
@@ -206,92 +204,3 @@ class Resolver(HookableMixin):
             return list(itertools.chain(ipv6_results, ipv4_results))
         else:
             return list(itertools.chain(ipv4_results, ipv6_results))
-
-
-class BandwidthMeter(object):
-    '''Calculates the speed of data transfer.
-
-    Args:
-        sample_size (int): The number of samples for measuring the speed.
-        sample_min_time (float): The minimum duration between samples in
-            seconds.
-        stall_time (float): The time in seconds to consider no traffic
-            to be connection stalled.
-    '''
-    def __init__(self, sample_size=20, sample_min_time=0.15, stall_time=5.0):
-        self._bytes_transfered = 0
-        self._samples = collections.deque(maxlen=sample_size)
-        self._last_feed_time = time.time()
-        self._sample_min_time = sample_min_time
-        self._stall_time = stall_time
-        self._stalled = False
-        self._collected_bytes_transfered = 0
-
-    @property
-    def bytes_transfered(self):
-        '''Return the number of bytes tranfered
-
-        Returns:
-            int
-        '''
-        return self._bytes_transfered
-
-    @property
-    def stalled(self):
-        '''Return whether the connection is stalled.
-
-        Returns:
-            bool
-        '''
-        return self._stalled
-
-    @property
-    def num_samples(self):
-        '''Return the number of samples collected.'''
-        return len(self._samples)
-
-    def feed(self, data_len):
-        '''Update the bandwidth meter.
-
-        Args:
-            data_len (int): The number of bytes transfered since the last
-                call to :func:`feed`.
-        '''
-        self._bytes_transfered += data_len
-        self._collected_bytes_transfered += data_len
-
-        time_now = time.time()
-        time_diff = time_now - self._last_feed_time
-
-        if time_diff < self._sample_min_time:
-            return
-
-        self._last_feed_time = time.time()
-
-        if data_len == 0 and time_diff >= self._stall_time:
-            self._stalled = True
-            return
-
-        self._samples.append((time_diff, self._collected_bytes_transfered))
-        self._collected_bytes_transfered = 0
-
-    def speed(self):
-        '''Return the current transfer speed.
-
-        Returns:
-            int: The speed in bytes per second.
-        '''
-        if self._stalled:
-            return 0
-
-        time_sum = 0
-        data_len_sum = 0
-
-        for time_diff, data_len in self._samples:
-            time_sum += time_diff
-            data_len_sum += data_len
-
-        if time_sum:
-            return data_len_sum / time_sum
-        else:
-            return 0

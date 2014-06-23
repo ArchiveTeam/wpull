@@ -2,7 +2,7 @@
 '''Statistics.'''
 import time
 
-from wpull.network import BandwidthMeter
+from wpull.bandwidth import BandwidthMeter
 
 
 try:

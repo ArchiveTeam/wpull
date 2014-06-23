@@ -17,10 +17,12 @@ import tornado.ioloop
 import tornado.testing
 
 from wpull.app import Application
+from wpull.backport.logging import BraceMessage as __
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import CookieLimitsPolicy, RelaxedMozillaCookieJar
 from wpull.database import URLTable
 from wpull.debug import DebugConsoleHandler
+from wpull.dns import Resolver
 from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
@@ -30,7 +32,6 @@ from wpull.http.connection import (Connection, ConnectionPool,
 from wpull.http.request import Request
 from wpull.http.web import RedirectTracker, RichClient
 from wpull.namevalue import NameValueRecord
-from wpull.network import Resolver
 from wpull.phantomjs import PhantomJSClient
 from wpull.processor import (WebProcessor, PhantomJSController,
                              WebProcessorFetchParams, WebProcessorInstances)
@@ -131,8 +132,10 @@ class Builder(object):
         '''Put the application together.
 
         Returns:
-            Engine: An instance of :class:`.engine.Engine`.
+            Application: An instance of :class:`.app.Application`.
         '''
+        self._factory.new('Application', self)
+
         self._setup_logging()
         self._setup_console_logger()
         self._setup_file_logger()
@@ -153,13 +156,12 @@ class Builder(object):
                                    statistics,
                                    concurrent=self._args.concurrent,)
 
-        self._setup_file_logger_close(engine)
-        self._setup_console_logger_close(engine)
+        self._setup_file_logger_close(self.factory['Application'])
+        self._setup_console_logger_close(self.factory['Application'])
 
         self._install_script_hooks()
-        self._factory.new('Application', self)
 
-        return engine
+        return self._factory['Application']
 
     def build_and_run(self):
         '''Build and run the application.
@@ -167,9 +169,8 @@ class Builder(object):
         Returns:
             int: The exit status.
         '''
-        io_loop = tornado.ioloop.IOLoop.current()
-        engine = self.build()
-        exit_code = io_loop.run_sync(engine)
+        app = self.build()
+        exit_code = app.run_sync()
         return exit_code
 
     def _new_encoded_stream(self, stream):
@@ -233,15 +234,15 @@ class Builder(object):
         handler.setLevel(self._args.verbosity or logging.INFO)
         logger.addHandler(handler)
 
-    def _setup_console_logger_close(self, engine):
-        '''Add routine to remove log handler when the engine stops.'''
+    def _setup_console_logger_close(self, app):
+        '''Add routine to remove log handler when the application stops.'''
         def remove_handler():
             logger = logging.getLogger()
             logger.removeHandler(self._console_log_handler)
             self._console_log_handler = None
 
         if self._console_log_handler:
-            engine.stop_event.handle(remove_handler)
+            app.stop_observer.add(remove_handler)
 
     def _setup_file_logger(self):
         '''Set up the file message logger.
@@ -275,8 +276,8 @@ class Builder(object):
         else:
             handler.setLevel(logging.INFO)
 
-    def _setup_file_logger_close(self, engine):
-        '''Add routine that removes the file log handler when the engine stops.
+    def _setup_file_logger_close(self, app):
+        '''Add routine that removes the file log handler when the app stops.
         '''
         def remove_handler():
             logger = logging.getLogger()
@@ -284,7 +285,7 @@ class Builder(object):
             self._file_log_handler = None
 
         if self._file_log_handler:
-            engine.stop_event.handle(remove_handler)
+            app.stop_observer.add(remove_handler)
 
     def _install_script_hooks(self):
         '''Set up the scripts if any.'''
@@ -295,8 +296,8 @@ class Builder(object):
 
     def _install_python_script(self, filename):
         '''Load the Python script into an environment.'''
-        _logger.info(_('Using Python hook script {filename}.').format(
-            filename=filename))
+        _logger.info(__(_('Using Python hook script {filename}.'),
+                        filename=filename))
 
         hook_environment = HookEnvironment(self._factory)
 
@@ -309,8 +310,8 @@ class Builder(object):
 
     def _install_lua_script(self, filename):
         '''Load the Lua script into an environment.'''
-        _logger.info(_('Using Lua hook script {filename}.').format(
-            filename=filename))
+        _logger.info(__(_('Using Lua hook script {filename}.'),
+                        filename=filename))
 
         lua = wpull.hook.load_lua()
         hook_environment = HookEnvironment(self._factory, is_lua=True)
@@ -327,10 +328,10 @@ class Builder(object):
         if not self._args.debug_console_port:
             return
 
-        _logger.warning(
-            _('Opened a debug console at localhost:{port}.')
-            .format(port=self._args.debug_console_port)
-        )
+        _logger.warning(__(
+            _('Opened a debug console at localhost:{port}.'),
+            port=self._args.debug_console_port
+        ))
 
         application = tornado.web.Application(
             [(r'/', DebugConsoleHandler)],
@@ -356,7 +357,7 @@ class Builder(object):
         base_url = self._args.base
 
         for url_string in url_string_iter:
-            _logger.debug('Parsing URL {0}'.format(url_string))
+            _logger.debug(__('Parsing URL {0}', url_string))
 
             if base_url:
                 url_string = wpull.url.urljoin(base_url, url_string)
@@ -364,7 +365,7 @@ class Builder(object):
             url_info = self._factory.class_map['URLInfo'].parse(
                 url_string, default_scheme=default_scheme)
 
-            _logger.debug('Parsed URL {0}'.format(url_info))
+            _logger.debug(__('Parsed URL {0}', url_info))
             yield url_info
 
             if self._args.sitemaps:
@@ -530,7 +531,7 @@ class Builder(object):
 
             if args.phantomjs:
                 software_string += ' PhantomJS/{0}'.format(
-                    wpull.phantomjs.get_version()
+                    wpull.phantomjs.get_version(exe_path=args.phantomjs_exe)
                 )
 
             url_table = self._factory['URLTable'] if args.warc_dedup else None
@@ -616,13 +617,14 @@ class Builder(object):
         url_table = self.factory['URLTable']
         url_table.add_visits(visits())
 
-        _logger.info(
+        _logger.info(__(
             gettext.ngettext(
                 'Loaded {num} record from CDX file.',
                 'Loaded {num} records from CDX file.',
                 nonlocal_var['counter']
-            ).format(num=nonlocal_var['counter'])
-        )
+            ),
+            num=nonlocal_var['counter']
+        ))
 
     def _build_processor(self):
         '''Create the Processor
@@ -809,6 +811,8 @@ class Builder(object):
             bind_address = None
 
         def connection_factory(*args, **kwargs):
+            keep_alive = (self._args.http_keep_alive
+                          and not self._args.ignore_length)
             return self._factory.new(
                 'Connection',
                 *args,
@@ -816,8 +820,7 @@ class Builder(object):
                 params=ConnectionParams(
                     connect_timeout=connect_timeout,
                     read_timeout=read_timeout,
-                    keep_alive=(
-                        self._args.http_keep_alive and not self._args.ignore_length),
+                    keep_alive=keep_alive,
                     ssl_options=self._build_ssl_options(),
                     ignore_length=self._args.ignore_length,
                     bind_address=bind_address,
@@ -882,7 +885,7 @@ class Builder(object):
 
         cookie_jar.set_policy(policy)
 
-        _logger.debug('Loaded cookies: {0}'.format(list(cookie_jar)))
+        _logger.debug(__('Loaded cookies: {0}', list(cookie_jar)))
 
         cookie_jar_wrapper = self._factory.new(
             'CookieJarWrapper',
@@ -947,6 +950,7 @@ class Builder(object):
             'localhost:{0}'.format(proxy_port),
             page_settings=page_settings,
             default_headers=default_headers,
+            exe_path=self._args.phantomjs_exe
         )
         phantomjs_client.test_client_exe()
 
@@ -1081,10 +1085,10 @@ class Builder(object):
                 enabled_options.append(option_name)
 
         if enabled_options:
-            _logger.warning(
-                _('The following unsafe options are enabled: {list}.')
-                .format(list=enabled_options)
-            )
+            _logger.warning(__(
+                _('The following unsafe options are enabled: {list}.'),
+                list=enabled_options
+            ))
             _logger.warning(
                 _('The use of unsafe options may lead to unexpected behavior '
                     'or file corruption.'))

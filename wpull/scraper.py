@@ -10,6 +10,7 @@ import re
 
 import lxml.etree
 
+from wpull.backport.logging import BraceMessage as __
 from wpull.document import (BaseDocumentReader, HTMLReader,
                             detect_response_encoding, CSSReader,
                             SitemapReader, JavaScriptReader)
@@ -115,6 +116,7 @@ Attributes:
         * ``css``: The link was found in a CSS text.
         * ``refresh``: The link was found in a refresh meta string.
         * ``script``: The link was found in JavaScript text.
+        * ``srcset``: The link was found in a ``srcset`` attribute.
 '''
 
 
@@ -201,10 +203,10 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
                 )
 
         except (UnicodeError, lxml.etree.LxmlError) as error:
-            _logger.warning(
-                _('Failed to read document at ‘{url}’: {error}')
-                .format(url=request.url_info.url, error=error)
-            )
+            _logger.warning(__(
+                _('Failed to read document at ‘{url}’: {error}'),
+                url=request.url_info.url, error=error
+            ))
             result_meta_info = {}
 
         if result_meta_info.get('robots_no_follow'):
@@ -565,10 +567,25 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
                    and not wpull.url.is_unlikely_link(attrib_value):
                     yield attrib_name, attrib_value
 
+            elif attrib_name == 'srcset':
+                items = cls.iter_links_by_srcset_attrib(
+                    attrib_name, attrib_value)
+
+                for item in items:
+                    yield item
+
     @classmethod
     def iter_links_by_js_attrib(cls, attrib_name, attrib_value):
         '''Iterate links of a JavaScript pseudo-link attribute.'''
         links = JavaScriptScraper.scrape_links(attrib_value)
+
+        for link in links:
+            yield attrib_name, link
+
+    @classmethod
+    def iter_links_by_srcset_attrib(cls, attrib_name, attrib_value):
+        images = attrib_value.split(',')
+        links = [value.lstrip().split(' ', 1)[0] for value in images]
 
         for link in links:
             yield attrib_name, link
@@ -637,10 +654,10 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
                 inline_urls.add(scraped_link.link)
 
         except UnicodeError as error:
-            _logger.warning(
-                _('Failed to read document at ‘{url}’: {error}')
-                .format(url=request.url_info.url, error=error)
-            )
+            _logger.warning(__(
+                _('Failed to read document at ‘{url}’: {error}'),
+                url=request.url_info.url, error=error
+            ))
 
         return {
             'inline_urls': inline_urls,
@@ -689,10 +706,10 @@ class JavaScriptScraper(JavaScriptReader, BaseDocumentScraper):
                     linked_urls.add(scraped_link.link)
 
         except UnicodeError as error:
-            _logger.warning(
-                _('Failed to read document at ‘{url}’: {error}')
-                .format(url=request.url_info.url, error=error)
-            )
+            _logger.warning(__(
+                _('Failed to read document at ‘{url}’: {error}'),
+                url=request.url_info.url, error=error
+            ))
 
         return {
             'inline_urls': inline_urls,
@@ -747,10 +764,10 @@ class SitemapScraper(SitemapReader, BaseDocumentScraper):
                         links.add(link)
 
         except (UnicodeError, lxml.etree.LxmlError) as error:
-            _logger.warning(
-                _('Failed to read document at ‘{url}’: {error}')
-                .format(url=request.url_info.url, error=error)
-            )
+            _logger.warning(__(
+                _('Failed to read document at ‘{url}’: {error}'),
+                url=request.url_info.url, error=error
+            ))
 
         return {
             'inline_urls': (),
@@ -818,10 +835,10 @@ def urljoin_safe(base_url, url, allow_fragments=True):
             base_url, url, allow_fragments=allow_fragments
         )
     except ValueError as error:
-        _logger.warning(
-            _('Discarding malformed URL ‘{url}’: {error}.')
-            .format(url=url, error=error)
-        )
+        _logger.warning(__(
+            _('Discarding malformed URL ‘{url}’: {error}.'),
+            url=url, error=error
+        ))
 
 
 def is_likely_inline(link):

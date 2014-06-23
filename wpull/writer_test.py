@@ -167,8 +167,8 @@ class TestWriterApp(GoodAppTestCase):
         args = arg_parser.parse_args([self.get_url('/static/my_file.txt')])
 
         with cd_tempdir() as temp_dir:
-            engine = Builder(args).build()
-            exit_code = yield engine()
+            app = Builder(args).build()
+            exit_code = yield app.run()
 
             self.assertEqual(0, exit_code)
 
@@ -179,8 +179,8 @@ class TestWriterApp(GoodAppTestCase):
             with open(expected_filename, 'rb') as in_file:
                 self.assertIn(b'END', in_file.read())
 
-            engine = Builder(args).build()
-            exit_code = yield engine()
+            app = Builder(args).build()
+            exit_code = yield app.run()
 
             self.assertEqual(0, exit_code)
 
@@ -200,8 +200,8 @@ class TestWriterApp(GoodAppTestCase):
             with open(filename, 'wb') as out_file:
                 out_file.write(b'START')
 
-            engine = Builder(args).build()
-            exit_code = yield engine()
+            app = Builder(args).build()
+            exit_code = yield app.run()
 
             self.assertEqual(0, exit_code)
 
@@ -228,8 +228,8 @@ class TestWriterApp(GoodAppTestCase):
             os.utime(filename, (631152000, 631152000))
 
             builder = Builder(args)
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
             self.assertEqual(0, exit_code)
 
@@ -253,8 +253,8 @@ class TestWriterApp(GoodAppTestCase):
             os.utime(filename, (636249600, 636249600))
 
             builder = Builder(args)
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
             self.assertEqual(0, exit_code)
 
@@ -282,8 +282,8 @@ class TestWriterApp(GoodAppTestCase):
             os.utime(filename_orig, (631152000, 631152000))
 
             builder = Builder(args)
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
             self.assertEqual(0, exit_code)
 
@@ -303,11 +303,11 @@ class TestWriterApp(GoodAppTestCase):
                 '--recursive',
                 '--no-host-directories',
             ])
-            engine = Builder(args).build()
+            app = Builder(args).build()
 
             os.mkdir('dir_or_file')
 
-            exit_code = yield engine()
+            exit_code = yield app.run()
 
             self.assertEqual(0, exit_code)
 
@@ -321,12 +321,12 @@ class TestWriterApp(GoodAppTestCase):
                 '--recursive',
                 '--no-host-directories',
             ])
-            engine = Builder(args).build()
+            app = Builder(args).build()
 
             with open('dir_or_file', 'wb'):
                 pass
 
-            exit_code = yield engine()
+            exit_code = yield app.run()
 
             self.assertEqual(0, exit_code)
 

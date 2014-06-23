@@ -46,9 +46,9 @@ Brief Option Overview
                      [--ignore-tags LIST]
                      [-H | --span-hosts-allow LIST=<linked-pages,page-requisites>]
                      [-L] [-I LIST] [-X LIST] [-np] [--no-strong-redirects]
-                     [--phantomjs] [--phantomjs-scroll NUM]
-                     [--phantomjs-wait SEC] [--no-phantomjs-snapshot]
-                     [--no-phantomjs-smart-scroll]
+                     [--phantomjs] [--phantomjs-exe PATH]
+                     [--phantomjs-scroll NUM] [--phantomjs-wait SEC]
+                     [--no-phantomjs-snapshot] [--no-phantomjs-smart-scroll]
                      [URL [URL ...]]
 
   Wget-compatible web downloader.
@@ -252,6 +252,7 @@ Brief Option Overview
 
   PhantomJS:
     --phantomjs           use PhantomJS for loading dynamic pages
+    --phantomjs-exe PATH  path of PhantomJS executable (default: phantomjs)
     --phantomjs-scroll NUM
                           scroll the page up to NUM times (default: 10)
     --phantomjs-wait SEC  wait SEC seconds between page interactions (default:

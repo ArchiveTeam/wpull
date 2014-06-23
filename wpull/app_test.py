@@ -13,7 +13,7 @@ import tornado.testing
 from wpull.backport.testing import unittest
 from wpull.builder import Builder
 from wpull.errors import ExitStatus
-from wpull.network import Resolver
+from wpull.dns import Resolver
 from wpull.options import AppArgumentParser
 from wpull.testing.badapp import BadAppTestCase
 from wpull.testing.goodapp import GoodAppTestCase
@@ -80,9 +80,10 @@ class TestApp(GoodAppTestCase):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([self.get_url('/')])
         builder = Builder(args)
+
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
             self.assertTrue(os.path.exists('index.html'))
 
             response = self.fetch('/')
@@ -118,8 +119,8 @@ class TestApp(GoodAppTestCase):
         builder = Builder(args)
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
             self.assertTrue(os.path.exists('big_payload'))
 
             with open('big_payload', 'rb') as in_file:
@@ -139,9 +140,11 @@ class TestApp(GoodAppTestCase):
             '-4',
         ])
         builder = Builder(args)
+
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
+
         self.assertEqual(ExitStatus.server_error, exit_code)
         self.assertGreater(builder.factory['Statistics'].files, 1)
         self.assertGreater(builder.factory['Statistics'].duration, 3)
@@ -185,8 +188,8 @@ class TestApp(GoodAppTestCase):
         ])
         with cd_tempdir():
             builder = Builder(args)
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
             print(list(os.walk('.')))
             self.assertTrue(os.path.exists(
@@ -214,8 +217,8 @@ class TestApp(GoodAppTestCase):
             ])
             with cd_tempdir():
                 builder = Builder(args)
-                engine = builder.build()
-                exit_code = yield engine()
+                app = builder.build()
+                exit_code = yield app.run()
 
         self.assertEqual(0, exit_code)
         self.assertEqual(builder.factory['Statistics'].files, 2)
@@ -237,8 +240,8 @@ class TestApp(GoodAppTestCase):
             ])
             with cd_tempdir():
                 builder = Builder(args)
-                engine = builder.build()
-                exit_code = yield engine()
+                app = builder.build()
+                exit_code = yield app.run()
 
         self.assertEqual(0, exit_code)
         self.assertEqual(builder.factory['Statistics'].files, 2)
@@ -255,9 +258,10 @@ class TestApp(GoodAppTestCase):
             '--warc-cdx'
         ])
         builder = Builder(args)
+
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
             self.assertTrue(os.path.exists('test-00000.warc.gz'))
             self.assertTrue(os.path.exists('test-meta.warc.gz'))
@@ -280,9 +284,10 @@ class TestApp(GoodAppTestCase):
             '--no-warc-digests',
         ])
         builder = Builder(args)
+
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
             self.assertTrue(os.path.exists('test.warc.gz'))
 
@@ -301,9 +306,10 @@ class TestApp(GoodAppTestCase):
             '--warc-cdx',
         ])
         builder = Builder(args)
+
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
 
@@ -331,8 +337,8 @@ class TestApp(GoodAppTestCase):
             ])
 
             builder = Builder(args)
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
             with open('test.warc', 'rb') as in_file:
                 data = in_file.read()
@@ -352,8 +358,9 @@ class TestApp(GoodAppTestCase):
             '--post-data', 'text=hi',
         ])
         with cd_tempdir():
-            engine = Builder(args).build()
-            exit_code = yield engine()
+            builder = Builder(args)
+            app = builder.build()
+            exit_code = yield app.run()
         self.assertEqual(0, exit_code)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
@@ -405,8 +412,8 @@ class TestApp(GoodAppTestCase):
         builder = Builder(args)
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
         self.assertEqual(42, exit_code)
 
@@ -431,8 +438,8 @@ class TestApp(GoodAppTestCase):
         builder = Builder(args)
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
         self.assertEqual(42, exit_code)
 
@@ -452,8 +459,10 @@ class TestApp(GoodAppTestCase):
             '--python-script', filename,
         ])
         with cd_tempdir():
-            engine = Builder(args).build()
-            exit_code = yield engine()
+            builder = Builder(args)
+            app = builder.build()
+            exit_code = yield app.run()
+
         self.assertEqual(1, exit_code)
 
     @unittest.skipIf(sys.version_info[0:2] == (3, 2),
@@ -473,8 +482,8 @@ class TestApp(GoodAppTestCase):
         builder = Builder(args)
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
         self.assertEqual(42, exit_code)
 
@@ -501,8 +510,8 @@ class TestApp(GoodAppTestCase):
         builder = Builder(args)
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
         self.assertEqual(42, exit_code)
 
@@ -517,8 +526,9 @@ class TestApp(GoodAppTestCase):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([self.get_url('/static/mojibake.html')])
         with cd_tempdir():
-            engine = Builder(args).build()
-            exit_code = yield engine()
+            builder = Builder(args)
+            app = builder.build()
+            exit_code = yield app.run()
         self.assertEqual(0, exit_code)
 
     @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
@@ -541,8 +551,8 @@ class TestApp(GoodAppTestCase):
             builder = Builder(args)
 
             with cd_tempdir():
-                engine = builder.build()
-                exit_code = yield engine()
+                app = builder.build()
+                exit_code = yield app.run()
 
                 self.assertEqual(0, exit_code)
                 self.assertEqual(1, builder.factory['Statistics'].files)
@@ -570,8 +580,8 @@ class TestApp(GoodAppTestCase):
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -592,8 +602,8 @@ class TestApp(GoodAppTestCase):
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
@@ -615,8 +625,8 @@ class TestApp(GoodAppTestCase):
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
         self.assertEqual(0, exit_code)
         self.assertEqual(2, builder.factory['Statistics'].files)
 
@@ -638,8 +648,8 @@ class TestApp(GoodAppTestCase):
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
         self.assertEqual(0, exit_code)
         self.assertEqual(2, builder.factory['Statistics'].files)
 
@@ -660,8 +670,8 @@ class TestApp(GoodAppTestCase):
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
 
@@ -678,13 +688,13 @@ class TestApp(GoodAppTestCase):
         builder = Builder(args)
 
         with cd_tempdir():
-            engine = builder.build()
+            app = builder.build()
             robots_txt_pool = builder.factory['RobotsTxtPool']
             robots_txt_pool.load_robots_txt(
                 URLInfo.parse(self.get_url('/')),
                 'User-Agent: *\nDisallow: *\n'
             )
-            exit_code = yield engine()
+            exit_code = yield app.run()
 
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
@@ -699,8 +709,8 @@ class TestApp(GoodAppTestCase):
         builder = Builder(args)
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
@@ -716,8 +726,9 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             builder = Builder(args)
-            engine = builder.build()
-            exit_code = yield engine()
+
+            app = builder.build()
+            exit_code = yield app.run()
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -732,8 +743,9 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             builder = Builder(args)
-            engine = builder.build()
-            exit_code = yield engine()
+
+            app = builder.build()
+            exit_code = yield app.run()
 
             print(list(os.walk('.')))
             self.assertTrue(os.path.exists('always_error'))
@@ -753,15 +765,17 @@ class TestApp(GoodAppTestCase):
             '-4',
             '--no-robots',
             '--phantomjs',
+            '--phantomjs-exe', 'phantomjs',
             '--phantomjs-wait', '0.1',
             '--phantomjs-scroll', '2',
             '--header', 'accept-language: dragon',
             '--python-script', script_filename,
         ])
         builder = Builder(args)
+
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
             self.assertTrue(os.path.exists('test.warc'))
             self.assertTrue(
@@ -805,9 +819,10 @@ class TestApp(GoodAppTestCase):
             '--phantomjs-scroll', '20',
         ])
         builder = Builder(args)
+
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
             with open('DEUUEAUGH.html.snapshot.html', 'rb') as in_file:
                 data = in_file.read()
@@ -827,8 +842,9 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             builder = Builder(args)
-            engine = builder.build()
-            exit_code = yield engine()
+
+            app = builder.build()
+            exit_code = yield app.run()
 
             print(list(os.walk('.')))
             self.assertTrue(os.path.exists(
@@ -860,8 +876,8 @@ class TestApp(GoodAppTestCase):
             builder = Builder(args)
 
             with cd_tempdir():
-                engine = builder.build()
-                exit_code = yield engine()
+                app = builder.build()
+                exit_code = yield app.run()
 
         self.assertEqual(0, exit_code)
         self.assertEqual(2, builder.factory['Statistics'].files)
@@ -877,8 +893,8 @@ class TestApp(GoodAppTestCase):
         builder = Builder(args)
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -894,8 +910,8 @@ class TestApp(GoodAppTestCase):
             ])
 
             builder = Builder(args)
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
             self.assertTrue(os.path.exists('blah.dat'))
 
@@ -926,8 +942,8 @@ class TestAppHTTPS(tornado.testing.AsyncHTTPSTestCase):
         builder = Builder(args)
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -945,9 +961,10 @@ class TestAppBad(BadAppTestCase):
             self.get_url('/bad_cookie'),
         ])
         builder = Builder(args)
+
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
@@ -962,9 +979,10 @@ class TestAppBad(BadAppTestCase):
             self.get_url('/long_cookie'),
         ])
         builder = Builder(args)
+
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
@@ -983,8 +1001,8 @@ class TestAppBad(BadAppTestCase):
         builder = Builder(args)
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
@@ -1001,8 +1019,8 @@ class TestAppBad(BadAppTestCase):
         builder = Builder(args)
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
         self.assertEqual(7, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
@@ -1018,8 +1036,8 @@ class TestAppBad(BadAppTestCase):
         builder = Builder(args)
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -1037,8 +1055,8 @@ class TestAppBad(BadAppTestCase):
         builder = Builder(args)
 
         with cd_tempdir():
-            engine = builder.build()
-            exit_code = yield engine()
+            app = builder.build()
+            exit_code = yield app.run()
 
         self.assertEqual(0, exit_code)
         self.assertEqual(4, builder.factory['Statistics'].files)
