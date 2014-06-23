@@ -4,6 +4,7 @@ What's New
 
 * Works around ``PhantomJSRPCTimedOut`` errors.
 * Adds ``--phantomjs-exe`` option.
+* Supports extracting links from HTML ``img`` ``srcset`` attribute.
 * API:
 
   * ``Builder.build()`` returns ``Application`` instead of ``Engine``.
