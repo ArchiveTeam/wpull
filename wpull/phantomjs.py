@@ -221,7 +221,7 @@ class PhantomJSRemote(object):
         raise Return(result)
 
     @trollius.coroutine
-    def wait_page_event(self, event_name, timeout=900):
+    def wait_page_event(self, event_name, timeout=120):
         '''Wait until given event occurs.
 
         Args:

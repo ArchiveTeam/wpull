@@ -765,6 +765,7 @@ class TestApp(GoodAppTestCase):
             '-4',
             '--no-robots',
             '--phantomjs',
+            '--phantomjs-exe', 'phantomjs',
             '--phantomjs-wait', '0.1',
             '--phantomjs-scroll', '2',
             '--header', 'accept-language: dragon',

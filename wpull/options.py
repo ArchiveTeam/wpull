@@ -1125,6 +1125,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             help=_('use PhantomJS for loading dynamic pages'),
         )
         group.add_argument(
+            '--phantomjs-exe',
+            metavar='PATH',
+            default='phantomjs',
+            help=_('path of PhantomJS executable')
+        )
+        group.add_argument(
             '--phantomjs-scroll',
             type=int,
             default=10,

@@ -116,6 +116,7 @@ Attributes:
         * ``css``: The link was found in a CSS text.
         * ``refresh``: The link was found in a refresh meta string.
         * ``script``: The link was found in JavaScript text.
+        * ``srcset``: The link was found in a ``srcset`` attribute.
 '''
 
 
@@ -566,10 +567,25 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
                    and not wpull.url.is_unlikely_link(attrib_value):
                     yield attrib_name, attrib_value
 
+            elif attrib_name == 'srcset':
+                items = cls.iter_links_by_srcset_attrib(
+                    attrib_name, attrib_value)
+
+                for item in items:
+                    yield item
+
     @classmethod
     def iter_links_by_js_attrib(cls, attrib_name, attrib_value):
         '''Iterate links of a JavaScript pseudo-link attribute.'''
         links = JavaScriptScraper.scrape_links(attrib_value)
+
+        for link in links:
+            yield attrib_name, link
+
+    @classmethod
+    def iter_links_by_srcset_attrib(cls, attrib_name, attrib_value):
+        images = attrib_value.split(',')
+        links = [value.lstrip().split(' ', 1)[0] for value in images]
 
         for link in links:
             yield attrib_name, link
