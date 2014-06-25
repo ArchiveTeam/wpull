@@ -57,7 +57,6 @@ class Resolver(HookableMixin):
         self._family = family
         self._timeout = timeout
         self._rotate = rotate
-        self._tornado_resolver = tornado.netutil.ThreadedResolver()
 
         self.register_hook('resolve_dns')
 
@@ -138,7 +137,7 @@ class Resolver(HookableMixin):
         try:
             future = self._getaddrinfo_implementation(host, port)
             results = yield From(trollius.wait_for(future, self._timeout))
-        except wpull.async.TimedOut as error:
+        except trollius.TimeoutError as error:
             raise NetworkError('DNS resolve timed out.') from error
         except socket.error as error:
             if error.errno in (
@@ -169,6 +168,7 @@ class Resolver(HookableMixin):
                 host, port, family=family_flags
             )
         )
+        results = list([(result[0], result[4]) for result in results])
 
         if self._family in (self.PREFER_IPv4, self.PREFER_IPv6):
             results = self.sort_results(results, self._family)
