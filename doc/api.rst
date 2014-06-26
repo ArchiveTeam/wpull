@@ -23,6 +23,7 @@ wpull Package
    api/cache
    api/cookie
    api/collections
+   api/connection
    api/conversation
    api/converter
    api/database

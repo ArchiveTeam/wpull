@@ -11,6 +11,7 @@ MODULES = [
     'cache',
     'cookie',
     'collections',
+    'connection',
     'conversation',
     'converter',
     'database',

@@ -1,11 +1,11 @@
 # encoding=utf-8
+from trollius import From
 import trollius
 
 from wpull.dns import Resolver
 from wpull.errors import NetworkError, DNSNotFound
 import wpull.testing.async
 
-from trollius import From
 
 DEFAULT_TIMEOUT = 30
 
