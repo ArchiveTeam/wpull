@@ -38,6 +38,10 @@ class Stream(object):
         keep_alive (bool): If True, use HTTP keep-alive.
         ignore_length (bool): If True, Content-Length headers will be ignored.
             When using this option, `keep_alive` should be False.
+
+    Attributes:
+        data_observer (:class:`.observer.Observer`): An observer called with
+            two arguments (str, bytes).
     '''
     def __init__(self, connection, keep_alive=True, ignore_length=False):
         self._connection = connection
@@ -45,6 +49,10 @@ class Stream(object):
         self._ignore_length = ignore_length
         self._data_observer = Observer()
         self._read_size = 4096
+
+    @property
+    def data_observer(self):
+        return self._data_observer
 
     @trollius.coroutine
     def write_request(self, request):
