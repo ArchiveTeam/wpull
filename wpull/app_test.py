@@ -10,10 +10,11 @@ import tempfile
 
 import tornado.testing
 
+import wpull.backport.gzip
 from wpull.backport.testing import unittest
 from wpull.builder import Builder
-from wpull.errors import ExitStatus
 from wpull.dns import Resolver
+from wpull.errors import ExitStatus
 from wpull.options import AppArgumentParser
 from wpull.testing.badapp import BadAppTestCase
 from wpull.testing.goodapp import GoodAppTestCase
@@ -290,6 +291,10 @@ class TestApp(GoodAppTestCase):
             exit_code = yield app.run()
 
             self.assertTrue(os.path.exists('test.warc.gz'))
+
+            with wpull.backport.gzip.GzipFile('test.warc.gz') as in_file:
+                data = in_file.read()
+                self.assertIn(b'FINISHED', data)
 
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)

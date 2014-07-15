@@ -135,6 +135,7 @@ class Application(HookableMixin):
 
         self._print_stats()
         self.stop_observer.notify()
+        self._close()
 
         raise tornado.gen.Return(self._exit_code)
 
@@ -214,3 +215,8 @@ class Application(HookableMixin):
         _logger.info(_('A SSL certificate could not be verified.'))
         _logger.info(_('To ignore and proceed insecurely, '
                        'use ‘--no-check-certificate’.'))
+
+    def _close(self):
+        '''Perform clean up actions.'''
+        self._builder.factory['WebProcessor'].close()
+        self._builder.factory['URLTable'].close()
