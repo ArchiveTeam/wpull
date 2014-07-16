@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.36.1 (2014-07-16)
+===================
+
+* Fixes bug where "FINISHED" message was not logged in WARC file meta log. Regression was introduced in version 0.35.
+
+
 0.36 (2014-06-23)
 =================
 
