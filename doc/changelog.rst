@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.36.2 (2014-07-16)
+===================
+
+* Fixed requirements.txt to use Tornado version less than 4.0.
+
+
 0.36.1 (2014-07-16)
 ===================
 
