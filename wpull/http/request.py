@@ -9,7 +9,7 @@ import wpull.string
 from wpull.url import URLInfo
 
 
-class CommonMixin(metaclass=abc.ABCMeta):
+class CommonMixin(object):
     @abc.abstractmethod
     def to_dict(self):
         '''Convert to a dict suitable for JSON.'''
@@ -18,12 +18,12 @@ class CommonMixin(metaclass=abc.ABCMeta):
     def to_bytes(self):
         '''Serialize to HTTP bytes.'''
 
-    @abc.abstractmethid
+    @abc.abstractmethod
     def parse(self, data):
         '''Parse from HTTP bytes.'''
 
 
-class Request(object, CommonMixin):
+class Request(CommonMixin):
     '''Represents an HTTP request.
 
     Attributes:
@@ -128,7 +128,7 @@ class Request(object, CommonMixin):
         )
 
 
-class Response(object, CommonMixin):
+class Response(CommonMixin):
     '''Represents the HTTP response.
 
     Attributes:

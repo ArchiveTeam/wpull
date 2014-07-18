@@ -16,9 +16,6 @@ import time
 import zlib
 
 from wpull.backport.gzip import GzipFile
-from wpull.http.connection import Connection, ConnectionParams
-from wpull.http.request import Request
-from wpull.recorder import DebugPrintRecorder
 from wpull.testing.async import AsyncTestCase
 
 

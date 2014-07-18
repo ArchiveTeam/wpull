@@ -15,6 +15,7 @@ import wpull.decompression
 from wpull.errors import NetworkError, ProtocolError
 from wpull.http.chunked import ChunkedTransferReader
 from wpull.http.request import Response
+import wpull.http.util
 from wpull.observer import Observer
 
 
@@ -143,6 +144,13 @@ class Stream(object):
             yield From(self._read_body_by_length(response, file))
         else:
             yield From(self._read_body_until_close(response, file))
+
+        should_close = wpull.http.util.should_close(
+            request.version, response.fields.get('Connection'))
+
+        if not self._keep_alive or should_close:
+            _logger.debug('Not keep-alive. Closing connection.')
+            self.close()
 
     @trollius.coroutine
     def _read_body_until_close(self, response, file):

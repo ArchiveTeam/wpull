@@ -148,32 +148,6 @@ class TestHTTP(unittest.TestCase):
             request.header()
         )
 
-    def test_parse_charset(self):
-        self.assertEqual(
-            None,
-            parse_charset('text/plain')
-        )
-        self.assertEqual(
-            None,
-            parse_charset('text/plain; charset=')
-        )
-        self.assertEqual(
-            'utf_8',
-            parse_charset('text/plain; charset=utf_8')
-        )
-        self.assertEqual(
-            'UTF-8',
-            parse_charset('text/plain; charset="UTF-8"')
-        )
-        self.assertEqual(
-            'Utf8',
-            parse_charset("text/plain; charset='Utf8'")
-        )
-        self.assertEqual(
-            'UTF-8',
-            parse_charset('text/plain; CHARSET="UTF-8"')
-        )
-
     def test_parse_status_line(self):
         version, code, msg = Response.parse_status_line(b'HTTP/1.0 200 OK')
         self.assertEqual('HTTP/1.0', version)
@@ -221,19 +195,6 @@ class TestHTTP(unittest.TestCase):
         self.assertEqual('HTTP/1.0', version)
         self.assertEqual(404, code)
         self.assertEqual(b'N\x99t \x0eounz'.decode('latin-1'), msg)
-
-    def test_connection_should_close(self):
-        self.assertTrue(Connection.should_close('HTTP/1.0', None))
-        self.assertTrue(Connection.should_close('HTTP/1.0', 'wolf'))
-        self.assertTrue(Connection.should_close('HTTP/1.0', 'close'))
-        self.assertTrue(Connection.should_close('HTTP/1.0', 'ClOse'))
-        self.assertFalse(Connection.should_close('HTTP/1.0', 'keep-Alive'))
-        self.assertFalse(Connection.should_close('HTTP/1.0', 'keepalive'))
-        self.assertTrue(Connection.should_close('HTTP/1.1', 'close'))
-        self.assertTrue(Connection.should_close('HTTP/1.1', 'ClOse'))
-        self.assertFalse(Connection.should_close('HTTP/1.1', 'dragons'))
-        self.assertFalse(Connection.should_close('HTTP/1.1', 'keep-alive'))
-        self.assertTrue(Connection.should_close('HTTP/1.2', 'close'))
 
 
 class SimpleHandler(tornado.web.RequestHandler):
