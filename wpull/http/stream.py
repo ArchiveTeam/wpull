@@ -42,6 +42,7 @@ class Stream(object):
     Attributes:
         data_observer (:class:`.observer.Observer`): An observer called with
             two arguments (str, bytes).
+        connection: The underlying connection.
     '''
     def __init__(self, connection, keep_alive=True, ignore_length=False):
         self._connection = connection
@@ -51,14 +52,29 @@ class Stream(object):
         self._read_size = 4096
 
     @property
+    def connection(self):
+        return self._connection
+
+    @property
     def data_observer(self):
         return self._data_observer
 
     @trollius.coroutine
     def write_request(self, request):
-        '''Send the request's HTTP status line and header fields.'''
+        '''Send the request's HTTP status line and header fields.
+
+        This class will automatically connect the connection if the
+        connection is closed.
+        '''
         _logger.debug('Sending headers.')
+        yield From(self._reconnect())
+        request.prepare_for_send()
+
+        if self._ignore_length:
+            request.fields['Connection'] = 'close'
+
         data = request.to_bytes()
+
         self._data_observer.notify('request', data)
         yield From(self._connection.write(data))
 
@@ -67,8 +83,13 @@ class Stream(object):
         '''Send the request's content body.'''
         _logger.debug('Sending body.')
 
+        file_is_async = trollius.iscoroutine(file.read)
+
         while True:
-            data = file.read(self._read_size)
+            if file_is_async:
+                data = yield From(file.read(self._read_size))
+            else:
+                data = file.read(self._read_size)
 
             if not data:
                 break
@@ -84,6 +105,8 @@ class Stream(object):
         if response is None:
             response = Response()
 
+        header_lines = []
+
         while True:
             data = yield From(self._connection.readline())
 
@@ -91,15 +114,18 @@ class Stream(object):
 
             if not data.endswith(b'\n'):
                 raise NetworkError('Connection closed.')
-            elif not data:
+            elif data in (b'\r\n', b'\n'):
                 break
 
-            response.parse(data)
+            header_lines.append(data)
+
+        # TODO: check for overflow
+        response.parse(b'\n'.join(header_lines))
 
         raise Return(response)
 
     @trollius.coroutine
-    def read_body(self, request, response, file=None, stream=None):
+    def read_body(self, request, response, file):
         '''Read the response's content body.'''
         if is_no_body(request, response):
             return
@@ -112,16 +138,18 @@ class Stream(object):
             read_strategy = 'close'
 
         if read_strategy == 'chunked':
-            yield From(self._read_body_by_chunk(response, file, stream))
+            yield From(self._read_body_by_chunk(response, file))
         elif read_strategy == 'length':
-            yield From(self._read_body_by_length(response, file, stream))
+            yield From(self._read_body_by_length(response, file))
         else:
-            yield From(self._read_body_until_close(response, file, stream))
+            yield From(self._read_body_until_close(response, file))
 
     @trollius.coroutine
-    def read_body_until_close(self, response, file=None, stream=None):
+    def _read_body_until_close(self, response, file):
         '''Read the response until the connection closes.'''
         _logger.debug('Reading body until close.')
+
+        file_is_async = hasattr(file, 'drain')
 
         while True:
             data = yield From(self._connection.read(self._read_size))
@@ -133,22 +161,22 @@ class Stream(object):
 
             content_data = self._decompress_data(data)
 
-            if file:
-                file.write(content_data)
-            if stream:
-                yield From(stream.write(content_data))
+            file.write(content_data)
+            if file_is_async:
+                yield From(file.drain())
 
         content_data = self._flush_decompressor()
 
-        if file:
-            file.write(content_data)
-        if stream:
-            yield From(stream.write(content_data))
+        file.write(content_data)
+        if file_is_async:
+            yield From(file.drain())
 
     @trollius.coroutine
-    def _read_body_by_length(self, response, file=None, stream=None):
+    def _read_body_by_length(self, response, file):
         '''Read the connection specified by a length.'''
         _logger.debug('Reading body by length.')
+
+        file_is_async = hasattr(file, 'drain')
 
         try:
             body_size = int(response.fields['Content-Length'])
@@ -161,7 +189,7 @@ class Stream(object):
                 _('Invalid content length: {error}'), error=error
             ))
 
-            yield From(self._read_body_until_close(response, file, stream))
+            yield From(self._read_body_until_close(response, file))
             return
 
         bytes_left = body_size
@@ -177,10 +205,9 @@ class Stream(object):
 
             content_data = self._decompress_data(data)
 
-            if file:
-                file.write(content_data)
-            if stream:
-                yield From(stream.write(content_data))
+            file.write(content_data)
+            if file_is_async:
+                yield From(file.drain())
 
         if bytes_left < 0:
             raise ProtocolError('Content overrun.')
@@ -189,15 +216,16 @@ class Stream(object):
 
         content_data = self._flush_decompressor()
 
-        if file:
-            file.write(content_data)
-        if stream:
-            yield From(stream.write(content_data))
+        file.write(content_data)
+        if file_is_async:
+            yield From(file.drain())
 
     @trollius.coroutine
-    def _read_body_by_chunk(self, response, file=None, stream=None):
+    def _read_body_by_chunk(self, response, file):
         '''Read the connection using chunked transfer encoding.'''
         reader = ChunkedTransferReader(self._connection)
+
+        file_is_async = hasattr(file, 'drain')
 
         while True:
             chunk_size, data = yield From(reader.read_chunk_header())
@@ -217,17 +245,15 @@ class Stream(object):
 
                 content = self._decompress_data(content)
 
-                if file:
-                    file.write(content)
-                if stream:
-                    yield From(stream.write(content))
+                file.write(content)
+                if file_is_async:
+                    yield From(file.drain())
 
         content = self._flush_decompressor()
 
-        if file:
-            file.write(content)
-        if stream:
-            yield From(stream.write(content))
+        file.write(content)
+        if file_is_async:
+            yield From(file.drain())
 
         trailer_data = yield reader.read_trailer()
 
@@ -288,6 +314,20 @@ class Stream(object):
                 ) from error
         else:
             return b''
+
+    def closed(self):
+        '''Return whether the connection is closed.'''
+        return self._connection.closed()
+
+    def close(self):
+        '''Close the connection.'''
+        self._connection.close()
+
+    @trollius.coroutine
+    def _reconnect(self):
+        '''Connect the connection if needed.'''
+        if self._connection.closed():
+            yield From(self._connection.connect())
 
 
 def is_no_body(request, response, no_content_codes=DEFAULT_NO_CONTENT_CODES):

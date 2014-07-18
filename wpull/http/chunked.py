@@ -22,8 +22,6 @@ class ChunkedTransferReader(object):
         connection (:class:`.connection.Connection`): Established connection.
 
     Attributes:
-        data_observer (:class:`.observer.Observer`): Called when raw data is
-            read from the stream.
         content_observer (:class:`.observer.Observer`): Called when content
             data is decoded from the stream.
     '''
@@ -73,9 +71,10 @@ class ChunkedTransferReader(object):
                          chunk_size, bytes_left))
 
         if bytes_left > 0:
-            data = yield From(self._connection.read(self._read_size))
+            size = min(bytes_left, self._read_size)
+            data = yield From(self._connection.read(size))
 
-            bytes_left -= len(data)
+            self._bytes_left -= len(data)
 
             raise Return((data, data))
         elif bytes_left < 0:
@@ -108,7 +107,6 @@ class ChunkedTransferReader(object):
         while True:
             trailer_data = yield From(self._connection.readline())
 
-            self.data_observer.notify(trailer_data)
             trailer_data_list.append(trailer_data)
 
             if not trailer_data.strip():

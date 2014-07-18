@@ -7,11 +7,14 @@ import os
 import socket
 import ssl
 
+import tornado.netutil
 from trollius import From, Return
 import trollius
 
+from wpull.backport.logging import BraceMessage as __
 from wpull.dns import Resolver
-from wpull.errors import NetworkError, ConnectionRefused
+from wpull.errors import NetworkError, ConnectionRefused, SSLVerficationError, \
+    NetworkTimedOut
 
 
 _logger = logging.getLogger(__name__)
@@ -211,23 +214,30 @@ class Connection(object):
     @trollius.coroutine
     def connect(self):
         '''Establish a connection.'''
+        _logger.debug(__('Connecting to {0}.', self._address))
+
         try:
             host, port = self._address
             connection_future = trollius.open_connection(
                 host, port, **self._connection_kwargs()
             )
             self.reader, self.writer = yield From(
-                trollius.wait_for(connection_future,
-                                  timeout=self._connect_timeout)
+                trollius.wait_for(connection_future, self._connect_timeout)
             )
         except trollius.TimeoutError as error:
-            raise NetworkError(
-                'Connection timed out: {error}'.format(error)) from error
+            raise NetworkTimedOut(
+                'Connection timed out: {error}'.format(error=error)) from error
+        except (tornado.netutil.SSLCertificateError,
+                SSLVerficationError) as error:
+            raise SSLVerficationError(
+                'Certificate error: {error}'.format(error=error)) from error
         except (socket.error, ssl.SSLError) as error:
             if error.errno == errno.ECONNREFUSED:
                 raise ConnectionRefused(error.errno, os.strerror(error.errno))
             else:
                 raise NetworkError(error.errno, os.strerror(error.errno))
+        else:
+            _logger.debug('Connected.')
 
     def _connection_kwargs(self):
         '''Return additional connection arguments.'''
@@ -250,17 +260,34 @@ class Connection(object):
     def write(self, data):
         '''Write data.'''
         self.writer.write(data)
-        yield From(self.writer.drain())
+
+        fut = self.writer.drain()
+
+        if fut:
+            try:
+                yield From(trollius.wait_for(fut, self._timeout))
+            except trollius.TimeoutError as error:
+                raise NetworkTimedOut('Write timed out.') from error
 
     @trollius.coroutine
     def read(self, amount=-1):
         '''Read data.'''
-        raise Return((yield From(self.reader.read(amount))))
+        try:
+            data = yield From(trollius.wait_for(self.reader.read(amount),
+                                                self._timeout))
+            raise Return(data)
+        except trollius.TimeoutError as error:
+            raise NetworkTimedOut('Read timed out.') from error
 
     @trollius.coroutine
     def readline(self):
         '''Read a line of data.'''
-        raise Return((yield From(self.reader.readline())))
+        try:
+            data = yield From(trollius.wait_for(self.reader.readline(),
+                                                self._timeout))
+            raise Return(data)
+        except trollius.TimeoutError as error:
+            raise NetworkTimedOut('Read timed out.') from error
 
 
 class SSLConnection(Connection):

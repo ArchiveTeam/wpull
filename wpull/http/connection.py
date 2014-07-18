@@ -75,603 +75,603 @@ Args:
         When using this option, `keep_alive` should be False.
 '''
 
-
-class Connection(object):
-    '''A single HTTP connection.
-
-    Args:
-        address (tuple): The hostname (str) and port number (int).
-        resolver (:class:`.network.Resovler`): The DNS resolver.
-        ssl_enable (bool): If True, SSL is used.
-        params (:class:`ConnectionParams`): Parameters that tweak the
-            connection.
-
-    '''
-    class ConnectionEvents(object):
-        def __init__(self):
-            self.pre_request = Event()
-            self.request = Event()
-            self.pre_response = Event()
-            self.response = Event()
-            self.request_data = Event()
-            self.response_data = Event()
-
-        def attach(self, recorder_session):
-            self.pre_request.handle(recorder_session.pre_request)
-            self.request.handle(recorder_session.request)
-            self.pre_response.handle(recorder_session.pre_response)
-            self.response.handle(recorder_session.response)
-            self.request_data.handle(recorder_session.request_data)
-            self.response_data.handle(recorder_session.response_data)
-
-        def clear(self):
-            self.pre_request.clear()
-            self.request.clear()
-            self.pre_response.clear()
-            self.response.clear()
-            self.request_data.clear()
-            self.response_data.clear()
-
-    def __init__(self, address, resolver=None, ssl_enable=False, params=None):
-        self._original_address = address
-        self._resolver = resolver or Resolver()
-        self._ssl = ssl_enable
-        self._params = params or ConnectionParams()
-        self._resolved_address = None
-        self._socket = None
-        self._io_stream = None
-        self._events = Connection.ConnectionEvents()
-        self._active = False
-        self._decompressor = None
-
-    @tornado.gen.coroutine
-    def _make_socket(self):
-        '''Make and wrap the socket with an IOStream.'''
-        host, port = self._original_address
-
-        family, self._resolved_address = yield self._resolver.resolve(
-            host, port)
-
-        self._socket = socket.socket(family, socket.SOCK_STREAM)
-
-        _logger.debug(__('Socket to {0}/{1}.', family, self._resolved_address))
-
-        if self._params.bind_address:
-            _logger.debug(__(
-                'Binding socket to {0}', self._params.bind_address
-            ))
-            self._socket.bind(self._params.bind_address)
-
-        if self._ssl:
-            self._io_stream = SSLIOStream(
-                self._socket,
-                max_buffer_size=self._params.buffer_size,
-                rw_timeout=self._params.read_timeout,
-                ssl_options=self._params.ssl_options or {},
-                server_hostname=host,
-            )
-        else:
-            self._io_stream = IOStream(
-                self._socket,
-                rw_timeout=self._params.read_timeout,
-                max_buffer_size=self._params.buffer_size,
-            )
-
-        self._io_stream.set_close_callback(self._stream_closed_callback)
-
-    @tornado.gen.coroutine
-    def _connect(self):
-        '''Connect the socket if not already connected.'''
-        if self.connected:
-            # Reset the callback so the context does not leak to another
-            self._io_stream.set_close_callback(self._stream_closed_callback)
-            return
-
-        yield self._make_socket()
-
-        _logger.debug(__('Connecting to {0}.', self._resolved_address))
-        try:
-            yield self._io_stream.connect(
-                self._resolved_address, timeout=self._params.connect_timeout
-            )
-        except (tornado.netutil.SSLCertificateError,
-                SSLVerficationError) as error:
-            raise SSLVerficationError('Certificate error: {error}'.format(
-                error=error)) from error
-        except (ssl.SSLError, socket.error) as error:
-            if error.errno == errno.ECONNREFUSED:
-                raise ConnectionRefused('Connection refused: {error}'.format(
-                    error=error)) from error
-            else:
-                raise NetworkError('Connection error: {error}'.format(
-                    error=error)) from error
-        else:
-            _logger.debug('Connected.')
-
-    @tornado.gen.coroutine
-    def fetch(self, request, recorder=None, response_factory=Response):
-        '''Fetch a document.
-
-        Args:
-            request: :class:`Request`
-            recorder: :class:`.recorder.BaseRecorder`
-            response_factory: a callable object that makes a :class:`Response`.
-
-        If an exception occurs, this function will close the connection
-        automatically.
-
-        Returns:
-            Response: An instance of :class:`Response`
-
-        Raises:
-            Exception: Exceptions specified in :mod:`.errors`.
-        '''
-        _logger.debug(__('Request {0}.', request))
-
-        assert not self._active
-
-        self._active = True
-
-        try:
-            if recorder:
-                with recorder.session() as recorder_session:
-                    self._events.attach(recorder_session)
-                    response = yield self._process_request(request,
-                                                           response_factory)
-            else:
-                response = yield self._process_request(request,
-                                                       response_factory)
-
-            response.url_info = request.url_info
-        except:
-            _logger.debug('Fetch exception.')
-            self.close()
-            raise
-        finally:
-            self._events.clear()
-            self._active = False
-
-        if not self._params.keep_alive and self.connected:
-            _logger.debug('Not keep-alive. Closing connection.')
-            self.close()
-
-        _logger.debug('Fetching done.')
-
-        raise tornado.gen.Return(response)
-
-    @tornado.gen.coroutine
-    def _process_request(self, request, response_factory):
-        '''Fulfill a single request.
-
-        Returns:
-            Response
-        '''
-        yield self._connect()
-
-        request.address = self._resolved_address
-        self._events.pre_request(request)
-
-        if sys.version_info < (3, 3):
-            error_class = (socket.error, StreamClosedError, ssl.SSLError)
-        else:
-            error_class = (ConnectionError, StreamClosedError, ssl.SSLError)
-
-        if not self._params.keep_alive and 'Connection' not in request.fields:
-            request.fields['Connection'] = 'close'
-
-        try:
-            yield self._send_request_header(request)
-            yield self._send_request_body(request)
-            self._events.request.fire(request)
-
-            response = yield self._read_response_header(response_factory)
-            # TODO: handle 100 Continue
-
-            yield self._read_response_body(request, response)
-        except error_class as error:
-            raise NetworkError('Network error: {0}'.format(error)) from error
-        except BufferFullError as error:
-            raise ProtocolError(*error.args) from error
-
-        self._events.response.fire(response)
-
-        if self.should_close(request.version,
-                             response.fields.get('Connection')):
-            _logger.debug('HTTP connection close.')
-            self.close()
-        else:
-            self._io_stream.monitor_for_close()
-
-        raise tornado.gen.Return(response)
-
-    @classmethod
-    def should_close(cls, http_version, connection_field):
-        connection_field = (connection_field or '').lower()
-
-        if http_version == 'HTTP/1.0':
-            return connection_field.replace('-', '') != 'keepalive'
-        else:
-            return connection_field == 'close'
-
-    @tornado.gen.coroutine
-    def _send_request_header(self, request):
-        '''Send the request's HTTP status line and header fields.'''
-        _logger.debug('Sending headers.')
-        data = request.header()
-        self._events.request_data.fire(data)
-        yield self._io_stream.write(data)
-
-    @tornado.gen.coroutine
-    def _send_request_body(self, request):
-        '''Send the request's content body.'''
-        _logger.debug('Sending body.')
-        for data in request.body or ():
-            self._events.request_data.fire(data)
-            yield self._io_stream.write(data)
-
-    @tornado.gen.coroutine
-    def _read_response_header(self, response_factory):
-        '''Read the response's HTTP status line and header fields.'''
-        _logger.debug('Reading header.')
-
-        response_header_data = yield self._io_stream.read_until_regex(
-            br'\r?\n\r?\n'
-        )
-
-        self._events.response_data.fire(response_header_data)
-
-        status_line, header = response_header_data.split(b'\n', 1)
-        version, status_code, status_reason = Response.parse_status_line(
-            status_line)
-        response = response_factory(version, status_code, status_reason)
-        response.fields.parse(header, strict=False)
-        self._events.pre_response.fire(response)
-
-        raise tornado.gen.Return(response)
-
-    @tornado.gen.coroutine
-    def _read_response_body(self, request, response):
-        '''Read the response's content body.'''
-        if 'Content-Length' not in response.fields \
-           and 'Transfer-Encoding' not in response.fields \
-           and (
-               response.status_code in self._params.no_content_codes
-               or request.method.upper() == 'HEAD'
-           ):
-            return
-
-        self._setup_decompressor(response)
-
-        if re.match(r'chunked($|;)',
-                    response.fields.get('Transfer-Encoding', '')):
-            yield self._read_response_by_chunk(response)
-        elif 'Content-Length' in response.fields \
-             and not self._params.ignore_length:
-            yield self._read_response_by_length(response)
-        else:
-            yield self._read_response_until_close(response)
-
-        response.body.content_file.seek(0)
-
-    def _setup_decompressor(self, response):
-        '''Set up the content encoding decompressor.'''
-        encoding = response.fields.get('Content-Encoding', '').lower()
-
-        if encoding == 'gzip':
-            self._decompressor = wpull.decompression.GzipDecompressor()
-        elif encoding == 'deflate':
-            self._decompressor = wpull.decompression.DeflateDecompressor()
-        else:
-            self._decompressor = None
-
-    def _decompress_data(self, data):
-        '''Decompress the given data and return the uncompressed data.'''
-        if self._decompressor:
-            try:
-                return self._decompressor.decompress(data)
-            except zlib.error as error:
-                raise ProtocolError(
-                    'zlib error: {0}.'.format(error)
-                ) from error
-        else:
-            return data
-
-    def _flush_decompressor(self):
-        '''Return any data left in the decompressor.'''
-        if self._decompressor:
-            try:
-                return self._decompressor.flush()
-            except zlib.error as error:
-                raise ProtocolError(
-                    'zlib flush error: {0}.'.format(error)
-                ) from error
-        else:
-            return b''
-
-    @tornado.gen.coroutine
-    def _read_response_by_length(self, response):
-        '''Read the connection specified by a length.'''
-        _logger.debug('Reading body by length.')
-
-        try:
-            body_size = int(response.fields['Content-Length'])
-
-            if body_size < 0:
-                raise ValueError('Content length cannot be negative.')
-
-        except ValueError as error:
-            _logger.warning(__(
-                _('Invalid content length: {error}'), error=error
-            ))
-
-            yield self._read_response_until_close(response)
-            return
-
-        def callback(data):
-            self._events.response_data.fire(data)
-            response.body.content_file.write(self._decompress_data(data))
-
-        yield self._io_stream.read_bytes(
-            body_size, streaming_callback=callback,
-        )
-
-        response.body.content_file.write(self._flush_decompressor())
-
-    @tornado.gen.coroutine
-    def _read_response_by_chunk(self, response):
-        '''Read the connection using chunked transfer encoding.'''
-        stream_reader = ChunkedTransferStreamReader(self._io_stream)
-        stream_reader.data_event.handle(self._events.response_data.fire)
-        stream_reader.content_event.handle(
-            lambda data:
-                response.body.content_file.write(self._decompress_data(data))
-        )
-
-        while True:
-            chunk_size = yield stream_reader.read_chunk()
-
-            if chunk_size == 0:
-                break
-
-        trailer_data = yield stream_reader.read_trailer()
-        response.fields.parse(trailer_data)
-
-        response.body.content_file.write(self._flush_decompressor())
-
-    @tornado.gen.coroutine
-    def _read_response_until_close(self, response):
-        '''Read the response until the connection closes.'''
-        _logger.debug('Reading body until close.')
-
-        def callback(data):
-            self._events.response_data.fire(data)
-            response.body.content_file.write(self._decompress_data(data))
-
-        yield self._io_stream.read_until_close(streaming_callback=callback)
-
-        response.body.content_file.write(self._flush_decompressor())
-
-    @property
-    def active(self):
-        '''Return whether the connection is in use due to a fetch in progress.
-        '''
-        return self._active
-
-    @property
-    def connected(self):
-        '''Return whether the connection is connected.'''
-        return self._io_stream and not self._io_stream.closed()
-
-    def close(self):
-        '''Close the connection if open.'''
-        if self._io_stream:
-            self._io_stream.close()
-
-    def _stream_closed_callback(self):
-        _logger.debug(__(
-            'Stream closed. active={0} connected={1} closed={2}',
-            self._active,
-            self.connected,
-            self._io_stream.closed(),
-        ))
-
-
-
-class HostConnectionPool(collections.Set):
-    '''A Connection pool to a particular server.'''
-    def __init__(self, address, ssl_enable=False, max_count=6,
-                 connection_factory=Connection):
-        assert isinstance(address[0], str)
-        assert isinstance(address[1], int) and address[1]
-        self._address = address
-        self._request_queue = toro.Queue()
-        self._ssl = ssl_enable
-        self._connection_factory = connection_factory
-        self._connections = set()
-        self._max_count = max_count
-        self._max_count_semaphore = toro.BoundedSemaphore(max_count)
-        self._running = True
-        self._cleaner_timer = tornado.ioloop.PeriodicCallback(
-            self.clean, 300000)
-
-        tornado.ioloop.IOLoop.current().add_future(
-            self._run_loop(),
-            lambda future: future.result()
-        )
-        self._cleaner_timer.start()
-
-    @property
-    def active(self):
-        '''Return whether connections are active or items are queued.'''
-        for connection in self._connections:
-            if connection.active:
-                return True
-
-        return self._request_queue.qsize() > 0
-
-    @tornado.gen.coroutine
-    def put(self, request, kwargs, async_result):
-        '''Put a request into the queue.'''
-        _logger.debug('Host pool queue request {0}'.format(request))
-        assert self._running
-        yield self._request_queue.put((request, kwargs, async_result))
-
-    @tornado.gen.coroutine
-    def _run_loop(self):
-        while self._running or self._request_queue.qsize():
-            _logger.debug(__(
-                'Host pool running (Addr={0} SSL={1}).',
-                self._address, self._ssl
-            ))
-
-            yield self._max_count_semaphore.acquire()
-
-            tornado.ioloop.IOLoop.current().add_future(
-                self._process_request_wrapper(),
-                lambda future: future.result()
-            )
-
-    @tornado.gen.coroutine
-    def _process_request_wrapper(self):
-        try:
-            yield self._process_request()
-            self._max_count_semaphore.release()
-            _logger.debug('Host pool semaphore released.')
-        except Exception:
-            _logger.exception('Fatal error processing request.')
-            sys.exit('Fatal error.')
-
-    @tornado.gen.coroutine
-    def _process_request(self):
-        request, kwargs, async_result = yield self._request_queue.get()
-
-        _logger.debug('Host pool got request {0}'.format(request))
-
-        connection = self._get_ready_connection()
-
-        try:
-            response = yield connection.fetch(request, **kwargs)
-        except Exception as error:
-            _logger.debug(__('Host pool got an error from fetch: {error}',
-                             error=error))
-            _logger.debug(traceback.format_exc())
-            async_result.set(error)
-        else:
-            async_result.set(response)
-
-        _logger.debug('Host pool done {0}'.format(request))
-
-    def _get_ready_connection(self):
-        _logger.debug('Getting a connection.')
-
-        for connection in self._connections:
-            if not connection.active:
-                _logger.debug('Found a unused connection.')
-                return connection
-
-        if len(self._connections) < self._max_count:
-            _logger.debug('Making another connection.')
-
-            connection = self._connection_factory(
-                self._address, ssl_enable=self._ssl
-            )
-
-            self._connections.add(connection)
-
-            return connection
-
-        _logger.debug(__('Connections len={0} max={1}',
-                         len(self._connections), self._max_count))
-
-        raise Exception('Impossibly ran out of unused connections.')
-
-    def __contains__(self, key):
-        return key in self._connections
-
-    def __iter__(self):
-        return iter(self._connections)
-
-    def __len__(self):
-        return len(self._connections)
-
-    def stop(self):
-        '''Stop the workers.'''
-        self._running = False
-        self._cleaner_timer.stop()
-
-    def close(self):
-        '''Stop workers, close all the connections and remove them.'''
-        self.stop()
-
-        for connection in self._connections:
-            _logger.debug(__('Closing {0}.', connection))
-            connection.close()
-
-        self._connections.clear()
-
-    def clean(self, force_close=False):
-        '''Remove connections not in use.'''
-        for connection in tuple(self._connections):
-            if not connection.active \
-               and (force_close or not connection.connected):
-                connection.close()
-                self._connections.remove(connection)
-                _logger.debug(__('Cleaned connection {0}', connection))
-
-
-class ConnectionPool(collections.Mapping):
-    '''A pool of HostConnectionPool.'''
-    def __init__(self, host_connection_pool_factory=HostConnectionPool):
-        self._pools = {}
-        self._host_connection_pool_factory = host_connection_pool_factory
-
-    @tornado.gen.coroutine
-    def put(self, request, kwargs, async_result):
-        '''Put a request into the queue.'''
-        _logger.debug(__('Connection pool queue request {0}', request))
-
-        if request.address:
-            address = request.address
-        else:
-            host = request.url_info.hostname
-            port = request.url_info.port
-            address = (host, port)
-
-        ssl_enable = (request.url_info.scheme == 'https')
-
-        if address not in self._pools:
-            _logger.debug('New host pool.')
-            self._pools[address] = self._host_connection_pool_factory(
-                address, ssl_enable=ssl_enable
-            )
-
-        yield self._pools[address].put(request, kwargs, async_result)
-
-    def __getitem__(self, key):
-        return self._pools[key]
-
-    def __iter__(self):
-        return iter(self._pools)
-
-    def __len__(self):
-        return len(self._pools)
-
-    def close(self):
-        '''Close all the Host Connection Pools and remove them.'''
-        for key in self._pools:
-            _logger.debug(__('Closing pool for {0}.', key))
-            self._pools[key].close()
-
-        self._pools.clear()
-
-    def clean(self):
-        '''Remove Host Connection Pools not in use.'''
-        for key in tuple(self._pools.keys()):
-            pool = self._pools[key]
-
-            pool.clean()
-
-            if not pool.active:
-                pool.stop()
-                del self._pools[key]
-                _logger.debug(__('Cleaned host pool {0}.', pool))
+# TODO: grab the recorder logic into the new client, then remove code
+# class Connection(object):
+#     '''A single HTTP connection.
+#
+#     Args:
+#         address (tuple): The hostname (str) and port number (int).
+#         resolver (:class:`.network.Resovler`): The DNS resolver.
+#         ssl_enable (bool): If True, SSL is used.
+#         params (:class:`ConnectionParams`): Parameters that tweak the
+#             connection.
+#
+#     '''
+#     class ConnectionEvents(object):
+#         def __init__(self):
+#             self.pre_request = Event()
+#             self.request = Event()
+#             self.pre_response = Event()
+#             self.response = Event()
+#             self.request_data = Event()
+#             self.response_data = Event()
+#
+#         def attach(self, recorder_session):
+#             self.pre_request.handle(recorder_session.pre_request)
+#             self.request.handle(recorder_session.request)
+#             self.pre_response.handle(recorder_session.pre_response)
+#             self.response.handle(recorder_session.response)
+#             self.request_data.handle(recorder_session.request_data)
+#             self.response_data.handle(recorder_session.response_data)
+#
+#         def clear(self):
+#             self.pre_request.clear()
+#             self.request.clear()
+#             self.pre_response.clear()
+#             self.response.clear()
+#             self.request_data.clear()
+#             self.response_data.clear()
+#
+#     def __init__(self, address, resolver=None, ssl_enable=False, params=None):
+#         self._original_address = address
+#         self._resolver = resolver or Resolver()
+#         self._ssl = ssl_enable
+#         self._params = params or ConnectionParams()
+#         self._resolved_address = None
+#         self._socket = None
+#         self._io_stream = None
+#         self._events = Connection.ConnectionEvents()
+#         self._active = False
+#         self._decompressor = None
+#
+#     @tornado.gen.coroutine
+#     def _make_socket(self):
+#         '''Make and wrap the socket with an IOStream.'''
+#         host, port = self._original_address
+#
+#         family, self._resolved_address = yield self._resolver.resolve(
+#             host, port)
+#
+#         self._socket = socket.socket(family, socket.SOCK_STREAM)
+#
+#         _logger.debug(__('Socket to {0}/{1}.', family, self._resolved_address))
+#
+#         if self._params.bind_address:
+#             _logger.debug(__(
+#                 'Binding socket to {0}', self._params.bind_address
+#             ))
+#             self._socket.bind(self._params.bind_address)
+#
+#         if self._ssl:
+#             self._io_stream = SSLIOStream(
+#                 self._socket,
+#                 max_buffer_size=self._params.buffer_size,
+#                 rw_timeout=self._params.read_timeout,
+#                 ssl_options=self._params.ssl_options or {},
+#                 server_hostname=host,
+#             )
+#         else:
+#             self._io_stream = IOStream(
+#                 self._socket,
+#                 rw_timeout=self._params.read_timeout,
+#                 max_buffer_size=self._params.buffer_size,
+#             )
+#
+#         self._io_stream.set_close_callback(self._stream_closed_callback)
+#
+#     @tornado.gen.coroutine
+#     def _connect(self):
+#         '''Connect the socket if not already connected.'''
+#         if self.connected:
+#             # Reset the callback so the context does not leak to another
+#             self._io_stream.set_close_callback(self._stream_closed_callback)
+#             return
+#
+#         yield self._make_socket()
+#
+#         _logger.debug(__('Connecting to {0}.', self._resolved_address))
+#         try:
+#             yield self._io_stream.connect(
+#                 self._resolved_address, timeout=self._params.connect_timeout
+#             )
+#         except (tornado.netutil.SSLCertificateError,
+#                 SSLVerficationError) as error:
+#             raise SSLVerficationError('Certificate error: {error}'.format(
+#                 error=error)) from error
+#         except (ssl.SSLError, socket.error) as error:
+#             if error.errno == errno.ECONNREFUSED:
+#                 raise ConnectionRefused('Connection refused: {error}'.format(
+#                     error=error)) from error
+#             else:
+#                 raise NetworkError('Connection error: {error}'.format(
+#                     error=error)) from error
+#         else:
+#             _logger.debug('Connected.')
+#
+#     @tornado.gen.coroutine
+#     def fetch(self, request, recorder=None, response_factory=Response):
+#         '''Fetch a document.
+#
+#         Args:
+#             request: :class:`Request`
+#             recorder: :class:`.recorder.BaseRecorder`
+#             response_factory: a callable object that makes a :class:`Response`.
+#
+#         If an exception occurs, this function will close the connection
+#         automatically.
+#
+#         Returns:
+#             Response: An instance of :class:`Response`
+#
+#         Raises:
+#             Exception: Exceptions specified in :mod:`.errors`.
+#         '''
+#         _logger.debug(__('Request {0}.', request))
+#
+#         assert not self._active
+#
+#         self._active = True
+#
+#         try:
+#             if recorder:
+#                 with recorder.session() as recorder_session:
+#                     self._events.attach(recorder_session)
+#                     response = yield self._process_request(request,
+#                                                            response_factory)
+#             else:
+#                 response = yield self._process_request(request,
+#                                                        response_factory)
+#
+#             response.url_info = request.url_info
+#         except:
+#             _logger.debug('Fetch exception.')
+#             self.close()
+#             raise
+#         finally:
+#             self._events.clear()
+#             self._active = False
+#
+#         if not self._params.keep_alive and self.connected:
+#             _logger.debug('Not keep-alive. Closing connection.')
+#             self.close()
+#
+#         _logger.debug('Fetching done.')
+#
+#         raise tornado.gen.Return(response)
+#
+#     @tornado.gen.coroutine
+#     def _process_request(self, request, response_factory):
+#         '''Fulfill a single request.
+#
+#         Returns:
+#             Response
+#         '''
+#         yield self._connect()
+#
+#         request.address = self._resolved_address
+#         self._events.pre_request(request)
+#
+#         if sys.version_info < (3, 3):
+#             error_class = (socket.error, StreamClosedError, ssl.SSLError)
+#         else:
+#             error_class = (ConnectionError, StreamClosedError, ssl.SSLError)
+#
+#         if not self._params.keep_alive and 'Connection' not in request.fields:
+#             request.fields['Connection'] = 'close'
+#
+#         try:
+#             yield self._send_request_header(request)
+#             yield self._send_request_body(request)
+#             self._events.request.fire(request)
+#
+#             response = yield self._read_response_header(response_factory)
+#             # TODO: handle 100 Continue
+#
+#             yield self._read_response_body(request, response)
+#         except error_class as error:
+#             raise NetworkError('Network error: {0}'.format(error)) from error
+#         except BufferFullError as error:
+#             raise ProtocolError(*error.args) from error
+#
+#         self._events.response.fire(response)
+#
+#         if self.should_close(request.version,
+#                              response.fields.get('Connection')):
+#             _logger.debug('HTTP connection close.')
+#             self.close()
+#         else:
+#             self._io_stream.monitor_for_close()
+#
+#         raise tornado.gen.Return(response)
+#
+#     @classmethod
+#     def should_close(cls, http_version, connection_field):
+#         connection_field = (connection_field or '').lower()
+#
+#         if http_version == 'HTTP/1.0':
+#             return connection_field.replace('-', '') != 'keepalive'
+#         else:
+#             return connection_field == 'close'
+#
+#     @tornado.gen.coroutine
+#     def _send_request_header(self, request):
+#         '''Send the request's HTTP status line and header fields.'''
+#         _logger.debug('Sending headers.')
+#         data = request.header()
+#         self._events.request_data.fire(data)
+#         yield self._io_stream.write(data)
+#
+#     @tornado.gen.coroutine
+#     def _send_request_body(self, request):
+#         '''Send the request's content body.'''
+#         _logger.debug('Sending body.')
+#         for data in request.body or ():
+#             self._events.request_data.fire(data)
+#             yield self._io_stream.write(data)
+#
+#     @tornado.gen.coroutine
+#     def _read_response_header(self, response_factory):
+#         '''Read the response's HTTP status line and header fields.'''
+#         _logger.debug('Reading header.')
+#
+#         response_header_data = yield self._io_stream.read_until_regex(
+#             br'\r?\n\r?\n'
+#         )
+#
+#         self._events.response_data.fire(response_header_data)
+#
+#         status_line, header = response_header_data.split(b'\n', 1)
+#         version, status_code, status_reason = Response.parse_status_line(
+#             status_line)
+#         response = response_factory(version, status_code, status_reason)
+#         response.fields.parse(header, strict=False)
+#         self._events.pre_response.fire(response)
+#
+#         raise tornado.gen.Return(response)
+#
+#     @tornado.gen.coroutine
+#     def _read_response_body(self, request, response):
+#         '''Read the response's content body.'''
+#         if 'Content-Length' not in response.fields \
+#            and 'Transfer-Encoding' not in response.fields \
+#            and (
+#                response.status_code in self._params.no_content_codes
+#                or request.method.upper() == 'HEAD'
+#            ):
+#             return
+#
+#         self._setup_decompressor(response)
+#
+#         if re.match(r'chunked($|;)',
+#                     response.fields.get('Transfer-Encoding', '')):
+#             yield self._read_response_by_chunk(response)
+#         elif 'Content-Length' in response.fields \
+#              and not self._params.ignore_length:
+#             yield self._read_response_by_length(response)
+#         else:
+#             yield self._read_response_until_close(response)
+#
+#         response.body.content_file.seek(0)
+#
+#     def _setup_decompressor(self, response):
+#         '''Set up the content encoding decompressor.'''
+#         encoding = response.fields.get('Content-Encoding', '').lower()
+#
+#         if encoding == 'gzip':
+#             self._decompressor = wpull.decompression.GzipDecompressor()
+#         elif encoding == 'deflate':
+#             self._decompressor = wpull.decompression.DeflateDecompressor()
+#         else:
+#             self._decompressor = None
+#
+#     def _decompress_data(self, data):
+#         '''Decompress the given data and return the uncompressed data.'''
+#         if self._decompressor:
+#             try:
+#                 return self._decompressor.decompress(data)
+#             except zlib.error as error:
+#                 raise ProtocolError(
+#                     'zlib error: {0}.'.format(error)
+#                 ) from error
+#         else:
+#             return data
+#
+#     def _flush_decompressor(self):
+#         '''Return any data left in the decompressor.'''
+#         if self._decompressor:
+#             try:
+#                 return self._decompressor.flush()
+#             except zlib.error as error:
+#                 raise ProtocolError(
+#                     'zlib flush error: {0}.'.format(error)
+#                 ) from error
+#         else:
+#             return b''
+#
+#     @tornado.gen.coroutine
+#     def _read_response_by_length(self, response):
+#         '''Read the connection specified by a length.'''
+#         _logger.debug('Reading body by length.')
+#
+#         try:
+#             body_size = int(response.fields['Content-Length'])
+#
+#             if body_size < 0:
+#                 raise ValueError('Content length cannot be negative.')
+#
+#         except ValueError as error:
+#             _logger.warning(__(
+#                 _('Invalid content length: {error}'), error=error
+#             ))
+#
+#             yield self._read_response_until_close(response)
+#             return
+#
+#         def callback(data):
+#             self._events.response_data.fire(data)
+#             response.body.content_file.write(self._decompress_data(data))
+#
+#         yield self._io_stream.read_bytes(
+#             body_size, streaming_callback=callback,
+#         )
+#
+#         response.body.content_file.write(self._flush_decompressor())
+#
+#     @tornado.gen.coroutine
+#     def _read_response_by_chunk(self, response):
+#         '''Read the connection using chunked transfer encoding.'''
+#         stream_reader = ChunkedTransferStreamReader(self._io_stream)
+#         stream_reader.data_event.handle(self._events.response_data.fire)
+#         stream_reader.content_event.handle(
+#             lambda data:
+#                 response.body.content_file.write(self._decompress_data(data))
+#         )
+#
+#         while True:
+#             chunk_size = yield stream_reader.read_chunk()
+#
+#             if chunk_size == 0:
+#                 break
+#
+#         trailer_data = yield stream_reader.read_trailer()
+#         response.fields.parse(trailer_data)
+#
+#         response.body.content_file.write(self._flush_decompressor())
+#
+#     @tornado.gen.coroutine
+#     def _read_response_until_close(self, response):
+#         '''Read the response until the connection closes.'''
+#         _logger.debug('Reading body until close.')
+#
+#         def callback(data):
+#             self._events.response_data.fire(data)
+#             response.body.content_file.write(self._decompress_data(data))
+#
+#         yield self._io_stream.read_until_close(streaming_callback=callback)
+#
+#         response.body.content_file.write(self._flush_decompressor())
+#
+#     @property
+#     def active(self):
+#         '''Return whether the connection is in use due to a fetch in progress.
+#         '''
+#         return self._active
+#
+#     @property
+#     def connected(self):
+#         '''Return whether the connection is connected.'''
+#         return self._io_stream and not self._io_stream.closed()
+#
+#     def close(self):
+#         '''Close the connection if open.'''
+#         if self._io_stream:
+#             self._io_stream.close()
+#
+#     def _stream_closed_callback(self):
+#         _logger.debug(__(
+#             'Stream closed. active={0} connected={1} closed={2}',
+#             self._active,
+#             self.connected,
+#             self._io_stream.closed(),
+#         ))
+
+
+# TODO: port over the cleaning logic and the container logic to wpull.connection
+# class HostConnectionPool(collections.Set):
+#     '''A Connection pool to a particular server.'''
+#     def __init__(self, address, ssl_enable=False, max_count=6,
+#                  connection_factory=Connection):
+#         assert isinstance(address[0], str)
+#         assert isinstance(address[1], int) and address[1]
+#         self._address = address
+#         self._request_queue = toro.Queue()
+#         self._ssl = ssl_enable
+#         self._connection_factory = connection_factory
+#         self._connections = set()
+#         self._max_count = max_count
+#         self._max_count_semaphore = toro.BoundedSemaphore(max_count)
+#         self._running = True
+#         self._cleaner_timer = tornado.ioloop.PeriodicCallback(
+#             self.clean, 300000)
+#
+#         tornado.ioloop.IOLoop.current().add_future(
+#             self._run_loop(),
+#             lambda future: future.result()
+#         )
+#         self._cleaner_timer.start()
+#
+#     @property
+#     def active(self):
+#         '''Return whether connections are active or items are queued.'''
+#         for connection in self._connections:
+#             if connection.active:
+#                 return True
+#
+#         return self._request_queue.qsize() > 0
+#
+#     @tornado.gen.coroutine
+#     def put(self, request, kwargs, async_result):
+#         '''Put a request into the queue.'''
+#         _logger.debug('Host pool queue request {0}'.format(request))
+#         assert self._running
+#         yield self._request_queue.put((request, kwargs, async_result))
+#
+#     @tornado.gen.coroutine
+#     def _run_loop(self):
+#         while self._running or self._request_queue.qsize():
+#             _logger.debug(__(
+#                 'Host pool running (Addr={0} SSL={1}).',
+#                 self._address, self._ssl
+#             ))
+#
+#             yield self._max_count_semaphore.acquire()
+#
+#             tornado.ioloop.IOLoop.current().add_future(
+#                 self._process_request_wrapper(),
+#                 lambda future: future.result()
+#             )
+#
+#     @tornado.gen.coroutine
+#     def _process_request_wrapper(self):
+#         try:
+#             yield self._process_request()
+#             self._max_count_semaphore.release()
+#             _logger.debug('Host pool semaphore released.')
+#         except Exception:
+#             _logger.exception('Fatal error processing request.')
+#             sys.exit('Fatal error.')
+#
+#     @tornado.gen.coroutine
+#     def _process_request(self):
+#         request, kwargs, async_result = yield self._request_queue.get()
+#
+#         _logger.debug('Host pool got request {0}'.format(request))
+#
+#         connection = self._get_ready_connection()
+#
+#         try:
+#             response = yield connection.fetch(request, **kwargs)
+#         except Exception as error:
+#             _logger.debug(__('Host pool got an error from fetch: {error}',
+#                              error=error))
+#             _logger.debug(traceback.format_exc())
+#             async_result.set(error)
+#         else:
+#             async_result.set(response)
+#
+#         _logger.debug('Host pool done {0}'.format(request))
+#
+#     def _get_ready_connection(self):
+#         _logger.debug('Getting a connection.')
+#
+#         for connection in self._connections:
+#             if not connection.active:
+#                 _logger.debug('Found a unused connection.')
+#                 return connection
+#
+#         if len(self._connections) < self._max_count:
+#             _logger.debug('Making another connection.')
+#
+#             connection = self._connection_factory(
+#                 self._address, ssl_enable=self._ssl
+#             )
+#
+#             self._connections.add(connection)
+#
+#             return connection
+#
+#         _logger.debug(__('Connections len={0} max={1}',
+#                          len(self._connections), self._max_count))
+#
+#         raise Exception('Impossibly ran out of unused connections.')
+#
+#     def __contains__(self, key):
+#         return key in self._connections
+#
+#     def __iter__(self):
+#         return iter(self._connections)
+#
+#     def __len__(self):
+#         return len(self._connections)
+#
+#     def stop(self):
+#         '''Stop the workers.'''
+#         self._running = False
+#         self._cleaner_timer.stop()
+#
+#     def close(self):
+#         '''Stop workers, close all the connections and remove them.'''
+#         self.stop()
+#
+#         for connection in self._connections:
+#             _logger.debug(__('Closing {0}.', connection))
+#             connection.close()
+#
+#         self._connections.clear()
+#
+#     def clean(self, force_close=False):
+#         '''Remove connections not in use.'''
+#         for connection in tuple(self._connections):
+#             if not connection.active \
+#                and (force_close or not connection.connected):
+#                 connection.close()
+#                 self._connections.remove(connection)
+#                 _logger.debug(__('Cleaned connection {0}', connection))
+#
+#
+# class ConnectionPool(collections.Mapping):
+#     '''A pool of HostConnectionPool.'''
+#     def __init__(self, host_connection_pool_factory=HostConnectionPool):
+#         self._pools = {}
+#         self._host_connection_pool_factory = host_connection_pool_factory
+#
+#     @tornado.gen.coroutine
+#     def put(self, request, kwargs, async_result):
+#         '''Put a request into the queue.'''
+#         _logger.debug(__('Connection pool queue request {0}', request))
+#
+#         if request.address:
+#             address = request.address
+#         else:
+#             host = request.url_info.hostname
+#             port = request.url_info.port
+#             address = (host, port)
+#
+#         ssl_enable = (request.url_info.scheme == 'https')
+#
+#         if address not in self._pools:
+#             _logger.debug('New host pool.')
+#             self._pools[address] = self._host_connection_pool_factory(
+#                 address, ssl_enable=ssl_enable
+#             )
+#
+#         yield self._pools[address].put(request, kwargs, async_result)
+#
+#     def __getitem__(self, key):
+#         return self._pools[key]
+#
+#     def __iter__(self):
+#         return iter(self._pools)
+#
+#     def __len__(self):
+#         return len(self._pools)
+#
+#     def close(self):
+#         '''Close all the Host Connection Pools and remove them.'''
+#         for key in self._pools:
+#             _logger.debug(__('Closing pool for {0}.', key))
+#             self._pools[key].close()
+#
+#         self._pools.clear()
+#
+#     def clean(self):
+#         '''Remove Host Connection Pools not in use.'''
+#         for key in tuple(self._pools.keys()):
+#             pool = self._pools[key]
+#
+#             pool.clean()
+#
+#             if not pool.active:
+#                 pool.stop()
+#                 del self._pools[key]
+#                 _logger.debug(__('Cleaned host pool {0}.', pool))
