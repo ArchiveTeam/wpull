@@ -89,9 +89,6 @@ class Engine(HookableMixin):
 
         yield self._done_event.wait()
 
-        self._processor.close()
-        self._url_table.close()
-
         if self._worker_error:
             raise self._worker_error from self._worker_error
 
