@@ -126,7 +126,7 @@ class Stream(object):
         raise Return(response)
 
     @trollius.coroutine
-    def read_body(self, request, response, file):
+    def read_body(self, request, response, file=None):
         '''Read the response's content body.'''
         if is_no_body(request, response):
             return
@@ -169,15 +169,19 @@ class Stream(object):
 
             content_data = self._decompress_data(data)
 
-            file.write(content_data)
-            if file_is_async:
-                yield From(file.drain())
+            if file:
+                file.write(content_data)
+
+                if file_is_async:
+                    yield From(file.drain())
 
         content_data = self._flush_decompressor()
 
-        file.write(content_data)
-        if file_is_async:
-            yield From(file.drain())
+        if file:
+            file.write(content_data)
+
+            if file_is_async:
+                yield From(file.drain())
 
     @trollius.coroutine
     def _read_body_by_length(self, response, file):
@@ -213,9 +217,11 @@ class Stream(object):
 
             content_data = self._decompress_data(data)
 
-            file.write(content_data)
-            if file_is_async:
-                yield From(file.drain())
+            if file:
+                file.write(content_data)
+
+                if file_is_async:
+                    yield From(file.drain())
 
         if bytes_left < 0:
             raise ProtocolError('Content overrun.')
@@ -224,9 +230,11 @@ class Stream(object):
 
         content_data = self._flush_decompressor()
 
-        file.write(content_data)
-        if file_is_async:
-            yield From(file.drain())
+        if file:
+            file.write(content_data)
+
+            if file_is_async:
+                yield From(file.drain())
 
     @trollius.coroutine
     def _read_body_by_chunk(self, response, file):
@@ -253,15 +261,19 @@ class Stream(object):
 
                 content = self._decompress_data(content)
 
-                file.write(content)
-                if file_is_async:
-                    yield From(file.drain())
+                if file:
+                    file.write(content)
+
+                    if file_is_async:
+                        yield From(file.drain())
 
         content = self._flush_decompressor()
 
-        file.write(content)
-        if file_is_async:
-            yield From(file.drain())
+        if file:
+            file.write(content)
+
+            if file_is_async:
+                yield From(file.drain())
 
         trailer_data = yield reader.read_trailer()
 

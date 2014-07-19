@@ -83,6 +83,8 @@ class Session(object):
 
         self._request = request
 
+        request.prepare_for_send()
+
         host = request.url_info.hostname
         port = request.url_info.port
         ssl = request.url_info.scheme == 'https'
@@ -97,12 +99,15 @@ class Session(object):
             self._recorder.pre_request(request)
 
         yield From(stream.write_request(request))
-        # TODO: write body
+
+        if request.body:
+            yield From(stream.write_body(request.body))
 
         if self._recorder:
             self._recorder.request(request)
 
         self._response = response = yield From(stream.read_response())
+        response.request = request
 
         if self._recorder:
             self._recorder.pre_response(response)
@@ -110,10 +115,9 @@ class Session(object):
         raise Return(response)
 
     @trollius.coroutine
-    def read_content(self, file=None, stream=None):
+    def read_content(self, file=None):
         '''Read the response content into file.'''
-        yield From(self._stream.read_body(self._request, self._response, file,
-                                          stream))
+        yield From(self._stream.read_body(self._request, self._response, file))
 
         if self._recorder:
             self._recorder.response(self._response)
@@ -132,4 +136,5 @@ class Session(object):
 
     def clean_up(self):
         '''Return connection back to the pool.'''
-        self._connection_pool.check_in(self._connection)
+        if self._connection:
+            self._connection_pool.check_in(self._connection)

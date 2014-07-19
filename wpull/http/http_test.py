@@ -91,39 +91,3 @@ class TestClient(BadAppTestCase):
         connection_pool.clean()
 
         self.assertEqual(0, len(connection_pool))
-
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
-    def test_client_exception_throw(self):
-        client = Client()
-
-        try:
-            yield client.fetch(Request.new('http://wpull-no-exist.invalid'))
-        except NetworkError:
-            pass
-        else:
-            self.fail()
-
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
-    def test_client_exception_recovery(self):
-        connection_factory = functools.partial(
-            Connection, params=ConnectionParams(read_timeout=0.2)
-        )
-        host_connection_pool_factory = functools.partial(
-            HostConnectionPool, connection_factory=connection_factory)
-        connection_pool = ConnectionPool(host_connection_pool_factory)
-        client = Client(connection_pool)
-
-        for dummy in range(7):
-            try:
-                yield client.fetch(
-                    Request.new(self.get_url('/header_early_close')),
-                    recorder=DebugPrintRecorder()
-                )
-            except NetworkError:
-                pass
-            else:
-                self.fail()
-
-        for dummy in range(7):
-            response = yield client.fetch(Request.new(self.get_url('/')))
-            self.assertEqual(200, response.status_code)

@@ -89,7 +89,7 @@ class ConnectionPool(object):
     @trollius.coroutine
     def check_out(self, host, port, ssl=False):
         '''Return an available connection.'''
-        address = yield From(self._resolver.resolve(host, port))
+        family, address = yield From(self._resolver.resolve(host, port))
         key = (host, port, ssl)
 
         if key not in self._pool:
