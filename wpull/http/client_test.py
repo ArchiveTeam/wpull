@@ -1,4 +1,5 @@
 # encoding=utf-8
+import contextlib
 import functools
 import io
 
@@ -8,11 +9,49 @@ from wpull.connection import ConnectionPool, Connection
 from wpull.errors import NetworkError
 from wpull.http.client import Client
 from wpull.http.request import Request
+from wpull.recorder import BaseRecorder, BaseRecorderSession
 import wpull.testing.async
 from wpull.testing.badapp import BadAppTestCase
 
 
 DEFAULT_TIMEOUT = 30
+
+
+class MockRecorder(BaseRecorder):
+    def __init__(self):
+        self.pre_request = None
+        self.request = None
+        self.pre_response = None
+        self.response = None
+        self.request_data = b''
+        self.response_data = b''
+
+    @contextlib.contextmanager
+    def session(self):
+        yield MockRecorderSession(self)
+
+
+class MockRecorderSession(BaseRecorderSession):
+    def __init__(self, recorder):
+        self.recorder = recorder
+
+    def pre_request(self, request):
+        self.recorder.pre_request = request
+
+    def request(self, request):
+        self.recorder.request = request
+
+    def pre_response(self, response):
+        self.recorder.pre_response = response
+
+    def response(self, response):
+        self.recorder.response = response
+
+    def request_data(self, data):
+        self.recorder.request_data += data
+
+    def response_data(self, data):
+        self.recorder.response_data += data
 
 
 class TestClient(BadAppTestCase):
@@ -68,3 +107,22 @@ class TestClient(BadAppTestCase):
                 response = yield From(session.fetch(request))
                 self.assertEqual(200, response.status_code)
                 yield From(session.read_content())
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_client_recorder(self):
+        recorder = MockRecorder()
+        client = Client(recorder=recorder)
+
+        with client.session() as session:
+            request = Request(self.get_url('/'))
+            response = yield From(session.fetch(request))
+            yield From(session.read_content())
+            self.assertEqual(200, response.status_code)
+
+        self.assertTrue(recorder.pre_request)
+        self.assertTrue(recorder.request)
+        self.assertTrue(recorder.pre_response)
+        self.assertTrue(recorder.response)
+
+        self.assertIn(b'GET', recorder.request_data)
+        self.assertIn(b'hello', recorder.response_data)

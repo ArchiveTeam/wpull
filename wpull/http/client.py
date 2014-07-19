@@ -41,8 +41,16 @@ class Client(object):
         Returns:
             Session.
         '''
-        session = Session(self._connection_pool, self._recorder,
-                          self._stream_factory)
+        if self._recorder:
+            with self._recorder.session() as recorder_session:
+                session = Session(self._connection_pool,
+                                  recorder_session,
+                                  self._stream_factory)
+        else:
+            session = Session(self._connection_pool,
+                              None,
+                              self._stream_factory)
+
         try:
             yield session
         finally:
@@ -59,9 +67,9 @@ class Client(object):
 
 class Session(object):
     '''HTTP request and response session.'''
-    def __init__(self, connection_pool, recorder, stream_factory):
+    def __init__(self, connection_pool, recorder_session, stream_factory):
         self._connection_pool = connection_pool
-        self._recorder = recorder
+        self._recorder_session = recorder_session
         self._stream_factory = stream_factory
 
         self._connection = None
@@ -95,22 +103,22 @@ class Session(object):
 
         self._connect_data_observer()
 
-        if self._recorder:
-            self._recorder.pre_request(request)
+        if self._recorder_session:
+            self._recorder_session.pre_request(request)
 
         yield From(stream.write_request(request))
 
         if request.body:
             yield From(stream.write_body(request.body))
 
-        if self._recorder:
-            self._recorder.request(request)
+        if self._recorder_session:
+            self._recorder_session.request(request)
 
         self._response = response = yield From(stream.read_response())
         response.request = request
 
-        if self._recorder:
-            self._recorder.pre_response(response)
+        if self._recorder_session:
+            self._recorder_session.pre_response(response)
 
         raise Return(response)
 
@@ -119,20 +127,20 @@ class Session(object):
         '''Read the response content into file.'''
         yield From(self._stream.read_body(self._request, self._response, file))
 
-        if self._recorder:
-            self._recorder.response(self._response)
+        if self._recorder_session:
+            self._recorder_session.response(self._response)
 
     def _connect_data_observer(self):
         '''Connect the stream data observer to the recorder.'''
-        if self._recorder:
+        if self._recorder_session:
             self._stream.data_observer.add(self._data_callback)
 
     def _data_callback(self, data_type, data):
         '''Stream data observer callback.'''
         if data_type in ('request', 'request_body'):
-            self._recorder.request_data(data)
+            self._recorder_session.request_data(data)
         elif data_type in ('response', 'response_body'):
-            self._recorder.response_data(data)
+            self._recorder_session.response_data(data)
 
     def clean_up(self):
         '''Return connection back to the pool.'''
