@@ -64,6 +64,10 @@ class HostPool(object):
         for connection in self.busy:
             connection.close()
 
+    def count(self):
+        '''Return total number of connections.'''
+        return self.ready.qsize() + len(self.busy)
+
 
 class ConnectionPool(object):
     '''Connection pool.
@@ -85,6 +89,10 @@ class ConnectionPool(object):
         self._pool = {}
 
         self._clean_cb()
+
+    @property
+    def pool(self):
+        return self._pool
 
     @trollius.coroutine
     def check_out(self, host, port, ssl=False):
@@ -116,9 +124,7 @@ class ConnectionPool(object):
         host_pool = self._pool[key]
 
         host_pool.busy.remove(connection)
-
-        if not connection.closed():
-            host_pool.ready.put_nowait(connection)
+        host_pool.ready.put_nowait(connection)
 
     @trollius.coroutine
     def session(self, host, port, ssl=False):
@@ -136,16 +142,16 @@ class ConnectionPool(object):
 
     def clean(self):
         '''Clean all closed connections.'''
-        for pool in tuple(self._pool):
-            pool.close()
+        for key, pool in tuple(self._pool.items()):
+            pool.clean()
             if pool.empty():
-                del self._pool[pool]
+                del self._pool[key]
 
     def close(self):
         '''Close all the connections.'''
-        for pool in tuple(self._pool):
+        for key, pool in tuple(self._pool.items()):
             pool.close()
-            del self._pool[pool]
+            del self._pool[key]
 
     def _clean_cb(self):
         '''Clean timer callback.'''

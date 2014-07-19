@@ -3,7 +3,7 @@
 from trollius import From
 import trollius
 
-from wpull.connection import Connection, ConnectionPool
+from wpull.connection import Connection, ConnectionPool, HostPool
 import wpull.testing.async
 from wpull.testing.badapp import BadAppTestCase
 
@@ -25,7 +25,7 @@ class TestConnection(BadAppTestCase):
         self.assertTrue(connection.closed())
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_connection_pool(self):
+    def test_connection_pool_basic(self):
         pool = ConnectionPool(max_host_count=2)
 
         yield From(pool.check_out('localhost', self.get_http_port()))
@@ -40,3 +40,81 @@ class TestConnection(BadAppTestCase):
             pass
         else:
             self.fail()
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_connection_pool_min(self):
+        connection_pool = ConnectionPool()
+
+        for dummy in range(2):
+            session = yield From(
+                connection_pool.session('localhost', self.get_http_port()))
+            with session as connection:
+                if connection.closed():
+                    yield From(connection.connect())
+
+        self.assertEqual(1, len(connection_pool.pool))
+        connection_pool_entry = list(connection_pool.pool.values())[0]
+        self.assertIsInstance(connection_pool_entry, HostPool)
+        self.assertEqual(1, connection_pool_entry.count())
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_connection_pool_max(self):
+        connection_pool = ConnectionPool()
+
+        @trollius.coroutine
+        def con_fut():
+            session = yield From(
+                connection_pool.session('localhost', self.get_http_port()))
+            with session as connection:
+                if connection.closed():
+                    yield From(connection.connect())
+
+        futs = [con_fut() for dummy in range(6)]
+
+        yield From(trollius.wait(futs))
+
+        self.assertEqual(1, len(connection_pool.pool))
+        connection_pool_entry = list(connection_pool.pool.values())[0]
+        self.assertIsInstance(connection_pool_entry, HostPool)
+        self.assertEqual(6, connection_pool_entry.count())
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_connection_pool_over_max(self):
+        connection_pool = ConnectionPool()
+
+        @trollius.coroutine
+        def con_fut():
+            session = yield From(
+                connection_pool.session('localhost', self.get_http_port()))
+            with session as connection:
+                if connection.closed():
+                    yield From(connection.connect())
+
+        futs = [con_fut() for dummy in range(12)]
+
+        yield From(trollius.wait(futs))
+
+        self.assertEqual(1, len(connection_pool.pool))
+        connection_pool_entry = list(connection_pool.pool.values())[0]
+        self.assertIsInstance(connection_pool_entry, HostPool)
+        self.assertEqual(6, connection_pool_entry.count())
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_connection_pool_clean(self):
+        connection_pool = ConnectionPool()
+
+        @trollius.coroutine
+        def con_fut():
+            session = yield From(
+                connection_pool.session('localhost', self.get_http_port()))
+            with session as connection:
+                if connection.closed():
+                    yield From(connection.connect())
+                connection.close()
+
+        futs = [con_fut() for dummy in range(12)]
+
+        yield From(trollius.wait(futs))
+        connection_pool.clean()
+
+        self.assertEqual(0, len(connection_pool.pool))
