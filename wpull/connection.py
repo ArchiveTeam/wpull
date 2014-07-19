@@ -7,6 +7,7 @@ import os
 import socket
 import ssl
 
+from tornado.netutil import SSLCertificateError
 import tornado.netutil
 from trollius import From, Return
 import trollius
@@ -300,6 +301,9 @@ class SSLConnection(Connection):
         super().__init__(*args, **kwargs)
         self._ssl_context = ssl_context
 
+        if self._ssl_context is True:
+            self._ssl_context = tornado.netutil.ssl_options_to_context({})
+
     @property
     def ssl(self):
         return True
@@ -312,3 +316,31 @@ class SSLConnection(Connection):
             kwargs['server_hostname'] = self._hostname
 
             return kwargs
+
+    @trollius.coroutine
+    def connect(self):
+        result = yield From(super().connect())
+        sock = self.writer.transport.get_extra_info('socket')
+        self._verify_cert(sock)
+        raise Return(result)
+
+    def _verify_cert(self, sock):
+        # Based on tornado.iostream.SSLIOStream
+        # Needed for older Python versions
+        verify_mode = self._ssl_context.verify_mode
+
+        assert verify_mode in (ssl.CERT_NONE, ssl.CERT_REQUIRED,
+                               ssl.CERT_OPTIONAL)
+
+        if verify_mode == ssl.CERT_NONE:
+            return
+
+        cert = sock.getpeercert()
+
+        if cert is None and verify_mode == ssl.CERT_REQUIRED:
+            raise SSLVerficationError('No SSL certificate given')
+
+        try:
+            tornado.netutil.ssl_match_hostname(cert, self._server_hostname)
+        except SSLCertificateError as error:
+            raise SSLVerficationError('Invalid SSL certificate') from error

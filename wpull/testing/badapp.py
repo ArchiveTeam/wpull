@@ -10,6 +10,7 @@ import random
 import re
 import socket
 import socketserver
+import ssl
 import struct
 import threading
 import time
@@ -573,13 +574,20 @@ class ConcurrentHTTPServer(socketserver.ThreadingMixIn,
 
 
 class Server(threading.Thread):
-    def __init__(self, port=0):
+    def __init__(self, port=0, enable_ssl=False):
         threading.Thread.__init__(self)
         self.daemon = True
         self._port = port
         self._server = ConcurrentHTTPServer(
             ('localhost', self._port), Handler)
         self._port = self._server.server_address[1]
+
+        if enable_ssl:
+            self._server.socket = ssl.wrap_socket(
+                self._server.socket,
+                certfile=os.path.join(os.path.dirname(__file__), 'test.pem'),
+                server_side=True)
+
         _logger.debug(
             'Server bound to {0}'.format(self._server.server_address))
         self.started_event = threading.Event()
@@ -602,7 +610,7 @@ class Server(threading.Thread):
 class BadAppTestCase(AsyncTestCase):
     def setUp(self):
         super().setUp()
-        self.http_server = Server()
+        self.http_server = Server(enable_ssl=self.get_protocol() == 'https')
         self.http_server.start()
         self.http_server.started_event.wait(timeout=5.0)
         self._port = self.http_server.port
@@ -632,6 +640,11 @@ class BadAppTestCase(AsyncTestCase):
         self.http_server.stop()
         self.http_server.join(timeout=5)
         super().tearDown()
+
+
+class SSLBadAppTestCase(BadAppTestCase):
+    def get_protocol(self):
+        return 'https'
 
 if __name__ == '__main__':
     server = Server(8888)

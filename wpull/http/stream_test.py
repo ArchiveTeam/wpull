@@ -6,17 +6,18 @@ import socket
 import ssl
 import sys
 
+import tornado.netutil
 from trollius import From, Return
 import trollius
 
 from wpull.backport.testing import unittest
 from wpull.connection import Connection, SSLConnection
 from wpull.errors import NetworkError, ConnectionRefused, ProtocolError, \
-    NetworkTimedOut
+    NetworkTimedOut, SSLVerficationError
 from wpull.http.request import Request
 from wpull.http.stream import Stream
 import wpull.testing.async
-from wpull.testing.badapp import BadAppTestCase
+from wpull.testing.badapp import BadAppTestCase, SSLBadAppTestCase
 
 
 DEFAULT_TIMEOUT = 30
@@ -24,7 +25,7 @@ DEFAULT_TIMEOUT = 30
 _logger = logging.getLogger(__name__)
 
 
-class TestStream(BadAppTestCase):
+class StreamMixin(object):
     def new_stream(self, host=None, port=None, ssl=None,
                    connection_kwargs=None, **kwargs):
         if connection_kwargs is None:
@@ -54,6 +55,8 @@ class TestStream(BadAppTestCase):
         yield From(stream.read_body(request, response, content))
         raise Return(response, content.getvalue())
 
+
+class TestStream(BadAppTestCase, StreamMixin):
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_no_such_host(self):
         stream = self.new_stream('wpull-no-exist.invalid', 80)
@@ -526,3 +529,31 @@ class TestStream(BadAppTestCase):
 
         self.assertEqual('gzip', response.fields['Content-Encoding'])
         self.assertEqual(b'a' * 100, content)
+
+
+class TestSSLStream(SSLBadAppTestCase, StreamMixin):
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_ssl_fail(self):
+        ssl_options = dict(
+            cert_reqs=ssl.CERT_REQUIRED,
+            ca_certs=os.path.join(os.path.dirname(__file__),
+                                  '..', 'cert', 'ca-bundle.pem'),
+        )
+        ssl_context = tornado.netutil.ssl_options_to_context(ssl_options)
+        stream = self.new_stream(
+            ssl=True, connection_kwargs=dict(ssl_context=ssl_context))
+        request = Request(self.get_url('/'))
+
+        try:
+            yield From(self.fetch(stream, request))
+        except SSLVerficationError:
+            pass
+        else:
+            self.fail()
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_ssl_no_check(self):
+        stream = self.new_stream(ssl=True)
+        request = Request(self.get_url('/'))
+
+        yield From(self.fetch(stream, request))
