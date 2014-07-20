@@ -8,6 +8,7 @@ from trollius import From, Return
 import trollius
 
 from wpull.backport.logging import BraceMessage as __
+from wpull.body import Body
 from wpull.connection import ConnectionPool
 from wpull.http.stream import Stream
 
@@ -77,6 +78,8 @@ class Session(object):
         self._request = None
         self._response = None
 
+        self._session_complete = True
+
     @trollius.coroutine
     def fetch(self, request):
         '''Fulfill a request.
@@ -100,6 +103,7 @@ class Session(object):
         self._connection = connection = yield From(self._connection_pool
                                                    .check_out(host, port, ssl))
         self._stream = stream = self._stream_factory(connection)
+        request.address = connection.address
 
         self._connect_data_observer()
 
@@ -120,11 +124,19 @@ class Session(object):
         if self._recorder_session:
             self._recorder_session.pre_response(response)
 
+        self._session_complete = False
+
         raise Return(response)
 
     @trollius.coroutine
     def read_content(self, file=None):
         '''Read the response content into file.'''
+        self._session_complete = True
+        self._response.body = file
+
+        if not isinstance(file, Body):
+            self._response.body = Body(file)
+
         yield From(self._stream.read_body(self._request, self._response, file))
 
         if self._recorder_session:
@@ -144,5 +156,7 @@ class Session(object):
 
     def clean_up(self):
         '''Return connection back to the pool.'''
+        assert self._session_complete
+
         if self._connection:
             self._connection_pool.check_in(self._connection)

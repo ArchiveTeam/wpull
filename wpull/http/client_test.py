@@ -71,6 +71,10 @@ class TestClient(BadAppTestCase):
 
             self.assertEqual(b'hello world!', file_obj.getvalue())
 
+            self.assertTrue(request.url_info)
+            self.assertTrue(request.address)
+            self.assertTrue(response.body)
+
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_client_exception_throw(self):
         client = Client()
