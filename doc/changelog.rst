@@ -2,6 +2,9 @@
 What's New
 ==========
 
+* Improved performance on ``--database`` option. SQLite now uses synchronous=NORMAL instead of FULL.
+
+
 0.36.2 (2014-07-16)
 ===================
 
