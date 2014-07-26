@@ -2,6 +2,7 @@
 What's New
 ==========
 
+* Fixes crash when ``--save-cookies`` is used with non-ASCII cookies. Cookies with non-ASCII values are discarded.
 * API:
 
   * Renamed: ``cookie.CookieLimitsPolicy`` to ``DeFactoCookiePolicy``.

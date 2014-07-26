@@ -1,3 +1,4 @@
+# encoding=utf-8
 from http.cookiejar import CookieJar
 import http.cookiejar
 import sys
@@ -103,3 +104,26 @@ class TestCookie(unittest.TestCase):
             'b',
             cookie_jar._cookies['example.com']['/']['k3'].value
         )
+
+    @unittest.skipIf(sys.version_info[0] == 2, 'Quoting policy different')
+    def test_ascii(self):
+        # Differences with FakeResponse:
+        # On Python 3, MIME encoded-word syntax is used
+        # On Python 2, U backslash syntax is used but it's not decoded back.
+        cookie_jar = CookieJar()
+        policy = DeFactoCookiePolicy(cookie_jar=cookie_jar)
+        cookie_jar.set_policy(policy)
+
+        request = urllib.request.Request('http://example.com/')
+        response = FakeResponse(
+            [
+                'Set-Cookie: k=🐭'
+            ],
+            'http://example.com/'
+        )
+
+        cookie_jar.extract_cookies(response, request)
+
+        print(cookie_jar._cookies)
+
+        self.assertFalse(cookie_jar._cookies.get('example.com'))

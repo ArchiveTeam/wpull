@@ -3,7 +3,7 @@ import sys
 
 from wpull.backport.testing import unittest
 from wpull.util import (datetime_str, python_version, filter_pem,
-                        parse_iso8601_str)
+                        parse_iso8601_str, is_ascii)
 
 
 DEFAULT_TIMEOUT = 30
@@ -46,3 +46,7 @@ class TestUtil(unittest.TestCase):
         ])
 
         self.assertEqual(clean, filter_pem(unclean))
+
+    def test_is_acsii(self):
+        self.assertTrue(is_ascii('abc'))
+        self.assertFalse(is_ascii('😤'))
