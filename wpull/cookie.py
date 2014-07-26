@@ -4,7 +4,7 @@ from http.cookiejar import DefaultCookiePolicy, MozillaCookieJar
 import re
 
 
-class CookieLimitsPolicy(DefaultCookiePolicy):
+class DeFactoCookiePolicy(DefaultCookiePolicy):
     '''Cookie policy that limits the length of the cookie.
 
     Args:

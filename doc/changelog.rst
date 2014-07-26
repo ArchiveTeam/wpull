@@ -2,6 +2,11 @@
 What's New
 ==========
 
+* API:
+
+  * Renamed: ``cookie.CookieLimitsPolicy`` to ``DeFactoCookiePolicy``.
+
+
 0.36.3 (2014-07-25)
 ===================
 

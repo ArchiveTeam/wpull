@@ -4,7 +4,7 @@ import sys
 import urllib.request
 
 from wpull.backport.testing import unittest
-from wpull.cookie import CookieLimitsPolicy
+from wpull.cookie import DeFactoCookiePolicy
 
 
 # from Lib/test/test_http_cookiejar.py
@@ -34,7 +34,7 @@ class TestCookie(unittest.TestCase):
 
     def test_length(self):
         cookie_jar = CookieJar()
-        policy = CookieLimitsPolicy(cookie_jar=cookie_jar)
+        policy = DeFactoCookiePolicy(cookie_jar=cookie_jar)
         cookie_jar.set_policy(policy)
 
         request = urllib.request.Request('http://example.com/')
@@ -65,7 +65,7 @@ class TestCookie(unittest.TestCase):
 
     def test_domain_limit(self):
         cookie_jar = CookieJar()
-        policy = CookieLimitsPolicy(cookie_jar=cookie_jar)
+        policy = DeFactoCookiePolicy(cookie_jar=cookie_jar)
         cookie_jar.set_policy(policy)
 
         request = urllib.request.Request('http://example.com/')
