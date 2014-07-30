@@ -52,7 +52,8 @@ class RedirectTracker(object):
             if not location or raw:
                 return location
 
-            return wpull.url.urljoin(self._response.url_info.url, location)
+            return wpull.url.urljoin(self._response.request.url_info.url,
+                                     location)
 
     def is_redirect(self):
         '''Return whether the response contains a redirect code.'''
