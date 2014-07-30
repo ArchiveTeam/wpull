@@ -614,16 +614,6 @@ class BadAppTestCase(AsyncTestCase):
         self.http_server.start()
         self.http_server.started_event.wait(timeout=5.0)
         self._port = self.http_server.port
-#         self.connection = Connection(
-#             ('localhost', self._port),
-#             params=ConnectionParams(connect_timeout=2.0, read_timeout=60.0)
-#         )
-#
-#     @tornado.gen.coroutine
-#     def fetch(self, path):
-#         response = yield self.connection.fetch(Request.new(self.get_url(path)),
-#                                                DebugPrintRecorder())
-#         raise tornado.gen.Return(response)
 
     def get_http_port(self):
         return self._port

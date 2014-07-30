@@ -1,6 +1,8 @@
-import trollius
 import functools
 import unittest
+
+from tornado.platform.asyncio import BaseAsyncIOLoop
+import trollius
 
 
 # http://stackoverflow.com/q/23033939/1524507
@@ -37,3 +39,8 @@ def async_test(func=None, timeout=30):
     else:
         # Used like @gen_test(timeout=10)
         return wrap
+
+
+class TornadoAsyncIOLoop(BaseAsyncIOLoop):
+    def initialize(self, event_loop):
+        super().initialize(event_loop, close_loop=False)
