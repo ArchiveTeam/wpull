@@ -7,6 +7,7 @@ from wpull.errors import ProtocolError
 from wpull.namevalue import NameValueRecord
 import wpull.string
 from wpull.url import URLInfo
+import copy
 
 
 class CommonMixin(object):
@@ -126,6 +127,10 @@ class Request(CommonMixin):
         return '<Request({method}, {url}, {version})>'.format(
             method=self.method, url=self.uri, version=self.version
         )
+
+    def copy(self):
+        '''Return a copy.'''
+        return copy.deepcopy(self)
 
 
 class Response(CommonMixin):
