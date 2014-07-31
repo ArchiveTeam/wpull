@@ -1,7 +1,6 @@
 # encoding=utf-8
 '''Advanced HTTP Client handling.'''
 import gettext
-import io
 import logging
 
 from trollius import From, Return
@@ -11,7 +10,6 @@ from wpull.errors import ProtocolError
 from wpull.http.client import Client
 from wpull.http.redirect import RedirectTracker
 from wpull.http.request import Request
-from wpull.robotstxt import RobotsDenied
 from wpull.url import URLInfo
 
 
@@ -206,143 +204,3 @@ class WebSession(object):
         self._web_client.cookie_jar.extract_cookies(
             response, self._next_request, self._get_cookie_referrer_host()
         )
-
-
-# TODO: rewrite this:
-# class RobotsTxtRichClientSession(RichClientSession):
-#     '''Rich Client Session with robots.txt handling.'''
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self._robots_txt_pool = self._rich_client.robots_txt_pool
-#         self._robots_attempts_remaining = 20
-#         self._robots_redirect_tracker = \
-#             self._rich_client.redirect_tracker_factory()
-#         self._robots_redirect_url = None
-#         self._robots_state = RobotsState.unknown
-#         self._robots_request = None
-# 
-#     @property
-#     def next_request(self):
-#         if self._robots_state != RobotsState.in_progress:
-#             self._check_robots_pool()
-# 
-#         if self._robots_state == RobotsState.ok:
-#             return super().next_request
-#         elif self._robots_state == RobotsState.denied:
-#             return None
-#         else:
-#             return self._next_robots_request()
-# 
-#     def _next_robots_request(self):
-#         if self._robots_redirect_url:
-#             request = self._rich_client.request_factory(
-#                 self._robots_redirect_url, url_encoding='latin-1'
-#             )
-#         else:
-#             url_info = super().next_request.url_info
-#             url = URLInfo.parse('{0}://{1}:{2}/robots.txt'.format(
-#                 url_info.scheme, url_info.hostname, url_info.port)).url
-#             request = self._rich_client.request_factory(
-#                 url, url_encoding=url_info.encoding
-#             )
-# 
-#         self._robots_request = request
-# 
-#         return request
-# 
-#     @tornado.gen.coroutine
-#     def fetch(self, **kwargs):
-#         if self._robots_state != RobotsState.in_progress:
-#             self._check_robots_pool()
-# 
-#         if self._robots_state == RobotsState.denied:
-#             raise RobotsDenied(
-#                 'Unable to fetch {url} due to robots.txt'.format(
-#                     url=self._original_request.url_info.url)
-#             )
-# 
-#         if self._robots_state in (RobotsState.ok, RobotsState.error):
-#             raise tornado.gen.Return((yield super().fetch(**kwargs)))
-# 
-#         request = self._next_robots_request()
-#         response = yield self._rich_client.http_client.fetch(request)
-#         self._robots_redirect_url = None
-# 
-#         self._handle_robots_response(response)
-# 
-#         raise tornado.gen.Return(response)
-# 
-#     def _check_robots_pool(self):
-#         if not super().next_request:
-#             return
-# 
-#         url_info = super().next_request.url_info
-#         user_agent = super().next_request.fields.get('User-agent', '')
-# 
-#         if self._robots_txt_pool.has_parser(url_info):
-#             if self._robots_txt_pool.can_fetch(url_info, user_agent):
-#                 self._robots_state = RobotsState.ok
-#             else:
-#                 self._robots_state = RobotsState.denied
-#         else:
-#             self._robots_state = RobotsState.in_progress
-# 
-#     def _handle_robots_response(self, response):
-#         _logger.debug('Handling robots.txt response.')
-#         self._robots_redirect_tracker.load(response)
-# 
-#         self._response_type = RichClientResponseType.robots
-# 
-#         if self._robots_attempts_remaining == 0:
-#             _logger.warning(_('Too many failed attempts to get robots.txt.'))
-# 
-#             self._robots_txt_pool.load_robots_txt(
-#                 self._robots_request.url_info,
-#                 b'User-Agent: *\nDisallow: /\n'
-#             )
-#             self._check_robots_pool()
-# 
-#         elif self._robots_redirect_tracker.exceeded():
-#             _logger.warning(_('Ignoring robots.txt redirect loop.'))
-# 
-#             self._accept_empty(self._robots_request.url_info)
-#             self._check_robots_pool()
-# 
-#         elif not response or 500 <= response.status_code <= 599:
-#             _logger.debug('Temporary error getting robots.txt.')
-# 
-#             self._robots_attempts_remaining -= 1
-# 
-#         elif self._robots_redirect_tracker.is_redirect():
-#             _logger.debug('Got a redirect for robots.txt.')
-#             self._accept_empty(self._robots_request.url_info)
-# 
-#             self._robots_redirect_url = \
-#                 self._robots_redirect_tracker.next_location()
-#         else:
-#             if response.status_code == 200:
-#                 self._accept_ok(response)
-#             else:
-#                 self._accept_empty(self._robots_request.url_info)
-# 
-#             self._check_robots_pool()
-# 
-#     def _accept_ok(self, response):
-#         url_info = self._robots_request.url_info
-# 
-#         try:
-#             self._robots_txt_pool.load_robots_txt(
-#                 url_info,
-#                 response.body.content_peek())
-#         except ValueError:
-#             _logger.warning(__(
-#                 _('Failed to parse {url} for robots exclusion rules. '
-#                     'Ignoring.'), url_info.url))
-#             self._accept_empty(url_info)
-#         else:
-#             _logger.debug('Got a good robots.txt for {0}.'.format(
-#                 url_info.url))
-# 
-#     def _accept_empty(self, url_info):
-#         _logger.debug(__('Got empty robots.txt for {0}.', url_info.url))
-#         self._robots_txt_pool.load_robots_txt(url_info, '')
