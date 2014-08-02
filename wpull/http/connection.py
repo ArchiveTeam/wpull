@@ -223,7 +223,7 @@ class Connection(object):
                                                        response_factory)
 
             response.url_info = request.url_info
-        except:
+        except Exception:
             _logger.debug('Fetch exception.')
             self.close()
             raise
