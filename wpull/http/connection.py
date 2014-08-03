@@ -639,7 +639,6 @@ class HostConnectionPool(collections.Set):
 #                              error=error))
 #             _logger.debug(traceback.format_exc())
 #             async_result.set(error)
-            _logger.exception(_('Host pool got an error from fetch'))
             async_result.set((type(error), error.args))
         else:
             async_result.set(response)
