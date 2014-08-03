@@ -23,9 +23,11 @@ class GzipDecompressor(tornado.util.GzipDecompressor):
             else:
                 return value
         else:
-            # FIXME: don't assume that we receive 2 bytes or more on!
+            # XXX: gzip magic value is \x1f\x8b but data may come in as
+            # a single byte. The likelyhood of plaintext starting with \x1f is
+            # very low, right?
             self.checked = True
-            if value[:2] == b'\x1f\x8b':
+            if value[:1] == b'\x1f':
                 self.is_ok = True
                 return super().decompress(value)
             else:
