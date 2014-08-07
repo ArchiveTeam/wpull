@@ -223,7 +223,7 @@ class Connection(object):
                                                        response_factory)
 
             response.url_info = request.url_info
-        except:
+        except Exception:
             _logger.debug('Fetch exception.')
             self.close()
             raise
@@ -632,10 +632,14 @@ class HostConnectionPool(collections.Set):
         try:
             response = yield connection.fetch(request, **kwargs)
         except Exception as error:
-            _logger.debug(__('Host pool got an error from fetch: {error}',
-                             error=error))
-            _logger.debug(traceback.format_exc())
-            async_result.set(error)
+            # This mess will be solved when asyncio milestone is used.
+            # Explicitly force traceback objects to not be local and leak
+            # across contexts
+#             _logger.debug(__('Host pool got an error from fetch: {error}',
+#                              error=error))
+#             _logger.debug(traceback.format_exc())
+#             async_result.set(error)
+            async_result.set((type(error), error.args))
         else:
             async_result.set(response)
 

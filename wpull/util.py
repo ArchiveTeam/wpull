@@ -144,3 +144,13 @@ def get_package_filename(filename, package_dir=None):
         package_dir = os.path.dirname(__file__)
 
     return os.path.join(package_dir, filename)
+
+
+def is_ascii(text):
+    '''Returns whether the given string is ASCII.'''
+    try:
+        text.encode('ascii', 'strict')
+    except UnicodeError:
+        return False
+    else:
+        return True

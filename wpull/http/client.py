@@ -60,8 +60,12 @@ class Client(BaseClient):
         async_result = toro.AsyncResult()
         yield self._connection_pool.put(request, kwargs, async_result)
         response = yield async_result.get()
-        if isinstance(response, Exception):
-            raise response from response
+
+#         if isinstance(response, Exception):
+#             raise response from response
+        if isinstance(response, tuple):
+            exc_type, args = response
+            raise exc_type(*args)
         else:
             raise tornado.gen.Return(response)
 

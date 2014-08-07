@@ -3,9 +3,11 @@
 from http.cookiejar import DefaultCookiePolicy, MozillaCookieJar
 import re
 
+import wpull.util
 
-class CookieLimitsPolicy(DefaultCookiePolicy):
-    '''Cookie policy that limits the length of the cookie.
+
+class DeFactoCookiePolicy(DefaultCookiePolicy):
+    '''Cookie policy that limits the content and length of the cookie.
 
     Args:
         cookie_jar: The CookieJar instance.
@@ -21,7 +23,9 @@ class CookieLimitsPolicy(DefaultCookiePolicy):
         if not DefaultCookiePolicy.set_ok(self, cookie, request):
             return False
 
-        if len(repr(cookie)) > 4100:
+        cookie_string = repr(cookie)
+
+        if len(cookie_string) > 4100:
             return False
 
         if self.count_cookies(cookie.domain) >= 50:
@@ -30,6 +34,9 @@ class CookieLimitsPolicy(DefaultCookiePolicy):
                 cookies[cookie.domain][cookie.path][cookie.name]
             except KeyError:
                 return False
+
+        if not wpull.util.is_ascii(cookie_string):
+            return False
 
         return True
 
