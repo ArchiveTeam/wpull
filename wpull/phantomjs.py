@@ -14,11 +14,12 @@ import tornado.httpserver
 import tornado.process
 import tornado.testing
 import tornado.web
-import tornado.websocket
 import toro
 
 from wpull.backport.logging import BraceMessage as __
 import wpull.observer
+import wpull.thirdparty.tornado.websocket
+
 
 _logger = logging.getLogger(__name__)
 
@@ -343,7 +344,7 @@ class RPCApplication(tornado.web.Application):
         super().__init__(handlers)
 
 
-class RPCHandler(tornado.websocket.WebSocketHandler):
+class RPCHandler(wpull.thirdparty.tornado.websocket.WebSocketHandler):
     '''WebSocket handler.'''
     def allow_draft76(self):
         return True
