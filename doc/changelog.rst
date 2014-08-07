@@ -4,6 +4,7 @@ What's New
 
 * Fixes crash when ``--save-cookies`` is used with non-ASCII cookies. Cookies with non-ASCII values are discarded.
 * Fixed HTTP gzip compressed content not decompressed during chunked transfer of single bytes.
+* Tornado 4.0 support.
 * API:
 
   * Renamed: ``cookie.CookieLimitsPolicy`` to ``DeFactoCookiePolicy``.
