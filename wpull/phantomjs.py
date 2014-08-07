@@ -77,7 +77,10 @@ class PhantomJSRemote(object):
         '''Set up the callbacks and loops.'''
         self._http_server.add_socket(http_socket)
         atexit.register(self._atexit_kill_subprocess)
-        self._subproc.set_exit_callback(self._subprocess_exited_cb)
+
+        # XXX: Calling this has horrible side effects!
+#         self._subproc.set_exit_callback(self._subprocess_exited_cb)
+
         tornado.ioloop.IOLoop.current().add_future(
             self._in_queue_loop(),
             lambda future: future.result()
@@ -111,9 +114,9 @@ class PhantomJSRemote(object):
         '''Return the exit code of the PhantomJS process.'''
         return self._subproc.returncode
 
-    def _subprocess_exited_cb(self, exit_status):
-        '''Callback when PhantomJS exits.'''
-        _logger.debug(__('phantomjs exited with status {0}.', exit_status))
+#     def _subprocess_exited_cb(self, exit_status):
+#         '''Callback when PhantomJS exits.'''
+#         _logger.debug(__('phantomjs exited with status {0}.', exit_status))
 
     def _atexit_kill_subprocess(self):
         '''Terminate or kill the subprocess.
