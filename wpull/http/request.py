@@ -24,73 +24,44 @@ class CommonMixin(object):
         '''Parse from HTTP bytes.'''
 
 
-class Request(CommonMixin):
+class RawRequest(CommonMixin):
     '''Represents an HTTP request.
 
     Attributes:
-        uri (str): The URL or "path" in the status line.
         method (str): The HTTP method in the status line. For example, ``GET``,
             ``POST``.
+        resource_path (str): The URL or "path" in the status line.
         version (str): The HTTP version in the status line. For example,
             ``HTTP/1.0``.
-        fields (NameValueRecord): An instance of
-            :class:`.namevalue.NameValueRecord` representing  the fields in
+        fields (:class:`.namevalue.NameValueRecord`): The fields in
             the HTTP header.
-        body (Body): An instance of :class:`.conversation.Body`.
-        encoding (str): The encoding of the status line.
-        url_info (URLInfo): An instance of :class:`.url.URLInfo` for the
-            request.
-        address (tuple): An address tuple suitable for :func:`socket.connect`.
+        body (:class:`.conversation.Body`): An optional payload.
     '''
-    def __init__(self, uri=None, method='GET', version='HTTP/1.1'):
-        self.uri = uri
+    def __init__(self, method=None, resource_path=None, version='HTTP/1.1'):
+        super().__init__()
         self.method = method
+        self.resource_path = resource_path
         self.version = version
         self.fields = NameValueRecord()
         self.body = None
         self.encoding = 'latin-1'
 
-        self.url_info = None
-        self.address = None
-
     def to_dict(self):
         return {
-            'uri': self.uri,
             'method': self.method,
             'version': self.version,
+            'resource_path': self.resource_path,
             'fields': list(self.fields.get_all()),
             'body': self.body.to_dict() if self.body else None,
             'encoding': self.encoding,
-            'url_info': self.url_info.to_dict(),
         }
 
-    def prepare_for_send(self, full_url=False):
-        '''Modify the request to be suitable for HTTP server.
-
-        Args:
-            full_url (bool): Use full URL as the URI. By default, only
-                the path of the URL is given to the server.
-        '''
-        assert self.uri
+    def to_bytes(self):
         assert self.method
+        assert self.resource_path
         assert self.version
 
-        if not self.url_info:
-            self.url_info = URLInfo.parse(self.uri)
-
-        url_info = self.url_info
-
-        if 'Host' not in self.fields:
-            self.fields['Host'] = url_info.hostname_with_port
-
-        if not full_url:
-            if url_info.query:
-                self.uri = '{0}?{1}'.format(url_info.path, url_info.query)
-            else:
-                self.uri = url_info.path
-
-    def to_bytes(self):
-        status = '{0} {1} {2}'.format(self.method, self.uri, self.version).encode(self.encoding)
+        status = '{0} {1} {2}'.format(self.method, self.resource_path, self.version).encode(self.encoding)
         fields = bytes(self.fields)
 
         return b'\r\n'.join([status, fields, b''])
@@ -98,7 +69,7 @@ class Request(CommonMixin):
     def parse(self, data):
         if not self.method:
             line, data = data.split(b'\n', 1)
-            self.method, self.uri, self.version = self.parse_status_line(line)
+            self.method, self.resource_path, self.version = self.parse_status_line(line)
 
         self.fields.parse(data, strict=False)
 
@@ -125,12 +96,89 @@ class Request(CommonMixin):
 
     def __repr__(self):
         return '<Request({method}, {url}, {version})>'.format(
-            method=self.method, url=self.uri, version=self.version
+            method=self.method, url=self.resource_path, version=self.version
         )
 
     def copy(self):
         '''Return a copy.'''
         return copy.deepcopy(self)
+
+
+class Request(RawRequest):
+    '''Represents a higher level of HTTP request.
+
+    Attributes:
+        url (str): The complete URL string.
+        url_info (:class:`.url.URLInfo`): The URLInfo of the `url` attribute.
+        address (tuple): An address tuple suitable for :func:`socket.connect`.
+
+    Setting :attr:`url` or :attr:`url_info` will update the other
+        respectively.
+    '''
+    def __init__(self, url=None, method='GET', version='HTTP/1.1'):
+        super().__init__(method=method, resource_path=url, version=version)
+
+        self._url = None
+        self._url_info = None
+        self.address = None
+
+        self.url = url
+
+    @property
+    def url(self):
+        return self._url
+
+    @url.setter
+    def url(self, url_str):
+        self._url = url_str
+        self._url_info = URLInfo.parse(url_str)
+
+    @property
+    def url_info(self):
+        return self._url_info
+
+    @url_info.setter
+    def url_info(self, url_info):
+        self._url_info = url_info
+        self._url = url_info.url
+
+    def to_dict(self):
+        dict_obj = super().to_dict()
+        dict_obj['url'] = self._url
+        dict_obj['url_info'] = self._url_info.to_dict() if self._url_info else None
+
+        return dict_obj
+
+    def prepare_for_send(self, full_url=False):
+        '''Modify the request to be suitable for HTTP server.
+
+        Args:
+            full_url (bool): Use full URL as the URI. By default, only
+                the path of the URL is given to the server.
+        '''
+        assert self.url
+        assert self.method
+        assert self.version
+
+        url_info = self.url_info
+
+        if 'Host' not in self.fields:
+            self.fields['Host'] = url_info.hostname_with_port
+
+        if not full_url:
+            if url_info.query:
+                self.resource_path = '{0}?{1}'.format(url_info.path, url_info.query)
+            else:
+                self.resource_path = url_info.path
+
+    def parse(self, data):
+        super().parse(data)
+
+        if not self._url:
+            assert self.resource_path
+
+            if self.resource_path[0:1] == '/' and 'Host' in self.fields:
+                self.url = '{0}{1}'.format(self.fields['Host'], self.resource_path)
 
 
 class Response(CommonMixin):
@@ -141,10 +189,10 @@ class Response(CommonMixin):
         status_reason (str): The status reason string in the status line.
         version (str): The HTTP version in the status line. For example,
             ``HTTP/1.1``.
-        fields (NameValueRecord): An instance of
-            :class:`.namevalue.NameValueRecord` containing the HTTP header
-            (and trailer, if present) fields.
-        body (Body): An instance of :class:`.conversation.Body`.
+        fields (:class:`.namevalue.NameValueRecord`): The fields in
+            the HTTP headers (and trailer, if present).
+        body (:class:`.conversation.Body`): The optional payload (without
+            and transfer or content encoding).
         request: The corresponding request.
         encoding (str): The encoding of the status line.
     '''
@@ -205,5 +253,5 @@ class Response(CommonMixin):
     def __repr__(self):
         return '<Response({version}, {code}, {reason})>'.format(
             version=self.version, code=self.status_code,
-            reason=self.status_reason
+            reason=self.reason
         )
