@@ -8,7 +8,7 @@ from wpull.wrapper import convert_http_request, HTTPResponseInfoWrapper
 
 class TestWrapper(unittest.TestCase):
     def test_http_request(self):
-        request = Request.new('http://example.com')
+        request = Request('http://example.com')
         request.fields['hello'] = 'world'
         new_request = convert_http_request(request)
 
