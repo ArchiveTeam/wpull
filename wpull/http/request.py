@@ -196,7 +196,10 @@ class Response(CommonMixin):
         request: The corresponding request.
         encoding (str): The encoding of the status line.
     '''
-    def __init__(self, status_code=None, reason=None, version=None, request=None):
+    def __init__(self, status_code=None, reason=None, version='HTTP/1.1', request=None):
+        if status_code:
+            assert isinstance(status_code, int)
+
         self.status_code = status_code
         self.reason = reason
         self.version = version
@@ -217,6 +220,10 @@ class Response(CommonMixin):
         }
 
     def to_bytes(self):
+        assert self.version
+        assert self.status_code
+        assert self.reason
+
         status = '{0} {1} {2}'.format(self.version, self.status_code, self.reason).encode(self.encoding)
         fields = bytes(self.fields)
 

@@ -511,7 +511,7 @@ class WARCRecorderSession(BaseRecorderSession):
         self._request_record.block_file.write(data)
 
     def request(self, request):
-        payload_offset = len(request.header())
+        payload_offset = len(request.to_bytes())
 
         self._request_record.block_file.seek(0)
         self._recorder.set_length_and_maybe_checksums(
@@ -532,7 +532,7 @@ class WARCRecorderSession(BaseRecorderSession):
         self._response_temp_file.write(data)
 
     def response(self, response):
-        payload_offset = len(response.header())
+        payload_offset = len(response.to_bytes())
 
         self._response_record.block_file.seek(0)
         self._recorder.set_length_and_maybe_checksums(
@@ -883,5 +883,5 @@ class OutputDocumentRecorderSession(BaseRecorderSession):
             self._file.write(data)
 
         if self._response:
-            self._response.body.content_file.seek(-len(data), 1)
-            self._file.write(self._response.body.content_file.read(len(data)))
+            self._response.body.seek(-len(data), 1)
+            self._file.write(self._response.body.read(len(data)))
