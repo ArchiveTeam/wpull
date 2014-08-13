@@ -28,3 +28,9 @@ script:
     else
       nosetests;
     fi
+
+
+branches:
+  except:
+    - topic/asyncio
+
