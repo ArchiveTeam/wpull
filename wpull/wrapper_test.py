@@ -20,7 +20,7 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual('world', new_request.get_header('Hello'))
 
     def test_http_response(self):
-        response = Response('HTTP/1.0', 200, 'OK')
+        response = Response(200, 'OK', version='HTTP/1.0')
         response.fields['hello'] = 'world'
 
         new_response = HTTPResponseInfoWrapper(response)

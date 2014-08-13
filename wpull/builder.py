@@ -13,11 +13,11 @@ import ssl
 import sys
 import tempfile
 
-import tornado.ioloop
 import tornado.testing
 
 from wpull.app import Application
 from wpull.backport.logging import BraceMessage as __
+from wpull.connection import Connection, ConnectionPool
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import CookieLimitsPolicy, RelaxedMozillaCookieJar
 from wpull.database import URLTable
@@ -27,10 +27,9 @@ from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
 from wpull.http.client import Client
-from wpull.http.connection import (Connection, ConnectionPool,
-                                   HostConnectionPool, ConnectionParams)
+from wpull.http.redirect import RedirectTracker
 from wpull.http.request import Request
-from wpull.http.web import RedirectTracker, RichClient
+from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSClient
 from wpull.processor import (WebProcessor, PhantomJSController,
@@ -78,7 +77,7 @@ class Builder(object):
         self._factory = Factory({
             'Application': Application,
             'BatchDocumentConverter': BatchDocumentConverter,
-            'Client': Client,
+            'HTTPClient': Client,
             'CookieJar': CookieJar,
             'CookieJarWrapper': CookieJarWrapper,
             'CookiePolicy': CookieLimitsPolicy,
@@ -89,7 +88,6 @@ class Builder(object):
             'DemuxRecorder': DemuxRecorder,
             'DemuxURLFilter': DemuxURLFilter,
             'Engine': Engine,
-            'HostConnectionPool': HostConnectionPool,
             'HTTPProxyServer': HTTPProxyServer,
             'HTMLScraper': HTMLScraper,
             'JavaScriptScraper': JavaScriptScraper,
@@ -102,7 +100,6 @@ class Builder(object):
             'RedirectTracker': RedirectTracker,
             'Request': Request,
             'Resolver': Resolver,
-            'RichClient': RichClient,
             'RobotsTxtPool': RobotsTxtPool,
             'SitemapScraper': SitemapScraper,
             'Statistics': Statistics,
@@ -110,6 +107,7 @@ class Builder(object):
             'URLTable': URLTable,
             'Waiter': LinearWaiter,
             'WARCRecorder': WARCRecorder,
+            'WebClient': WebClient,
             'WebProcessor': WebProcessor,
             'WebProcessorFetchParams': WebProcessorFetchParams,
             'WebProcessorInstances': WebProcessorInstances,
@@ -640,7 +638,7 @@ class Builder(object):
         file_writer = self._build_file_writer()
         post_data = self._get_post_data()
         converter = self._build_document_converter()
-        rich_http_client = self._build_rich_http_client()
+        web_client = self._build_web_client()
         phantomjs_controller = self._build_phantomjs_controller()
 
         waiter = self._factory.new('Waiter',
@@ -669,7 +667,7 @@ class Builder(object):
         )
 
         processor = self._factory.new('WebProcessor',
-                                      rich_http_client,
+                                      web_client,
                                       args.directory_prefix,
                                       web_processor_fetch_params,
                                       web_processor_instances)
@@ -776,19 +774,51 @@ class Builder(object):
 
         return request_factory
 
-    def _build_http_client(self):
-        '''Create the HTTP client.
-
-        Returns:
-            Client: An instance of :class:`.http.Client`.
-        '''
+    def _build_connection_pool(self):
+        '''Create connection pool.'''
         args = self._args
-        dns_timeout = args.dns_timeout
         connect_timeout = args.connect_timeout
         read_timeout = args.read_timeout
 
         if args.timeout:
-            dns_timeout = connect_timeout = read_timeout = args.timeout
+            connect_timeout = read_timeout = args.timeout
+
+        if self._args.bind_address:
+            bind_address = (self._args.bind_address, 0)
+        else:
+            bind_address = None
+
+        connection_factory = functools.partial(
+            self._factory.new,
+            'Connection',
+            timeout=read_timeout,
+            connect_timeout=connect_timeout,
+            bind_address=bind_address
+        )
+
+        ssl_connection_factory = functools.partial(
+            self._factory.new,
+            'SSLConnection',
+            timeout=read_timeout,
+            connect_timeout=connect_timeout,
+            bind_address=bind_address,
+            ssl_context=self._build_ssl_options()
+        )
+
+        return self._factory.new(
+            'ConnectionPool',
+            resolver=self._build_resolver(),
+            connection_factory=connection_factory,
+            ssl_connection_factory=ssl_connection_factory
+        )
+
+    def _build_resolver(self):
+        '''Build resolver.'''
+        args = self._args
+        dns_timeout = args.dns_timeout
+
+        if args.timeout:
+            dns_timeout = args.timeout
 
         if args.inet_family == 'IPv4':
             family = socket.AF_INET
@@ -799,57 +829,30 @@ class Builder(object):
         else:
             family = Resolver.PREFER_IPv4
 
-        resolver = self._factory.new('Resolver',
-                                     family=family,
-                                     timeout=dns_timeout,
-                                     rotate=args.rotate_dns,
-                                     cache_enabled=args.dns_cache,)
+        return self._factory.new(
+            'Resolver',
+            family=family,
+            timeout=dns_timeout,
+            rotate=args.rotate_dns,
+            cache_enabled=args.dns_cache,
+        )
 
-        if self._args.bind_address:
-            bind_address = (self._args.bind_address, 0)
-        else:
-            bind_address = None
+    def _build_http_client(self):
+        '''Create the HTTP client.
 
-        def connection_factory(*args, **kwargs):
-            keep_alive = (self._args.http_keep_alive
-                          and not self._args.ignore_length)
-            return self._factory.new(
-                'Connection',
-                *args,
-                resolver=resolver,
-                params=ConnectionParams(
-                    connect_timeout=connect_timeout,
-                    read_timeout=read_timeout,
-                    keep_alive=keep_alive,
-                    ssl_options=self._build_ssl_options(),
-                    ignore_length=self._args.ignore_length,
-                    bind_address=bind_address,
-                ),
-                **kwargs)
-
-        def host_connection_pool_factory(*args, **kwargs):
-            return self._factory.new(
-                'HostConnectionPool',
-                *args, connection_factory=connection_factory, **kwargs)
-
-        connection_pool = self._factory.new(
-            'ConnectionPool',
-            host_connection_pool_factory=host_connection_pool_factory)
+        Returns:
+            Client: An instance of :class:`.http.Client`.
+        '''
         recorder = self._build_recorder()
 
-        return self._factory.new('Client',
-                                 connection_pool=connection_pool,
+        return self._factory.new('HTTPClient',
+                                 connection_pool=self._build_connection_pool(),
                                  recorder=recorder)
 
-    def _build_rich_http_client(self):
-        '''Build Rich Client.'''
+    def _build_web_client(self):
+        '''Build Web Client.'''
         cookie_jar = self._build_cookie_jar()
         http_client = self._build_http_client()
-
-        if self._args.robots:
-            robots_txt_pool = self._factory.new('RobotsTxtPool')
-        else:
-            robots_txt_pool = None
 
         redirect_factory = functools.partial(
             self._factory.class_map['RedirectTracker'],
@@ -857,9 +860,8 @@ class Builder(object):
         )
 
         return self._factory.new(
-            'RichClient',
+            'WebClient',
             http_client,
-            robots_txt_pool=robots_txt_pool,
             redirect_tracker_factory=redirect_factory,
             cookie_jar=cookie_jar,
             request_factory=self._build_request_factory(),

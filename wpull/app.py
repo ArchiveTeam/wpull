@@ -5,8 +5,7 @@ import gettext
 import logging
 import signal
 
-import tornado.ioloop
-from trollius import From
+from trollius import From, Return
 import trollius
 
 from wpull.backport.logging import BraceMessage as __
@@ -47,7 +46,6 @@ class Application(HookableMixin):
     def __init__(self, builder):
         super().__init__()
         self._builder = builder
-        self._io_loop = tornado.ioloop.IOLoop.current()
         self._event_loop = trollius.get_event_loop()
         self._exit_code = 0
         self._statistics = None
@@ -69,12 +67,6 @@ class Application(HookableMixin):
 
         status = {'graceful_called': False}
 
-        def graceful_stop_handler(dummy1, dummy2):
-            self._io_loop.add_callback_from_signal(graceful_stop_callback)
-
-        def forceful_stop_handler(dummy1, dummy2):
-            self._io_loop.add_callback_from_signal(forceful_stop_callback)
-
         def graceful_stop_callback():
             if status['graceful_called']:
                 forceful_stop_callback()
@@ -90,8 +82,10 @@ class Application(HookableMixin):
             _logger.info(_('Forcing immediate stop...'))
             self._builder.factory['Engine'].stop(force=True)
 
-        signal.signal(signal.SIGINT, graceful_stop_handler)
-        signal.signal(signal.SIGTERM, forceful_stop_handler)
+        self._event_loop.add_signal_handler(signal.SIGINT,
+                                            graceful_stop_callback)
+        self._event_loop.add_signal_handler(signal.SIGTERM,
+                                            forceful_stop_callback)
 
     def run_sync(self):
         '''Run the application.
@@ -101,7 +95,6 @@ class Application(HookableMixin):
         Returns:
             int: The exit status.
         '''
-#         return self._io_loop.run_sync(self.run)
         return self._event_loop.run_until_complete(self.run())
 
     @trollius.coroutine
@@ -141,7 +134,7 @@ class Application(HookableMixin):
         self.stop_observer.notify()
         self._close()
 
-        raise tornado.gen.Return(self._exit_code)
+        raise Return(self._exit_code)
 
     def _update_exit_code_from_error(self, error):
         '''Set the exit code based on the error type.
