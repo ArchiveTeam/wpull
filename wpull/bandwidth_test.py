@@ -1,12 +1,11 @@
 # encoding=utf-8
 import time
 
-import tornado.testing
-
+from wpull.backport.testing import unittest
 from wpull.bandwidth import BandwidthMeter
 
 
-class TestNetwork(tornado.testing.AsyncTestCase):
+class TestNetwork(unittest.TestCase):
     def test_bandwidth_meter(self):
         meter = BandwidthMeter()
 

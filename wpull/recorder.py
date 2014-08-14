@@ -661,7 +661,7 @@ class BaseProgressRecorderSession(BaseRecorderSession):
         self._flush()
 
     def pre_response(self, response):
-        self._println(response.status_code, response.status_reason)
+        self._println(response.status_code, response.reason)
 
         content_length = response.fields.get('Content-Length')
 

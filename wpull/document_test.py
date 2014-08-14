@@ -151,10 +151,10 @@ class TestDocument(unittest.TestCase):
             HTMLReader.is_url(URLInfo.parse('example.com/image.jpg'))
         )
         self.assertTrue(
-            HTMLReader.is_request(Request.new('example.com/index.html'))
+            HTMLReader.is_request(Request('example.com/index.html'))
         )
         self.assertFalse(
-            HTMLReader.is_request(Request.new('example.com/image.jpg'))
+            HTMLReader.is_request(Request('example.com/image.jpg'))
         )
 
         response = Response('HTTP/1.0', '200', 'OK')
@@ -336,10 +336,10 @@ class TestDocument(unittest.TestCase):
             CSSReader.is_url(URLInfo.parse('example.com/image.jpg'))
         )
         self.assertTrue(
-            CSSReader.is_request(Request.new('example.com/index.css'))
+            CSSReader.is_request(Request('example.com/index.css'))
         )
         self.assertFalse(
-            CSSReader.is_request(Request.new('example.com/image.jpg'))
+            CSSReader.is_request(Request('example.com/image.jpg'))
         )
 
         response = Response('HTTP/1.0', '200', 'OK')
@@ -408,10 +408,10 @@ class TestDocument(unittest.TestCase):
             XMLDetector.is_url(URLInfo.parse('example.com/image.jpg'))
         )
         self.assertTrue(
-            XMLDetector.is_request(Request.new('example.com/index.xml'))
+            XMLDetector.is_request(Request('example.com/index.xml'))
         )
         self.assertFalse(
-            XMLDetector.is_request(Request.new('example.com/image.jpg'))
+            XMLDetector.is_request(Request('example.com/image.jpg'))
         )
 
         response = Response('HTTP/1.0', '200', 'OK')
@@ -459,8 +459,8 @@ class TestDocument(unittest.TestCase):
             SitemapReader.is_url(URLInfo.parse('example.com/image.jpg'))
         )
         self.assertTrue(
-            SitemapReader.is_request(Request.new('example.com/sitemaps34.xml'))
+            SitemapReader.is_request(Request('example.com/sitemaps34.xml'))
         )
         self.assertFalse(
-            SitemapReader.is_request(Request.new('example.com/image.jpg'))
+            SitemapReader.is_request(Request('example.com/image.jpg'))
         )

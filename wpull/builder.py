@@ -32,8 +32,9 @@ from wpull.http.request import Request
 from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSClient
-from wpull.processor import (WebProcessor, PhantomJSController,
-                             WebProcessorFetchParams, WebProcessorInstances)
+from wpull.processor.phantomjs import PhantomJSController
+from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
+    WebProcessorInstances
 from wpull.proxy import HTTPProxyServer
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
                             PrintServerResponseRecorder, ProgressRecorder,
