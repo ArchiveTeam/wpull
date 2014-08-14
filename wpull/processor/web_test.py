@@ -1,5 +1,5 @@
 import unittest
-from wpull.processor import WebProcessorSession
+from wpull.processor.web import WebProcessorSession
 
 
 class TestProcessor(unittest.TestCase):
