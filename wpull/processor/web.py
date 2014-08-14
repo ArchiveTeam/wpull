@@ -8,7 +8,7 @@ import namedlist
 import trollius
 from trollius.coroutines import Return, From
 
-from wpull.backport import tempfile
+import tempfile
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
 from wpull.document import HTMLReader
@@ -89,7 +89,7 @@ class WebProcessor(BaseProcessor, HookableMixin):
     '''HTTP processor.
 
     Args:
-        rich_client (:class:`.http.web.RichClient`): The rich web client.
+        rich_client (:class:`.http.web.WebClient`): The web client.
         root_path (str): The root directory path.
         fetch_params: An instance of :class:`WebProcessorFetchParams`.
         instances: An instance of :class:`WebProcessorInstances`.
@@ -103,10 +103,10 @@ class WebProcessor(BaseProcessor, HookableMixin):
     NO_DOCUMENT_STATUS_CODES = (401, 403, 404, 405, 410,)
     '''Default status codes considered a permanent error.'''
 
-    def __init__(self, rich_client, root_path, fetch_params, instances):
+    def __init__(self, web_client, root_path, fetch_params, instances):
         super().__init__()
 
-        self._rich_client = rich_client
+        self._web_client = web_client
         self._root_path = root_path
         self._fetch_params = fetch_params
         self._instances = instances
@@ -119,9 +119,9 @@ class WebProcessor(BaseProcessor, HookableMixin):
         )
 
     @property
-    def rich_client(self):
-        '''The rich client.'''
-        return self._rich_client
+    def web_client(self):
+        '''The web client.'''
+        return self._web_client
 
     @property
     def root_path(self):
@@ -145,7 +145,7 @@ class WebProcessor(BaseProcessor, HookableMixin):
 
     def close(self):
         '''Close the client and invoke document converter.'''
-        self._rich_client.close()
+        self._web_client.close()
 
         if self._instances.converter:
             self._instances.converter.convert_all()
@@ -168,7 +168,7 @@ class WebProcessorSession(object):
         self._processor = processor
         self._url_item = url_item
         self._file_writer_session = processor.instances.file_writer.session()
-        self._rich_client_session = None
+        self._web_client_session = None
 
         self._document_codes = WebProcessor.DOCUMENT_STATUS_CODES
         self._no_document_codes = WebProcessor.NO_DOCUMENT_STATUS_CODES
@@ -176,12 +176,12 @@ class WebProcessorSession(object):
         self._request = None
 
     def _new_initial_request(self):
-        '''Return a new Request to be passed to the Rich Client.'''
+        '''Return a new Request to be passed to the Web Client.'''
         url_info = self._url_item.url_info
         url_record = self._url_item.url_record
 
-        request = self._processor.rich_client.request_factory(
-            url_info.url, url_encoding=url_info.encoding)
+        request = self._processor.web_client.request_factory(url_info.url)
+        # FIXME: url_encoding=url_info.encoding
 
         self._populate_common_request(request)
 
@@ -205,6 +205,7 @@ class WebProcessorSession(object):
 
     @trollius.coroutine
     def process(self):
+        # FIXME: need to close up the files
         verdict = self._should_fetch_reason(
             self._next_url_info, self._url_item.url_record)[0]
 
@@ -212,11 +213,11 @@ class WebProcessorSession(object):
             self._url_item.skip()
             return
 
-        self._rich_client_session = self._processor.rich_client.session(
+        self._web_client_session = self._processor.web_client.session(
             self._new_initial_request()
         )
 
-        while not self._rich_client_session.done:
+        while not self._web_client_session.done():
             verdict = self._should_fetch_reason(
                 self._next_url_info, self._url_item.url_record)[0]
 
@@ -244,19 +245,19 @@ class WebProcessorSession(object):
 
     @trollius.coroutine
     def _process_one(self):
-        self._request = request = self._rich_client_session.next_request
+        self._request = request = self._web_client_session.next_request()
 
-        _logger.info(_('Fetching ‘{url}’.').format(url=request.url_info.url))
+        _logger.info(_('Fetching ‘{url}’.').format(url=request.url))
 
         try:
             response = yield From(
-                self._rich_client_session.fetch(
-                    response_factory=self._new_response_factory()
-            ))
+                self._web_client_session.fetch(
+                    callback=self._response_callback)
+            )
         except (NetworkError, ProtocolError) as error:
             _logger.error(__(
                 _('Fetching ‘{url}’ encountered an error: {error}'),
-                url=request.url_info.url, error=error
+                url=request.url, error=error
             ))
 
             response = None
@@ -265,22 +266,21 @@ class WebProcessorSession(object):
             _logger.info(__(
                 _('Fetched ‘{url}’: {status_code} {reason}. '
                     'Length: {content_length} [{content_type}].'),
-                url=request.url_info.url,
+                url=request.url,
                 status_code=response.status_code,
-                reason=response.status_reason,
+                reason=response.reason,
                 content_length=response.fields.get('Content-Length'),
                 content_type=response.fields.get('Content-Type'),
             ))
 
-            if self._rich_client_session.response_type \
-               != LoopType.robots:
-                is_done = self._handle_response(response)
+            is_done = self._handle_response(response)
 
-                yield From(self._process_phantomjs(request, response))
-            else:
-                _logger.debug(__('Not handling response {0}.',
-                                 self._rich_client_session.response_type))
-                is_done = False
+            yield From(self._process_phantomjs(request, response))
+
+            # FIXME: need to handle robots.txt
+#                 _logger.debug(__('Not handling response {0}.',
+#                                  self._rich_client_session.response_type))
+#                 is_done = False
 
             self._close_instance_body(response)
 
@@ -293,10 +293,10 @@ class WebProcessorSession(object):
         This returns either the original URLInfo or the next URLinfo
         containing the redirect link.
         '''
-        if not self._rich_client_session:
+        if not self._web_client_session:
             return self._url_item.url_info
 
-        return self._rich_client_session.next_request.url_info
+        return self._web_client_session.next_request().url_info
 
     def _should_fetch_reason(self, url_info, url_record):
         '''Return info about whether the URL should be fetched.
@@ -310,15 +310,18 @@ class WebProcessorSession(object):
         test_info = self._processor.instances.url_filter.test_info(
             url_info, url_record
         )
+        try:
+            is_redirect = self._web_client_session.redirect_tracker\
+                .is_redirect()
+        except AttributeError:
+            is_redirect = False
 
         if test_info['verdict']:
             verdict = True
             reason = 'filters'
 
         elif (self._processor.fetch_params.strong_redirects
-              and self._rich_client_session
-              and self._rich_client_session.redirect_tracker
-              and self._rich_client_session.redirect_tracker.is_redirect
+              and is_redirect
               and len(test_info['failed']) == 1
               and 'SpanHostsFilter' in test_info['map']
               and not test_info['map']['SpanHostsFilter']):
@@ -346,6 +349,8 @@ class WebProcessorSession(object):
         except HookDisconnected:
             pass
 
+        # FIXME: need to put back in robots.txt checking
+
         return verdict, reason
 
     def _add_post_data(self, request):
@@ -362,23 +367,32 @@ class WebProcessorSession(object):
 
         _logger.debug(__('Posting with data {0}.', data))
 
-        with wpull.util.reset_file_offset(request.body.content_file):
-            request.body.content_file.write(data)
+        with wpull.util.reset_file_offset(request.body):
+            request.body.write(data)
 
-    def _new_response_factory(self):
-        '''Return a new Response factory.'''
-        def factory(*args, **kwargs):
-            # TODO: Response should be dependency injected
-            response = Response(*args, **kwargs)
-            root = self._processor.root_path
-            response.body.content_file = Body.new_temp_file(root)
+    def _response_callback(self, dummy, response):
+        if self._file_writer_session:
+            self._file_writer_session.process_response(response)
 
-            if self._file_writer_session:
-                self._file_writer_session.process_response(response)
+        if not response.body:
+            response.body = Body(wpull.body.new_temp_file(self._processor.root_path))
 
-            return response
+        return response.body
 
-        return factory
+#     def _new_response_factory(self):
+#         '''Return a new Response factory.'''
+#         def factory(*args, **kwargs):
+#             # TODO: Response should be dependency injected
+#             response = Response(*args, **kwargs)
+#             root = self._processor.root_path
+#             response.body = wpull.body.new_temp_file(root)
+#
+#             if self._file_writer_session:
+#                 self._file_writer_session.process_response(response)
+#
+#             return response
+#
+#         return factory
 
     def _handle_response(self, response):
         '''Process the response.'''
@@ -394,7 +408,7 @@ class WebProcessorSession(object):
             if isinstance(callback_result, bool):
                 return callback_result
 
-        if self._rich_client_session.redirect_tracker.is_redirect():
+        if self._web_client_session.redirect_tracker.is_redirect():
             return self._handle_redirect(response)
         elif (response.status_code in self._document_codes
               or self._processor.fetch_params.content_on_error):
@@ -562,13 +576,11 @@ class WebProcessorSession(object):
     def _close_instance_body(self, instance):
         '''Close any files on instance.
 
-        This function will attempt to call ``body.content_file.close`` on
+        This function will attempt to call ``body.close`` on
         the instance.
         '''
-        if hasattr(instance, 'body') \
-           and hasattr(instance.body, 'content_file') \
-           and instance.body.content_file:
-            instance.body.content_file.close()
+        if hasattr(instance, 'body'):
+            instance.body.close()
 
     def _get_wait_time(self):
         '''Return the wait time.'''
@@ -620,18 +632,18 @@ class WebProcessorSession(object):
 
         self._scrape_document(request, mock_response)
 
+        self._close_instance_body(mock_response)
+
         _logger.debug('Ended PhantomJS processing.')
 
     def _new_phantomjs_response(self, response, content):
         '''Return a new mock Response with the content.'''
         mock_response = copy.copy(response)
 
-        # tempfile needed for scripts that need a on-disk filename
-        mock_response.body.content_file = tempfile.SpooledTemporaryFile(
-            max_size=999999999)
+        mock_response.body = Body(wpull.body.new_temp_file(self._processor.root_path))
 
-        mock_response.body.content_file.write(content.encode('utf-8'))
-        mock_response.body.content_file.seek(0)
+        mock_response.body.write(content.encode('utf-8'))
+        mock_response.body.seek(0)
 
         mock_response.fields = NameValueRecord()
 
