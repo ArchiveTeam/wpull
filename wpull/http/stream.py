@@ -51,6 +51,7 @@ class Stream(object):
         self._ignore_length = ignore_length
         self._data_observer = Observer()
         self._read_size = 4096
+        self._decompressor = None
 
     @property
     def connection(self):
@@ -126,12 +127,13 @@ class Stream(object):
         raise Return(response)
 
     @trollius.coroutine
-    def read_body(self, request, response, file=None):
+    def read_body(self, request, response, file=None, raw=False):
         '''Read the response's content body.'''
         if is_no_body(request, response):
             return
 
-        self._setup_decompressor(response)
+        if not raw:
+            self._setup_decompressor(response)
 
         read_strategy = self.get_read_strategy(response)
 
@@ -139,7 +141,7 @@ class Stream(object):
             read_strategy = 'close'
 
         if read_strategy == 'chunked':
-            yield From(self._read_body_by_chunk(response, file))
+            yield From(self._read_body_by_chunk(response, file, raw=raw))
         elif read_strategy == 'length':
             yield From(self._read_body_by_length(response, file))
         else:
@@ -237,7 +239,7 @@ class Stream(object):
                 yield From(file.drain())
 
     @trollius.coroutine
-    def _read_body_by_chunk(self, response, file):
+    def _read_body_by_chunk(self, response, file, raw=False):
         '''Read the connection using chunked transfer encoding.'''
         reader = ChunkedTransferReader(self._connection)
 
@@ -247,6 +249,8 @@ class Stream(object):
             chunk_size, data = yield From(reader.read_chunk_header())
 
             self._data_observer.notify('response_body', data)
+            if raw:
+                file.write(data)
 
             if not chunk_size:
                 break
@@ -257,6 +261,9 @@ class Stream(object):
                 self._data_observer.notify('response_body', data)
 
                 if not content:
+                    if raw:
+                        file.write(data)
+
                     break
 
                 content = self._decompress_data(content)
@@ -275,9 +282,14 @@ class Stream(object):
             if file_is_async:
                 yield From(file.drain())
 
-        trailer_data = yield reader.read_trailer()
+        trailer_data = yield From(reader.read_trailer())
 
         self._data_observer.notify('response_body', trailer_data)
+        if raw:
+            file.write(trailer_data)
+
+            if file_is_async:
+                yield From(file.drain())
 
         response.fields.parse(trailer_data)
 

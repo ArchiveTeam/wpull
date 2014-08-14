@@ -129,15 +129,17 @@ class Session(object):
         raise Return(response)
 
     @trollius.coroutine
-    def read_content(self, file=None):
+    def read_content(self, file=None, raw=False):
         '''Read the response content into file.'''
         self._session_complete = True
-        self._response.body = file
 
-        if not isinstance(file, Body):
-            self._response.body = Body(file)
+        if not hasattr(file, 'drain'):
+            self._response.body = file
 
-        yield From(self._stream.read_body(self._request, self._response, file))
+            if not isinstance(file, Body):
+                self._response.body = Body(file)
+
+        yield From(self._stream.read_body(self._request, self._response, file=file, raw=raw))
 
         if self._recorder_session:
             self._recorder_session.response(self._response)

@@ -67,7 +67,7 @@ class RawRequest(CommonMixin):
         return b'\r\n'.join([status, fields, b''])
 
     def parse(self, data):
-        if not self.method:
+        if not self.resource_path:
             line, data = data.split(b'\n', 1)
             self.method, self.resource_path, self.version = self.parse_status_line(line)
 
@@ -122,7 +122,8 @@ class Request(RawRequest):
         self._url_info = None
         self.address = None
 
-        self.url = url
+        if url:
+            self.url = url
 
     @property
     def url(self):
@@ -179,6 +180,8 @@ class Request(RawRequest):
 
             if self.resource_path[0:1] == '/' and 'Host' in self.fields:
                 self.url = '{0}{1}'.format(self.fields['Host'], self.resource_path)
+            else:
+                self.url = self.resource_path
 
 
 class Response(CommonMixin):
