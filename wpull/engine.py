@@ -33,7 +33,7 @@ class BaseEngine(object):
 
         while self._running:
             while len(worker_tasks) < self._concurrent:
-                worker_task = trollius.Task(self._run_worker())
+                worker_task = trollius.async(self._run_worker())
                 worker_tasks.add(worker_task)
 
             item = yield From(self._get_item())

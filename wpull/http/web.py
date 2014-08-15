@@ -79,6 +79,9 @@ class WebClient(object):
         '''
         return WebSession(self, request)
 
+    def close(self):
+        self._http_client.close()
+
 
 class WebSession(object):
     def __init__(self, web_client, request):
@@ -202,5 +205,5 @@ class WebSession(object):
     def _extract_cookies(self, response):
         '''Load the cookie headers from the Response.'''
         self._web_client.cookie_jar.extract_cookies(
-            response, self._next_request, self._get_cookie_referrer_host()
+            response, response.request, self._get_cookie_referrer_host()
         )

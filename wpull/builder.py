@@ -756,7 +756,7 @@ class Builder(object):
             A callable object
         '''
         def request_factory(*args, **kwargs):
-            request = self._factory.class_map['Request'].new(*args, **kwargs)
+            request = self._factory.class_map['Request'](*args, **kwargs)
 
             user_agent = self._args.user_agent or self.default_user_agent
 
@@ -784,17 +784,12 @@ class Builder(object):
         if args.timeout:
             connect_timeout = read_timeout = args.timeout
 
-        if self._args.bind_address:
-            bind_address = (self._args.bind_address, 0)
-        else:
-            bind_address = None
-
         connection_factory = functools.partial(
             self._factory.new,
             'Connection',
             timeout=read_timeout,
             connect_timeout=connect_timeout,
-            bind_address=bind_address
+            bind_host=self._args.bind_address,
         )
 
         ssl_connection_factory = functools.partial(
@@ -802,7 +797,7 @@ class Builder(object):
             'SSLConnection',
             timeout=read_timeout,
             connect_timeout=connect_timeout,
-            bind_address=bind_address,
+            bind_host=self._args.bind_address,
             ssl_context=self._build_ssl_options()
         )
 

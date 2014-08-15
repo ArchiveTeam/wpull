@@ -236,7 +236,7 @@ class WebProcessorSession(object):
             if is_done:
                 break
 
-        if self._request:
+        if self._request and self._request.body:
             self._close_instance_body(self._request)
 
         if not self._url_item.is_processed:
@@ -430,7 +430,7 @@ class WebProcessorSession(object):
         self._scrape_document(self._request, response)
         self._processor.instances.waiter.reset()
         self._processor.instances.statistics.increment(
-            response.body.content_size
+            response.body.size()
         )
         self._url_item.set_status(Status.done, filename=filename)
 

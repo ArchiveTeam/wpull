@@ -9,6 +9,7 @@ import sys
 import tempfile
 
 import tornado.testing
+from trollius import From
 
 import wpull.backport.gzip
 from wpull.backport.testing import unittest
@@ -16,6 +17,7 @@ from wpull.builder import Builder
 from wpull.dns import Resolver
 from wpull.errors import ExitStatus
 from wpull.options import AppArgumentParser
+import wpull.testing.async
 from wpull.testing.badapp import BadAppTestCase
 from wpull.testing.goodapp import GoodAppTestCase
 from wpull.url import URLInfo
@@ -60,7 +62,6 @@ class TestApp(GoodAppTestCase):
         self._original_cookiejar_debug = cookiejar.debug
         cookiejar.debug = True
         super().setUp()
-        tornado.ioloop.IOLoop.current().set_blocking_log_threshold(0.5)
         self.original_loggers = list(logging.getLogger().handlers)
 
     def tearDown(self):
@@ -71,12 +72,12 @@ class TestApp(GoodAppTestCase):
             if handler not in self.original_loggers:
                 logging.getLogger().removeHandler(handler)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_no_args(self):
         arg_parser = AppArgumentParser(real_exit=False)
         self.assertRaises(ValueError, arg_parser.parse_args, [])
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_one_page(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([self.get_url('/')])
@@ -84,10 +85,10 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
             self.assertTrue(os.path.exists('index.html'))
 
-            response = yield self.http_client.fetch(self.get_url('/'))
+            response = yield From(self.http_client.fetch(self.get_url('/')))
 
             with open('index.html', 'rb') as in_file:
                 self.assertEqual(response.body, in_file.read())
@@ -101,7 +102,7 @@ class TestApp(GoodAppTestCase):
         self.assertEqual('hi', cookies[0].name)
         self.assertEqual('hello', cookies[0].value)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_big_payload(self):
         hash_obj = hashlib.sha1(b'foxfoxfox')
         payload_list = []
@@ -121,7 +122,7 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
             self.assertTrue(os.path.exists('big_payload'))
 
             with open('big_payload', 'rb') as in_file:
@@ -130,7 +131,7 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_many_page_with_some_fail(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -144,13 +145,13 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
         self.assertEqual(ExitStatus.server_error, exit_code)
         self.assertGreater(builder.factory['Statistics'].files, 1)
         self.assertGreater(builder.factory['Statistics'].duration, 3)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_args(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -190,7 +191,7 @@ class TestApp(GoodAppTestCase):
         with cd_tempdir():
             builder = Builder(args)
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
             print(list(os.walk('.')))
             self.assertTrue(os.path.exists(
@@ -204,7 +205,7 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertEqual(builder.factory['Statistics'].files, 2)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_input_file_arg(self):
         arg_parser = AppArgumentParser(real_exit=False)
         with tempfile.NamedTemporaryFile() as in_file:
@@ -219,12 +220,12 @@ class TestApp(GoodAppTestCase):
             with cd_tempdir():
                 builder = Builder(args)
                 app = builder.build()
-                exit_code = yield app.run()
+                exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(builder.factory['Statistics'].files, 2)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_input_html_file_arg(self):
         arg_parser = AppArgumentParser(real_exit=False)
         with tempfile.NamedTemporaryFile() as in_file:
@@ -242,12 +243,12 @@ class TestApp(GoodAppTestCase):
             with cd_tempdir():
                 builder = Builder(args)
                 app = builder.build()
-                exit_code = yield app.run()
+                exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(builder.factory['Statistics'].files, 2)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_args_warc_size(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -262,7 +263,7 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
             self.assertTrue(os.path.exists('test-00000.warc.gz'))
             self.assertTrue(os.path.exists('test-meta.warc.gz'))
@@ -271,7 +272,7 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_args_warc(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -288,7 +289,7 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
             self.assertTrue(os.path.exists('test.warc.gz'))
 
@@ -299,7 +300,7 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_args_warc_with_cdx(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -314,11 +315,11 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_args_warc_dedup(self):
         arg_parser = AppArgumentParser()
 
@@ -343,7 +344,7 @@ class TestApp(GoodAppTestCase):
 
             builder = Builder(args)
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
             with open('test.warc', 'rb') as in_file:
                 data = in_file.read()
@@ -355,7 +356,7 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_args_post_data(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -365,10 +366,10 @@ class TestApp(GoodAppTestCase):
         with cd_tempdir():
             builder = Builder(args)
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_sanity(self):
         arg_items = [
             ('--verbose', '--quiet'),
@@ -402,7 +403,7 @@ class TestApp(GoodAppTestCase):
             else:
                 self.assertTrue(False)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_python_script(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
@@ -418,7 +419,7 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
         self.assertEqual(42, exit_code)
 
@@ -428,7 +429,7 @@ class TestApp(GoodAppTestCase):
         stats = builder.factory['Statistics']
         self.assertGreater(1.0, stats.duration)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_python_script_api_2(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
@@ -444,7 +445,7 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
         self.assertEqual(42, exit_code)
 
@@ -454,7 +455,7 @@ class TestApp(GoodAppTestCase):
         stats = builder.factory['Statistics']
         self.assertGreater(1.0, stats.duration)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_python_script_stop(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
@@ -466,13 +467,13 @@ class TestApp(GoodAppTestCase):
         with cd_tempdir():
             builder = Builder(args)
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
         self.assertEqual(1, exit_code)
 
     @unittest.skipIf(sys.version_info[0:2] == (3, 2),
                      'lua module not working in this python version')
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_lua_script(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
@@ -488,7 +489,7 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
         self.assertEqual(42, exit_code)
 
@@ -500,7 +501,7 @@ class TestApp(GoodAppTestCase):
 
     @unittest.skipIf(sys.version_info[0:2] == (3, 2),
                      'lua module not working in this python version')
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_lua_script_api_2(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
@@ -516,7 +517,7 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
         self.assertEqual(42, exit_code)
 
@@ -526,17 +527,17 @@ class TestApp(GoodAppTestCase):
         stats = builder.factory['Statistics']
         self.assertGreater(1.0, stats.duration)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_iri_handling(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([self.get_url('/static/mojibake.html')])
         with cd_tempdir():
             builder = Builder(args)
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_cookie(self):
         arg_parser = AppArgumentParser()
 
@@ -557,7 +558,7 @@ class TestApp(GoodAppTestCase):
 
             with cd_tempdir():
                 app = builder.build()
-                exit_code = yield app.run()
+                exit_code = yield From(app.run())
 
                 self.assertEqual(0, exit_code)
                 self.assertEqual(1, builder.factory['Statistics'].files)
@@ -573,7 +574,7 @@ class TestApp(GoodAppTestCase):
 
                 self.assertIn(b'test\tyes', cookie_data)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_redirect_diff_host(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -586,7 +587,7 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -594,7 +595,7 @@ class TestApp(GoodAppTestCase):
         resolver = builder.factory['Resolver']
         self.assertIn('somewhereelse.invalid', resolver.hosts_touched)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_redirect_diff_host_recursive(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -608,14 +609,14 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
         resolver = builder.factory['Resolver']
         self.assertIn('somewhereelse.invalid', resolver.hosts_touched)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_redirect_span_hosts_allow_linked(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -631,14 +632,14 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
         self.assertEqual(2, builder.factory['Statistics'].files)
 
         resolver = builder.factory['Resolver']
         self.assertIn('linked.test', resolver.hosts_touched)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_redirect_span_hosts_page_requisites(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -654,14 +655,14 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
         self.assertEqual(2, builder.factory['Statistics'].files)
 
         resolver = builder.factory['Resolver']
         self.assertIn('pagereq.test', resolver.hosts_touched)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_strong_redirect(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -676,14 +677,14 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
 
         resolver = builder.factory['Resolver']
         self.assertNotIn('somewhereelse.invalid', resolver.hosts_touched)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_immediate_robots_fail(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -699,12 +700,12 @@ class TestApp(GoodAppTestCase):
                 URLInfo.parse(self.get_url('/')),
                 'User-Agent: *\nDisallow: *\n'
             )
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_immediate_robots_forbidden(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -715,12 +716,12 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_quota(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -733,12 +734,12 @@ class TestApp(GoodAppTestCase):
             builder = Builder(args)
 
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_content_on_error(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -750,7 +751,7 @@ class TestApp(GoodAppTestCase):
             builder = Builder(args)
 
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
             print(list(os.walk('.')))
             self.assertTrue(os.path.exists('always_error'))
@@ -758,7 +759,7 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_phantomjs(self):
         arg_parser = AppArgumentParser()
         script_filename = os.path.join(os.path.dirname(__file__),
@@ -780,7 +781,7 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
             self.assertTrue(os.path.exists('test.warc'))
             self.assertTrue(
@@ -812,7 +813,7 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_phantomjs_scroll(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -827,7 +828,7 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
             with open('DEUUEAUGH.html.snapshot.html', 'rb') as in_file:
                 data = in_file.read()
@@ -835,7 +836,7 @@ class TestApp(GoodAppTestCase):
 
         self.assertEqual(0, exit_code)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_sitemaps(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -849,7 +850,7 @@ class TestApp(GoodAppTestCase):
             builder = Builder(args)
 
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
             print(list(os.walk('.')))
             self.assertTrue(os.path.exists(
@@ -860,7 +861,7 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(4, builder.factory['Statistics'].files)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_local_encoding(self):
         arg_parser = AppArgumentParser()
 
@@ -882,12 +883,12 @@ class TestApp(GoodAppTestCase):
 
             with cd_tempdir():
                 app = builder.build()
-                exit_code = yield app.run()
+                exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(2, builder.factory['Statistics'].files)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_no_iri(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -899,12 +900,12 @@ class TestApp(GoodAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_output_document(self):
         arg_parser = AppArgumentParser()
 
@@ -916,7 +917,7 @@ class TestApp(GoodAppTestCase):
 
             builder = Builder(args)
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
             self.assertTrue(os.path.exists('blah.dat'))
 
@@ -934,7 +935,7 @@ class TestAppHTTPS(tornado.testing.AsyncHTTPSTestCase):
             (r'/', SimpleHandler)
         ])
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_https_only(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -948,7 +949,7 @@ class TestAppHTTPS(tornado.testing.AsyncHTTPSTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -959,7 +960,7 @@ class TestAppBad(BadAppTestCase):
         super().setUp()
         tornado.ioloop.IOLoop.current().set_blocking_log_threshold(0.5)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_bad_cookie(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -969,7 +970,7 @@ class TestAppBad(BadAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
@@ -977,7 +978,7 @@ class TestAppBad(BadAppTestCase):
         _logger.debug('{0}'.format(cookies))
         self.assertEqual(2, len(cookies))
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_long_cookie(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -987,7 +988,7 @@ class TestAppBad(BadAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
@@ -995,7 +996,7 @@ class TestAppBad(BadAppTestCase):
         _logger.debug('{0}'.format(cookies))
         self.assertEqual(0, len(cookies))
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_non_http_redirect(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -1007,12 +1008,12 @@ class TestAppBad(BadAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_bad_redirect(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -1025,12 +1026,12 @@ class TestAppBad(BadAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
         self.assertEqual(7, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_ignore_length(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -1042,12 +1043,12 @@ class TestAppBad(BadAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_bad_utf8(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -1061,7 +1062,7 @@ class TestAppBad(BadAppTestCase):
 
         with cd_tempdir():
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(4, builder.factory['Statistics'].files)
