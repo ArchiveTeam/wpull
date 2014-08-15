@@ -87,7 +87,7 @@ class TestApp(GoodAppTestCase):
             exit_code = yield app.run()
             self.assertTrue(os.path.exists('index.html'))
 
-            response = self.fetch('/')
+            response = yield self.http_client.fetch(self.get_url('/'))
 
             with open('index.html', 'rb') as in_file:
                 self.assertEqual(response.body, in_file.read())

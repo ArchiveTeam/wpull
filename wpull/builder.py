@@ -19,7 +19,7 @@ from wpull.app import Application
 from wpull.backport.logging import BraceMessage as __
 from wpull.connection import Connection, ConnectionPool
 from wpull.converter import BatchDocumentConverter
-from wpull.cookie import CookieLimitsPolicy, RelaxedMozillaCookieJar
+from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
 from wpull.database import URLTable
 from wpull.debug import DebugConsoleHandler
 from wpull.dns import Resolver
@@ -81,7 +81,7 @@ class Builder(object):
             'HTTPClient': Client,
             'CookieJar': CookieJar,
             'CookieJarWrapper': CookieJarWrapper,
-            'CookiePolicy': CookieLimitsPolicy,
+            'CookiePolicy': DeFactoCookiePolicy,
             'Connection': Connection,
             'ConnectionPool': ConnectionPool,
             'CSSScraper': CSSScraper,

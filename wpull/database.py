@@ -365,10 +365,11 @@ class SQLiteURLTable(BaseSQLURLTable):
     def _apply_pragmas_callback(cls, connection, record):
         '''Set SQLite pragmas.
 
-        Write-ahead logging is used.
+        Write-ahead logging, synchronous=NORMAL is used.
         '''
         _logger.debug('Setting pragmas.')
         connection.execute('PRAGMA journal_mode=WAL')
+        connection.execute('PRAGMA synchronous=NORMAL')
 
     @property
     def _session_maker(self):

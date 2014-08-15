@@ -8,6 +8,7 @@ import socket
 from trollius import From, Return
 import trollius
 
+import wpull.async
 from wpull.backport.logging import BraceMessage as __
 from wpull.cache import FIFOCache
 from wpull.errors import DNSNotFound, NetworkError

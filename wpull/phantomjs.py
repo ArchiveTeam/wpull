@@ -18,6 +18,7 @@ from trollius.coroutines import From, Return
 from wpull.backport.logging import BraceMessage as __
 import wpull.observer
 import wpull.util
+import wpull.thirdparty.tornado.websocket
 
 
 _logger = logging.getLogger(__name__)
@@ -79,9 +80,9 @@ class PhantomJSRemote(object):
 
     def _setup(self, http_socket, page_settings, default_headers):
         '''Set up the callbacks and loops.'''
-
         self._http_server.add_socket(http_socket)
         atexit.register(self._atexit_kill_subprocess)
+        # XXX: Calling this has horrible side effects!
         # self._subproc.set_exit_callback(self._subprocess_exited_cb)
         trollius.Task(self._in_queue_loop())
         trollius.Task(self._log_loop())
@@ -339,7 +340,7 @@ class RPCApplication(tornado.web.Application):
         super().__init__(handlers)
 
 
-class RPCHandler(tornado.websocket.WebSocketHandler):
+class RPCHandler(wpull.thirdparty.tornado.websocket.WebSocketHandler):
     '''WebSocket handler.'''
     def allow_draft76(self):
         return True
