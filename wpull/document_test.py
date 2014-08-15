@@ -157,11 +157,11 @@ class TestDocument(unittest.TestCase):
             HTMLReader.is_request(Request('example.com/image.jpg'))
         )
 
-        response = Response('HTTP/1.0', '200', 'OK')
+        response = Response(200, 'OK')
         response.fields['Content-Type'] = 'text/html'
         self.assertTrue(HTMLReader.is_response(response))
 
-        response = Response('HTTP/1.0', '200', 'OK')
+        response = Response(200, 'OK')
         response.fields['Content-Type'] = 'image/png'
         self.assertFalse(HTMLReader.is_response(response))
 
@@ -342,11 +342,11 @@ class TestDocument(unittest.TestCase):
             CSSReader.is_request(Request('example.com/image.jpg'))
         )
 
-        response = Response('HTTP/1.0', '200', 'OK')
+        response = Response(200, 'OK')
         response.fields['Content-Type'] = 'text/css'
         self.assertTrue(CSSReader.is_response(response))
 
-        response = Response('HTTP/1.0', '200', 'OK')
+        response = Response(200, 'OK')
         response.fields['Content-Type'] = 'image/png'
         self.assertFalse(CSSReader.is_response(response))
 
@@ -414,15 +414,15 @@ class TestDocument(unittest.TestCase):
             XMLDetector.is_request(Request('example.com/image.jpg'))
         )
 
-        response = Response('HTTP/1.0', '200', 'OK')
+        response = Response(200, 'OK')
         response.fields['Content-Type'] = 'text/xml'
         self.assertTrue(XMLDetector.is_response(response))
 
-        response = Response('HTTP/1.0', '200', 'OK')
+        response = Response(200, 'OK')
         response.fields['Content-Type'] = 'application/xml'
         self.assertTrue(XMLDetector.is_response(response))
 
-        response = Response('HTTP/1.0', '200', 'OK')
+        response = Response(200, 'OK')
         response.fields['Content-Type'] = 'image/png'
         self.assertFalse(XMLDetector.is_response(response))
 
