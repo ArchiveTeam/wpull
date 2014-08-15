@@ -3,7 +3,6 @@ import tornado.testing
 from trollius import From
 import trollius
 
-import wpull.async
 from wpull.http.client import Client
 from wpull.phantomjs import (PhantomJSRemote, PhantomJSClient,
                              PhantomJSRPCTimedOut)
@@ -11,7 +10,7 @@ from wpull.proxy import HTTPProxyServer
 import wpull.testing.async
 
 
-DEFAULT_TIMEOUT = 30
+DEFAULT_TIMEOUT = 5
 
 
 class TestPhantomJS(wpull.testing.async.AsyncTestCase):
@@ -61,7 +60,7 @@ class TestPhantomJS(wpull.testing.async.AsyncTestCase):
         proxy_server = HTTPProxyServer(http_client)
         proxy_socket, proxy_host = tornado.testing.bind_unused_port()
 
-        proxy_server.add_socket(proxy_socket)
+        yield From(trollius.start_server(proxy_server, sock=proxy_socket))
 
         remote_client = PhantomJSClient('localhost:{0}'.format(proxy_host))
 
@@ -90,28 +89,29 @@ class TestPhantomJS(wpull.testing.async.AsyncTestCase):
         else:
             self.fail()
 
+        @trollius.coroutine
+        def mock_put_rpc_info(rpc_info):
+            '''Discard any RPC to be sent to the subprocesss.'''
+            return trollius.Event()
+
+        remote._put_rpc_info = mock_put_rpc_info
+
         try:
-            future = remote.eval('blah', timeout=0.1)
-            remote._rpc_reply_map.clear()
-            yield From(future)
+            yield From(trollius.async(remote.eval('blah', timeout=0.1)))
         except PhantomJSRPCTimedOut:
             pass
         else:
             self.fail()
 
         try:
-            future = remote.set('blah', 123, timeout=0.1)
-            remote._rpc_reply_map.clear()
-            yield From(future)
+            yield From(remote.set('blah', 123, timeout=0.1))
         except PhantomJSRPCTimedOut:
             pass
         else:
             self.fail()
 
         try:
-            future = remote.call('blah', timeout=0.1)
-            remote._rpc_reply_map.clear()
-            yield From(future)
+            yield From(remote.call('blah', timeout=0.1))
         except PhantomJSRPCTimedOut:
             pass
         else:

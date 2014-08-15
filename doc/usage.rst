@@ -74,9 +74,9 @@ Currently, Wpull will *not do anything else* to manipulate the page such as clic
 
 The filename of the PhantomJS executable must be on the PATH environment variable.
 
-.. warning:: Wpull communicates insecurely with PhantomJS on localhost with TCP sockets.
+.. warning:: Wpull uses an HTTP proxy insecurely with PhantomJS on localhost.
 
-    It is possible for another user, on the same machine as Wpull, to send bogus requests to the HTTP proxy or RPC server. Wpull, however, does *not* expose the HTTP proxy or PRC server outside to the net.
+    It is possible for another user, on the same machine as Wpull, to send bogus requests to the HTTP proxy. Wpull, however, does *not* expose the HTTP proxy outside to the net.
 
 
 Options

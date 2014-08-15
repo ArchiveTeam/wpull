@@ -8,25 +8,15 @@ import subprocess
 import time
 import uuid
 
-import tornado.httpserver
-import tornado.testing
-import tornado.web
-import tornado.websocket
 import trollius
 from trollius.coroutines import From, Return
 
 from wpull.backport.logging import BraceMessage as __
 import wpull.observer
 import wpull.util
-import wpull.thirdparty.tornado.websocket
 
 
 _logger = logging.getLogger(__name__)
-
-try:
-    WebSocketClosedError = tornado.websocket.WebSocketClosedError
-except AttributeError:
-    WebSocketClosedError = AttributeError
 
 
 class PhantomJSRPCError(OSError):
@@ -57,48 +47,86 @@ class PhantomJSRemote(object):
     '''
     def __init__(self, exe_path='phantomjs', extra_args=None,
                  page_settings=None, default_headers=None):
-        script_path = wpull.util.get_package_filename('phantomjs.js')
-        self._in_queue = trollius.Queue()
-        self._out_queue = trollius.Queue()
+        self._exe_path = exe_path
+        self._extra_args = extra_args
+        self._page_settings = page_settings
+        self._default_headers = default_headers
+
         self.page_observer = wpull.observer.Observer()
         self.resource_counter = ResourceCounter()
-        self._rpc_app = RPCApplication(self._out_queue, self._in_queue)
-        self._http_server = tornado.httpserver.HTTPServer(self._rpc_app)
-        http_socket, port = tornado.testing.bind_unused_port()
-
-        args = [exe_path] + (extra_args or []) + [script_path, str(port)]
-        self._subproc = trollius.get_event_loop().run_until_complete(
-            trollius.create_subprocess_exec(
-                *args,
-                stdout=subprocess.PIPE
-            )
-        )
 
         self._rpc_reply_map = {}
 
-        self._setup(http_socket, page_settings, default_headers)
+        self._subproc = None
 
-    def _setup(self, http_socket, page_settings, default_headers):
-        '''Set up the callbacks and loops.'''
-        self._http_server.add_socket(http_socket)
+    @trollius.coroutine
+    def _setup(self):
+        assert not self._subproc
+        yield From(self._create_subprocess())
+        trollius.async(self._read_stdout())
+        trollius.async(self._apply_default_settings())
+
+    @trollius.coroutine
+    def _create_subprocess(self):
+        script_path = wpull.util.get_package_filename('phantomjs.js')
+        args = [self._exe_path] + (self._extra_args or []) + [script_path]
+
+        self._subproc = yield From(
+            trollius.create_subprocess_exec(*args,
+                                            stdin=subprocess.PIPE,
+                                            stdout=subprocess.PIPE)
+        )
+
         atexit.register(self._atexit_kill_subprocess)
-        # XXX: Calling this has horrible side effects!
-        # self._subproc.set_exit_callback(self._subprocess_exited_cb)
-        trollius.Task(self._in_queue_loop())
-        trollius.Task(self._log_loop())
 
-        if page_settings:
-            trollius.get_event_loop().run_until_complete(
-                self.call('setDefaultPageSettings', page_settings)
+    @trollius.coroutine
+    def _read_stdout(self):
+        _logger.debug('Begin reading stdout.')
+
+        while self._subproc.returncode is None:
+            line = yield From(self._subproc.stdout.readline())
+
+            _logger.debug(__('Read from proc: {0}', line))
+
+            if line[-1:] != b'\n':
+                break
+
+            if line.startswith(b'!RPC!'):
+                try:
+                    rpc_info = json.loads(line[5:].decode('utf-8'))
+                except ValueError:
+                    _logger.exception('Error decoding message.')
+                else:
+                    if 'event' in rpc_info:
+                        self._process_resource_counter(rpc_info)
+                        self.page_observer.notify(rpc_info)
+                    else:
+                        self._process_rpc_result(rpc_info)
+            else:
+                _logger.debug(
+                    __('PhantomJS: {0}', line.decode('utf-8').rstrip())
+                )
+
+        _logger.debug(__('End reading stdout. returncode {0}',
+                         self._subproc.returncode))
+
+    @trollius.coroutine
+    def _apply_default_settings(self):
+        if self._page_settings:
+            yield From(
+                self.call('setDefaultPageSettings', self._page_settings)
             )
 
-        if default_headers:
-            trollius.get_event_loop().run_until_complete(
-                self.call('setDefaultPageHeaders', default_headers)
+        if self._default_headers:
+            yield From(
+                self.call('setDefaultPageHeaders', self._default_headers)
             )
 
     def close(self):
         '''Terminate the PhantomJS process.'''
+        if not self._subproc:
+            return
+
         if self._subproc.returncode is not None:
             return
 
@@ -107,17 +135,17 @@ class PhantomJSRemote(object):
     @property
     def return_code(self):
         '''Return the exit code of the PhantomJS process.'''
-        return self._subproc.returncode
-
-#    def _subprocess_exited_cb(self, exit_status):
-#        '''Callback when PhantomJS exits.'''
-#        _logger.debug(__('phantomjs exited with status {0}.', exit_status))
+        if self._subproc:
+            return self._subproc.returncode
 
     def _atexit_kill_subprocess(self):
         '''Terminate or kill the subprocess.
 
         This function is blocking.
         '''
+        if not self._subproc:
+            return
+
         if self._subproc.returncode is not None:
             return
 
@@ -127,36 +155,9 @@ class PhantomJSRemote(object):
             if self._subproc.returncode is not None:
                 return
 
-            time.sleep(0.1)
+            time.sleep(0.05)
 
         self._subproc.kill()
-
-    @trollius.coroutine
-    def _log_loop(self):
-        '''Handle logging from PhantomJS output.'''
-        while self._subproc.returncode is None:
-            message = yield From(self._subproc.stdout.readline())
-
-            _logger.debug(
-                __('PhantomJS: {0}', message.decode('utf-8').rstrip())
-            )
-
-    @trollius.coroutine
-    def _in_queue_loop(self):
-        '''Handle incoming RPC messages populated in the queue.'''
-        while self._subproc.returncode is None:
-            message = yield From(self._in_queue.get())
-
-            try:
-                rpc_info = json.loads(message)
-            except ValueError:
-                _logger.exception('Error decoding message.')
-            else:
-                if 'event' in rpc_info:
-                    self._process_resource_counter(rpc_info)
-                    self.page_observer.notify(rpc_info)
-                else:
-                    self._process_rpc_result(rpc_info)
 
     @trollius.coroutine
     def call(self, name, *args, timeout=120):
@@ -242,7 +243,7 @@ class PhantomJSRemote(object):
         self.page_observer.add(page_event_cb)
 
         try:
-            yield From(trollius.wait_for(event_lock.wait()), timeout=timeout)
+            yield From(trollius.wait_for(event_lock.wait(), timeout=timeout))
         except trollius.TimeoutError as error:
             raise PhantomJSRPCTimedOut('Waiting for event timed out.') \
                 from error
@@ -261,13 +262,16 @@ class PhantomJSRemote(object):
         Raises:
             PhantomJSRPCError
         '''
+        if not self._subproc:
+            yield From(self._setup())
+
         if 'id' not in rpc_info:
             rpc_info['id'] = uuid.uuid4().hex
 
         if self._subproc.returncode is not None:
             raise PhantomJSRPCError('PhantomJS process has quit unexpectedly.')
 
-        event_lock = self._put_rpc_info(rpc_info)
+        event_lock = yield From(self._put_rpc_info(rpc_info))
 
         try:
             yield From(trollius.wait_for(event_lock.wait(), timeout=timeout))
@@ -281,6 +285,7 @@ class PhantomJSRemote(object):
         elif 'result' in rpc_call_info:
             raise Return(rpc_call_info['result'])
 
+    @trollius.coroutine
     def _put_rpc_info(self, rpc_info):
         '''Put the request RPC info into the out queue and reply mapping.
 
@@ -290,9 +295,15 @@ class PhantomJSRemote(object):
         event_lock = trollius.Event()
         self._rpc_reply_map[rpc_info['id']] = event_lock
 
-        self._out_queue.put(json.dumps(rpc_info))
+        _logger.debug(__('Put RPC. {0}', rpc_info))
 
-        return event_lock
+        self._subproc.stdin.write(b'!RPC!')
+        self._subproc.stdin.write(json.dumps(rpc_info).encode('utf-8'))
+        self._subproc.stdin.write(b'\n')
+
+        yield From(self._subproc.stdin.drain())
+
+        raise Return(event_lock)
 
     def _cancel_rpc_info(self, rpc_info):
         '''Cancel the request RPC.'''
@@ -320,59 +331,6 @@ class PhantomJSRemote(object):
         elif event_name == 'resource_error':
             self.resource_counter.pending -= 1
             self.resource_counter.error += 1
-
-
-class RPCApplication(tornado.web.Application):
-    '''RPC HTTP Application for PhantomJS.
-
-    Args:
-        out_queue: An instance of :class:`toro.Queue` that contains the
-            messages to be send to PhantomJS.
-        in_queue: An instance of :class:`toro.Queue` that contains the
-            messages received from PhantomJS.
-    '''
-    def __init__(self, out_queue, in_queue):
-        self.out_queue = out_queue
-        self.in_queue = in_queue
-        handlers = [
-            (r'/', RPCHandler)
-        ]
-        super().__init__(handlers)
-
-
-class RPCHandler(wpull.thirdparty.tornado.websocket.WebSocketHandler):
-    '''WebSocket handler.'''
-    def allow_draft76(self):
-        return True
-
-    def open(self):
-        _logger.debug('Socket opened.')
-        self.set_nodelay(True)
-
-        trollius.Task(self._send_loop())
-
-    @tornado.gen.coroutine
-    def on_message(self, message):
-        _logger.debug(__('Received message {0}.', message))
-
-        yield From(self.application.in_queue.put(message))
-
-    def on_close(self):
-        _logger.debug('Socket closed.')
-
-    @trollius.coroutine
-    def _send_loop(self):
-        '''Handle sending the outgoing messages.'''
-        out_queue = self.application.out_queue
-
-        while self.ws_connection:
-            message = yield From(out_queue.get())
-
-            try:
-                self.write_message(message)
-            except WebSocketClosedError:
-                _logger.exception('Error sending RPC message.')
-                out_queue.put(message)
 
 
 class PhantomJSClient(object):
@@ -429,9 +387,7 @@ class PhantomJSClient(object):
                 default_headers=self._default_headers,
             )
 
-            trollius.get_event_loop().run_until_complete(
-                remote.set('rewriteEnabled', True)
-            )
+            trollius.async(remote.set('rewriteEnabled', True))
         else:
             remote = self._remotes_ready.pop()
 
@@ -445,15 +401,12 @@ class PhantomJSClient(object):
             remote.page_observer.clear()
             remote.resource_counter.reset()
 
-            def put_back_remote(future):
-                future.result()
+            def put_back_remote():
+                trollius.async(remote.call('resetPage'))
                 self._remotes_busy.remove(remote)
                 self._remotes_ready.add(remote)
 
-            tornado.ioloop.IOLoop.current().add_future(
-                remote.call('resetPage'),
-                put_back_remote
-            )
+            trollius.get_event_loop().call_soon(put_back_remote)
 
 
 class ResourceCounter(object):
