@@ -40,8 +40,16 @@ class StreamMixin(object):
 
         stream = Stream(connection, **kwargs)
 
+        non_local_dict = {'count': 0}
+
         def debug_handler(data_type, data):
-            _logger.debug('%s %s', data_type, data[:100])
+            if non_local_dict['count'] < 50:
+                _logger.debug('%s %s', data_type, data[:100])
+
+                non_local_dict['count'] += 1
+
+                if non_local_dict['count'] == 50:
+                    _logger.debug('Discarding for performance.')
 
         stream.data_observer.add(debug_handler)
 
