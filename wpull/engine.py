@@ -19,29 +19,32 @@ _ = gettext.gettext
 
 
 class BaseEngine(object):
+    POISON_PILL = object()
+
     def __init__(self):
         super().__init__()
-        self._concurrent = 1
+        self.__concurrent = 1
         self._running = False
-        self._item_queue = trollius.JoinableQueue()
+        self._item_queue = trollius.JoinableQueue(maxsize=1)
+        self._poison_queue = trollius.Queue()
+
+        self._producer_task = None
+        self._worker_tasks = set()
+
+    @property
+    def _concurrent(self):
+        return self.__concurrent
 
     @trollius.coroutine
     def _run_workers(self):
         self._running = True
-        worker_tasks = set()
+        self._producer_task = trollius.async(self._run_producer())
+        worker_tasks = self._worker_tasks
 
         while self._running:
-            while len(worker_tasks) < self._concurrent:
+            while len(worker_tasks) < self.__concurrent:
                 worker_task = trollius.async(self._run_worker())
                 worker_tasks.add(worker_task)
-
-            item = yield From(self._get_item())
-
-            # FIXME: unfinished_tasks
-            if item is None and self._item_queue._unfinished_tasks == 0:
-                break
-            elif item is not None:
-                self._item_queue.put_nowait(item)
 
             wait_coroutine = trollius.wait(
                 worker_tasks, return_when=trollius.FIRST_COMPLETED)
@@ -51,25 +54,77 @@ class BaseEngine(object):
                 task.result()
                 worker_tasks.remove(task)
 
-        yield From(self._item_queue.join())
+        _logger.debug('Exited workers loop.')
 
         if worker_tasks:
+            _logger.debug('Waiting for workers to stop.')
             yield From(trollius.wait(worker_tasks))
+
+        _logger.debug('Waiting for producer to stop.')
+        yield From(self._producer_task)
+
+    @trollius.coroutine
+    def _run_producer(self):
+        while self._running:
+            item = yield From(self._get_item())
+
+            # FIXME: unfinished_tasks
+            if item is None and self._item_queue._unfinished_tasks == 0:
+                _logger.debug('Producer stopping.')
+                self._stop()
+            elif item is None:
+                _logger.debug('Producer waiting for a workers to finish up.')
+                yield From(self._item_queue.join())
+            else:
+                yield From(self._item_queue.put(item))
 
     @trollius.coroutine
     def _run_worker(self):
-        try:
-            item = yield From(trollius.wait_for(self._item_queue.get(), 0.2))
-        except (trollius.QueueEmpty, trollius.TimeoutError):
-            return
+        _logger.debug('Worker start.')
 
-        _logger.debug(__('Processing item {0}.', item))
-        yield From(self._process_item(item))
+        while True:
+            tasks = (self._item_queue.get(), self._poison_queue.get())
+            done_tasks, pending_tasks = yield From(
+                trollius.wait(tasks, return_when=trollius.FIRST_COMPLETED))
 
-        self._item_queue.task_done()
+            for task in pending_tasks:
+                task.cancel()
+
+            items = tuple(task.result() for task in done_tasks)
+
+            if len(items) == 2 and items[0] == self.POISON_PILL:
+                # Always do poison pill last.
+                items = reversed(items)
+
+            for item in items:
+                if item == self.POISON_PILL:
+                    _logger.debug('Worker quitting.')
+                    return
+
+                else:
+                    _logger.debug(__('Processing item {0}.', item))
+                    yield From(self._process_item(item))
+                    self._item_queue.task_done()
+
+    def _set_concurrent(self, new_num):
+        if self._running:
+            assert new_num >= 0
+            change = new_num - self.__concurrent
+
+            if change < 0:
+                for dummy in range(change):
+                    _logger.debug('Put poison pill.')
+                    self._poison_queue.put_nowait(self.POISON_PILL)
+        else:
+            self.__concurrent = new_num
 
     def _stop(self):
-        self._running = False
+        if self._running:
+            self._running = False
+
+            for dummy in range(len(self._worker_tasks)):
+                _logger.debug('Put poison pill.')
+                self._poison_queue.put_nowait(self.POISON_PILL)
 
     @abc.abstractmethod
     @trollius.coroutine
@@ -114,9 +169,9 @@ class Engine(BaseEngine, HookableMixin):
         self._url_table = url_table
         self._processor = processor
         self._statistics = statistics
-        self._concurrent = concurrent
         self._num_worker_busy = 0
 
+        self._set_concurrent(concurrent)
         self.register_hook('engine_run')
 
     @property
@@ -125,7 +180,7 @@ class Engine(BaseEngine, HookableMixin):
         return self._concurrent
 
     def set_concurrent(self, value):
-        self._concurrent = value
+        self._set_concurrent(value)
 
     @trollius.coroutine
     def __call__(self):
