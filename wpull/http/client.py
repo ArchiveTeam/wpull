@@ -113,7 +113,9 @@ class Session(object):
         yield From(stream.write_request(request))
 
         if request.body:
-            yield From(stream.write_body(request.body))
+            assert 'Content-Length' in request.fields
+            length = int(request.fields['Content-Length'])
+            yield From(stream.write_body(request.body, length=length))
 
         if self._recorder_session:
             self._recorder_session.request(request)

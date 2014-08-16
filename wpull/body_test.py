@@ -14,4 +14,5 @@ class TestBody(unittest.TestCase):
 
         info = body.to_dict()
 
-        self.assertEqual(3, info['size'])
+        self.assertEqual(3, info['length'])
+        self.assertEqual(3, info['content_size'])

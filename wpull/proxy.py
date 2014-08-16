@@ -72,21 +72,12 @@ class HTTPProxyServer(object):
         if self._rewrite and request.url.endswith('/WPULLHTTPS'):
             request.url = request.url[:-11].replace('http://', 'https://', 1)
 
-        if 'Content-Length' in request.fields:
-            bytes_left = int(request.fields['Content-Length'])
-
-            while bytes_left > 0:
-                data = yield From(reader.read(min(bytes_left, 4096)))
-
-                if not data:
-                    return
-
-                writer.write(data)
-                yield From(writer.drain())
-
         _logger.debug('Begin response.')
 
         with self._http_client.session() as session:
+            if 'Content-Length' in request.fields:
+                request.body = reader
+
             response = yield From(session.fetch(request))
 
             writer.write(response.to_bytes())

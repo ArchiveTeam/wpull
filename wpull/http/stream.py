@@ -81,23 +81,39 @@ class Stream(object):
         yield From(self._connection.write(data))
 
     @trollius.coroutine
-    def write_body(self, file):
+    def write_body(self, file, length=None):
         '''Send the request's content body.'''
         _logger.debug('Sending body.')
 
-        file_is_async = trollius.iscoroutine(file.read)
+        file_is_async = (trollius.iscoroutine(file.read) or
+                         trollius.iscoroutinefunction(file.read))
+
+        _logger.debug(__('Body is async: {0}', file_is_async))
+
+        if length is not None:
+            bytes_left = length
 
         while True:
-            if file_is_async:
-                data = yield From(file.read(self._read_size))
+            if length is not None:
+                if bytes_left <= 0:
+                    break
+                read_size = min(bytes_left, self._read_size)
             else:
-                data = file.read(self._read_size)
+                read_size = self._read_size
+
+            if file_is_async:
+                data = yield From(file.read(read_size))
+            else:
+                data = file.read(read_size)
 
             if not data:
                 break
 
             self._data_observer.notify('request_body', data)
             yield From(self._connection.write(data))
+
+            if length is not None:
+                bytes_left -= len(data)
 
     @trollius.coroutine
     def read_response(self, response=None):
