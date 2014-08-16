@@ -240,9 +240,15 @@ class Connection(object):
                 'Certificate error: {error}'.format(error=error)) from error
         except (socket.error, ssl.SSLError) as error:
             if error.errno == errno.ECONNREFUSED:
-                raise ConnectionRefused(error.errno, os.strerror(error.errno))
+                raise ConnectionRefused(error.errno, os.strerror(error.errno)) from error
+
+            # XXX: This quality case brought to you by OpenSSL and Python.
+            elif 'certificate' in str(error).lower():
+                raise SSLVerficationError(
+                    'Certificate error: {error}'.format(error=error)) from error
+
             else:
-                raise NetworkError(error.errno, os.strerror(error.errno))
+                raise NetworkError(error.errno, os.strerror(error.errno)) from error
         else:
             _logger.debug('Connected.')
 
