@@ -29,8 +29,3 @@ script:
       nosetests;
     fi
 
-
-branches:
-  except:
-    - topic/asyncio
-
