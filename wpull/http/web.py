@@ -94,7 +94,8 @@ class WebSession(object):
         self._redirect_tracker = web_client.redirect_tracker_factory()
         self._loop_type = LoopType.normal
 
-        self._add_cookies(self._next_request)
+        if self._web_client.cookie_jar:
+            self._add_cookies(self._next_request)
 
     @property
     def redirect_tracker(self):
@@ -162,7 +163,7 @@ class WebSession(object):
         if self._web_client.cookie_jar:
             self._extract_cookies(response)
 
-            if self._next_request:
+            if self._web_client.cookie_jar and self._next_request:
                 self._add_cookies(self._next_request)
 
     def _process_redirect(self):
