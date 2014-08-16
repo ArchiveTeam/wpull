@@ -6,7 +6,7 @@ var rewriteEnabled = false;
 
 // Begin polling for RPC calls
 function readRpc() {
-	console.log('Read RPC loop.')
+	console.log('Read RPC loop.');
 
 	if (system.stdin.atEnd()) {
 		setTimeout(readRpc, 100);

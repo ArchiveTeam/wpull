@@ -46,25 +46,39 @@ class PhantomJSRemote(object):
     The messages passed are in the JSON format.
     '''
     def __init__(self, exe_path='phantomjs', extra_args=None,
-                 page_settings=None, default_headers=None):
+                 page_settings=None, default_headers=None,
+                 rewrite_enabled=True):
         self._exe_path = exe_path
         self._extra_args = extra_args
         self._page_settings = page_settings
         self._default_headers = default_headers
+        self._rewrite_enabled = rewrite_enabled
 
         self.page_observer = wpull.observer.Observer()
         self.resource_counter = ResourceCounter()
 
+        self._rpc_out_queue = trollius.Queue()
+
         self._rpc_reply_map = {}
 
         self._subproc = None
+        self._is_setup = False
 
     @trollius.coroutine
     def _setup(self):
-        assert not self._subproc
+        _logger.debug('PhantomJS setup.')
+
+        assert not self._is_setup
+        self._is_setup = True
         yield From(self._create_subprocess())
+
         trollius.async(self._read_stdout())
-        trollius.async(self._apply_default_settings())
+        trollius.async(self._write_stdin())
+
+        yield From(self._apply_default_settings())
+
+        if self._rewrite_enabled:
+            yield From(self.set('rewriteEnabled', True))
 
     @trollius.coroutine
     def _create_subprocess(self):
@@ -78,6 +92,8 @@ class PhantomJSRemote(object):
         )
 
         atexit.register(self._atexit_kill_subprocess)
+
+        _logger.debug('PhantomJS subprocess created.')
 
     @trollius.coroutine
     def _read_stdout(self):
@@ -109,6 +125,24 @@ class PhantomJSRemote(object):
 
         _logger.debug(__('End reading stdout. returncode {0}',
                          self._subproc.returncode))
+
+    @trollius.coroutine
+    def _write_stdin(self):
+        _logger.debug('Begin writing stdin.')
+
+        while self._subproc.returncode is None:
+            try:
+                rpc_info = yield From(trollius.wait_for(self._rpc_out_queue.get(), 0.1))
+            except trollius.TimeoutError:
+                pass
+            else:
+                self._subproc.stdin.write(b'!RPC!')
+                self._subproc.stdin.write(json.dumps(rpc_info).encode('utf-8'))
+
+            self._subproc.stdin.write(b'\n')
+            yield From(self._subproc.stdin.drain())
+
+        _logger.debug('End writing stdin.')
 
     @trollius.coroutine
     def _apply_default_settings(self):
@@ -160,7 +194,7 @@ class PhantomJSRemote(object):
         self._subproc.kill()
 
     @trollius.coroutine
-    def call(self, name, *args, timeout=120):
+    def call(self, name, *args, timeout=10):
         '''Call a function.
 
         Args:
@@ -183,7 +217,7 @@ class PhantomJSRemote(object):
         raise Return(result)
 
     @trollius.coroutine
-    def set(self, name, value, timeout=120):
+    def set(self, name, value, timeout=10):
         '''Set a variable value.
 
         Args:
@@ -203,7 +237,7 @@ class PhantomJSRemote(object):
         raise Return(result)
 
     @trollius.coroutine
-    def eval(self, text, timeout=120):
+    def eval(self, text, timeout=10):
         '''Get a variable value or evaluate an expression.
 
         Args:
@@ -262,8 +296,15 @@ class PhantomJSRemote(object):
         Raises:
             PhantomJSRPCError
         '''
-        if not self._subproc:
+        if not self._is_setup:
             yield From(self._setup())
+
+        while not self._subproc:
+            # This case occurs when using trollius.async() which causes
+            # things to be out of order even though it appears that
+            # the subprocess should have been set up already.
+            _logger.debug('Waiting for PhantomJS subprocess.')
+            yield From(trollius.sleep(0.1))
 
         if 'id' not in rpc_info:
             rpc_info['id'] = uuid.uuid4().hex
@@ -297,9 +338,7 @@ class PhantomJSRemote(object):
 
         _logger.debug(__('Put RPC. {0}', rpc_info))
 
-        self._subproc.stdin.write(b'!RPC!')
-        self._subproc.stdin.write(json.dumps(rpc_info).encode('utf-8'))
-        self._subproc.stdin.write(b'\n')
+        yield From(self._rpc_out_queue.put(rpc_info))
 
         yield From(self._subproc.stdin.drain())
 
@@ -386,8 +425,6 @@ class PhantomJSClient(object):
                 page_settings=self._page_settings,
                 default_headers=self._default_headers,
             )
-
-            trollius.async(remote.set('rewriteEnabled', True))
         else:
             remote = self._remotes_ready.pop()
 

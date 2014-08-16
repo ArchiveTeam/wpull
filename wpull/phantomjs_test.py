@@ -10,7 +10,7 @@ from wpull.proxy import HTTPProxyServer
 import wpull.testing.async
 
 
-DEFAULT_TIMEOUT = 5
+DEFAULT_TIMEOUT = 30
 
 
 class TestPhantomJS(wpull.testing.async.AsyncTestCase):
