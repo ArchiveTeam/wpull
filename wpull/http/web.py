@@ -82,6 +82,9 @@ class WebClient(object):
     def close(self):
         self._http_client.close()
 
+        if self._cookie_jar:
+            self._cookie_jar.close()
+
 
 class WebSession(object):
     def __init__(self, web_client, request):
@@ -90,6 +93,8 @@ class WebSession(object):
         self._next_request = request
         self._redirect_tracker = web_client.redirect_tracker_factory()
         self._loop_type = LoopType.normal
+
+        self._add_cookies(self._next_request)
 
     @property
     def redirect_tracker(self):

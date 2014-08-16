@@ -89,7 +89,7 @@ class TestApp(GoodAppTestCase):
             exit_code = yield From(app.run())
             self.assertTrue(os.path.exists('index.html'))
 
-            response = yield From(self.http_client.fetch(self.get_url('/')))
+            response = yield From(tornado_future_adapter(self.http_client.fetch(self.get_url('/'))))
 
             with open('index.html', 'rb') as in_file:
                 self.assertEqual(response.body, in_file.read())
@@ -1063,3 +1063,14 @@ class TestAppBad(BadAppTestCase):
 
         self.assertEqual(0, exit_code)
         self.assertEqual(4, builder.factory['Statistics'].files)
+
+
+@trollius.coroutine
+def tornado_future_adapter(future):
+    event = trollius.Event()
+
+    future.add_done_callback(lambda dummy: event.set())
+
+    yield From(event.wait())
+
+    raise Return(future.result())

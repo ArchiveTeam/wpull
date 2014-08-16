@@ -883,5 +883,5 @@ class OutputDocumentRecorderSession(BaseRecorderSession):
             self._file.write(data)
 
         if self._response:
-            self._response.body.seek(-len(data), 1)
-            self._file.write(self._response.body.read(len(data)))
+            with wpull.util.reset_file_offset(self._response.body):
+                self._file.write(self._response.body.read(len(data)))
