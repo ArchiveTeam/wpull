@@ -34,10 +34,31 @@ function readRpc() {
 		replyRpcInfo['error_message'] = error.message;
 	}
 
-	system.stdout.write('!RPC!');
-	system.stdout.writeLine(JSON.stringify(replyRpcInfo));
-
+	sendMessage(replyRpcInfo);
 	setTimeout(readRpc, 1);
+}
+
+// Serialize and send
+function sendMessage(rpcInfo) {
+	var message = JSON.stringify(rpcInfo);
+	var chunks = message.match(/.{1,4096}/g);
+
+	if (chunks.length === 1) {
+		system.stdout.write('!RPC!');
+		system.stdout.writeLine(message);
+	} else {
+		for (var i = 0; i < chunks.length; i++) {
+			if (i === 0) {
+				system.stdout.write('!RPC[');
+			} else {
+				system.stdout.write('!RPC+');
+			}
+			system.stdout.writeLine(chunks[i]);
+		}
+		system.stdout.writeLine('!RPC]');
+	}
+
+	system.stdout.flush();
 }
 
 // Evaluate the RPC.
@@ -211,8 +232,7 @@ function sendRpcEvent(eventName, info) {
 		rpcInfo[name] = info[name];
 	}
 
-	system.stdout.write('!RPC!');
-	system.stdout.writeLine(JSON.stringify(rpcInfo));
+	sendMessage(rpcInfo);
 }
 
 // Set the default page settings

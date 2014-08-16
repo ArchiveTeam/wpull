@@ -98,26 +98,23 @@ class PhantomJSRemote(object):
     @trollius.coroutine
     def _read_stdout(self):
         _logger.debug('Begin reading stdout.')
+        multiline_list = None
 
         while self._subproc.returncode is None:
             line = yield From(self._subproc.stdout.readline())
-
-            _logger.debug(__('Read from proc: {0}', line))
 
             if line[-1:] != b'\n':
                 break
 
             if line.startswith(b'!RPC!'):
-                try:
-                    rpc_info = json.loads(line[5:].decode('utf-8'))
-                except ValueError:
-                    _logger.exception('Error decoding message.')
-                else:
-                    if 'event' in rpc_info:
-                        self._process_resource_counter(rpc_info)
-                        self.page_observer.notify(rpc_info)
-                    else:
-                        self._process_rpc_result(rpc_info)
+                self._parse_message(line[5:])
+            elif line.startswith(b'!RPC['):
+                multiline_list = [line[5:].rstrip()]
+            elif line.startswith(b'!RPC+'):
+                multiline_list.append(line[5:].rstrip())
+            elif line.startswith(b'!RPC]'):
+                self._parse_message(b''.join(multiline_list))
+                multiline_list = None
             else:
                 _logger.debug(
                     __('PhantomJS: {0}', line.decode('utf-8').rstrip())
@@ -125,6 +122,18 @@ class PhantomJSRemote(object):
 
         _logger.debug(__('End reading stdout. returncode {0}',
                          self._subproc.returncode))
+
+    def _parse_message(self, message):
+        try:
+            rpc_info = json.loads(message.decode('utf-8'))
+        except ValueError:
+            _logger.exception('Error decoding message.')
+        else:
+            if 'event' in rpc_info:
+                self._process_resource_counter(rpc_info)
+                self.page_observer.notify(rpc_info)
+            else:
+                self._process_rpc_result(rpc_info)
 
     @trollius.coroutine
     def _write_stdin(self):
@@ -339,8 +348,6 @@ class PhantomJSRemote(object):
         _logger.debug(__('Put RPC. {0}', rpc_info))
 
         yield From(self._rpc_out_queue.put(rpc_info))
-
-        yield From(self._subproc.stdin.drain())
 
         raise Return(event_lock)
 

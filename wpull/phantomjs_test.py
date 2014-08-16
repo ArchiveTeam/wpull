@@ -116,3 +116,12 @@ class TestPhantomJS(wpull.testing.async.AsyncTestCase):
             pass
         else:
             self.fail()
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_multiline(self):
+        remote = PhantomJSRemote()
+
+        code = "new Array(9001).join('a');"
+        result = yield From(trollius.async(remote.eval(code)))
+
+        self.assertEqual('a' * 9000, result)
