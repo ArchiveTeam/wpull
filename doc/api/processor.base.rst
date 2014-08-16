@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`iostream` Module
-======================
+:mod:`processor.base` Module
+============================
 
-.. automodule:: wpull.iostream
+.. automodule:: wpull.processor.base
     :members:
     :show-inheritance:
     :private-members:

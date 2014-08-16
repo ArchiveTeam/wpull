@@ -1,4 +1,5 @@
 # encoding=utf8
+'''Web processing.'''
 import copy
 import gettext
 import io
@@ -247,6 +248,7 @@ class WebProcessorSession(object):
 
     @trollius.coroutine
     def _process_one(self):
+        '''Process one of the loop iteration.'''
         self._request = request = self._web_client_session.next_request()
 
         _logger.info(_('Fetching ‘{url}’.').format(url=request.url))
@@ -278,11 +280,6 @@ class WebProcessorSession(object):
             is_done = self._handle_response(response)
 
             yield From(self._process_phantomjs(request, response))
-
-            # FIXME: need to handle robots.txt
-#                 _logger.debug(__('Not handling response {0}.',
-#                                  self._rich_client_session.response_type))
-#                 is_done = False
 
             self._close_instance_body(response)
 
@@ -317,6 +314,11 @@ class WebProcessorSession(object):
 
     @trollius.coroutine
     def _should_fetch_reason_with_robots(self, url_info, url_record):
+        '''Return info whether the URL should be fetched including checking
+        robots.txt.
+
+        Coroutine.
+        '''
         verdict, reason, test_info = self._should_fetch_filters(url_info, url_record)
 
         if verdict and self._processor.instances.robots_txt_checker:
@@ -333,6 +335,11 @@ class WebProcessorSession(object):
         raise Return((verdict, reason))
 
     def _should_fetch_filters(self, url_info, url_record):
+        '''Return info about whether a URL should be fetched using filters.
+
+        Returns:
+            tuple: verdict, reason string, test info
+        '''
         test_info = self._processor.instances.url_filter.test_info(
             url_info, url_record
         )
@@ -370,6 +377,7 @@ class WebProcessorSession(object):
         return verdict, reason, test_info
 
     def _should_fetch_hook(self, url_info, url_record, verdict, reason, test_info):
+        '''Should fetch scripting hook.'''
         try:
             verdict = self._processor.call_hook(
                 'should_fetch', url_info, url_record, verdict, reason,
@@ -382,6 +390,7 @@ class WebProcessorSession(object):
         return verdict, reason
 
     def _add_post_data(self, request):
+        '''Add data to the payload.'''
         if self._url_item.url_record.post_data:
             data = wpull.string.to_bytes(self._url_item.url_record.post_data)
         else:
@@ -402,6 +411,7 @@ class WebProcessorSession(object):
             request.body.write(data)
 
     def _response_callback(self, dummy, response):
+        '''Response callback.'''
         if self._file_writer_session:
             self._file_writer_session.process_response(response)
 
@@ -608,7 +618,10 @@ class WebProcessorSession(object):
 
     @trollius.coroutine
     def _process_phantomjs(self, request, response):
-        '''Process PhantomJS.'''
+        '''Process PhantomJS.
+
+        Coroutine.
+        '''
         if not self._processor.instances.phantomjs_controller:
             return
 
@@ -726,7 +739,10 @@ class WebProcessorSession(object):
 
     @trollius.coroutine
     def _take_phantomjs_snapshot(self, controller, remote):
-        '''Take HTML and PDF snapshot.'''
+        '''Take HTML and PDF snapshot.
+
+        Coroutine.
+        '''
         html_path = self._file_writer_session.extra_resource_path(
             '.snapshot.html'
         )

@@ -16,6 +16,10 @@ _logger = logging.getLogger(__name__)
 class HTTPProxyServer(object):
     '''HTTP proxy server for use with man-in-the-middle recording.
 
+    This function is meant to be used as a callback::
+
+        trollius.start_server(HTTPProxyServer(HTTPClient))
+
     Args:
         http_client (:class:`.http.client.Client`): The HTTP client.
         rewrite (bool): If True, strip off URLs ending with
@@ -27,6 +31,9 @@ class HTTPProxyServer(object):
 
     @trollius.coroutine
     def __call__(self, reader, writer):
+        '''Handle a request
+
+        Coroutine.'''
         while True:
             try:
                 result = yield From(self._process_request(reader, writer))
@@ -41,6 +48,7 @@ class HTTPProxyServer(object):
 
     @trollius.coroutine
     def _process_request(self, reader, writer):
+        '''Process a request.'''
         _logger.debug('Begin request.')
 
         request = Request()

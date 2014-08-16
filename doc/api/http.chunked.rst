@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`actor` Module
-===================
+:mod:`http.chunked` Module
+==========================
 
-.. automodule:: wpull.actor
+.. automodule:: wpull.http.chunked
     :members:
     :show-inheritance:
     :private-members:

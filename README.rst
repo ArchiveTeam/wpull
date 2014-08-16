@@ -30,7 +30,7 @@ Requires:
 
 * `Python 2.6, 2.7, 3.2, 3.3 (or newer) <http://python.org/download/>`_
 * `Tornado <https://pypi.python.org/pypi/tornado>`_
-* `Toro <https://pypi.python.org/pypi/toro>`_
+* `Trollius <https://pypi.python.org/pypi/trollius>`_
 * `lxml <https://pypi.python.org/pypi/lxml>`_
 * `chardet <https://pypi.python.org/pypi/chardet>`_
 * `BeautifulSoup4 <https://pypi.python.org/pypi/beautifulsoup4>`_

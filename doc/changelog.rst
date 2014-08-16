@@ -2,6 +2,15 @@
 What's New
 ==========
 
+0.1000
+======
+
+* API:
+
+  * Switched to Trollius instead of Tornado.
+  * Most the of internals related to the HTTP protocol were rewritten and as a result, major components are not backwards compatible. If you happen to be using Wpull's API, please pin your requirements to ``<0.1000`` if you do not want to make a migration. Please file an issue if this is a concern.
+
+
 0.36.4 (2014-08-07)
 ===================
 

@@ -1,4 +1,5 @@
 # encoding=utf-8
+'''PhantomJS controllers.'''
 import gettext
 import io
 import json
@@ -36,7 +37,10 @@ class PhantomJSController(object):
 
     @trollius.coroutine
     def apply_page_size(self, remote):
-        '''Apply page size.'''
+        '''Apply page size.
+
+        Coroutine.
+        '''
         yield From(remote.set(
             'page.viewportSize',
             {'width': self._viewport_size[0], 'height': self._viewport_size[1]}
@@ -52,7 +56,10 @@ class PhantomJSController(object):
 
     @trollius.coroutine
     def control(self, remote):
-        '''Scroll the page.'''
+        '''Scroll the page.
+
+        Coroutine.
+        '''
         num_scrolls = self._num_scrolls
 
         if self._smart_scroll:
@@ -113,6 +120,10 @@ class PhantomJSController(object):
 
     @trollius.coroutine
     def scroll_to(self, remote, x, y):
+        '''Scroll the page.
+
+        Coroutine.
+        '''
         page_down_key = yield From(remote.eval('page.event.key.PageDown'))
 
         self._log_action('set_scroll_left', x)
@@ -133,7 +144,10 @@ class PhantomJSController(object):
 
     @trollius.coroutine
     def snapshot(self, remote, html_path=None, render_path=None):
-        '''Take HTML and PDF snapshot.'''
+        '''Take HTML and PDF snapshot.
+
+        Coroutine.
+        '''
         content = yield From(remote.eval('page.content'))
         url = yield From(remote.eval('page.url'))
 

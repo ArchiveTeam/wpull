@@ -20,10 +20,6 @@ class ChunkedTransferReader(object):
 
     Args:
         connection (:class:`.connection.Connection`): Established connection.
-
-    Attributes:
-        content_observer (:class:`.observer.Observer`): Called when content
-            data is decoded from the stream.
     '''
     def __init__(self, connection, read_size=4096):
         self._connection = connection
@@ -38,6 +34,8 @@ class ChunkedTransferReader(object):
         Returns:
             tuple: 2-item tuple with the size of the content in the chunk and
             the raw header byte string.
+
+        Coroutine.
         '''
         _logger.debug('Reading chunk.')
         chunk_size_hex = yield From(self._connection.readline())
@@ -63,6 +61,8 @@ class ChunkedTransferReader(object):
         Returns:
             tuple: 2-item tuple with the content data and raw data.
             First item is empty bytes string when chunk is fully read.
+
+        Coroutine.
         '''
         chunk_size = self._chunk_size
         bytes_left = self._bytes_left
@@ -99,6 +99,8 @@ class ChunkedTransferReader(object):
 
         Returns:
             bytes: The trailer data.
+
+        Coroutine.
         '''
         _logger.debug('Reading chunked trailer.')
 

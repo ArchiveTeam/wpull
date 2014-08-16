@@ -28,6 +28,16 @@ class LoopType(object):
 
 
 class WebClient(object):
+    '''A web client handles redirects and cookies.
+
+    Args:
+        http_client (:class:`.http.client.Client`). An HTTP client.
+        requets_factory: A function that returns a new
+            :class:`.http.request.Request`
+        redirect_tracker_factory: A function that returns a new
+            :class:`.http.redirect.RedirectTracker`
+        cookie_jar (:class:`.wrapper.CookieJarWrapper`): A cookie jar.
+    '''
     def __init__(self, http_client=None, request_factory=Request,
                  redirect_tracker_factory=RedirectTracker,
                  cookie_jar=None):
@@ -62,7 +72,8 @@ class WebClient(object):
         '''Return a fetch session.
 
         Args:
-            request (Request): An instance of :class:`Request`.
+            request (:class:`.http.request.Request`): The request to be
+                fetched.
 
         Example usage::
 
@@ -87,6 +98,7 @@ class WebClient(object):
 
 
 class WebSession(object):
+    '''A web session.'''
     def __init__(self, web_client, request):
         self._web_client = web_client
         self._original_request = request
@@ -122,7 +134,7 @@ class WebSession(object):
 
     @trollius.coroutine
     def fetch(self, file=None, callback=None):
-        '''Fetch the request.
+        '''Fetch one of the requests.
 
         Args:
             file: An optional file object for the document contents.
@@ -131,7 +143,11 @@ class WebSession(object):
                 The callback returns a file object or None.
 
         Returns:
-            Response: An instance of :class:`Response`.
+            Response: An instance of :class:`.http.request.Response`.
+
+        See :meth:`WebClient.session` for proper usage of this function.
+
+        Coroutine.
         '''
         with self._web_client.http_client.session() as session:
             request = self.next_request()

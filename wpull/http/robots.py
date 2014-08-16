@@ -58,7 +58,10 @@ class RobotsTxtChecker(object):
 
     @trollius.coroutine
     def fetch_robots_txt(self, request, file=None):
-        '''Fetch the robots.txt file for the request.'''
+        '''Fetch the robots.txt file for the request.
+
+        Coroutine.
+        '''
         url_info = request.url_info
         url = URLInfo.parse('{0}://{1}:{2}/robots.txt'.format(
             url_info.scheme, url_info.hostname, url_info.port)).url
@@ -97,6 +100,8 @@ class RobotsTxtChecker(object):
         Args:
             request (:class:`.http.request.Request`): Request.
             file: A file object to where the robots.txt contents are written.
+
+        Coroutine.
         '''
         try:
             raise Return(self.can_fetch_pool(request))

@@ -67,6 +67,8 @@ class Stream(object):
 
         This class will automatically connect the connection if the
         connection is closed.
+
+        Coroutine.
         '''
         _logger.debug('Sending headers.')
         yield From(self._reconnect())
@@ -82,7 +84,10 @@ class Stream(object):
 
     @trollius.coroutine
     def write_body(self, file, length=None):
-        '''Send the request's content body.'''
+        '''Send the request's content body.
+
+        Coroutine.
+        '''
         _logger.debug('Sending body.')
 
         file_is_async = (trollius.iscoroutine(file.read) or
@@ -117,7 +122,10 @@ class Stream(object):
 
     @trollius.coroutine
     def read_response(self, response=None):
-        '''Read the response's HTTP status line and header fields.'''
+        '''Read the response's HTTP status line and header fields.
+
+        Coroutine.
+        '''
         _logger.debug('Reading header.')
 
         if response is None:
@@ -144,7 +152,10 @@ class Stream(object):
 
     @trollius.coroutine
     def read_body(self, request, response, file=None, raw=False):
-        '''Read the response's content body.'''
+        '''Read the response's content body.
+
+        Coroutine.
+        '''
         if is_no_body(request, response):
             return
 
@@ -172,7 +183,10 @@ class Stream(object):
 
     @trollius.coroutine
     def _read_body_until_close(self, response, file):
-        '''Read the response until the connection closes.'''
+        '''Read the response until the connection closes.
+
+        Coroutine.
+        '''
         _logger.debug('Reading body until close.')
 
         file_is_async = hasattr(file, 'drain')
@@ -203,7 +217,10 @@ class Stream(object):
 
     @trollius.coroutine
     def _read_body_by_length(self, response, file):
-        '''Read the connection specified by a length.'''
+        '''Read the connection specified by a length.
+
+        Coroutine.
+        '''
         _logger.debug('Reading body by length.')
 
         file_is_async = hasattr(file, 'drain')
@@ -256,7 +273,10 @@ class Stream(object):
 
     @trollius.coroutine
     def _read_body_by_chunk(self, response, file, raw=False):
-        '''Read the connection using chunked transfer encoding.'''
+        '''Read the connection using chunked transfer encoding.
+
+        Coroutine.
+        '''
         reader = ChunkedTransferReader(self._connection)
 
         file_is_async = hasattr(file, 'drain')
@@ -373,7 +393,10 @@ class Stream(object):
 
     @trollius.coroutine
     def _reconnect(self):
-        '''Connect the connection if needed.'''
+        '''Connect the connection if needed.
+
+        Coroutine.
+        '''
         if self._connection.closed():
             yield From(self._connection.connect())
 

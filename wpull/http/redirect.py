@@ -28,7 +28,8 @@ class RedirectTracker(object):
         '''Load the response and increment the counter.
 
         Args:
-            response (Response): An instance of :class:`Response`.
+            response (:class:`.http.request.Response`): The response from
+                a previous request.
         '''
         self._response = response
 

@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`http.connection` Module
-=============================
+:mod:`http.stream` Module
+=========================
 
-.. automodule:: wpull.http.connection
+.. automodule:: wpull.http.stream
     :members:
     :show-inheritance:
     :private-members:

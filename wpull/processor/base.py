@@ -22,6 +22,8 @@ class BaseProcessor(object, metaclass=abc.ABCMeta):
 
         It must call one of :meth:`.engine.URLItem.set_status` or
         :meth:`.engine.URLItem.skip`.
+
+        Coroutine.
         '''
         pass
 

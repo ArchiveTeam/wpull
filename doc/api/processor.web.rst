@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`async` Module
-===================
+:mod:`processor.web` Module
+===========================
 
-.. automodule:: wpull.async
+.. automodule:: wpull.processor.web
     :members:
     :show-inheritance:
     :private-members:

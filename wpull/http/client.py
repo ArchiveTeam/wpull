@@ -23,7 +23,8 @@ class Client(object):
     Args:
         connection_pool (:class:`.connection.ConnectionPool`): Connection pool.
         recorder (:class:`.recorder.BaseRecorder`): Recorder.
-        stream_factory: A function that returns a new :class:`.stream.Stream`.
+        stream_factory: A function that returns a new
+            :class:`.http.stream.Stream`.
     '''
     def __init__(self, connection_pool=None, recorder=None,
                  stream_factory=Stream):
@@ -37,10 +38,13 @@ class Client(object):
 
     @contextlib.contextmanager
     def session(self):
-        '''Return a new session context manager.
+        '''Return a new session.
 
         Returns:
             Session.
+
+        Context manager: This function is meant be used with the ``with``
+        statement.
         '''
         if self._recorder:
             with self._recorder.session() as recorder_session:
@@ -89,6 +93,8 @@ class Session(object):
 
         Returns:
             .http.request.Response
+
+        Coroutine.
         '''
         _logger.debug(__('Client fetch request {0}.', request))
 
@@ -132,7 +138,16 @@ class Session(object):
 
     @trollius.coroutine
     def read_content(self, file=None, raw=False, rewind=True):
-        '''Read the response content into file.'''
+        '''Read the response content into file.
+
+        Args:
+            file: A file object or asyncio stream.
+            raw (bool): Whether chunked transfer encoding should be included.
+            rewind: Seek the given file back to its original offset after
+                reading is finished.
+
+        Coroutine.
+        '''
         self._session_complete = True
 
         if rewind and file and hasattr(file, 'seek'):

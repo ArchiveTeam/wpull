@@ -36,6 +36,7 @@ class RawRequest(CommonMixin):
         fields (:class:`.namevalue.NameValueRecord`): The fields in
             the HTTP header.
         body (:class:`.conversation.Body`): An optional payload.
+        encoding (str): The encoding of the status line.
     '''
     def __init__(self, method=None, resource_path=None, version='HTTP/1.1'):
         super().__init__()
