@@ -8,9 +8,10 @@ import socket
 import sys
 import tempfile
 
+from tornado.testing import AsyncHTTPTestCase
 import tornado.testing
-import trollius
 from trollius import From, Return
+import trollius
 
 import wpull.backport.gzip
 from wpull.backport.testing import unittest
@@ -18,6 +19,7 @@ from wpull.builder import Builder
 from wpull.dns import Resolver
 from wpull.errors import ExitStatus
 from wpull.options import AppArgumentParser
+from wpull.testing.async import AsyncTestCase
 import wpull.testing.async
 from wpull.testing.badapp import BadAppTestCase
 from wpull.testing.goodapp import GoodAppTestCase
@@ -930,7 +932,18 @@ class SimpleHandler(tornado.web.RequestHandler):
         self.write(b'OK')
 
 
-class TestAppHTTPS(tornado.testing.AsyncHTTPSTestCase):
+class TestAppHTTPS(AsyncTestCase, AsyncHTTPTestCase):
+    def get_new_ioloop(self):
+        tornado.ioloop.IOLoop.configure(
+            'wpull.testing.async.TornadoAsyncIOLoop',
+            event_loop=self.event_loop)
+        ioloop = tornado.ioloop.IOLoop()
+        return ioloop
+
+    def setUp(self):
+        AsyncTestCase.setUp(self)
+        AsyncHTTPTestCase.setUp(self)
+
     def get_app(self):
         return tornado.web.Application([
             (r'/', SimpleHandler)
