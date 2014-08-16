@@ -138,7 +138,7 @@ class ConnectionPool(object):
             finally:
                 self.check_in(connection)
 
-        return context_wrapper()
+        raise Return(context_wrapper())
 
     def clean(self):
         '''Clean all closed connections.'''
