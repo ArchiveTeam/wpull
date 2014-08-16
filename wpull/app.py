@@ -80,7 +80,7 @@ class Application(HookableMixin):
 
         def forceful_stop_callback():
             _logger.info(_('Forcing immediate stop...'))
-            self._builder.factory['Engine'].stop(force=True)
+            self._event_loop.stop()
 
         self._event_loop.add_signal_handler(signal.SIGINT,
                                             graceful_stop_callback)

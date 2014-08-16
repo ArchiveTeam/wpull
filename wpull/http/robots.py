@@ -69,16 +69,16 @@ class RobotsTxtChecker(object):
         with contextlib.closing(file):
             request = self._web_client.request_factory(url)
 
-            with self._web_client.session(request) as session:
-                while not session.done():
-                    wpull.util.truncate_file(file.name)
+            session = self._web_client.session(request)
+            while not session.done():
+                wpull.util.truncate_file(file.name)
 
-                    try:
-                        response = yield From(session.fetch(file=file))
-                    except ProtocolError:
-                        self._accept_as_blank(url_info)
+                try:
+                    response = yield From(session.fetch(file=file))
+                except ProtocolError:
+                    self._accept_as_blank(url_info)
 
-                        return
+                    return
 
             status_code = response.status_code
 

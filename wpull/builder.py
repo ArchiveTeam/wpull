@@ -14,10 +14,11 @@ import sys
 import tempfile
 
 import tornado.testing
+import trollius
 
 from wpull.app import Application
 from wpull.backport.logging import BraceMessage as __
-from wpull.connection import Connection, ConnectionPool
+from wpull.connection import Connection, ConnectionPool, SSLConnection
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
 from wpull.database import URLTable
@@ -29,6 +30,7 @@ from wpull.hook import HookEnvironment
 from wpull.http.client import Client
 from wpull.http.redirect import RedirectTracker
 from wpull.http.request import Request
+from wpull.http.robots import RobotsTxtChecker
 from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSClient
@@ -101,9 +103,11 @@ class Builder(object):
             'RedirectTracker': RedirectTracker,
             'Request': Request,
             'Resolver': Resolver,
+            'RobotsTxtChecker': RobotsTxtChecker,
             'RobotsTxtPool': RobotsTxtPool,
             'SitemapScraper': SitemapScraper,
             'Statistics': Statistics,
+            'SSLConnection': SSLConnection,
             'URLInfo': URLInfo,
             'URLTable': URLTable,
             'Waiter': LinearWaiter,
@@ -149,11 +153,13 @@ class Builder(object):
         url_table = self._build_url_table()
         processor = self._build_processor()
 
-        engine = self._factory.new('Engine',
-                                   url_table,
-                                   processor,
-                                   statistics,
-                                   concurrent=self._args.concurrent,)
+        self._factory.new(
+            'Engine',
+            url_table,
+            processor,
+            statistics,
+            concurrent=self._args.concurrent,
+        )
 
         self._setup_file_logger_close(self.factory['Application'])
         self._setup_console_logger_close(self.factory['Application'])
@@ -641,6 +647,7 @@ class Builder(object):
         converter = self._build_document_converter()
         web_client = self._build_web_client()
         phantomjs_controller = self._build_phantomjs_controller()
+        robots_txt_checker = self._build_robots_txt_checker()
 
         waiter = self._factory.new('Waiter',
                                    wait=args.wait,
@@ -656,6 +663,7 @@ class Builder(object):
             statistics=self._factory['Statistics'],
             converter=converter,
             phantomjs_controller=phantomjs_controller,
+            robots_txt_checker=robots_txt_checker,
         )
 
         web_processor_fetch_params = self._factory.new(
@@ -915,11 +923,11 @@ class Builder(object):
 
         proxy_server = self._factory.new(
             'HTTPProxyServer',
-            self.factory['Client']
+            self.factory['HTTPClient']
         )
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
 
-        proxy_server.add_socket(proxy_socket)
+        proxy_task = trollius.async(trollius.start_server(proxy_server, sock=proxy_socket))
 
         page_settings = {}
         default_headers = NameValueRecord()
@@ -951,6 +959,7 @@ class Builder(object):
             exe_path=self._args.phantomjs_exe
         )
         phantomjs_client.test_client_exe()
+        phantomjs_client.proxy_task = proxy_task  # FIXME:
 
         phantomjs_controller = self._factory.new(
             'PhantomJSController',
@@ -963,6 +972,17 @@ class Builder(object):
         )
 
         return phantomjs_controller
+
+    def _build_robots_txt_checker(self):
+        if self._args.robots:
+            robots_txt_pool = self._factory.new('RobotsTxtPool')
+            robots_txt_checker = self._factory.new(
+                'RobotsTxtChecker',
+                web_client=self._factory['WebClient'],
+                robots_txt_pool=robots_txt_pool
+            )
+
+            return robots_txt_checker
 
     def _build_ssl_options(self):
         '''Create the SSL options.

@@ -1,14 +1,15 @@
 # encoding=utf8
 import copy
 import gettext
+import io
 import logging
 import os.path
+import tempfile
 
 import namedlist
 import trollius
 from trollius.coroutines import Return, From
 
-import tempfile
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
 from wpull.document import HTMLReader
@@ -175,7 +176,7 @@ class WebProcessorSession(object):
 
         self._request = None
 
-    def _new_initial_request(self):
+    def _new_initial_request(self, with_body=True):
         '''Return a new Request to be passed to the Web Client.'''
         url_info = self._url_item.url_info
         url_record = self._url_item.url_record
@@ -185,11 +186,12 @@ class WebProcessorSession(object):
 
         self._populate_common_request(request)
 
-        if url_record.post_data or self._processor.fetch_params.post_data:
-            self._add_post_data(request)
+        if with_body:
+            if url_record.post_data or self._processor.fetch_params.post_data:
+                self._add_post_data(request)
 
-        if self._file_writer_session:
-            request = self._file_writer_session.process_request(request)
+            if self._file_writer_session:
+                request = self._file_writer_session.process_request(request)
 
         return request
 
@@ -206,8 +208,8 @@ class WebProcessorSession(object):
     @trollius.coroutine
     def process(self):
         # FIXME: need to close up the files
-        verdict = self._should_fetch_reason(
-            self._next_url_info, self._url_item.url_record)[0]
+        verdict = (yield From(self._should_fetch_reason_with_robots(
+            self._next_url_info, self._url_item.url_record)))[0]
 
         if not verdict:
             self._url_item.skip()
@@ -307,9 +309,34 @@ class WebProcessorSession(object):
             1. bool: If True, the URL should be fetched.
             2. str: A short reason string explaining the verdict.
         '''
+
+        verdict, reason, test_info = self._should_fetch_filters(url_info, url_record)
+        verdict, reason = self._should_fetch_hook(url_info, url_record, verdict, reason, test_info)
+
+        return verdict, reason
+
+    @trollius.coroutine
+    def _should_fetch_reason_with_robots(self, url_info, url_record):
+        verdict, reason, test_info = self._should_fetch_filters(url_info, url_record)
+
+        if verdict and self._processor.instances.robots_txt_checker:
+            request = self._new_initial_request(with_body=False)
+            can_fetch = yield From(
+                self._processor.instances.robots_txt_checker.can_fetch(request)
+            )
+            if not can_fetch:
+                verdict = False
+                reason = 'robotstxt'
+
+        verdict, reason = self._should_fetch_hook(url_info, url_record, verdict, reason, test_info)
+
+        raise Return((verdict, reason))
+
+    def _should_fetch_filters(self, url_info, url_record):
         test_info = self._processor.instances.url_filter.test_info(
             url_info, url_record
         )
+
         try:
             is_redirect = self._web_client_session.redirect_tracker\
                 .is_redirect()
@@ -340,6 +367,9 @@ class WebProcessorSession(object):
             verdict = False
             reason = 'filters'
 
+        return verdict, reason, test_info
+
+    def _should_fetch_hook(self, url_info, url_record, verdict, reason, test_info):
         try:
             verdict = self._processor.call_hook(
                 'should_fetch', url_info, url_record, verdict, reason,
@@ -348,8 +378,6 @@ class WebProcessorSession(object):
             reason = 'callback_hook'
         except HookDisconnected:
             pass
-
-        # FIXME: need to put back in robots.txt checking
 
         return verdict, reason
 
@@ -367,6 +395,9 @@ class WebProcessorSession(object):
 
         _logger.debug(__('Posting with data {0}.', data))
 
+        if not request.body:
+            request.body = Body(io.BytesIO())
+
         with wpull.util.reset_file_offset(request.body):
             request.body.write(data)
 
@@ -378,21 +409,6 @@ class WebProcessorSession(object):
             response.body = Body(wpull.body.new_temp_file(self._processor.root_path))
 
         return response.body
-
-#     def _new_response_factory(self):
-#         '''Return a new Response factory.'''
-#         def factory(*args, **kwargs):
-#             # TODO: Response should be dependency injected
-#             response = Response(*args, **kwargs)
-#             root = self._processor.root_path
-#             response.body = wpull.body.new_temp_file(root)
-#
-#             if self._file_writer_session:
-#                 self._file_writer_session.process_response(response)
-#
-#             return response
-#
-#         return factory
 
     def _handle_response(self, response):
         '''Process the response.'''

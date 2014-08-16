@@ -79,7 +79,8 @@ class Body(object):
 
         return {
             'filename': name,
-            'size': size,
+            'length': size,
+            'content_size': size,
         }
 
 

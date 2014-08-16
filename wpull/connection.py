@@ -309,6 +309,8 @@ class SSLConnection(Connection):
 
         if self._ssl_context is True:
             self._ssl_context = tornado.netutil.ssl_options_to_context({})
+        elif isinstance(self._ssl_context, dict):
+            self._ssl_context = tornado.netutil.ssl_options_to_context(self._ssl_context)
 
     @property
     def ssl(self):
@@ -347,6 +349,6 @@ class SSLConnection(Connection):
             raise SSLVerficationError('No SSL certificate given')
 
         try:
-            tornado.netutil.ssl_match_hostname(cert, self._server_hostname)
+            tornado.netutil.ssl_match_hostname(cert, self._hostname)
         except SSLCertificateError as error:
             raise SSLVerficationError('Invalid SSL certificate') from error

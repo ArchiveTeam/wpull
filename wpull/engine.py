@@ -57,6 +57,9 @@ class BaseEngine(object):
 
         yield From(self._item_queue.join())
 
+        if worker_tasks:
+            yield From(trollius.wait(worker_tasks))
+
     @trollius.coroutine
     def _run_worker(self):
         try:

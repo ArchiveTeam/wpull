@@ -18,11 +18,10 @@ class MockWebClient(object):
         self.session_obj = None
         self.request_factory = Request
 
-    @contextlib.contextmanager
     def session(self, request):
         self.request = request
         self.session_obj = MockWebSession(self)
-        yield self.session_obj
+        return self.session_obj
 
 
 class MockWebSession(object):

@@ -9,7 +9,8 @@ import sys
 import tempfile
 
 import tornado.testing
-from trollius import From
+import trollius
+from trollius import From, Return
 
 import wpull.backport.gzip
 from wpull.backport.testing import unittest
@@ -40,10 +41,10 @@ class MockDNSResolver(Resolver):
         Resolver.__init__(self, *args, **kwargs)
         self.hosts_touched = set()
 
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def resolve(self, host, port):
         self.hosts_touched.add(host)
-        raise tornado.gen.Return((socket.AF_INET, ('127.0.0.1', port)))
+        raise Return((socket.AF_INET, ('127.0.0.1', port)))
 
 
 @contextlib.contextmanager
@@ -956,10 +957,6 @@ class TestAppHTTPS(tornado.testing.AsyncHTTPSTestCase):
 
 
 class TestAppBad(BadAppTestCase):
-    def setUp(self):
-        super().setUp()
-        tornado.ioloop.IOLoop.current().set_blocking_log_threshold(0.5)
-
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_bad_cookie(self):
         arg_parser = AppArgumentParser()
