@@ -1,5 +1,6 @@
 # encoding=utf-8
-from wpull.backport.testing import unittest
+import unittest
+
 from wpull.http.redirect import RedirectTracker
 from wpull.http.request import Response
 

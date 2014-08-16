@@ -1,7 +1,7 @@
 # encoding=utf-8
 
+import unittest
 
-from wpull.backport.testing import unittest
 from wpull.errors import ProtocolError
 from wpull.http.request import Request, Response
 

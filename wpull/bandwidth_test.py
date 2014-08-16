@@ -1,7 +1,7 @@
 # encoding=utf-8
 import time
+import unittest
 
-from wpull.backport.testing import unittest
 from wpull.bandwidth import BandwidthMeter
 
 

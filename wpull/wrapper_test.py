@@ -1,7 +1,7 @@
 # encoding=utf-8
 import sys
+import unittest
 
-from wpull.backport.testing import unittest
 from wpull.http.request import Request, Response
 from wpull.wrapper import convert_http_request, HTTPResponseInfoWrapper
 
@@ -12,11 +12,7 @@ class TestWrapper(unittest.TestCase):
         request.fields['hello'] = 'world'
         new_request = convert_http_request(request)
 
-        if sys.version_info[0] == 2:
-            self.assertEqual('example.com', new_request.get_host())
-        else:
-            self.assertEqual('example.com', new_request.host)
-
+        self.assertEqual('example.com', new_request.host)
         self.assertEqual('world', new_request.get_header('Hello'))
 
     def test_http_response(self):

@@ -1,6 +1,7 @@
 # encoding=utf-8
 
-from wpull.backport.testing import unittest
+import unittest
+
 from wpull.http.util import parse_charset, should_close
 
 

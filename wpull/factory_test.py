@@ -1,4 +1,5 @@
-from wpull.backport.testing import unittest
+import unittest
+
 from wpull.factory import Factory
 
 

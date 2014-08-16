@@ -1,8 +1,8 @@
 # encoding=utf-8
 
 import itertools
+import unittest
 
-from wpull.backport.testing import unittest
 from wpull.string import to_bytes, to_str, detect_encoding, printable_bytes
 
 

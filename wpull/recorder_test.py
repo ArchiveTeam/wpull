@@ -1,8 +1,9 @@
 # encoding=utf-8
 import logging
 import os.path
+from tempfile import TemporaryDirectory
+import unittest
 
-from wpull.backport.testing import unittest
 from wpull.body import Body
 from wpull.database import URLTable
 from wpull.http.request import Request, Response
@@ -10,12 +11,6 @@ from wpull.recorder import WARCRecorder, WARCRecorderParams
 import wpull.util
 import wpull.version
 from wpull.warc import WARCRecord
-
-
-try:
-    from tempfile import TemporaryDirectory
-except ImportError:
-    from wpull.backport.tempfile import TemporaryDirectory
 
 
 _logger = logging.getLogger(__name__)

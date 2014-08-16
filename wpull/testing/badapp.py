@@ -19,7 +19,7 @@ import zlib
 import tornado.ioloop
 from tornado.testing import AsyncTestCase as TornadoAsyncTestCase
 
-from wpull.backport.gzip import GzipFile
+from gzip import GzipFile
 from wpull.testing.async import AsyncTestCase
 
 
@@ -93,18 +93,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def log_message(self, message, *args):
         _logger.debug(message, *args)
-
-    def finish(self):
-        # This function is backported for 2.6
-        if not self.wfile.closed:
-            try:
-                self.wfile.flush()
-            except socket.error:
-                # An final socket error may have occurred here, such as
-                # the local error ECONNABORTED.
-                pass
-        self.wfile.close()
-        self.rfile.close()
 
     def basic(self):
         self.send_response(200)

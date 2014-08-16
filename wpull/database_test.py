@@ -1,7 +1,8 @@
 # encoding=utf-8
 
 
-from wpull.backport.testing import unittest
+import unittest
+
 from wpull.database import SQLiteURLTable
 from wpull.item import Status
 

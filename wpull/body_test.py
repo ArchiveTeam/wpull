@@ -1,5 +1,6 @@
 # encoding=utf-8
-from wpull.backport.testing import unittest
+import unittest
+
 from wpull.body import Body
 
 

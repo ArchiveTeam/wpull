@@ -5,12 +5,12 @@ import os.path
 import socket
 import ssl
 import sys
+import unittest
 
 import tornado.netutil
 from trollius import From, Return
 import trollius
 
-from wpull.backport.testing import unittest
 from wpull.connection import Connection, SSLConnection
 from wpull.errors import NetworkError, ConnectionRefused, ProtocolError, \
     NetworkTimedOut, SSLVerficationError

@@ -1,8 +1,8 @@
 # encoding=utf-8
 import os.path
 import shutil
+import unittest
 
-from wpull.backport.testing import unittest
 from wpull.body import Body
 from wpull.http.request import Request, Response
 from wpull.scraper import (HTMLScraper, CSSScraper, clean_link_soup,

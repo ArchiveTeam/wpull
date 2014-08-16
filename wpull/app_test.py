@@ -1,20 +1,21 @@
 # encoding=utf-8
 import contextlib
+import gzip
 import hashlib
 from http import cookiejar
 import logging
 import os
 import socket
 import sys
+from tempfile import TemporaryDirectory
 import tempfile
+import unittest
 
 from tornado.testing import AsyncHTTPSTestCase
 import tornado.testing
 from trollius import From, Return
 import trollius
 
-import wpull.backport.gzip
-from wpull.backport.testing import unittest
 from wpull.builder import Builder
 from wpull.dns import Resolver
 from wpull.errors import ExitStatus
@@ -24,12 +25,6 @@ import wpull.testing.async
 from wpull.testing.badapp import BadAppTestCase
 from wpull.testing.goodapp import GoodAppTestCase
 from wpull.url import URLInfo
-
-
-try:
-    from tempfile import TemporaryDirectory
-except ImportError:
-    from wpull.backport.tempfile import TemporaryDirectory
 
 
 DEFAULT_TIMEOUT = 30
@@ -296,7 +291,7 @@ class TestApp(GoodAppTestCase):
 
             self.assertTrue(os.path.exists('test.warc.gz'))
 
-            with wpull.backport.gzip.GzipFile('test.warc.gz') as in_file:
+            with gzip.GzipFile('test.warc.gz') as in_file:
                 data = in_file.read()
                 self.assertIn(b'FINISHED', data)
 

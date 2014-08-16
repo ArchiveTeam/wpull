@@ -1,10 +1,11 @@
 # encoding=utf-8
+import email
 from http.cookiejar import CookieJar
 import http.cookiejar
 import sys
+import unittest
 import urllib.request
 
-from wpull.backport.testing import unittest
 from wpull.cookie import DeFactoCookiePolicy
 
 
@@ -14,14 +15,7 @@ class FakeResponse(object):
         """
         headers: list of RFC822-style 'Key: value' strings
         """
-        if sys.version_info[0] == 2:
-            import mimetools
-            import StringIO
-            f = StringIO.StringIO("\n".join(headers))
-            self._headers = mimetools.Message(f)
-        else:
-            import email
-            self._headers = email.message_from_string("\n".join(headers))
+        self._headers = email.message_from_string("\n".join(headers))
 
         self._url = url or []
 
@@ -105,11 +99,7 @@ class TestCookie(unittest.TestCase):
             cookie_jar._cookies['example.com']['/']['k3'].value
         )
 
-    @unittest.skipIf(sys.version_info[0] == 2, 'Quoting policy different')
     def test_ascii(self):
-        # Differences with FakeResponse:
-        # On Python 3, MIME encoded-word syntax is used
-        # On Python 2, U backslash syntax is used but it's not decoded back.
         cookie_jar = CookieJar()
         policy = DeFactoCookiePolicy(cookie_jar=cookie_jar)
         cookie_jar.set_policy(policy)

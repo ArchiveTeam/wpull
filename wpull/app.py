@@ -1,5 +1,6 @@
 # encoding=utf-8
 '''Application main interface.'''
+from collections import OrderedDict
 import datetime
 import gettext
 import logging
@@ -13,12 +14,6 @@ from wpull.errors import ServerError, ExitStatus, ProtocolError, \
     SSLVerficationError, DNSNotFound, ConnectionRefused, NetworkError
 from wpull.hook import HookableMixin, HookDisconnected
 import wpull.string
-
-
-try:
-    from collections import OrderedDict
-except ImportError:
-    from wpull.backport.collections import OrderedDict
 
 
 _logger = logging.getLogger(__name__)

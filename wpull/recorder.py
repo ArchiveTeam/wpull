@@ -4,6 +4,7 @@ import abc
 import contextlib
 import datetime
 import gettext
+import gzip
 import http.client
 import io
 import itertools
@@ -18,7 +19,6 @@ import time
 
 import namedlist
 
-import wpull.backport.gzip
 from wpull.backport.logging import BraceMessage as __
 from wpull.bandwidth import BandwidthMeter
 from wpull.namevalue import NameValueRecord
@@ -325,7 +325,7 @@ class WARCRecorder(BaseRecorder):
                          record.fields['WARC-Type']))
 
         if self._params.compress:
-            open_func = wpull.backport.gzip.GzipFile
+            open_func = gzip.GzipFile
         else:
             open_func = open
 

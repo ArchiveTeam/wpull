@@ -1,16 +1,12 @@
 # encoding=utf-8
 import os.path
+from tempfile import TemporaryDirectory
+import unittest
 
 from wpull.app_test import cd_tempdir
-from wpull.backport.testing import unittest
 from wpull.converter import CSSConverter, HTMLConverter
 from wpull.database import URLTable, Status
 
-
-try:
-    from tempfile import TemporaryDirectory
-except ImportError:
-    from wpull.backport.tempfile import TemporaryDirectory
 
 CSS_TEXT = '''
 body {

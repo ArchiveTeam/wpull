@@ -1,14 +1,9 @@
 # encoding=utf-8
 '''Statistics.'''
+from collections import Counter
 import time
 
 from wpull.bandwidth import BandwidthMeter
-
-
-try:
-    from collections import Counter
-except ImportError:
-    from wpull.backport.collections import Counter
 
 
 class Statistics(object):

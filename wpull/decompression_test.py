@@ -2,9 +2,9 @@
 import gzip
 import hashlib
 import io
+import unittest
 import zlib
 
-from wpull.backport.testing import unittest
 from wpull.decompression import DeflateDecompressor, GzipDecompressor
 
 

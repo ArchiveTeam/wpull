@@ -1,14 +1,9 @@
 # encoding=utf-8
 '''Data structures.'''
+from collections import OrderedDict
 import collections
 import copy
 import itertools
-
-
-try:
-    from collections import OrderedDict
-except ImportError:
-    from wpull.backport.collections import OrderedDict
 
 
 class OrderedDefaultDict(OrderedDict):

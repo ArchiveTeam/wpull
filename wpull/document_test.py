@@ -1,11 +1,11 @@
 # encoding=utf-8
-import io
-
-from wpull.backport.testing import unittest
-from wpull.document import HTMLReader, SitemapReader, CSSReader, XMLDetector
-from wpull.url import URLInfo
-from wpull.http.request import Request, Response
 import gzip
+import io
+import unittest
+
+from wpull.document import HTMLReader, SitemapReader, CSSReader, XMLDetector
+from wpull.http.request import Request, Response
+from wpull.url import URLInfo
 
 
 CODEC_NAMES = (

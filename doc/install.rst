@@ -9,7 +9,7 @@ Wpull requires the following:
 
 .. ⬇ Please keep this list in sync with the README file. ⬇
 
-* `Python 2.6, 2.7, 3.2, 3.3 (or newer) <http://python.org/download/>`_
+* `Python 3.2, 3.3 (or newer) <http://python.org/download/>`_
 * `Tornado <https://pypi.python.org/pypi/tornado>`_
 * `Trollius <https://pypi.python.org/pypi/trollius>`_
 * `lxml <https://pypi.python.org/pypi/lxml>`_
@@ -28,7 +28,9 @@ Python
 ++++++
 
 Please obtain the latest Python release from http://python.org/download/
-or your package manager. It is recommended to use Python 3.2 or greater.
+or your package manager. It is recommended to use Python 3.3 or greater.
+
+Python 2 is not supported.
 
 
 lxml
@@ -95,24 +97,11 @@ dependencies automatically from PyPI::
 
     pip3 install wpull
 
-.. Note:: Python 2 users, please see note in the next subsection.
-
 .. Tip:: Adding the ``--upgrade`` option will upgrade Wpull to the latest
    release. Use ``--no-dependencies`` to only upgrade Wpull.
 
 .. Tip:: Adding the ``--user`` option will install Wpull into your home
    directory.
-
-
-Python 2.6/2.7
-++++++++++++++
-
-Please ensure you have the *latest* lib3to2 from Bitbucket before installing
-Wpull::
-
-    pip install hg+https://bitbucket.org/amentajo/lib3to2#egg=3to2
-
-.. Note:: The version in PyPI is out of date.
 
 
 Manual Install
@@ -128,24 +117,4 @@ Install Wpull from GitHub::
 
 .. Tip:: Using ``git+https://github.com/chfoo/wpull.git@develop#egg=wpull``
    as the path will install Wpull's develop branch.
-
-
-Python 2.6/2.7
-++++++++++++++
-
-Requires
-
-* `futures <https://pypi.python.org/pypi/futures>`_
-* `lib3to2 <https://bitbucket.org/amentajo/lib3to2>`_
-  (the one on PyPI is *very* outdated!)
-
-Install additional dependencies before installing Wpull::
-
-    pip install -r https://raw2.github.com/chfoo/wpull/master/requirements-py2.txt
-
-.. Note:: Invoking ``setup.py`` (with or without commands/options) will
-   trigger the 3to2 process automatically. The Python 2 compatible source
-   code will be placed in ``py2src_noedit/``. Invoking a Python 2
-   interpreter on the original Python 3 source code will result Wpull
-   failing to run due to syntax errors.
 
