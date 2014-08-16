@@ -16,6 +16,7 @@ function readRpc() {
 	var line = system.stdin.readLine();
 
 	if (line.slice(0, 5) != '!RPC!') {
+		console.log('Ignore unknown start flags.');
 		setTimeout(readRpc, 100);
 		return;
 	}
@@ -35,6 +36,7 @@ function readRpc() {
 	}
 
 	sendMessage(replyRpcInfo);
+	console.log('Replied.');
 	setTimeout(readRpc, 1);
 }
 
