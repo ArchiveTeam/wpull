@@ -8,7 +8,7 @@ import socket
 import sys
 import tempfile
 
-from tornado.testing import AsyncHTTPTestCase
+from tornado.testing import AsyncHTTPSTestCase
 import tornado.testing
 from trollius import From, Return
 import trollius
@@ -932,7 +932,7 @@ class SimpleHandler(tornado.web.RequestHandler):
         self.write(b'OK')
 
 
-class TestAppHTTPS(AsyncTestCase, AsyncHTTPTestCase):
+class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase):
     def get_new_ioloop(self):
         tornado.ioloop.IOLoop.configure(
             'wpull.testing.async.TornadoAsyncIOLoop',
@@ -942,7 +942,7 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPTestCase):
 
     def setUp(self):
         AsyncTestCase.setUp(self)
-        AsyncHTTPTestCase.setUp(self)
+        AsyncHTTPSTestCase.setUp(self)
 
     def get_app(self):
         return tornado.web.Application([
