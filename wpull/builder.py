@@ -27,7 +27,8 @@ from wpull.dns import Resolver
 from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
-from wpull.http.client import Client
+from wpull.http.client import Client as HTTPClient
+from wpull.http.stream import Stream as HTTPStream
 from wpull.http.redirect import RedirectTracker
 from wpull.http.request import Request
 from wpull.http.robots import RobotsTxtChecker
@@ -80,11 +81,10 @@ class Builder(object):
         self._factory = Factory({
             'Application': Application,
             'BatchDocumentConverter': BatchDocumentConverter,
-            'HTTPClient': Client,
+            'HTTPClient': HTTPClient,
             'CookieJar': CookieJar,
             'CookieJarWrapper': CookieJarWrapper,
             'CookiePolicy': DeFactoCookiePolicy,
-            'Connection': Connection,
             'ConnectionPool': ConnectionPool,
             'CSSScraper': CSSScraper,
             'DemuxDocumentScraper': DemuxDocumentScraper,
@@ -107,7 +107,6 @@ class Builder(object):
             'RobotsTxtPool': RobotsTxtPool,
             'SitemapScraper': SitemapScraper,
             'Statistics': Statistics,
-            'SSLConnection': SSLConnection,
             'URLInfo': URLInfo,
             'URLTable': URLTable,
             'Waiter': LinearWaiter,
@@ -793,16 +792,14 @@ class Builder(object):
             connect_timeout = read_timeout = args.timeout
 
         connection_factory = functools.partial(
-            self._factory.new,
-            'Connection',
+            Connection,
             timeout=read_timeout,
             connect_timeout=connect_timeout,
             bind_host=self._args.bind_address,
         )
 
         ssl_connection_factory = functools.partial(
-            self._factory.new,
-            'SSLConnection',
+            SSLConnection,
             timeout=read_timeout,
             connect_timeout=connect_timeout,
             bind_host=self._args.bind_address,
@@ -849,9 +846,15 @@ class Builder(object):
         '''
         recorder = self._build_recorder()
 
+        stream_factory = functools.partial(
+            HTTPStream,
+            ignore_length=self._args.ignore_length,
+            keep_alive=self._args.http_keep_alive)
+
         return self._factory.new('HTTPClient',
                                  connection_pool=self._build_connection_pool(),
-                                 recorder=recorder)
+                                 recorder=recorder,
+                                 stream_factory=stream_factory)
 
     def _build_web_client(self):
         '''Build Web Client.'''
