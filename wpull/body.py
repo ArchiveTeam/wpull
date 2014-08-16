@@ -36,7 +36,7 @@ class Body(object):
             ``bytes``: The entire content of the file.
         '''
         if not self._content_data:
-            if self.file.seekable():
+            if is_seekable(self.file):
                 with wpull.util.reset_file_offset(self.file):
                     self._content_data = self.file.read()
             else:
@@ -51,7 +51,7 @@ class Body(object):
         except io.UnsupportedOperation:
             pass
 
-        if self.file.seekable():
+        if is_seekable(self.file):
             with wpull.util.reset_file_offset(self.file):
                 self.file.seek(0, os.SEEK_END)
                 return self.file.tell()
@@ -88,3 +88,16 @@ def new_temp_file(directory=None):
     '''Return a new temporary file.'''
     return tempfile.NamedTemporaryFile(
         prefix='wpull-', suffix='.tmp', dir=directory)
+
+
+def is_seekable(file):
+    if hasattr(file, 'seek'):
+        if not hasattr(file, 'seekable'):
+            try:
+                file.tell()
+            except IOError:
+                return False
+            else:
+                return True
+        else:
+            return file.seekable()
