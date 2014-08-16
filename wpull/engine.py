@@ -29,7 +29,6 @@ class BaseEngine(object):
     def _run_workers(self):
         self._running = True
         worker_tasks = set()
-        items_out = 0
 
         while self._running:
             while len(worker_tasks) < self._concurrent:
@@ -38,10 +37,10 @@ class BaseEngine(object):
 
             item = yield From(self._get_item())
 
-            if item is None and items_out == 0:
+            # FIXME: unfinished_tasks
+            if item is None and self._item_queue._unfinished_tasks == 0:
                 break
             elif item is not None:
-                items_out += 1
                 self._item_queue.put_nowait(item)
 
             wait_coroutine = trollius.wait(
@@ -51,9 +50,6 @@ class BaseEngine(object):
             for task in done_tasks:
                 task.result()
                 worker_tasks.remove(task)
-                items_out -= 1
-
-                assert items_out >= 0
 
         yield From(self._item_queue.join())
 
@@ -63,9 +59,8 @@ class BaseEngine(object):
     @trollius.coroutine
     def _run_worker(self):
         try:
-            item = yield From(trollius.wait_for(self._item_queue.get(), 1.0))
+            item = yield From(trollius.wait_for(self._item_queue.get(), 0.2))
         except (trollius.QueueEmpty, trollius.TimeoutError):
-            yield From(trollius.sleep(1.0))
             return
 
         _logger.debug(__('Processing item {0}.', item))
