@@ -48,6 +48,9 @@ class ChunkedTransferReader(object):
         except ValueError as error:
             raise ProtocolError(error.args[0]) from error
 
+        if chunk_size < 0:
+            raise ProtocolError('Chunk size cannot be negative.')
+
         self._chunk_size = self._bytes_left = chunk_size
 
         raise Return(chunk_size, chunk_size_hex)
