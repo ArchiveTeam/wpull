@@ -251,7 +251,10 @@ class Connection(object):
                     'Certificate error: {error}'.format(error=error)) from error
 
             else:
-                raise NetworkError(error.errno, os.strerror(error.errno)) from error
+                if error.errno:
+                    raise NetworkError(error.errno, os.strerror(error.errno)) from error
+                else:
+                    raise NetworkError('Network error: {error}'.format(error=error)) from error
         else:
             _logger.debug('Connected.')
 
