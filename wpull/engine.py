@@ -19,6 +19,7 @@ _ = gettext.gettext
 
 
 class BaseEngine(object):
+    '''Base engine producer-consumer.'''
     POISON_PILL = object()
 
     def __init__(self):
@@ -33,10 +34,15 @@ class BaseEngine(object):
 
     @property
     def _concurrent(self):
+        '''Get concurrency value.'''
         return self.__concurrent
 
     @trollius.coroutine
     def _run_workers(self):
+        '''Run the consumers.
+
+        Coroutine.
+        '''
         self._running = True
         self._producer_task = trollius.async(self._run_producer())
         worker_tasks = self._worker_tasks
@@ -65,6 +71,10 @@ class BaseEngine(object):
 
     @trollius.coroutine
     def _run_producer(self):
+        '''Run the producer.
+
+        Coroutine.
+        '''
         while self._running:
             item = yield From(self._get_item())
 
@@ -80,6 +90,10 @@ class BaseEngine(object):
 
     @trollius.coroutine
     def _run_worker(self):
+        '''Run a single consumer.
+
+        Coroutine.
+        '''
         _logger.debug('Worker start.')
 
         while True:
@@ -107,18 +121,23 @@ class BaseEngine(object):
                     self._item_queue.task_done()
 
     def _set_concurrent(self, new_num):
+        '''Set concurrency level.'''
         if self._running:
             assert new_num >= 0
             change = new_num - self.__concurrent
 
             if change < 0:
-                for dummy in range(change):
-                    _logger.debug('Put poison pill.')
+                for dummy in range(abs(change)):
+                    _logger.debug('Put poison pill for less workers.')
                     self._poison_queue.put_nowait(self.POISON_PILL)
-        else:
-            self.__concurrent = new_num
+            elif change > 0:
+                _logger.debug('Put 1 poison pill to trigger more workers.')
+                self._poison_queue.put_nowait(self.POISON_PILL)
+
+        self.__concurrent = new_num
 
     def _stop(self):
+        '''Gracefully stop.'''
         if self._running:
             self._running = False
 
@@ -129,12 +148,19 @@ class BaseEngine(object):
     @abc.abstractmethod
     @trollius.coroutine
     def _get_item(self):
+        '''Get an item.
+
+        Coroutine.
+        '''
         pass
 
     @abc.abstractmethod
     @trollius.coroutine
     def _process_item(self, item):
-        pass
+        '''Process an item.
+
+        Coroutine.
+        '''
 
 
 class Engine(BaseEngine, HookableMixin):
@@ -180,6 +206,7 @@ class Engine(BaseEngine, HookableMixin):
         return self._concurrent
 
     def set_concurrent(self, value):
+        '''Set concurrency value.'''
         self._set_concurrent(value)
 
     @trollius.coroutine
