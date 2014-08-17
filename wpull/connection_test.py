@@ -1,9 +1,14 @@
 # encoding=utf8
 
+import socket
+import ssl
+import sys
+
 from trollius import From
 import trollius
 
 from wpull.connection import Connection, ConnectionPool, HostPool
+from wpull.errors import NetworkError
 import wpull.testing.async
 from wpull.testing.badapp import BadAppTestCase
 
@@ -23,6 +28,77 @@ class TestConnection(BadAppTestCase):
         self.assertEqual(b'hello world!', data[-12:])
 
         self.assertTrue(connection.closed())
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_mock_connect_socket_error(self):
+        connection = Connection(
+            ('127.0.0.1', self.get_http_port()), 'localhost')
+
+        @trollius.coroutine
+        def mock_func():
+            raise socket.error(123, 'Mock error')
+
+        try:
+            yield From(connection.run_network_operation(mock_func()))
+        except NetworkError:
+            pass
+        else:
+            self.fail()
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_mock_connect_ssl_error(self):
+        connection = Connection(
+            ('127.0.0.1', self.get_http_port()), 'localhost')
+
+        @trollius.coroutine
+        def mock_func():
+            raise ssl.SSLError(123, 'Mock error')
+
+        try:
+            yield From(connection.run_network_operation(mock_func()))
+        except NetworkError:
+            pass
+        else:
+            self.fail()
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_mock_request_socket_error(self):
+        connection = Connection(
+            ('127.0.0.1', self.get_http_port()), 'localhost')
+
+        @trollius.coroutine
+        def mock_func():
+            if sys.version_info < (3, 3):
+                raise socket.error(123, 'Mock error')
+            else:
+                raise ConnectionError(123, 'Mock error')
+
+        try:
+            yield From(connection.run_network_operation(mock_func()))
+        except NetworkError:
+            pass
+        else:
+            self.fail()
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_mock_request_ssl_error(self):
+        connection = Connection(
+            ('127.0.0.1', self.get_http_port()), 'localhost')
+
+        @trollius.coroutine
+        def mock_func():
+            if sys.version_info < (3, 3):
+                raise socket.error(123, 'Mock error')
+            else:
+                raise ConnectionError(123, 'Mock error')
+            raise ssl.SSLError(123, 'Mock error')
+
+        try:
+            yield From(connection.run_network_operation(mock_func()))
+        except NetworkError:
+            pass
+        else:
+            self.fail()
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_pool_basic(self):

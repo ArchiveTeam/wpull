@@ -226,37 +226,18 @@ class Connection(object):
         '''Establish a connection.'''
         _logger.debug(__('Connecting to {0}.', self._address))
 
-        try:
-            host, port = self._address
-            connection_future = trollius.open_connection(
-                host, port, **self._connection_kwargs()
-            )
-            self.reader, self.writer = yield From(
-                trollius.wait_for(connection_future, self._connect_timeout)
-            )
-        except trollius.TimeoutError as error:
-            raise NetworkTimedOut(
-                'Connection timed out: {error}'.format(error=error)) from error
-        except (tornado.netutil.SSLCertificateError,
-                SSLVerficationError) as error:
-            raise SSLVerficationError(
-                'Certificate error: {error}'.format(error=error)) from error
-        except (socket.error, ssl.SSLError, trollius.ConnectionRefusedError) as error:
-            if error.errno == errno.ECONNREFUSED:
-                raise ConnectionRefused(error.errno, os.strerror(error.errno)) from error
+        host, port = self._address
+        connection_future = trollius.open_connection(
+            host, port, **self._connection_kwargs()
+        )
+        self.reader, self.writer = yield From(
+            self.run_network_operation(
+                connection_future,
+                timeout=self._connect_timeout,
+                name='Connect')
+        )
 
-            # XXX: This quality case brought to you by OpenSSL and Python.
-            elif 'certificate' in str(error).lower():
-                raise SSLVerficationError(
-                    'Certificate error: {error}'.format(error=error)) from error
-
-            else:
-                if error.errno:
-                    raise NetworkError(error.errno, os.strerror(error.errno)) from error
-                else:
-                    raise NetworkError('Network error: {error}'.format(error=error)) from error
-        else:
-            _logger.debug('Connected.')
+        _logger.debug('Connected.')
 
     def _connection_kwargs(self):
         '''Return additional connection arguments.'''
@@ -283,30 +264,72 @@ class Connection(object):
         fut = self.writer.drain()
 
         if fut:
-            try:
-                yield From(trollius.wait_for(fut, self._timeout))
-            except trollius.TimeoutError as error:
-                raise NetworkTimedOut('Write timed out.') from error
+            yield From(self.run_network_operation(
+                fut, self._timeout, name='Write')
+            )
 
     @trollius.coroutine
     def read(self, amount=-1):
         '''Read data.'''
-        try:
-            data = yield From(trollius.wait_for(self.reader.read(amount),
-                                                self._timeout))
-            raise Return(data)
-        except trollius.TimeoutError as error:
-            raise NetworkTimedOut('Read timed out.') from error
+        data = yield From(
+            self.run_network_operation(
+                self.reader.read(amount),
+                self._timeout,
+                name='Read')
+        )
+        raise Return(data)
 
     @trollius.coroutine
     def readline(self):
         '''Read a line of data.'''
+        data = yield From(
+            self.run_network_operation(
+                self.reader.readline(),
+                self._timeout,
+                name='Readline')
+        )
+        raise Return(data)
+
+    @trollius.coroutine
+    def run_network_operation(self, task, timeout=None,
+                              name='Network operation'):
+        '''Run the task and raise appropriate exceptions.
+
+        Coroutine.
+        '''
+
         try:
-            data = yield From(trollius.wait_for(self.reader.readline(),
-                                                self._timeout))
-            raise Return(data)
+            if timeout is None:
+                raise Return((yield From(task)))
+            else:
+                raise Return((yield From(trollius.wait_for(task, timeout))))
         except trollius.TimeoutError as error:
-            raise NetworkTimedOut('Read timed out.') from error
+            raise NetworkTimedOut(
+                '{name} timed out.'.format(name=name)) from error
+        except (tornado.netutil.SSLCertificateError, SSLVerficationError) \
+                as error:
+            raise SSLVerficationError(
+                '{name} certificate error: {error}'
+                .format(name=name, error=error)) from error
+        except (socket.error, ssl.SSLError, OSError, IOError) as error:
+            if error.errno == errno.ECONNREFUSED:
+                raise ConnectionRefused(
+                    error.errno, os.strerror(error.errno)) from error
+
+            # XXX: This quality case brought to you by OpenSSL and Python.
+            elif 'certificate' in str(error).lower():
+                raise SSLVerficationError(
+                    '{name} certificate error: {error}'
+                    .format(name=name, error=error)) from error
+
+            else:
+                if error.errno:
+                    raise NetworkError(
+                        error.errno, os.strerror(error.errno)) from error
+                else:
+                    raise NetworkError(
+                        '{name} network error: {error}'
+                        .format(name=name, error=error)) from error
 
 
 class SSLConnection(Connection):
