@@ -33,10 +33,10 @@ class StreamMixin(object):
 
         if ssl:
             connection = SSLConnection(
-                (host or 'localhost', port or self._port), **connection_kwargs)
+                (host or '127.0.0.1', port or self._port), **connection_kwargs)
         else:
             connection = Connection(
-                (host or 'localhost', port or self._port), **connection_kwargs)
+                (host or '127.0.0.1', port or self._port), **connection_kwargs)
 
         stream = Stream(connection, **kwargs)
 
@@ -78,7 +78,7 @@ class TestStream(BadAppTestCase, StreamMixin):
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_refused(self):
-        stream = self.new_stream('localhost', 1)
+        stream = self.new_stream('127.0.0.1', 1)
         try:
             yield From(self.fetch(stream, Request('http://localhost:1/')))
         except ConnectionRefused:
@@ -521,7 +521,7 @@ class TestStream(BadAppTestCase, StreamMixin):
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_ignore_length(self):
-        stream = self.new_stream('localhost', self._port,
+        stream = self.new_stream('127.0.0.1', self._port,
                                  keep_alive=False, ignore_length=True)
         request = Request(self.get_url('/underrun'))
 
@@ -531,7 +531,7 @@ class TestStream(BadAppTestCase, StreamMixin):
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_false_gzip(self):
-        stream = self.new_stream('localhost', self._port)
+        stream = self.new_stream('127.0.0.1', self._port)
         request = Request(self.get_url('/false_gzip'))
         response, content = yield From(self.fetch(stream, request))
 

@@ -183,6 +183,9 @@ class Connection(object):
     '''
     def __init__(self, address, hostname=None, timeout=None,
                  connect_timeout=None, bind_host=None):
+        assert len(address) == 2
+        assert '.' in address[0] or ':' in address[0]
+
         self._address = address
         self._hostname = hostname or address[0]
         self._timeout = timeout
