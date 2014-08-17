@@ -241,7 +241,7 @@ class Connection(object):
                 SSLVerficationError) as error:
             raise SSLVerficationError(
                 'Certificate error: {error}'.format(error=error)) from error
-        except (socket.error, ssl.SSLError) as error:
+        except (socket.error, ssl.SSLError, trollius.ConnectionRefusedError) as error:
             if error.errno == errno.ECONNREFUSED:
                 raise ConnectionRefused(error.errno, os.strerror(error.errno)) from error
 
