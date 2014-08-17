@@ -23,6 +23,7 @@ StrictVersion(version)
 
 PROJECT_PACKAGES = [
     'wpull',
+    'wpull.backport',
     'wpull.http',
     'wpull.processor',
     'wpull.testing',
