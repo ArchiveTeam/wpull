@@ -272,10 +272,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def big(self):
         self.send_response(200)
-        self.send_header('Content-length', '50000000')
+        self.send_header('Content-length', '10000000')
         self.end_headers()
 
-        for dummy in range(5000):
+        for dummy in range(1000):
             self.wfile.write(b'0' * 10000)
 
     def infinite(self):
