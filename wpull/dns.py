@@ -48,6 +48,8 @@ class Resolver(HookableMixin):
     def __init__(self, cache_enabled=True, family=PREFER_IPv4,
                  timeout=None, rotate=False):
         super().__init__()
+        assert family in (socket.AF_INET, socket.AF_INET6, self.PREFER_IPv4,
+                          self.PREFER_IPv6)
 
         if cache_enabled:
             self._cache = self.global_cache
@@ -79,7 +81,11 @@ class Resolver(HookableMixin):
         '''
         _logger.debug(__('Lookup address {0} {1}.', host, port))
 
-        results = self._resolve_internally(host, port)
+        host = self._lookup_hook(host, port)
+        results = None
+
+        if self._cache:
+            results = self._get_cache(host, port, self._family)
 
         if results is None:
             results = yield From(self._resolve_from_network(host, port))
@@ -103,29 +109,28 @@ class Resolver(HookableMixin):
         family, address = result
         _logger.debug(__('Selected {0} as address.', address))
 
+        assert '.' in address[0] or ':' in address[0]
+
         raise Return((family, address))
 
-    def _resolve_internally(self, host, port):
-        '''Resolve the address using callback hook or cache.'''
-        results = None
-
+    def _lookup_hook(self, host, port):
+        '''Return the address from callback hook'''
         try:
-            hook_host = self.call_hook('resolve_dns', host, port)
+            new_host = self.call_hook('resolve_dns', host, port)
 
-            if hook_host:
-                family = socket.AF_INET6 if ':' in hook_host else socket.AF_INET
-                results = [(family, (hook_host, port))]
+            if new_host:
+                return new_host
+            else:
+                return host
+
         except HookDisconnected:
             pass
 
-        if self._cache and results is None:
-            results = self._get_cache(host, port, self._family)
-
-        return results
+        return host
 
     @trollius.coroutine
     def _resolve_from_network(self, host, port):
-        '''Resolve the address using Tornado.
+        '''Resolve the address using network.
 
         Returns:
             list: A list of tuples.
@@ -198,6 +203,8 @@ class Resolver(HookableMixin):
     @classmethod
     def sort_results(cls, results, preference):
         '''Sort getaddrinfo results based on preference.'''
+        assert preference in (cls.PREFER_IPv4, cls.PREFER_IPv6)
+
         ipv4_results = [
             result for result in results if result[0] == socket.AF_INET]
         ipv6_results = [

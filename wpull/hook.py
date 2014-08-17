@@ -222,7 +222,7 @@ class Callbacks(LegacyCallbacks):
         Args:
             host (str): The hostname.
 
-        This callback is to override the DNS response.
+        This callback is to override the DNS lookup.
 
         It is useful when the server is no longer available to the public.
         Typically, large infrastructures will change the DNS settings to
@@ -232,7 +232,7 @@ class Callbacks(LegacyCallbacks):
 
         Returns:
             str, None: ``None`` to use the original behavior or a string
-            containing an IP address.
+            containing an IP address or an alternate hostname.
         '''
         return None
 
