@@ -257,16 +257,17 @@ class Connection(object):
             self.reader = None
 
     @trollius.coroutine
-    def write(self, data):
+    def write(self, data, drain=True):
         '''Write data.'''
         self.writer.write(data)
 
-        fut = self.writer.drain()
+        if drain:
+            fut = self.writer.drain()
 
-        if fut:
-            yield From(self.run_network_operation(
-                fut, self._timeout, name='Write')
-            )
+            if fut:
+                yield From(self.run_network_operation(
+                    fut, self._timeout, name='Write')
+                )
 
     @trollius.coroutine
     def read(self, amount=-1):

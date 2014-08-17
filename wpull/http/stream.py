@@ -80,7 +80,10 @@ class Stream(object):
         data = request.to_bytes()
 
         self._data_observer.notify('request', data)
-        yield From(self._connection.write(data))
+
+        # XXX: Connection lost is raised too early on Python 3.2, 3.3 so
+        # don't flush but check for connection closed on reads
+        yield From(self._connection.write(data, drain=False))
 
     @trollius.coroutine
     def write_body(self, file, length=None):
@@ -115,7 +118,16 @@ class Stream(object):
                 break
 
             self._data_observer.notify('request_body', data)
-            yield From(self._connection.write(data))
+
+            if bytes_left <= self._read_size:
+                # XXX: Connection lost is raised too early on Python 3.2, 3.3
+                # so don't flush on the last chunk but check for connection
+                # closed on reads
+                drain = False
+            else:
+                drain = True
+
+            yield From(self._connection.write(data, drain=drain))
 
             if length is not None:
                 bytes_left -= len(data)
