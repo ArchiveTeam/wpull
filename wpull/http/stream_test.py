@@ -400,7 +400,8 @@ class TestStream(BadAppTestCase, StreamMixin):
         request = Request(self.get_url('/no_content'), method='HEAD')
         yield From(self.fetch(stream, request))
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    # XXX: why is this slow on travis
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT * 2)
     def test_big(self):
         stream = self.new_stream()
         request = Request(self.get_url('/big'))
