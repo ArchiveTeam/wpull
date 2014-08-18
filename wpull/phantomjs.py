@@ -141,13 +141,15 @@ class PhantomJSRemote(object):
 
         while self._subproc.returncode is None:
             try:
-                rpc_info = yield From(trollius.wait_for(self._rpc_out_queue.get(), 0.1))
-            except trollius.TimeoutError:
-                pass
+                # XXX: we are nonblocking because wait_for seems to lose items
+                rpc_info = self._rpc_out_queue.get_nowait()
+            except trollius.QueueEmpty:
+                yield From(trollius.sleep(0.1))
             else:
                 self._subproc.stdin.write(b'!RPC!')
                 self._subproc.stdin.write(json.dumps(rpc_info).encode('utf-8'))
 
+            # XXX: always force feed so phantomjs doesn't block on readline
             self._subproc.stdin.write(b'\n')
             yield From(self._subproc.stdin.drain())
 
