@@ -305,6 +305,8 @@ class Connection(object):
             else:
                 raise Return((yield From(trollius.wait_for(task, timeout))))
         except trollius.TimeoutError as error:
+            # XXX: wait_for may leak file descriptors
+            self.close()
             raise NetworkTimedOut(
                 '{name} timed out.'.format(name=name)) from error
         except (tornado.netutil.SSLCertificateError, SSLVerficationError) \
