@@ -18,6 +18,70 @@ class TestRequest(unittest.TestCase):
             request.to_bytes()
         )
 
+    def test_request_parse(self):
+        request = Request()
+        request.parse(b'GET /robots.txt HTTP/1.1\r\n')
+        request.parse(b'Host: example.com\r\n')
+        request.parse(b'\r\n')
+
+        self.assertEqual('http://example.com/robots.txt', request.url)
+        self.assertEqual('example.com', request.fields['host'])
+
+        request = Request()
+        request.parse(b'GET https://example.com/robots.txt HTTP/1.1\r\n')
+        request.parse(b'Host: example.com\r\n')
+        request.parse(b'\r\n')
+
+        self.assertEqual('https://example.com/robots.txt', request.url)
+        self.assertEqual('example.com', request.fields['host'])
+
+    def test_response(self):
+        response = Response(200, 'OK')
+        response.fields['Cake'] = 'dolphin'
+
+        self.assertEqual(
+            (b'HTTP/1.1 200 OK\r\n'
+             b'Cake: dolphin\r\n'
+             b'\r\n'),
+            response.to_bytes()
+        )
+
+    def test_response_parse(self):
+        response = Response()
+        response.parse(b'HTTP/1.0 200 OK\r\n')
+        response.parse(b'Cake: dolphin\r\n')
+        response.parse(b'\r\n')
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual('OK', response.reason)
+        self.assertEqual('dolphin', response.fields['Cake'])
+
+    def test_response_empty_reason_line(self):
+        response = Response()
+        response.parse(b'HTTP/1.0 200\r\n')
+        response.parse(b'Cake: dolphin\r\n')
+        response.parse(b'\r\n')
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual('', response.reason)
+        self.assertEqual('dolphin', response.fields['Cake'])
+
+    def test_response_status_codes(self):
+        response = Response()
+        response.parse(b'HTTP/1.0 0\r\n')
+        response.parse(b'\r\n')
+
+        self.assertEqual(0, response.status_code)
+
+        response = Response()
+        response.parse(b'HTTP/1.0 999\r\n')
+        response.parse(b'\r\n')
+
+        self.assertEqual(999, response.status_code)
+
+        response = Response(0, '')
+        self.assertEqual(0, response.status_code)
+
     def test_request_port(self):
         request = Request('https://example.com:4567/robots.txt')
         request.prepare_for_send()

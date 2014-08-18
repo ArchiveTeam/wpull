@@ -180,8 +180,8 @@ class Request(RawRequest):
             assert self.resource_path
 
             if self.resource_path[0:1] == '/' and 'Host' in self.fields:
-                self.url = '{0}{1}'.format(self.fields['Host'], self.resource_path)
-            else:
+                self.url = 'http://{0}{1}'.format(self.fields['Host'], self.resource_path)
+            elif self.resource_path.startswith('http'):
                 self.url = self.resource_path
 
 
@@ -201,8 +201,9 @@ class Response(CommonMixin):
         encoding (str): The encoding of the status line.
     '''
     def __init__(self, status_code=None, reason=None, version='HTTP/1.1', request=None):
-        if status_code:
+        if status_code is not None:
             assert isinstance(status_code, int)
+            assert reason is not None
 
         self.status_code = status_code
         self.reason = reason
@@ -225,8 +226,8 @@ class Response(CommonMixin):
 
     def to_bytes(self):
         assert self.version
-        assert self.status_code
-        assert self.reason
+        assert self.status_code is not None
+        assert self.reason is not None
 
         status = '{0} {1} {2}'.format(self.version, self.status_code, self.reason).encode(self.encoding)
         fields = bytes(self.fields)
@@ -234,7 +235,7 @@ class Response(CommonMixin):
         return b'\r\n'.join([status, fields, b''])
 
     def parse(self, data):
-        if not self.status_code:
+        if self.status_code is None:
             line, data = data.split(b'\n', 1)
             self.version, self.status_code, self.reason = self.parse_status_line(line)
 
