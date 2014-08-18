@@ -73,6 +73,8 @@ class RedirectHandler(tornado.web.RequestHandler):
         if where == 'diff-host':
             port = self.get_argument('port')
             self.redirect('http://somewhereelse.invalid:{0}'.format(port))
+        elif self.get_argument('code', None):
+            self.redirect('/', status=int(self.get_argument('code')))
         else:
             self.redirect('/', status=301)
 

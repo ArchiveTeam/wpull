@@ -41,6 +41,23 @@ class TestWebClient(GoodAppTestCase):
         self.assertTrue(session.done())
         self.assertEqual(LoopType.normal, session.loop_type())
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_redirect_repeat(self):
+        client = WebClient()
+        session = client.session(Request(self.get_url('/redirect?code=307')))
+
+        status_codes = []
+
+        while not session.done():
+            response = yield From(session.fetch())
+            if not status_codes:
+                self.assertEqual(LoopType.redirect, session.loop_type())
+            status_codes.append(response.status_code)
+
+        self.assertEqual([307, 200], status_codes)
+        self.assertTrue(session.done())
+        self.assertEqual(LoopType.normal, session.loop_type())
+
 
 class TestWebClientBadCase(BadAppTestCase):
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)

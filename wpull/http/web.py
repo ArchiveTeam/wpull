@@ -195,15 +195,17 @@ class WebSession(object):
             raise ProtocolError('Redirect location missing.')
 
         try:
-            request = self._web_client.request_factory(url)
+            if self._redirect_tracker.is_repeat():
+                _logger.debug('Got redirect is repeat.')
+
+                request = self._original_request.copy()
+                request.url = url
+            else:
+                request = self._web_client.request_factory(url)
+
             request.prepare_for_send()
         except ValueError as error:
             raise ProtocolError('Invalid redirect location.') from error
-
-        if self._redirect_tracker.is_repeat():
-            _logger.debug('Got redirect is repeat.')
-
-            request = self._original_request.copy()
 
         self._next_request = request
 
