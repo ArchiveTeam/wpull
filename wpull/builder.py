@@ -926,7 +926,8 @@ class Builder(object):
 
         proxy_server = self._factory.new(
             'HTTPProxyServer',
-            self.factory['HTTPClient']
+            self.factory['HTTPClient'],
+            rewrite=True,
         )
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
 

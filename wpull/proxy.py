@@ -73,10 +73,6 @@ class HTTPProxyServer(object):
             writer.close()
             return
 
-        # FIXME: remove this
-        if 'Accept-Encoding' in request.fields:
-            del request.fields['Accept-Encoding']
-
         if self._rewrite and request.url.endswith('/WPULLHTTPS'):
             request.url = request.url[:-11].replace('http://', 'https://', 1)
 
