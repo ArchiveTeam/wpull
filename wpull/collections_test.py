@@ -1,5 +1,6 @@
 # encoding=utf-8
 
+import copy
 import unittest
 
 from wpull.collections import LinkedList, OrderedDefaultDict
@@ -16,6 +17,10 @@ class TestCollections(unittest.TestCase):
             [('a', 6), ('b', 5), ('c', 4)],
             list(mapping.items())
         )
+        d1 = OrderedDefaultDict()
+        d1['a'] = object()
+        d2 = copy.deepcopy(d1)
+        self.assertNotEqual(d1['a'], d2['a'])
 
     def test_linked_list(self):
         linked_list = LinkedList()

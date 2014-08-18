@@ -1,5 +1,6 @@
 # encoding=utf-8
 
+import copy
 import unittest
 
 from wpull.errors import ProtocolError
@@ -74,3 +75,9 @@ class TestRequest(unittest.TestCase):
         self.assertEqual('HTTP/1.0', version)
         self.assertEqual(404, code)
         self.assertEqual(b'N\x99t \x0eounz'.decode('latin-1'), msg)
+
+    def test_copy(self):
+        request = Request('http://twitcharchivestheinternet.invalid/')
+
+        # Cheeck for no crash
+        request.copy()

@@ -44,7 +44,8 @@ class OrderedDefaultDict(OrderedDict):
         return type(self)(self.default_factory, self)
 
     def __deepcopy__(self, memo):
-        return type(self)(self.default_factory, copy.deepcopy(self.items()))
+        return type(self)(self.default_factory,
+                          copy.deepcopy(tuple(self.items())))
 
     def __repr__(self):
         return 'OrderedDefaultDict(%s, %s)' % (

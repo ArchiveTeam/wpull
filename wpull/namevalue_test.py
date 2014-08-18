@@ -1,4 +1,5 @@
 # encoding=utf-8
+import copy
 import unittest
 
 from wpull.namevalue import guess_line_ending, unfold_lines, NameValueRecord, \
@@ -120,3 +121,10 @@ class TestNameValue(unittest.TestCase):
 
         record['WARC-Blah'] = 'blah'
         self.assertEqual(['WARC-Type', 'Warc-Blah'], list(record.keys()))
+
+    def test_copy(self):
+        record = NameValueRecord()
+        record['blah'] = 'hello'
+
+        # Check for no crash
+        copy.deepcopy(record)
