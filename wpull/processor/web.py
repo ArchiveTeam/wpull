@@ -143,7 +143,10 @@ class WebProcessor(BaseProcessor, HookableMixin):
     @trollius.coroutine
     def process(self, url_item):
         session = self._session_class(self, url_item)
-        raise Return((yield From(session.process())))
+        try:
+            raise Return((yield From(session.process())))
+        finally:
+            session.close()
 
     def close(self):
         '''Close the client and invoke document converter.'''
@@ -176,6 +179,7 @@ class WebProcessorSession(object):
         self._no_document_codes = WebProcessor.NO_DOCUMENT_STATUS_CODES
 
         self._request = None
+        self._temp_files = set()
 
     def _new_initial_request(self, with_body=True):
         '''Return a new Request to be passed to the Web Client.'''
@@ -208,7 +212,6 @@ class WebProcessorSession(object):
 
     @trollius.coroutine
     def process(self):
-        # FIXME: need to close up the files
         verdict = (yield From(self._should_fetch_reason_with_robots(
             self._next_url_info, self._url_item.url_record)))[0]
 
@@ -284,6 +287,11 @@ class WebProcessorSession(object):
             self._close_instance_body(response)
 
         raise Return(is_done)
+
+    def close(self):
+        '''Close any temp files.'''
+        for file in self._temp_files:
+            file.close()
 
     @property
     def _next_url_info(self):
@@ -417,6 +425,7 @@ class WebProcessorSession(object):
 
         if not response.body:
             response.body = Body(wpull.body.new_temp_file(self._processor.root_path))
+            self._temp_files.add(response.body)
 
         return response.body
 
@@ -670,6 +679,7 @@ class WebProcessorSession(object):
         mock_response = copy.copy(response)
 
         mock_response.body = Body(wpull.body.new_temp_file(self._processor.root_path))
+        self._temp_files.add(mock_response.body)
 
         mock_response.body.write(content.encode('utf-8'))
         mock_response.body.seek(0)
@@ -768,7 +778,9 @@ class WebProcessorSession(object):
             files_to_del.append(pdf_path)
             temp_file.close()
 
-        yield From(controller.snapshot(remote, html_path, pdf_path))
-
-        for filename in files_to_del:
-            os.remove(filename)
+        try:
+            yield From(controller.snapshot(remote, html_path, pdf_path))
+        finally:
+            for filename in files_to_del:
+                if os.path.exists(filename):
+                    os.remove(filename)

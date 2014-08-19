@@ -283,7 +283,10 @@ class WARCRecorder(BaseRecorder):
             self,
             temp_dir=self._params.temp_dir, url_table=self._params.url_table
         )
-        yield recorder_session
+        try:
+            yield recorder_session
+        finally:
+            recorder_session.close()
 
         if self._params.max_size is not None \
            and os.path.getsize(self._warc_filename) > self._params.max_size:
@@ -491,6 +494,16 @@ class WARCRecorderSession(BaseRecorderSession):
         self._request_record = None
         self._response_record = None
         self._response_temp_file = self._new_temp_file()
+
+    def close(self):
+        if self._response_temp_file:
+            self._response_temp_file.close()
+
+        if self._request_record and self._request_record.block_file:
+            self._request_record.block_file.close()
+
+        if self._response_record and self._response_record.block_file:
+            self._response_record.block_file.close()
 
     def _new_temp_file(self):
         '''Return new temp file.'''
