@@ -51,15 +51,18 @@ class Client(object):
                 session = Session(self._connection_pool,
                                   recorder_session,
                                   self._stream_factory)
+                try:
+                    yield session
+                finally:
+                    session.clean_up()
         else:
             session = Session(self._connection_pool,
                               None,
                               self._stream_factory)
-
-        try:
-            yield session
-        finally:
-            session.clean_up()
+            try:
+                yield session
+            finally:
+                session.clean_up()
 
     def close(self):
         '''Close the connection pool and recorders.'''
