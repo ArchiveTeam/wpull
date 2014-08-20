@@ -645,6 +645,8 @@ class WebProcessorSession(object):
         controller = self._processor.instances.phantomjs_controller
 
         attempts = int(os.environ.get('WPULL_PHANTOMJS_TRIES', 5))
+        content = None
+
         for dummy in range(attempts):
             # FIXME: this is a quick hack for handling time outs. See #137.
             try:
@@ -666,13 +668,19 @@ class WebProcessorSession(object):
             else:
                 break
 
-        mock_response = self._new_phantomjs_response(response, content)
+        if content is not None:
+            mock_response = self._new_phantomjs_response(response, content)
 
-        self._scrape_document(request, mock_response)
+            self._scrape_document(request, mock_response)
 
-        self._close_instance_body(mock_response)
+            self._close_instance_body(mock_response)
 
-        _logger.debug('Ended PhantomJS processing.')
+            _logger.debug('Ended PhantomJS processing.')
+        else:
+            _logger.warning(__(
+                _('PhantomJS failed to fetch ‘{url}’. I am sorry.'),
+                url=request.url_info.url
+            ))
 
     def _new_phantomjs_response(self, response, content):
         '''Return a new mock Response with the content.'''
