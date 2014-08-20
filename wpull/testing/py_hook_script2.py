@@ -50,6 +50,17 @@ def accept_url(url_info, record_info, verdict, reasons):
     return verdict
 
 
+def queued_url(url_info):
+    print('queued_url', url_info)
+    assert url_info['url']
+
+
+def dequeued_url(url_info, record_info):
+    print('dequeued_url', url_info)
+    assert url_info['url']
+    assert record_info['record_info']
+
+
 def handle_response(url_info, record_info, http_info):
     print('handle_response', url_info)
 
@@ -115,6 +126,8 @@ def exit_status(exit_code):
 wpull_hook.callbacks.engine_run = engine_run
 wpull_hook.callbacks.resolve_dns = resolve_dns
 wpull_hook.callbacks.accept_url = accept_url
+wpull_hook.callbacks.queued_url = queued_url
+wpull_hook.callbacks.dequeued_url = dequeued_url
 wpull_hook.callbacks.handle_response = handle_response
 wpull_hook.callbacks.handle_error = handle_error
 wpull_hook.callbacks.get_urls = get_urls

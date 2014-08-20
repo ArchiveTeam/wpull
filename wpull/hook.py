@@ -261,6 +261,28 @@ class Callbacks(LegacyCallbacks):
         return verdict
 
     @staticmethod
+    def queued_url(url_info):
+        '''Callback fired after an URL was put into the queue.
+
+        Args:
+            url_info (dict): A mapping containing the same information in
+                :class:`.url.URLInfo`.
+        '''
+        print('queued_url:', url_info)
+
+    @staticmethod
+    def dequeued_url(url_info, record_info):
+        '''Callback fired after an URL was retrieved from the queue.
+
+        Args:
+            url_info (dict): A mapping containing the same information in
+                :class:`.url.URLInfo`.
+            record_info (dict): A mapping containing the same information in
+                :class:`.item.URLRecord`.
+        '''
+        print('dequeued_url:', url_info)
+
+    @staticmethod
     def handle_response(url_info, record_info, http_info):
         '''Return an action to handle the response.
 
@@ -457,6 +479,9 @@ class HookEnvironment(object):
 
         self.factory['Resolver'].connect_hook('resolve_dns', self._resolve_dns)
         self.factory['Engine'].connect_hook('engine_run', self._engine_run)
+        self.factory['Engine'].connect_hook(
+            'dequeued_url',
+            self._dequeued_url)
         self.factory['Application'].connect_hook(
             'exit_status', self._exit_status
         )
@@ -464,6 +489,9 @@ class HookEnvironment(object):
             'finishing_statistics', self._finishing_statistics
         )
         self.factory['WebProcessor'].connect_hook('wait_time', self._wait_time)
+        self.factory['WebProcessor'].connect_hook(
+            'queued_url',
+            self._queued_url)
         self.factory['WebProcessor'].connect_hook(
             'should_fetch',
             self._should_fetch)
@@ -506,6 +534,19 @@ class HookEnvironment(object):
         if self.is_lua:
             seconds = to_lua_type(seconds)
         return self.callbacks.wait_time(seconds)
+
+    def _queued_url(self, url_info):
+        url_info_dict = self.to_script_native_type(url_info.to_dict())
+
+        self.callbacks.queued_url(url_info_dict)
+
+    def _dequeued_url(self, url_info, url_record):
+        url_info_dict = self.to_script_native_type(url_info.to_dict())
+
+        record_info_dict = url_record.to_dict()
+        record_info_dict = self.to_script_native_type(record_info_dict)
+
+        self.callbacks.dequeued_url(url_info_dict, record_info_dict)
 
     def _should_fetch(self, url_info, url_record, verdict, reason_slug,
                       test_info):
