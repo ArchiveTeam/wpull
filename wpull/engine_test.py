@@ -97,7 +97,7 @@ class TestEngine(AsyncTestCase):
     def test_base_engine_stop(self):
         engine = MockEngine(test_stop=True)
         yield From(engine.run())
-        self.assertEqual([2, 3, 4], engine.items)
+        self.assertEqual([3, 4], engine.items)
         self.assertEqual([1], engine.processed_items)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)

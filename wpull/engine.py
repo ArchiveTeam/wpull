@@ -70,6 +70,18 @@ class BaseEngine(object):
             yield From(trollius.wait(worker_tasks))
 
         _logger.debug('Waiting for producer to stop.')
+
+        if self._item_get_semaphore.locked():
+            _logger.warning(__(
+                gettext.ngettext(
+                    'Discarding {num} unprocessed item.',
+                    'Discarding {num} unprocessed items.',
+                    self._token_queue.qsize()
+                ),
+                num=self._token_queue.qsize()
+            ))
+            self._item_get_semaphore.release()
+
         yield From(self._producer_task)
 
     @trollius.coroutine
@@ -78,9 +90,6 @@ class BaseEngine(object):
 
         Coroutine.
         '''
-        # Want initial value to be 0. -1 means an item is in queue
-        yield From(self._item_get_semaphore.acquire())
-
         while self._running:
             _logger.debug('Get item from source')
             item = yield From(self._get_item())
@@ -95,9 +104,9 @@ class BaseEngine(object):
                         len(self._worker_tasks)))
                 yield From(self._token_queue.join())
             else:
+                yield From(self._item_get_semaphore.acquire())
                 self._token_queue.put_nowait(None)
                 yield From(self._item_queue.put((self.ITEM_PRIORITY, item)))
-                yield From(self._item_get_semaphore.acquire())
 
     @trollius.coroutine
     def _run_worker(self):
