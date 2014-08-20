@@ -268,7 +268,7 @@ class Callbacks(LegacyCallbacks):
             url_info (dict): A mapping containing the same information in
                 :class:`.url.URLInfo`.
         '''
-        print('queued_url:', url_info)
+        pass
 
     @staticmethod
     def dequeued_url(url_info, record_info):
@@ -280,7 +280,7 @@ class Callbacks(LegacyCallbacks):
             record_info (dict): A mapping containing the same information in
                 :class:`.item.URLRecord`.
         '''
-        print('dequeued_url:', url_info)
+        pass
 
     @staticmethod
     def handle_response(url_info, record_info, http_info):
