@@ -8,7 +8,7 @@ from trollius import From
 import trollius
 
 from wpull.connection import Connection, ConnectionPool, HostPool
-from wpull.errors import NetworkError
+from wpull.errors import NetworkError, NetworkTimedOut
 import wpull.testing.async
 from wpull.testing.badapp import BadAppTestCase
 
@@ -194,3 +194,46 @@ class TestConnection(BadAppTestCase):
         connection_pool.clean()
 
         self.assertEqual(0, len(connection_pool.pool))
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_connect_timeout(self):
+        connection = Connection(('10.0.0.0', 1), connect_timeout=2)
+
+        try:
+            yield From(connection.connect())
+        except NetworkTimedOut:
+            pass
+        else:
+            self.fail()
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_read_timeout(self):
+        connection = Connection(('127.0.0.1', self.get_http_port()),
+                                timeout=0.5)
+        yield From(connection.connect())
+        yield From(connection.write(b'GET /sleep_long HTTP/1.1\r\n',
+                                    drain=False))
+        yield From(connection.write(b'\r\n', drain=False))
+
+        data = yield From(connection.readline())
+        self.assertEqual(b'HTTP', data[:4])
+
+        while True:
+            data = yield From(connection.readline())
+
+            if not data.strip():
+                break
+
+        try:
+            bytes_left = 2
+            while bytes_left > 0:
+                data = yield From(connection.read(bytes_left))
+
+                if not data:
+                    break
+
+                bytes_left -= len(data)
+        except NetworkTimedOut:
+            pass
+        else:
+            self.fail()

@@ -6,6 +6,7 @@ import logging
 import os
 import socket
 import ssl
+import time
 
 from tornado.netutil import SSLCertificateError
 import tornado.netutil
@@ -19,6 +20,75 @@ from wpull.errors import NetworkError, ConnectionRefused, SSLVerficationError, \
 
 
 _logger = logging.getLogger(__name__)
+
+
+class CloseTimer(object):
+    '''Periodic timer to close connections if stalled.'''
+    def __init__(self, timeout, connection):
+        self._timeout = timeout
+        self._touch_time = None
+        self._call_later_handle = None
+        self._connection = connection
+        self._event_loop = trollius.get_event_loop()
+        self._timed_out = False
+        self._running = True
+
+        self._schedule()
+
+    def _schedule(self):
+        '''Schedule check function.'''
+        if self._running:
+            _logger.debug('Schedule check function.')
+            self._call_later_handle = self._event_loop.call_later(
+                self._timeout, self._check)
+
+    def _check(self):
+        '''Check and close connection if needed.'''
+        _logger.debug('Check if timeout.')
+        self._call_later_handle = None
+
+        if self._touch_time is not None:
+            difference = self._event_loop.time() - self._touch_time
+            _logger.debug('Time difference %s', difference)
+
+            if difference > self._timeout:
+                self._connection.close()
+                self._timed_out = True
+
+        if not self._connection.closed():
+            self._schedule()
+
+    def close(self):
+        '''Stop running timers.'''
+        if self._call_later_handle:
+            self._call_later_handle.cancel()
+
+        self._running = False
+
+    @contextlib.contextmanager
+    def with_timeout(self):
+        '''Context manager that applies timeout checks.'''
+        self._touch_time = self._event_loop.time()
+        try:
+            yield
+        finally:
+            self._touch_time = None
+
+    def is_timeout(self):
+        return self._timed_out
+
+
+class DummyCloseTimer(object):
+    '''Dummy close timer.'''
+    @contextlib.contextmanager
+    def with_timeout(self):
+        yield
+
+    def is_timeout(self):
+        return False
+
+    def close(self):
+        pass
 
 
 class HostPool(object):
@@ -194,6 +264,7 @@ class Connection(object):
         self.reader = None
         self.writer = None
         self.bandwidth_limiter = None
+        self._close_timer = None
 
         # TODO: implement bandwidth limiting
 
@@ -219,7 +290,7 @@ class Connection(object):
 
     def closed(self):
         '''Return whether the connection is closed.'''
-        return not self.reader or self.reader.at_eof()
+        return not self.writer or not self.reader or self.reader.at_eof()
 
     @trollius.coroutine
     def connect(self):
@@ -233,9 +304,14 @@ class Connection(object):
         self.reader, self.writer = yield From(
             self.run_network_operation(
                 connection_future,
-                timeout=self._connect_timeout,
+                wait_timeout=self._connect_timeout,
                 name='Connect')
         )
+
+        if self._timeout is not None:
+            self._close_timer = CloseTimer(self._timeout, self)
+        else:
+            self._close_timer = DummyCloseTimer()
 
         _logger.debug('Connected.')
 
@@ -256,6 +332,9 @@ class Connection(object):
             self.writer = None
             self.reader = None
 
+        if self._close_timer:
+            self._close_timer.close()
+
     @trollius.coroutine
     def write(self, data, drain=True):
         '''Write data.'''
@@ -266,44 +345,64 @@ class Connection(object):
 
             if fut:
                 yield From(self.run_network_operation(
-                    fut, self._timeout, name='Write')
+                    fut, close_timeout=self._timeout, name='Write')
                 )
 
     @trollius.coroutine
     def read(self, amount=-1):
         '''Read data.'''
+
         data = yield From(
             self.run_network_operation(
                 self.reader.read(amount),
-                self._timeout,
+                close_timeout=self._timeout,
                 name='Read')
         )
+
         raise Return(data)
 
     @trollius.coroutine
     def readline(self):
         '''Read a line of data.'''
-        data = yield From(
-            self.run_network_operation(
-                self.reader.readline(),
-                self._timeout,
-                name='Readline')
-        )
+
+        with self._close_timer.with_timeout():
+            data = yield From(
+                self.run_network_operation(
+                    self.reader.readline(),
+                    close_timeout=self._timeout,
+                    name='Readline')
+            )
+
         raise Return(data)
 
     @trollius.coroutine
-    def run_network_operation(self, task, timeout=None,
+    def run_network_operation(self, task, wait_timeout=None,
+                              close_timeout=None,
                               name='Network operation'):
         '''Run the task and raise appropriate exceptions.
 
         Coroutine.
         '''
+        if wait_timeout is not None and close_timeout is not None:
+            raise Exception(
+                'Cannot use wait_timeout and close_timeout at the same time')
 
         try:
-            if timeout is None:
-                raise Return((yield From(task)))
+            if close_timeout is not None:
+                with self._close_timer.with_timeout():
+                    data = yield From(task)
+
+                if self._close_timer.is_timeout():
+                    raise NetworkTimedOut(
+                        '{name} timed out.'.format(name=name))
+                else:
+                    raise Return(data)
+            elif wait_timeout is not None:
+                data = yield From(trollius.wait_for(task, wait_timeout))
+                raise Return(data)
             else:
-                raise Return((yield From(trollius.wait_for(task, timeout))))
+                raise Return((yield From(task)))
+
         except trollius.TimeoutError as error:
             # XXX: wait_for may leak file descriptors
             self.close()
@@ -315,6 +414,9 @@ class Connection(object):
                 '{name} certificate error: {error}'
                 .format(name=name, error=error)) from error
         except (socket.error, ssl.SSLError, OSError, IOError) as error:
+            if isinstance(error, NetworkError):
+                raise
+
             if error.errno == errno.ECONNREFUSED:
                 raise ConnectionRefused(
                     error.errno, os.strerror(error.errno)) from error
