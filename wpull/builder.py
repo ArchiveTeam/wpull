@@ -329,20 +329,26 @@ class Builder(object):
             lua.execute(in_file.read())
 
     def _setup_debug_console(self):
-        if not self._args.debug_console_port:
+        if self._args.debug_console_port is None:
             return
-
-        _logger.warning(__(
-            _('Opened a debug console at localhost:{port}.'),
-            port=self._args.debug_console_port
-        ))
 
         application = tornado.web.Application(
             [(r'/', DebugConsoleHandler)],
             builder=self
         )
+        sock = socket.socket()
+        sock.bind(('localhost', self._args.debug_console_port))
+        sock.setblocking(0)
+        sock.listen(1)
         http_server = tornado.httpserver.HTTPServer(application)
-        http_server.listen(self._args.debug_console_port, address='localhost')
+        http_server.add_socket(sock)
+
+        _logger.warning(__(
+            _('Opened a debug console at localhost:{port}.'),
+            port=sock.getsockname()[1]
+        ))
+
+        atexit.register(sock.close)
 
     def _build_input_urls(self, default_scheme='http'):
         '''Read the URLs provided by the user.'''
