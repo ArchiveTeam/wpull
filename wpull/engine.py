@@ -3,6 +3,7 @@
 import abc
 import gettext
 import logging
+import os
 
 from trollius import From, Return
 import trollius
@@ -129,6 +130,12 @@ class BaseEngine(object):
                 self._token_queue.get_nowait()
                 yield From(self._process_item(item))
                 self._token_queue.task_done()
+
+                if os.environ.get('OBJGRAPH_DEBUG'):
+                    import gc
+                    import objgraph
+                    gc.collect()
+                    objgraph.show_most_common_types(25)
 
     def _set_concurrent(self, new_num):
         '''Set concurrency level.'''
