@@ -66,7 +66,7 @@ end
 wpull_hook.callbacks.dequeued_url = function(url_info, record_info)
   --  print('dequeued_url', url_info)
   assert(url_info['url'])
-  assert(record_info['record_info'])
+  assert(record_info['url'])
 
   counter = counter - 1
 
