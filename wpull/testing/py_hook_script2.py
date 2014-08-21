@@ -3,9 +3,10 @@ import os.path
 
 
 wpull_hook = globals().get('wpull_hook')  # silence code checkers
-injected_url_found = False
 wpull_hook.callbacks.version = 2
 
+counter = 0
+injected_url_found = False
 
 def engine_run():
     assert wpull_hook.factory['Engine']
@@ -54,11 +55,21 @@ def queued_url(url_info):
     print('queued_url', url_info)
     assert url_info['url']
 
+    global counter
+    counter += 1
+
+    assert counter > 0
+
 
 def dequeued_url(url_info, record_info):
     print('dequeued_url', url_info)
     assert url_info['url']
     assert record_info['record_info']
+
+    global counter
+    counter -= 1
+
+    assert counter >= 0
 
 
 def handle_response(url_info, record_info, http_info):
