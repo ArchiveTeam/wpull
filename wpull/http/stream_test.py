@@ -25,11 +25,17 @@ DEFAULT_TIMEOUT = 30
 _logger = logging.getLogger(__name__)
 
 
-class StreamMixin(object):
+class StreamTestsMixin(object):
+    def get_ssl_default(self):
+        return None
+
     def new_stream(self, host=None, port=None, ssl=None,
                    connection_kwargs=None, **kwargs):
         if connection_kwargs is None:
             connection_kwargs = {}
+
+        if ssl is None:
+            ssl = self.get_ssl_default()
 
         if ssl:
             connection = SSLConnection(
@@ -63,8 +69,6 @@ class StreamMixin(object):
         yield From(stream.read_body(request, response, content))
         raise Return(response, content.getvalue())
 
-
-class TestStream(BadAppTestCase, StreamMixin):
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_no_such_host(self):
         stream = self.new_stream('wpull-no-exist.invalid', 80)
@@ -456,7 +460,14 @@ class TestStream(BadAppTestCase, StreamMixin):
         self.assertEqual(b'a' * 100, content)
 
 
-class TestSSLStream(SSLBadAppTestCase, StreamMixin):
+class TestStream(BadAppTestCase, StreamTestsMixin):
+    pass
+
+
+class TestSSLStream(SSLBadAppTestCase, StreamTestsMixin):
+    def get_ssl_default(self):
+        return True
+
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_ssl_fail(self):
         ssl_options = dict(
