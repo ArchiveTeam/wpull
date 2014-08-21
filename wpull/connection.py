@@ -6,7 +6,6 @@ import logging
 import os
 import socket
 import ssl
-import time
 
 from tornado.netutil import SSLCertificateError
 import tornado.netutil
@@ -33,6 +32,7 @@ class CloseTimer(object):
         self._timed_out = False
         self._running = True
 
+        assert self._timeout > 0
         self._schedule()
 
     def _schedule(self):
