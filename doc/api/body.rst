@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`conversation` Module
-==========================
+:mod:`body` Module
+==================
 
-.. automodule:: wpull.conversation
+.. automodule:: wpull.body
     :members:
     :show-inheritance:
     :private-members:

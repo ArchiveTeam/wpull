@@ -16,10 +16,6 @@ from wpull.cache import LRUCache
 import wpull.string
 
 
-if sys.version_info < (2, 7):
-    from wpull.backport import urlparse
-
-
 RELAXED_SAFE_CHARS = '/!$&()*+,:;=@[]~'
 '''Characters in URL path that should be safe to not escape.'''
 

@@ -1,14 +1,17 @@
 # encoding=utf-8
 import logging
+import unittest
+
 import tornado.httpclient
 import tornado.testing
+from trollius import From, Return
+import trollius
 
-from wpull.backport.testing import unittest
 from wpull.http.client import Client
 from wpull.proxy import HTTPProxyServer
 from wpull.recorder import DebugPrintRecorder
-import wpull.testing.goodapp
 import wpull.testing.badapp
+import wpull.testing.goodapp
 
 
 try:
@@ -26,12 +29,13 @@ DEFAULT_TIMEOUT = 30
 class TestProxy(wpull.testing.goodapp.GoodAppTestCase):
     # TODO: fix Travis CI to install pycurl
     @unittest.skipIf(pycurl is None, "pycurl module not present")
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_basic(self):
         http_client = Client(recorder=DebugPrintRecorder())
-        proxy = HTTPProxyServer(http_client, io_loop=self.io_loop)
+        proxy = HTTPProxyServer(http_client)
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
-        proxy.add_socket(proxy_socket)
+
+        yield From(trollius.start_server(proxy, sock=proxy_socket))
 
         _logger.debug('Proxy on port {0}'.format(proxy_port))
 
@@ -43,19 +47,20 @@ class TestProxy(wpull.testing.goodapp.GoodAppTestCase):
             proxy_port=proxy_port,
         )
 
-        response = yield test_client.fetch(request)
+        response = yield From(tornado_future_adapter(test_client.fetch(request)))
 
         self.assertEqual(200, response.code)
         self.assertIn(b'Hello!', response.body)
 
     # TODO: fix Travis CI to install pycurl
     @unittest.skipIf(pycurl is None, "pycurl module not present")
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_post(self):
         http_client = Client(recorder=DebugPrintRecorder())
-        proxy = HTTPProxyServer(http_client, io_loop=self.io_loop)
+        proxy = HTTPProxyServer(http_client)
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
-        proxy.add_socket(proxy_socket)
+
+        yield From(trollius.start_server(proxy, sock=proxy_socket))
 
         _logger.debug('Proxy on port {0}'.format(proxy_port))
 
@@ -69,7 +74,7 @@ class TestProxy(wpull.testing.goodapp.GoodAppTestCase):
             method='POST'
         )
 
-        response = yield test_client.fetch(request)
+        response = yield From(tornado_future_adapter(test_client.fetch(request)))
 
         self.assertEqual(200, response.code)
         self.assertIn(b'OK', response.body)
@@ -77,12 +82,13 @@ class TestProxy(wpull.testing.goodapp.GoodAppTestCase):
 
 class TestProxy2(wpull.testing.badapp.BadAppTestCase):
     @unittest.skipIf(pycurl is None, "pycurl module not present")
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_no_content(self):
         http_client = Client(recorder=DebugPrintRecorder())
-        proxy = HTTPProxyServer(http_client, io_loop=self.io_loop)
+        proxy = HTTPProxyServer(http_client)
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
-        proxy.add_socket(proxy_socket)
+
+        yield From(trollius.start_server(proxy, sock=proxy_socket))
 
         _logger.debug('Proxy on port {0}'.format(proxy_port))
 
@@ -94,6 +100,17 @@ class TestProxy2(wpull.testing.badapp.BadAppTestCase):
             proxy_port=proxy_port
         )
 
-        response = yield test_client.fetch(request)
+        response = yield From(tornado_future_adapter(test_client.fetch(request)))
 
         self.assertEqual(204, response.code)
+
+
+@trollius.coroutine
+def tornado_future_adapter(future):
+    event = trollius.Event()
+
+    future.add_done_callback(lambda dummy: event.set())
+
+    yield From(event.wait())
+
+    raise Return(future.result())

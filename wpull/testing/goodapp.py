@@ -1,13 +1,16 @@
 # encoding=utf-8
 import email.utils
+import hashlib
 import http.client
 import logging
 import os.path
 import time
+
 from tornado.testing import AsyncHTTPTestCase
 from tornado.web import HTTPError
 import tornado.web
-import hashlib
+
+from wpull.testing.async import AsyncTestCase
 
 
 _logger = logging.getLogger(__name__)
@@ -70,6 +73,8 @@ class RedirectHandler(tornado.web.RequestHandler):
         if where == 'diff-host':
             port = self.get_argument('port')
             self.redirect('http://somewhereelse.invalid:{0}'.format(port))
+        elif self.get_argument('code', None):
+            self.redirect('/', status=int(self.get_argument('code')))
         else:
             self.redirect('/', status=301)
 
@@ -147,8 +152,16 @@ class GoodApp(tornado.web.Application):
         )
 
 
-class GoodAppTestCase(AsyncHTTPTestCase):
+class GoodAppTestCase(AsyncTestCase, AsyncHTTPTestCase):
+    def get_new_ioloop(self):
+        tornado.ioloop.IOLoop.configure(
+            'wpull.testing.async.TornadoAsyncIOLoop',
+            event_loop=self.event_loop)
+        ioloop = tornado.ioloop.IOLoop()
+        return ioloop
+
     def setUp(self):
+        AsyncTestCase.setUp(self)
         AsyncHTTPTestCase.setUp(self)
         # Wait for the app to start up properly (for good luck).
         time.sleep(0.5)

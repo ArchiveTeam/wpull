@@ -2,6 +2,16 @@
 What's New
 ==========
 
+0.1000
+======
+
+* Dropped support for Python 2. Please file an issue if this is a problem.
+* API:
+
+  * Switched to Trollius instead of Tornado.
+  * Most the of internals related to the HTTP protocol were rewritten and as a result, major components are not backwards compatible; lots of changes were made. If you happen to be using Wpull's API, please pin your requirements to ``<0.1000`` if you do not want to make a migration. Please file an issue if this is a problem.
+
+
 0.36.4 (2014-08-07)
 ===================
 

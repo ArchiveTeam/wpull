@@ -222,7 +222,7 @@ class Callbacks(LegacyCallbacks):
         Args:
             host (str): The hostname.
 
-        This callback is to override the DNS response.
+        This callback is to override the DNS lookup.
 
         It is useful when the server is no longer available to the public.
         Typically, large infrastructures will change the DNS settings to
@@ -232,7 +232,7 @@ class Callbacks(LegacyCallbacks):
 
         Returns:
             str, None: ``None`` to use the original behavior or a string
-            containing an IP address.
+            containing an IP address or an alternate hostname.
         '''
         return None
 
@@ -585,7 +585,7 @@ class HookEnvironment(object):
         to_native = self.to_script_native_type
         url_info_dict = to_native(request.url_info.to_dict())
         document_info_dict = to_native(response.body.to_dict())
-        filename = to_native(response.body.content_file.name)
+        filename = to_native(response.body.name)
 
         new_url_dicts = self.callbacks.get_urls(
             filename, url_info_dict, document_info_dict)
@@ -622,7 +622,7 @@ class HookEnvironment(object):
         assert url
 
         # FIXME: resolve circular imports
-        from wpull.processor import WebProcessorSession
+        from wpull.processor.web import WebProcessorSession
         url_info = WebProcessorSession.parse_url(url, 'utf-8')
 
         if not url_info:

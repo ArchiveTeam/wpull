@@ -1,33 +1,28 @@
 var system = require('system');
-
-if (system.args.length !== 2) {
-	console.log('Argument error.');
-	phantom.exit(1);
-}
-
 var page = require('webpage').create();
-var hostPort = system.args[1];
 var defaultPageSettings = null;
 var defaultPageHeaders = {};
 var rewriteEnabled = false;
 
-var connection = new WebSocket('ws://localhost:' + hostPort);
-console.log('Created websocket', connection)
+// Begin polling for RPC calls
+function readRpc() {
+	console.log('Read RPC loop.');
 
-connection.onopen = function(event) {
-	console.log('WebSocket ready', event);
+	if (system.stdin.atEnd()) {
+		console.log('Stdin at end.');
+		setTimeout(readRpc, 100);
+		return;
+	}
 
-	setupEvents();
-};
+	var line = system.stdin.readLine();
 
-connection.onerror = function(event) {
-	console.log('WebSocket error', event);
-};
+	if (line.slice(0, 5) != '!RPC!') {
+		console.log('Ignore unknown start flags.', line);
+		setTimeout(readRpc, 100);
+		return;
+	}
 
-connection.onmessage = function(event) {
-	console.log('WebSocket message');
-
-	var rpcInfo = JSON.parse(event.data);
+	var rpcInfo = JSON.parse(line.slice(5));
 	var replyRpcInfo = {
 		'id' : String(Math.random()),
 		'reply_id' : rpcInfo['id'],
@@ -41,7 +36,32 @@ connection.onmessage = function(event) {
 		replyRpcInfo['error_message'] = error.message;
 	}
 
-	connection.send(JSON.stringify(replyRpcInfo))
+	sendMessage(replyRpcInfo);
+	console.log('Replied.');
+	setTimeout(readRpc, 1);
+}
+
+// Serialize and send
+function sendMessage(rpcInfo) {
+	var message = JSON.stringify(rpcInfo);
+	var chunks = message.match(/.{1,4096}/g);
+
+	if (chunks.length === 1) {
+		system.stdout.write('!RPC!');
+		system.stdout.writeLine(message);
+	} else {
+		for (var i = 0; i < chunks.length; i++) {
+			if (i === 0) {
+				system.stdout.write('!RPC[');
+			} else {
+				system.stdout.write('!RPC+');
+			}
+			system.stdout.writeLine(chunks[i]);
+		}
+		system.stdout.writeLine('!RPC]');
+	}
+
+	system.stdout.flush();
 }
 
 // Evaluate the RPC.
@@ -215,7 +235,7 @@ function sendRpcEvent(eventName, info) {
 		rpcInfo[name] = info[name];
 	}
 
-	connection.send(JSON.stringify(rpcInfo));
+	sendMessage(rpcInfo);
 }
 
 // Set the default page settings
@@ -265,5 +285,8 @@ function isPageDynamic() {
 	if (result) {
 		return true;
 	}
-
 }
+
+console.log('Script starting up.')
+setupEvents();
+readRpc();

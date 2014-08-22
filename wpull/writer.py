@@ -16,6 +16,7 @@ import time
 import urllib.parse
 
 from wpull.backport.logging import BraceMessage as __
+from wpull.body import Body
 import wpull.util
 
 
@@ -153,7 +154,7 @@ class BaseFileWriterSession(BaseWriterSession):
         if dir_path and not os.path.exists(dir_path):
             os.makedirs(dir_path)
 
-        response.body.content_file = open(filename, mode)
+        response.body = Body(open(filename, mode))
 
     @classmethod
     def set_timestamp(cls, filename, response):
@@ -191,9 +192,9 @@ class BaseFileWriterSession(BaseWriterSession):
         with open('wb') as new_file:
             new_file.write(response.header())
 
-            with wpull.util.reset_file_offset(response.body.content_file):
-                response.body.content_file.seek(0)
-                shutil.copyfileobj(response.body.content_file, new_file)
+            with wpull.util.reset_file_offset(response.body):
+                response.body.seek(0)
+                shutil.copyfileobj(response.body, new_file)
 
         os.remove(filename)
         os.rename(new_filename, filename)

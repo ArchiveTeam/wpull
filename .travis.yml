@@ -1,7 +1,5 @@
 language: python
 python:
-  - 2.6
-  - 2.7
   - 3.2
   - 3.3
 
@@ -11,20 +9,10 @@ before_install:
 
 # command to install dependencies
 install:
-  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then
-      pip install -r requirements-py2.txt &&
-      pip install unittest2;
-    else
-      pip install -r requirements.txt;
-    fi
+  - pip install -r requirements.txt;
   - pip install git+https://github.com/bastibe/lunatic-python.git@f3f68d2c8638c6f423912264aeb750f5f7eb14ee#egg=lunatic-python
 
 
 # command to run tests
 script:
-  - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then
-      python setup.py --name &&
-      nosetests py2src_noedit;
-    else
-      nosetests;
-    fi
+  - nosetests

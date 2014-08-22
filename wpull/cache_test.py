@@ -1,6 +1,6 @@
 import time
+import unittest
 
-from wpull.backport.testing import unittest
 from wpull.cache import FIFOCache, LRUCache
 
 

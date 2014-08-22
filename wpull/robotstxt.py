@@ -38,22 +38,3 @@ class RobotsTxtPool(object):
     @classmethod
     def url_info_key(cls, url_info):
         return (url_info.scheme, url_info.hostname, url_info.port)
-
-
-class RobotsState(object):
-    '''Robots States Machine Constants.'''
-    unknown = 1
-    '''Permission for action has not been determined yet.'''
-    ok = 2
-    '''Action is allowed.'''
-    denied = 3
-    '''Action is disallowed.'''
-    error = 4
-    '''Action could not be determined due to an error.'''
-    in_progress = 5
-    '''Permission for action is being determined.'''
-
-
-class RobotsDenied(Exception):
-    '''Robots.txt directive does not allow action.'''
-    pass

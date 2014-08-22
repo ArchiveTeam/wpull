@@ -1,7 +1,7 @@
 recursive-include wpull *.html *.css *.txt *.lua *.pem *.rst *.js *.png *.xml
 recursive-include icon *.png *.svg *.txt
 include test/fuzz_fusil/runner.py
-include README.rst requirements*.txt LICENSE.txt 3to2runner.py backport.py backport.conf
+include README.rst requirements*.txt LICENSE.txt
 recursive-include doc *.rst
 include doc/make.bat doc/conf.py doc/Makefile doc/api/template.py
 include scripts/wpull scripts/wpull[23]

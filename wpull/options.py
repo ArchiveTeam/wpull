@@ -1,5 +1,6 @@
 # encoding=utf-8
 '''Program options.'''
+import argparse
 import gettext
 import logging
 import os
@@ -9,12 +10,6 @@ import sys
 from wpull.backport.logging import BraceMessage as __
 import wpull.string
 import wpull.version
-
-
-if sys.version_info >= (2, 7):
-    import argparse
-else:
-    from wpull.backport import argparse
 
 
 _ = gettext.gettext

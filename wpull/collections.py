@@ -1,14 +1,9 @@
 # encoding=utf-8
 '''Data structures.'''
+from collections import OrderedDict
 import collections
 import copy
 import itertools
-
-
-try:
-    from collections import OrderedDict
-except ImportError:
-    from wpull.backport.collections import OrderedDict
 
 
 class OrderedDefaultDict(OrderedDict):
@@ -49,7 +44,8 @@ class OrderedDefaultDict(OrderedDict):
         return type(self)(self.default_factory, self)
 
     def __deepcopy__(self, memo):
-        return type(self)(self.default_factory, copy.deepcopy(self.items()))
+        return type(self)(self.default_factory,
+                          copy.deepcopy(tuple(self.items())))
 
     def __repr__(self):
         return 'OrderedDefaultDict(%s, %s)' % (

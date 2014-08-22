@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`http.connection` Module
-=============================
+:mod:`observer` Module
+======================
 
-.. automodule:: wpull.http.connection
+.. automodule:: wpull.observer
     :members:
     :show-inheritance:
     :private-members:

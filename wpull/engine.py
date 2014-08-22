@@ -1,13 +1,13 @@
 # encoding=utf-8
 '''Item queue management and processing.'''
+import abc
 import gettext
 import logging
+import os
 
-import tornado.gen
-import toro
+from trollius import From, Return
+import trollius
 
-from wpull.async import AdjustableSemaphore
-import wpull.async
 from wpull.backport.logging import BraceMessage as __
 from wpull.database import NotFound
 from wpull.hook import HookableMixin, HookDisconnected
@@ -19,7 +19,171 @@ _logger = logging.getLogger(__name__)
 _ = gettext.gettext
 
 
-class Engine(HookableMixin):
+class BaseEngine(object):
+    '''Base engine producer-consumer.'''
+    POISON_PILL = object()
+    ITEM_PRIORITY = 1
+    POISON_PRIORITY = 0
+
+    def __init__(self):
+        super().__init__()
+        self.__concurrent = 1
+        self._running = False
+        self._item_queue = trollius.PriorityQueue()
+        self._token_queue = trollius.JoinableQueue()
+        self._item_get_semaphore = trollius.BoundedSemaphore(value=1)
+
+        self._producer_task = None
+        self._worker_tasks = set()
+
+    @property
+    def _concurrent(self):
+        '''Get concurrency value.'''
+        return self.__concurrent
+
+    @trollius.coroutine
+    def _run_workers(self):
+        '''Run the consumers.
+
+        Coroutine.
+        '''
+        self._running = True
+        self._producer_task = trollius.async(self._run_producer())
+        worker_tasks = self._worker_tasks
+
+        while self._running:
+            while len(worker_tasks) < self.__concurrent:
+                worker_task = trollius.async(self._run_worker())
+                worker_tasks.add(worker_task)
+
+            wait_coroutine = trollius.wait(
+                worker_tasks, return_when=trollius.FIRST_COMPLETED)
+            done_tasks = (yield From(wait_coroutine))[0]
+
+            for task in done_tasks:
+                task.result()
+                worker_tasks.remove(task)
+
+        _logger.debug('Exited workers loop.')
+
+        if worker_tasks:
+            _logger.debug('Waiting for workers to stop.')
+            yield From(trollius.wait(worker_tasks))
+
+        _logger.debug('Waiting for producer to stop.')
+
+        if self._item_get_semaphore.locked():
+            _logger.warning(__(
+                gettext.ngettext(
+                    'Discarding {num} unprocessed item.',
+                    'Discarding {num} unprocessed items.',
+                    self._token_queue.qsize()
+                ),
+                num=self._token_queue.qsize()
+            ))
+            self._item_get_semaphore.release()
+
+        yield From(self._producer_task)
+
+    @trollius.coroutine
+    def _run_producer(self):
+        '''Run the producer.
+
+        Coroutine.
+        '''
+        while self._running:
+            _logger.debug('Get item from source')
+            item = yield From(self._get_item())
+
+            # FIXME: accessing protected unfinished_tasks
+            if item is None and self._token_queue._unfinished_tasks == 0:
+                _logger.debug('Producer stopping.')
+                self._stop()
+            elif item is None:
+                _logger.debug(
+                    __('Producer waiting for {0} workers to finish up.',
+                        len(self._worker_tasks)))
+                yield From(self._token_queue.join())
+            else:
+                yield From(self._item_get_semaphore.acquire())
+                self._token_queue.put_nowait(None)
+                yield From(self._item_queue.put((self.ITEM_PRIORITY, item)))
+
+    @trollius.coroutine
+    def _run_worker(self):
+        '''Run a single consumer.
+
+        Coroutine.
+        '''
+        _logger.debug('Worker start.')
+
+        while True:
+            priority, item = yield From(self._item_queue.get())
+
+            if item == self.POISON_PILL:
+                _logger.debug('Worker quitting.')
+                return
+
+            else:
+                _logger.debug(__('Processing item {0}.', item))
+                self._item_get_semaphore.release()
+                self._token_queue.get_nowait()
+                yield From(self._process_item(item))
+                self._token_queue.task_done()
+
+                if os.environ.get('OBJGRAPH_DEBUG'):
+                    import gc
+                    import objgraph
+                    gc.collect()
+                    objgraph.show_most_common_types(25)
+
+    def _set_concurrent(self, new_num):
+        '''Set concurrency level.'''
+        if self._running:
+            assert new_num >= 0
+            change = new_num - self.__concurrent
+
+            if change < 0:
+                for dummy in range(abs(change)):
+                    _logger.debug('Put poison pill for less workers.')
+                    self._item_queue.put_nowait(
+                        (self.POISON_PRIORITY, self.POISON_PILL))
+            elif change > 0:
+                _logger.debug('Put 1 poison pill to trigger more workers.')
+                self._item_queue.put_nowait(
+                    (self.POISON_PRIORITY, self.POISON_PILL))
+
+        self.__concurrent = new_num
+
+    def _stop(self):
+        '''Gracefully stop.'''
+        if self._running:
+            self._running = False
+
+            for dummy in range(len(self._worker_tasks)):
+                _logger.debug('Put poison pill.')
+                self._item_queue.put_nowait(
+                    (self.POISON_PRIORITY, self.POISON_PILL))
+
+    @abc.abstractmethod
+    @trollius.coroutine
+    def _get_item(self):
+        '''Get an item.
+
+        Coroutine.
+        '''
+        pass
+
+    @abc.abstractmethod
+    @trollius.coroutine
+    def _process_item(self, item):
+        '''Process an item.
+
+        Coroutine.
+        '''
+
+
+class Engine(BaseEngine, HookableMixin):
     '''Manages and processes item.
 
     Args:
@@ -51,23 +215,21 @@ class Engine(HookableMixin):
         self._url_table = url_table
         self._processor = processor
         self._statistics = statistics
-        self._worker_semaphore = AdjustableSemaphore(concurrent)
-        self._done_event = toro.Event()
         self._num_worker_busy = 0
-        self._stopping = False
-        self._worker_error = None
 
+        self._set_concurrent(concurrent)
         self.register_hook('engine_run')
 
     @property
     def concurrent(self):
         '''The concurrency value.'''
-        return self._worker_semaphore.max
+        return self._concurrent
 
     def set_concurrent(self, value):
-        self._worker_semaphore.set_max(value)
+        '''Set concurrency value.'''
+        self._set_concurrent(value)
 
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def __call__(self):
         '''Run the engine.
 
@@ -85,28 +247,16 @@ class Engine(HookableMixin):
             pass
 
         self._release_in_progress()
-        self._run_workers()
-
-        yield self._done_event.wait()
-
-        if self._worker_error:
-            raise self._worker_error from self._worker_error
+        yield From(self._run_workers())
 
     def _release_in_progress(self):
         '''Release any items in progress.'''
         _logger.debug('Release in-progress.')
         self._url_table.release()
 
-    @tornado.gen.coroutine
-    def _run_workers(self):
-        '''Start the worker tasks.'''
-        while not self._stopping:
-            yield self._worker_semaphore.acquire()
-
-            tornado.ioloop.IOLoop.current().add_future(
-                self._process_input(),
-                lambda future: future.result(),
-            )
+    @trollius.coroutine
+    def _get_item(self):
+        return self._get_next_url_record()
 
     def _get_next_url_record(self):
         '''Return the next available URL from the URL table.
@@ -138,58 +288,26 @@ class Engine(HookableMixin):
 
         return url_record
 
-    @tornado.gen.coroutine
-    def _process_input(self):
-        '''Get an item and process it.
+    @trollius.coroutine
+    def _process_item(self, url_record):
+        '''Process given item.'''
+        assert url_record
 
-        If processing an item encounters an error, :func:`stop` is called.
+        url_encoding = url_record.url_encoding or 'utf8'
+        url_info = URLInfo.parse(url_record.url, encoding=url_encoding)
+        url_item = URLItem(self._url_table, url_info, url_record)
 
-        Contract: This function will release the ``_worker_semaphore``.
-        '''
-        try:
-            while True:
-                # Poll for an item
-                if not self._stopping:
-                    url_record = self._get_next_url_record()
-                else:
-                    url_record = None
+        yield From(self._process_url_item(url_item))
 
-                if not url_record:
-                    # TODO: need better check if we are done
-                    if self._num_worker_busy == 0:
-                        self.stop(force=True)
-                        self._worker_semaphore.release()
+        assert url_item.is_processed
 
-                        return
-
-                    yield wpull.async.sleep(1.0)
-                else:
-                    break
-
-            self._num_worker_busy += 1
-
-            url_encoding = url_record.url_encoding or 'utf8'
-            url_info = URLInfo.parse(url_record.url, encoding=url_encoding)
-            url_item = URLItem(self._url_table, url_info, url_record)
-
-            yield self._process_url_item(url_item)
-
-            assert url_item.is_processed
-
-            self._statistics.mark_done(url_info)
-        except Exception as error:
-            _logger.debug('Worker died from error.')
-            self.stop(force=True)
-            self._worker_error = error
+        self._statistics.mark_done(url_info)
 
         if self._statistics.is_quota_exceeded:
             _logger.debug('Stopping due to quota.')
             self.stop()
 
-        self._num_worker_busy -= 1
-        self._worker_semaphore.release()
-
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def _process_url_item(self, url_item):
         '''Process an item.
 
@@ -201,22 +319,12 @@ class Engine(HookableMixin):
         _logger.debug(__('Begin session for {0} {1}.',
                          url_item.url_record, url_item.url_info))
 
-        yield self._processor.process(url_item)
+        yield From(self._processor.process(url_item))
 
         _logger.debug(__('End session for {0} {1}.',
                          url_item.url_record, url_item.url_info))
 
-    def stop(self, force=False):
-        '''Stop the engine.
-
-        Args:
-            force (bool): If ``True``, don't wait for Sessions to finish and
-            stop the Engine immediately. If ``False``, the Engine will wait
-            for all workers to finish.
-        '''
-        _logger.debug(__('Stopping. force={0}', force))
-
-        self._stopping = True
-
-        if force:
-            self._done_event.set()
+    def stop(self):
+        '''Stop the engine.'''
+        _logger.debug(__('Stopping'))
+        self._stop()

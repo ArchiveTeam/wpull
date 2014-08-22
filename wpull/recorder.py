@@ -4,6 +4,7 @@ import abc
 import contextlib
 import datetime
 import gettext
+import gzip
 import http.client
 import io
 import itertools
@@ -18,7 +19,6 @@ import time
 
 import namedlist
 
-import wpull.backport.gzip
 from wpull.backport.logging import BraceMessage as __
 from wpull.bandwidth import BandwidthMeter
 from wpull.namevalue import NameValueRecord
@@ -283,7 +283,10 @@ class WARCRecorder(BaseRecorder):
             self,
             temp_dir=self._params.temp_dir, url_table=self._params.url_table
         )
-        yield recorder_session
+        try:
+            yield recorder_session
+        finally:
+            recorder_session.close()
 
         if self._params.max_size is not None \
            and os.path.getsize(self._warc_filename) > self._params.max_size:
@@ -325,7 +328,7 @@ class WARCRecorder(BaseRecorder):
                          record.fields['WARC-Type']))
 
         if self._params.compress:
-            open_func = wpull.backport.gzip.GzipFile
+            open_func = gzip.GzipFile
         else:
             open_func = open
 
@@ -492,6 +495,16 @@ class WARCRecorderSession(BaseRecorderSession):
         self._response_record = None
         self._response_temp_file = self._new_temp_file()
 
+    def close(self):
+        if self._response_temp_file:
+            self._response_temp_file.close()
+
+        if self._request_record and self._request_record.block_file:
+            self._request_record.block_file.close()
+
+        if self._response_record and self._response_record.block_file:
+            self._response_record.block_file.close()
+
     def _new_temp_file(self):
         '''Return new temp file.'''
         return tempfile.SpooledTemporaryFile(
@@ -511,7 +524,7 @@ class WARCRecorderSession(BaseRecorderSession):
         self._request_record.block_file.write(data)
 
     def request(self, request):
-        payload_offset = len(request.header())
+        payload_offset = len(request.to_bytes())
 
         self._request_record.block_file.seek(0)
         self._recorder.set_length_and_maybe_checksums(
@@ -532,7 +545,7 @@ class WARCRecorderSession(BaseRecorderSession):
         self._response_temp_file.write(data)
 
     def response(self, response):
-        payload_offset = len(response.header())
+        payload_offset = len(response.to_bytes())
 
         self._response_record.block_file.seek(0)
         self._recorder.set_length_and_maybe_checksums(
@@ -618,7 +631,7 @@ class PrintServerResponseRecorder(BaseRecorder):
 class PrintServerResponseRecorderSession(BaseRecorderSession):
     '''Print Server Response Recorder Session.'''
     def response(self, response):
-        print(response.header().decode())
+        print(response.to_bytes().decode())
 
 
 class ProgressRecorder(BaseRecorder):
@@ -661,7 +674,7 @@ class BaseProgressRecorderSession(BaseRecorderSession):
         self._flush()
 
     def pre_response(self, response):
-        self._println(response.status_code, response.status_reason)
+        self._println(response.status_code, response.reason)
 
         content_length = response.fields.get('Content-Length')
 
@@ -883,5 +896,5 @@ class OutputDocumentRecorderSession(BaseRecorderSession):
             self._file.write(data)
 
         if self._response:
-            self._response.body.content_file.seek(-len(data), 1)
-            self._file.write(self._response.body.content_file.read(len(data)))
+            with wpull.util.reset_file_offset(self._response.body):
+                self._file.write(self._response.body.read(len(data)))
