@@ -517,7 +517,7 @@ class WARCRecorderSession(BaseRecorderSession):
         record.set_common_fields(WARCRecord.REQUEST, WARCRecord.TYPE_REQUEST)
         record.fields['WARC-Target-URI'] = request.url_info.url
         record.fields['WARC-IP-Address'] = request.address[0]
-        record.block_file = self._new_temp_file()
+        record.block_file = self._new_temp_file(hint='warcsesreq')
 
     def request_data(self, data):
         self._request_record.block_file.write(data)
