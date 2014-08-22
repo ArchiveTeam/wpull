@@ -136,6 +136,14 @@ class BaseEngine(object):
                     import objgraph
                     gc.collect()
                     objgraph.show_most_common_types(25)
+                if os.environ.get('FILE_LEAK_DEBUG'):
+                    import subprocess
+                    output = subprocess.check_output(
+                        ['lsof', '-p', str(os.getpid()), '-n'])
+                    for line in output.decode('ascii', 'replace').split('\n'):
+                        if 'REG' in line and \
+                                (os.getcwd() in line or '/tmp/' in line):
+                            print('FILELEAK', line)
 
     def _set_concurrent(self, new_num):
         '''Set concurrency level.'''
