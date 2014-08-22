@@ -67,7 +67,7 @@ class RobotsTxtChecker(object):
             url_info.scheme, url_info.hostname, url_info.port)).url
 
         if not file:
-            file = wpull.body.new_temp_file(os.getcwd())
+            file = wpull.body.new_temp_file(os.getcwd(), hint='robots')
 
         with contextlib.closing(file):
             request = self._web_client.request_factory(url)

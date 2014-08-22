@@ -493,7 +493,7 @@ class WARCRecorderSession(BaseRecorderSession):
         self._request = None
         self._request_record = None
         self._response_record = None
-        self._response_temp_file = self._new_temp_file()
+        self._response_temp_file = self._new_temp_file(hint='warcsesrsp')
 
     def close(self):
         if self._response_temp_file:
@@ -505,11 +505,10 @@ class WARCRecorderSession(BaseRecorderSession):
         if self._response_record and self._response_record.block_file:
             self._response_record.block_file.close()
 
-    def _new_temp_file(self):
+    def _new_temp_file(self, hint='warcrecsess'):
         '''Return new temp file.'''
-        return tempfile.SpooledTemporaryFile(
-            max_size=1048576,
-            dir=self._temp_dir
+        return wpull.body.new_temp_file(
+            directory=self._temp_dir, hint=hint
         )
 
     def pre_request(self, request):

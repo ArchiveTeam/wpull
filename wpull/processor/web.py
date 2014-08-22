@@ -424,7 +424,10 @@ class WebProcessorSession(object):
             self._file_writer_session.process_response(response)
 
         if not response.body:
-            response.body = Body(wpull.body.new_temp_file(self._processor.root_path))
+            response.body = Body(
+                wpull.body.new_temp_file(
+                    self._processor.root_path, hint='resp_cb'
+                ))
             self._temp_files.add(response.body)
 
         return response.body
@@ -686,7 +689,10 @@ class WebProcessorSession(object):
         '''Return a new mock Response with the content.'''
         mock_response = copy.copy(response)
 
-        mock_response.body = Body(wpull.body.new_temp_file(self._processor.root_path))
+        mock_response.body = Body(
+            wpull.body.new_temp_file(
+                self._processor.root_path, hint='phjs_resp'
+        ))
         self._temp_files.add(mock_response.body)
 
         mock_response.body.write(content.encode('utf-8'))
