@@ -20,7 +20,7 @@ class Body(object):
         file (file): Use the given `file` as the file object.
     '''
     def __init__(self, file=None):
-        self.file = file or new_temp_file()
+        self.file = file or new_temp_file(hint='lone_body')
         self._content_data = None
 
     def __getattr__(self, key):
@@ -84,10 +84,10 @@ class Body(object):
         }
 
 
-def new_temp_file(directory=None):
+def new_temp_file(directory=None, hint=''):
     '''Return a new temporary file.'''
     return tempfile.NamedTemporaryFile(
-        prefix='wpull-', suffix='.tmp', dir=directory)
+        prefix='wpull-{0}-'.format(hint), suffix='.tmp', dir=directory)
 
 
 def is_seekable(file):
