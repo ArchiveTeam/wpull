@@ -327,6 +327,7 @@ class Connection(object):
     def close(self):
         '''Close the connection.'''
         if self.writer:
+            _logger.debug('Closing connection.')
             self.writer.close()
 
             self.writer = None
@@ -404,16 +405,17 @@ class Connection(object):
                 raise Return((yield From(task)))
 
         except trollius.TimeoutError as error:
-            # XXX: wait_for may leak file descriptors
             self.close()
             raise NetworkTimedOut(
                 '{name} timed out.'.format(name=name)) from error
         except (tornado.netutil.SSLCertificateError, SSLVerficationError) \
                 as error:
+            self.close()
             raise SSLVerficationError(
                 '{name} certificate error: {error}'
                 .format(name=name, error=error)) from error
         except (socket.error, ssl.SSLError, OSError, IOError) as error:
+            self.close()
             if isinstance(error, NetworkError):
                 raise
 
