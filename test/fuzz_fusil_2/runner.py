@@ -72,6 +72,9 @@ class Fuzzer(Application):
         stdout_watcher.ignoreRegex(
             r'WARNING Discarding malformed URL '
         )
+        stdout_watcher.ignoreRegex(
+            r'ERROR Fetching '
+        )
 
 if __name__ == "__main__":
     Fuzzer().main()
