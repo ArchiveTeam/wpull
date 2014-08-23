@@ -19,8 +19,10 @@ from fusil.process.watch import WatchProcess
 class Fuzzer(Application):
     def setupProject(self):
         self.project.debugger.enabled = False
+        self.config.use_cpu_probe = False
         port = 8848
         seed = random.randint(0, 60000)
+        timeout = 10 * 60
 
         server_process = ProjectProcess(
             self.project,
@@ -31,6 +33,7 @@ class Fuzzer(Application):
                 '--fuzz-period', '500',
                 '--restart-interval', '10000',
             ],
+            timeout=timeout
         )
         WatchProcess(server_process)
 
@@ -42,10 +45,11 @@ class Fuzzer(Application):
                 '--timeout', '5',
                 '--warc-file', 'fusil-test',
                 '-r',
-                '--no-verbose',
+                '--debug',
                 '--page-requisites',
                 '--delete-after',
             ],
+            timeout=timeout
         )
 
         process.env.set(
@@ -58,22 +62,16 @@ class Fuzzer(Application):
         stdout_watcher = WatchStdout(process)
         stdout_watcher.max_nb_line = None
         stdout_watcher.ignoreRegex(
-            r'Read timed out',
-        )
-        stdout_watcher.ignoreRegex(
-            r'Error parsing status line',
-        )
-        stdout_watcher.ignoreRegex(
             r'WARNING Invalid content length: invalid literal for int'
-        )
-        stdout_watcher.ignoreRegex(
-            r'encountered an error: zlib error: '
         )
         stdout_watcher.ignoreRegex(
             r'WARNING Discarding malformed URL '
         )
         stdout_watcher.ignoreRegex(
             r'ERROR Fetching '
+        )
+        stdout_watcher.ignoreRegex(
+            r'DEBUG '
         )
 
 if __name__ == "__main__":
