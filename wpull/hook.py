@@ -675,6 +675,9 @@ class HookEnvironment(object):
             url_item.url_table.remove([url])
 
         if inline:
-            url_item.add_inline_url_infos([url_info], **kwargs)
+            added_url_infos = url_item.add_inline_url_infos([url_info], **kwargs)
         else:
-            url_item.add_linked_url_infos([url_info], **kwargs)
+            added_url_infos = url_item.add_linked_url_infos([url_info], **kwargs)
+
+        for url_info in added_url_infos:
+            self._queued_url(url_info)
