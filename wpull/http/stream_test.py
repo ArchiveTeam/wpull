@@ -232,8 +232,11 @@ class StreamTestsMixin(object):
         request = Request(self.get_url('/buffer_overflow'))
         try:
             yield From(self.fetch(stream, request))
-        except ValueError:
-            # error comes from the asyncio readline call
+        except ProtocolError:
+            pass
+        else:
+            self.fail()
+
             pass
         else:
             self.fail()
