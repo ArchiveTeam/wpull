@@ -1,5 +1,6 @@
 # encoding=utf8
 '''HTML protocol streamers.'''
+import functools
 import gettext
 import http.client
 import itertools
@@ -28,6 +29,16 @@ DEFAULT_NO_CONTENT_CODES = frozenset(itertools.chain(
     [http.client.NO_CONTENT, http.client.NOT_MODIFIED]
 ))
 '''Status codes where a response body is prohibited.'''
+
+
+def close_stream_on_error(func):
+    '''Decorator to close stream on error.'''
+    @trollius.coroutine
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        with wpull.util.close_on_error(self.close):
+            raise Return((yield From(func(self, *args, **kwargs))))
+    return wrapper
 
 
 class Stream(object):
@@ -62,6 +73,7 @@ class Stream(object):
         return self._data_observer
 
     @trollius.coroutine
+    @close_stream_on_error
     def write_request(self, request):
         '''Send the request's HTTP status line and header fields.
 
@@ -86,6 +98,7 @@ class Stream(object):
         yield From(self._connection.write(data, drain=False))
 
     @trollius.coroutine
+    @close_stream_on_error
     def write_body(self, file, length=None):
         '''Send the request's content body.
 
@@ -133,6 +146,7 @@ class Stream(object):
                 bytes_left -= len(data)
 
     @trollius.coroutine
+    @close_stream_on_error
     def read_response(self, response=None):
         '''Read the response's HTTP status line and header fields.
 
@@ -167,6 +181,7 @@ class Stream(object):
         raise Return(response)
 
     @trollius.coroutine
+    @close_stream_on_error
     def read_body(self, request, response, file=None, raw=False):
         '''Read the response's content body.
 
