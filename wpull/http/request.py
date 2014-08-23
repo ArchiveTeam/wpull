@@ -260,7 +260,11 @@ class Response(CommonMixin):
                     encoding='latin-1',
                 )
 
-        raise ProtocolError('Error parsing status line.')
+        raise ProtocolError(
+            'Error parsing status line "{line}".'
+            .format(line=wpull.string.printable_bytes(data)
+                    .decode('ascii', 'replace'))
+        )
 
     def __repr__(self):
         return '<Response({version}, {code}, {reason})>'.format(
