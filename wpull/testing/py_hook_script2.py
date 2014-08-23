@@ -126,6 +126,10 @@ def finish_statistics(start_time, end_time, num_urls, bytes_downloaded):
     assert start_time
     assert end_time
 
+    global counter
+    print('queue counter', counter)
+    assert counter == 0
+
 
 def exit_status(exit_code):
     assert exit_code == 4

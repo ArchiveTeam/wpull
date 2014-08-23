@@ -131,6 +131,9 @@ wpull_hook.callbacks.finish_statistics = function(start_time, end_time, num_urls
   --  print('finish_statistics', start_time)
   assert(start_time)
   assert(end_time)
+
+  --  print('queue counter', counter)
+  assert(counter == 0)
 end
 
 wpull_hook.callbacks.exit_status = function(exit_code)
