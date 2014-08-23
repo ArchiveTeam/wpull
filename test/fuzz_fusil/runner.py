@@ -162,8 +162,6 @@ class Fuzzer(Application):
             ],
         )
 
-        process.max_memory = 500000000
-
         process.env.set(
             'PYTHONPATH',
             os.path.join(
