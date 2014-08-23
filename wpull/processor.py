@@ -590,17 +590,13 @@ class WebProcessorSession(object):
 
         for url_info in added_inline_url_infos:
             try:
-                callback_result = self._processor.call_hook(
-                    'queued_url', url_info,
-                )
+                self._processor.call_hook('queued_url', url_info)
             except HookDisconnected:
                 pass
 
         for url_info in added_linked_url_infos:
             try:
-                callback_result = self._processor.call_hook(
-                    'queued_url', url_info,
-                )
+                self._processor.call_hook('queued_url', url_info)
             except HookDisconnected:
                 pass
 
