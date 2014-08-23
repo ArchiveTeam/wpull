@@ -237,6 +237,13 @@ class StreamTestsMixin(object):
         else:
             self.fail()
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_buffer_overflow_header(self):
+        stream = self.new_stream()
+        request = Request(self.get_url('/buffer_overflow_header'))
+        try:
+            yield From(self.fetch(stream, request))
+        except ProtocolError:
             pass
         else:
             self.fail()

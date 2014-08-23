@@ -146,7 +146,11 @@ class Stream(object):
         header_lines = []
 
         while True:
-            data = yield From(self._connection.readline())
+            try:
+                data = yield From(self._connection.readline())
+            except ValueError as error:
+                raise ProtocolError(
+                    'Invalid header: {0}'.format(error)) from error
 
             self._data_observer.notify('response', data)
 

@@ -46,6 +46,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/overrun': self.overrun_response,
             '/malformed_chunked': self.malformed_chunked,
             '/buffer_overflow': self.buffer_overflow,
+            '/buffer_overflow_header': self.buffer_overflow_header,
             '/bad_chunk_size': self.bad_chunk_size,
             '/content_length_and_chunked': self.content_length_and_chunked,
             '/bad_header_deliminators': self.bad_header_deliminators,
@@ -189,6 +190,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
         for dummy in range(100):
             self.wfile.write(b'0' * 10000)
             time.sleep(0.001)
+
+    def buffer_overflow_header(self):
+        self.send_response(200)
+        for dummy in range(100):
+            self.wfile.write(b'A' * 10000)
+        self.wfile.write(b': A\r\n')
+        self.end_headers()
 
     def bad_chunk_size(self):
         self.send_response(200)
