@@ -226,7 +226,7 @@ class Engine(BaseEngine, HookableMixin):
         self._num_worker_busy = 0
 
         self._set_concurrent(concurrent)
-        self.register_hook('engine_run')
+        self.register_hook('engine_run', 'dequeued_url')
 
     @property
     def concurrent(self):
@@ -304,6 +304,13 @@ class Engine(BaseEngine, HookableMixin):
         url_encoding = url_record.url_encoding or 'utf8'
         url_info = URLInfo.parse(url_record.url, encoding=url_encoding)
         url_item = URLItem(self._url_table, url_info, url_record)
+
+        # The URL supplied to the program is not considered part of the queue.
+        if url_record.level > 0:
+            try:
+                self.call_hook('dequeued_url', url_info, url_record)
+            except HookDisconnected:
+                pass
 
         yield From(self._process_url_item(url_item))
 

@@ -3,9 +3,10 @@ import os.path
 
 
 wpull_hook = globals().get('wpull_hook')  # silence code checkers
-injected_url_found = False
 wpull_hook.callbacks.version = 2
 
+counter = 0
+injected_url_found = False
 
 def engine_run():
     assert wpull_hook.factory['Engine']
@@ -48,6 +49,27 @@ def accept_url(url_info, record_info, verdict, reasons):
         verdict = False
 
     return verdict
+
+
+def queued_url(url_info):
+    print('queued_url', url_info)
+    assert url_info['url']
+
+    global counter
+    counter += 1
+
+    assert counter > 0
+
+
+def dequeued_url(url_info, record_info):
+    print('dequeued_url', url_info)
+    assert url_info['url']
+    assert record_info['url']
+
+    global counter
+    counter -= 1
+
+    assert counter >= 0
 
 
 def handle_response(url_info, record_info, http_info):
@@ -104,6 +126,10 @@ def finish_statistics(start_time, end_time, num_urls, bytes_downloaded):
     assert start_time
     assert end_time
 
+    global counter
+    print('queue counter', counter)
+    assert counter == 0
+
 
 def exit_status(exit_code):
     assert exit_code == 4
@@ -115,6 +141,8 @@ def exit_status(exit_code):
 wpull_hook.callbacks.engine_run = engine_run
 wpull_hook.callbacks.resolve_dns = resolve_dns
 wpull_hook.callbacks.accept_url = accept_url
+wpull_hook.callbacks.queued_url = queued_url
+wpull_hook.callbacks.dequeued_url = dequeued_url
 wpull_hook.callbacks.handle_response = handle_response
 wpull_hook.callbacks.handle_error = handle_error
 wpull_hook.callbacks.get_urls = get_urls

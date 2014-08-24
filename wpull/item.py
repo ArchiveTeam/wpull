@@ -188,10 +188,12 @@ class URLItem(object):
         Args:
             url_infos (iterable): A list of :class:`.url.URLInfo`
             encoding (str): The encoding of the document.
+        Returns:
+            A list of added :class:`.url.URLInfo`.
         '''
         inline_urls = tuple([info.url for info in url_infos])
         _logger.debug(__('Adding inline URLs {0}', inline_urls))
-        self._url_table.add(
+        added_urls = self._url_table.add(
             inline_urls,
             inline=True,
             level=self._url_record.level + 1,
@@ -200,6 +202,12 @@ class URLItem(object):
             url_encoding=encoding,
             post_data=post_data,
         )
+        added_url_infos = list()
+        for url_info in url_infos:
+            if url_info.url in added_urls:
+                added_url_infos.append(url_info)
+                added_urls.remove(url_info.url)
+        return added_url_infos
 
     def add_linked_url_infos(self, url_infos, encoding=None, link_type=None,
                              post_data=None):
@@ -208,10 +216,12 @@ class URLItem(object):
         Args:
             url_infos (iterable): A list of :class:`.url.URLInfo`
             encoding (str): The encoding of the document.
+        Returns:
+            A list of added :class:`.url.URLInfo`.
         '''
         linked_urls = tuple([info.url for info in url_infos])
         _logger.debug(__('Adding linked URLs {0}', linked_urls))
-        self._url_table.add(
+        added_urls = self._url_table.add(
             linked_urls,
             level=self._url_record.level + 1,
             referrer=self._url_record.url,
@@ -220,6 +230,12 @@ class URLItem(object):
             url_encoding=encoding,
             post_data=post_data,
         )
+        added_url_infos = list()
+        for url_info in url_infos:
+            if url_info.url in added_urls:
+                added_url_infos.append(url_info)
+                added_urls.remove(url_info.url)
+        return added_url_infos
 
     def child_url_record(self, url_info, inline=False, encoding=None,
                          link_type=None, post_data=None):

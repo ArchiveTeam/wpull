@@ -16,6 +16,7 @@ from sqlalchemy.pool import SingletonThreadPool
 from sqlalchemy.sql.expression import select, insert, update, and_
 from sqlalchemy.sql.schema import Column, ForeignKey
 from sqlalchemy.sql.sqltypes import String, Integer, Boolean, Enum
+from sqlalchemy import func
 
 from wpull.item import Status, URLRecord
 
@@ -226,6 +227,7 @@ class BaseSQLURLTable(BaseURLTable):
         referrer = kwargs.pop('referrer', None)
         top_url = kwargs.pop('top_url', None)
         url_strings = list(new_urls)
+        added_urls = list()
 
         if referrer:
             url_strings.append(referrer)
@@ -236,6 +238,7 @@ class BaseSQLURLTable(BaseURLTable):
         with self._session() as session:
             URLString.add_many(session, url_strings)
             url_id_map = URLString.get_map(session, url_strings)
+            last_primary_key = session.query(func.max(URL.id)).scalar()
 
             for url in new_urls:
                 values = dict(status=Status.todo)
@@ -247,10 +250,16 @@ class BaseSQLURLTable(BaseURLTable):
                 if top_url:
                     values['top_url_str_id'] = url_id_map[top_url]
 
-                session.execute(
+                result = session.execute(
                     insert(URL).prefix_with('OR IGNORE'),
                     values
                 )
+
+                if result.inserted_primary_key[0] != last_primary_key:
+                    last_primary_key = result.inserted_primary_key[0]
+                    added_urls.append(url)
+
+        return added_urls
 
     def get_and_update(self, status, new_status=None, level=None):
         with self._session() as session:
