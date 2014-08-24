@@ -6,6 +6,10 @@ What's New
 ======
 
 * Dropped support for Python 2. Please file an issue if this is a problem.
+* Scripting API:
+
+  * New ``queued_url`` and ``dequeued_url`` hooks contributed by mback2k.
+
 * API:
 
   * Switched to Trollius instead of Tornado.
