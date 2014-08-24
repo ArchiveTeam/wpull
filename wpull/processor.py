@@ -147,7 +147,7 @@ class WebProcessor(BaseProcessor, HookableMixin):
         self.register_hook(
             'should_fetch', 'scrape_document',
             'handle_response', 'handle_error',
-            'wait_time'
+            'wait_time', 'queued_url'
         )
 
     @property
@@ -583,10 +583,22 @@ class WebProcessorSession(object):
                 if self._should_fetch_reason(url_info, url_record)[0]:
                     linked_url_infos.add(url_info)
 
-        self._url_item.add_inline_url_infos(
+        added_inline_url_infos = self._url_item.add_inline_url_infos(
             inline_url_infos, encoding=encoding)
-        self._url_item.add_linked_url_infos(
+        added_linked_url_infos = self._url_item.add_linked_url_infos(
             linked_url_infos, encoding=encoding, link_type=link_type)
+
+        for url_info in added_inline_url_infos:
+            try:
+                self._processor.call_hook('queued_url', url_info)
+            except HookDisconnected:
+                pass
+
+        for url_info in added_linked_url_infos:
+            try:
+                self._processor.call_hook('queued_url', url_info)
+            except HookDisconnected:
+                pass
 
         return len(inline_url_infos), len(linked_url_infos)
 

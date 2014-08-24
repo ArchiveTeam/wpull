@@ -1,3 +1,4 @@
+local counter = 0
 local injected_url_found = false
 
 wpull_hook.callbacks.version = 2
@@ -51,6 +52,25 @@ wpull_hook.callbacks.accept_url = function(url_info, record_info, verdict, reaso
   end
 
   return verdict
+end
+
+wpull_hook.callbacks.queued_url = function(url_info)
+  --  print('queued_url', url_info)
+  assert(url_info['url'])
+
+  counter = counter + 1
+
+  assert(counter > 0)
+end
+
+wpull_hook.callbacks.dequeued_url = function(url_info, record_info)
+  --  print('dequeued_url', url_info)
+  assert(url_info['url'])
+  assert(record_info['url'])
+
+  counter = counter - 1
+
+  assert(counter >= 0)
 end
 
 wpull_hook.callbacks.handle_response = function(url_info, record_info, http_info)
@@ -111,6 +131,9 @@ wpull_hook.callbacks.finish_statistics = function(start_time, end_time, num_urls
   --  print('finish_statistics', start_time)
   assert(start_time)
   assert(end_time)
+
+  --  print('queue counter', counter)
+  assert(counter == 0)
 end
 
 wpull_hook.callbacks.exit_status = function(exit_code)
