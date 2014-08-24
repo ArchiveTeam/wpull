@@ -37,7 +37,7 @@ class ChunkedTransferReader(object):
 
         Coroutine.
         '''
-        _logger.debug('Reading chunk.')
+        # _logger.debug('Reading chunk.')
 
         try:
             chunk_size_hex = yield From(self._connection.readline())
@@ -73,11 +73,11 @@ class ChunkedTransferReader(object):
 
         Coroutine.
         '''
-        chunk_size = self._chunk_size
+        # chunk_size = self._chunk_size
         bytes_left = self._bytes_left
 
-        _logger.debug(__('Getting chunk size={0}, remain={1}.',
-                         chunk_size, bytes_left))
+        # _logger.debug(__('Getting chunk size={0}, remain={1}.',
+        #                 chunk_size, bytes_left))
 
         if bytes_left > 0:
             size = min(bytes_left, self._read_size)
