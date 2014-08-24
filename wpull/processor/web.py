@@ -187,7 +187,6 @@ class WebProcessorSession(object):
         url_record = self._url_item.url_record
 
         request = self._processor.web_client.request_factory(url_info.url)
-        # FIXME: url_encoding=url_info.encoding
 
         self._populate_common_request(request)
 
@@ -475,7 +474,7 @@ class WebProcessorSession(object):
         return True
 
     @classmethod
-    def parse_url(cls, url, encoding):
+    def parse_url(cls, url, encoding='utf-8'):
         '''Parse and return a URLInfo.
 
         This function logs a warning if the URL cannot be parsed and returns
@@ -579,35 +578,32 @@ class WebProcessorSession(object):
 
         inline_urls = scrape_info['inline_urls']
         linked_urls = scrape_info['linked_urls']
-        encoding = scrape_info['encoding']
-
-        assert encoding
 
         inline_url_infos = set()
         linked_url_infos = set()
 
         for url in inline_urls:
-            url_info = self.parse_url(url, encoding)
+            url_info = self.parse_url(url)
             if url_info:
                 url_record = self._url_item.child_url_record(
-                    url_info, inline=True, encoding=encoding
+                    url_info, inline=True
                 )
                 if self._should_fetch_reason(url_info, url_record)[0]:
                     inline_url_infos.add(url_info)
 
         for url in linked_urls:
-            url_info = self.parse_url(url, encoding)
+            url_info = self.parse_url(url)
             if url_info:
                 url_record = self._url_item.child_url_record(
-                    url_info, encoding=encoding, link_type=link_type
+                    url_info, link_type=link_type
                 )
                 if self._should_fetch_reason(url_info, url_record)[0]:
                     linked_url_infos.add(url_info)
 
         added_inline_url_infos = self._url_item.add_inline_url_infos(
-            inline_url_infos, encoding=encoding)
+            inline_url_infos)
         added_linked_url_infos = self._url_item.add_linked_url_infos(
-            linked_url_infos, encoding=encoding, link_type=link_type)
+            linked_url_infos, link_type=link_type)
 
         for url_info in added_inline_url_infos:
             try:

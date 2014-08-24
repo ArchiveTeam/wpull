@@ -664,7 +664,7 @@ class HookEnvironment(object):
 
         # FIXME: resolve circular imports
         from wpull.processor.web import WebProcessorSession
-        url_info = WebProcessorSession.parse_url(url, 'utf-8')
+        url_info = WebProcessorSession.parse_url(url)
 
         if not url_info:
             return

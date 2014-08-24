@@ -528,11 +528,22 @@ class TestApp(GoodAppTestCase):
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_iri_handling(self):
         arg_parser = AppArgumentParser()
-        args = arg_parser.parse_args([self.get_url('/static/mojibake.html')])
+        args = arg_parser.parse_args([
+            self.get_url('/static/mojibake.html'),
+            '-r',
+            '--database', 'temp-unittest.db'
+        ])
         with cd_tempdir():
             builder = Builder(args)
             app = builder.build()
             exit_code = yield From(app.run())
+
+            urls = list(iter(builder.factory['URLTable']))
+            self.assertIn(
+                self.get_url('/%E6%96%87%E5%AD%97%E5%8C%96%E3%81%91'),
+                urls
+            )
+
         self.assertEqual(0, exit_code)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
