@@ -29,7 +29,7 @@ class TestDocument(unittest.TestCase):
         inline_urls = scrape_info['inline_urls']
         linked_urls = scrape_info['linked_urls']
 
-        self.assertEqual('ascii', scrape_info['encoding'])
+        self.assertEqual('utf-8', scrape_info['encoding'])
 
         self.assertEqual({
             'http://example.com/style_import_url.css',

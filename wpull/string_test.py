@@ -60,7 +60,7 @@ class TestString(unittest.TestCase):
         )
 
         self.assertEqual(
-            'ascii',
+            'utf-8',
             detect_encoding(
                 b'<html><meta charset="dog_breath"><body>',
                 is_html=True
@@ -68,7 +68,7 @@ class TestString(unittest.TestCase):
         )
 
         self.assertEqual(
-            'ascii',
+            'utf-8',
             detect_encoding(
                 b'<html><meta content="text/html; charset=cat-meows><body>',
                 is_html=True
