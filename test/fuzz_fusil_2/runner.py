@@ -31,7 +31,7 @@ class Fuzzer(Application):
                 '--port', str(port),
                 '--seed', str(seed),
                 '--fuzz-period', '500',
-                '--restart-interval', '10000',
+                '--restart-interval', '250',
             ],
             timeout=timeout
         )
@@ -48,6 +48,8 @@ class Fuzzer(Application):
                 '--debug',
                 '--page-requisites',
                 '--delete-after',
+                '--tries', '2',
+                '--retry-connrefused',
             ],
             timeout=timeout
         )
@@ -68,10 +70,16 @@ class Fuzzer(Application):
             r'WARNING Discarding malformed URL '
         )
         stdout_watcher.ignoreRegex(
+            r'WARNING Failed to read document at '
+        )
+        stdout_watcher.ignoreRegex(
             r'ERROR Fetching '
         )
         stdout_watcher.ignoreRegex(
             r'DEBUG '
+        )
+        stdout_watcher.ignoreRegex(
+            r'INFO Fetch(ed|ing) '
         )
 
 if __name__ == "__main__":
