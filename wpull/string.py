@@ -96,6 +96,17 @@ def try_decoding(data, encoding):
     try:
         data.decode(encoding, 'strict')
     except UnicodeError:
+        # Data under 16 bytes is very unlikely to be truncated
+        if len(data) > 16:
+            for trim in (1, 2, 3):
+                trimmed_data = data[:-trim]
+                if trimmed_data:
+                    try:
+                        trimmed_data.decode(encoding, 'strict')
+                    except UnicodeError:
+                        continue
+                    else:
+                        return True
         return False
     else:
         return True
