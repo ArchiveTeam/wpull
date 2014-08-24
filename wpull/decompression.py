@@ -92,6 +92,12 @@ class DeflateDecompressor(SimpleGzipDecompressor):
 
         return self.decompressobj.decompress(value)
 
+    def flush(self):
+        if self.decompressobj:
+            return super().flush()
+        else:
+            return b''
+
 
 def gzip_uncompress(data, truncated=False):
     '''Uncompress gzip data.
