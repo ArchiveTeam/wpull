@@ -113,6 +113,7 @@ This project contains third-party source code licensed under different terms:
 * wpull.backport.tempfile
 * wpull.backport.urlparse
 * wpull.thirdparty.robotexclusionrulesparser
+* wpull.thirdparty.dammit
 
 We would like to acknowledge the authors of GNU Wget as Wpull uses algorithms
 from Wget.
