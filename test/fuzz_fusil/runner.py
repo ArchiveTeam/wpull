@@ -151,6 +151,8 @@ class FuzzedHttpServer(HttpServer):
 class Fuzzer(Application):
     def setupProject(self):
         self.project.debugger.enabled = False
+        self.config.process_max_user_process = 50
+
         FuzzedHttpServer(self.project, 8898)
 
         process = ProjectProcess(
