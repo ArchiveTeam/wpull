@@ -20,6 +20,8 @@ class Fuzzer(Application):
     def setupProject(self):
         self.project.debugger.enabled = False
         self.config.use_cpu_probe = False
+        self.config.process_max_user_process = 50
+
         port = 8848
         seed = random.randint(0, 60000)
         timeout = 10 * 60
