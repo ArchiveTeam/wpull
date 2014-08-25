@@ -3,10 +3,9 @@
 # Copyright (c) 2004-2012 Leonard Richardson
 # Beautiful Soup is made available under the MIT license
 
-import logging
 import unittest
-import bs4.dammit
-from bs4.dammit import (
+import wpull.thirdparty.dammit
+from wpull.thirdparty.dammit import (
     EntitySubstitution,
     UnicodeDammit,
 )

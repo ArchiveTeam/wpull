@@ -83,6 +83,11 @@ class TestString(unittest.TestCase):
             )
         )
 
+        # Check for no crash
+        detect_encoding(
+            b'<?xml version="1.0" encoding="UTF-\xdb" ?>'
+        )
+
         for length in range(1, 2):
             iterable = itertools.permutations(
                 [bytes(i) for i in range(256)], length

@@ -3,7 +3,7 @@
 import codecs
 import itertools
 
-from bs4.dammit import UnicodeDammit, EncodingDetector
+from wpull.thirdparty.dammit import UnicodeDammit, EncodingDetector
 
 
 def to_bytes(instance, encoding='utf-8', error='strict'):
