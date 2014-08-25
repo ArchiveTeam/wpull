@@ -106,7 +106,7 @@ class HostPool(object):
         '''Return whether the pool is empty.'''
         return self.ready.empty() and not self.busy
 
-    def clean(self):
+    def clean(self, force=False):
         '''Clean closed connections.'''
         connected = []
         while True:
@@ -114,8 +114,10 @@ class HostPool(object):
                 connection = self.ready.get_nowait()
             except trollius.QueueEmpty:
                 break
-            if not connection.closed():
+            if not connection.closed() and not force:
                 connected.append(connection)
+            elif force:
+                connection.close()
 
         while connected:
             connection = connected.pop()
@@ -149,13 +151,16 @@ class ConnectionPool(object):
             ``hostname`` arguments and returns a :class:`Connection` instance.
         ssl_connection_factory: A function that returns a
             :class:`SSLConnection` instance. See `connection_factory`.
+        max_count (int): Limit on number of connections
     '''
     def __init__(self, max_host_count=6, resolver=None,
-                 connection_factory=None, ssl_connection_factory=None):
+                 connection_factory=None, ssl_connection_factory=None,
+                 max_count=100):
         self._max_host_count = max_host_count
         self._resolver = resolver or Resolver()
         self._connection_factory = connection_factory or Connection
         self._ssl_connection_factory = ssl_connection_factory or SSLConnection
+        self._max_count = max_count
         self._pool = {}
 
         self._clean_cb()
@@ -196,6 +201,9 @@ class ConnectionPool(object):
         host_pool.busy.remove(connection)
         host_pool.ready.put_nowait(connection)
 
+        if self.count() > self._max_count:
+            self.clean(force=True)
+
     @trollius.coroutine
     def session(self, host, port, ssl=False):
         '''Return a context manager that returns a connection.'''
@@ -210,10 +218,10 @@ class ConnectionPool(object):
 
         raise Return(context_wrapper())
 
-    def clean(self):
+    def clean(self, force=False):
         '''Clean all closed connections.'''
         for key, pool in tuple(self._pool.items()):
-            pool.clean()
+            pool.clean(force=force)
             if pool.empty():
                 del self._pool[key]
 
@@ -223,11 +231,21 @@ class ConnectionPool(object):
             pool.close()
             del self._pool[key]
 
+    def count(self):
+        '''Return number of connections.'''
+        counter = 0
+
+        for pool in self._pool.values():
+            counter += pool.count()
+
+        return counter
+
     def _clean_cb(self):
         '''Clean timer callback.'''
         _logger.debug('Periodic connection clean.')
+
         self.clean()
-        trollius.get_event_loop().call_later(300, self._clean_cb)
+        trollius.get_event_loop().call_later(120, self._clean_cb)
 
 
 class Connection(object):

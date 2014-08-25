@@ -177,7 +177,7 @@ class TestConnection(BadAppTestCase):
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_pool_clean(self):
-        connection_pool = ConnectionPool()
+        connection_pool = ConnectionPool(max_count=3)
 
         @trollius.coroutine
         def con_fut():
