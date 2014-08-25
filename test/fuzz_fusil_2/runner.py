@@ -24,7 +24,7 @@ class Fuzzer(Application):
 
         port = 8848
         seed = random.randint(0, 60000)
-        timeout = 10 * 60
+        timeout = 60 * 60
 
         server_process = ProjectProcess(
             self.project,
@@ -52,6 +52,7 @@ class Fuzzer(Application):
                 '--delete-after',
                 '--tries', '2',
                 '--retry-connrefused',
+                '--database', 'wpull.db',
             ],
             timeout=timeout
         )
@@ -61,6 +62,8 @@ class Fuzzer(Application):
             os.path.join(
                 os.path.abspath(os.path.dirname(__file__)), '..', '..')
             )
+        process.env.set('OBJGRAPH_DEBUG', '1')
+        process.env.set('FILE_LEAK_DEBUG', '1')
 
         WatchProcess(process, exitcode_score=0.45)
         stdout_watcher = WatchStdout(process)
@@ -82,6 +85,9 @@ class Fuzzer(Application):
         )
         stdout_watcher.ignoreRegex(
             r'INFO Fetch(ed|ing) '
+        )
+        stdout_watcher.ignoreRegex(
+            r'lsof: WARNING: '
         )
 
 if __name__ == "__main__":
