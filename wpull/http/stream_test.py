@@ -282,7 +282,8 @@ class StreamTestsMixin(object):
         request = Request(self.get_url('/utf8_header'))
         response, dummy = yield From(self.fetch(stream, request))
         self.assertEqual(200, response.status_code)
-        self.assertEqual('🐱', response.fields['whoa'])
+        self.assertEqual('🐱'.encode('utf-8').decode('latin-1'),
+                         response.fields['whoa'])
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_short_close(self):

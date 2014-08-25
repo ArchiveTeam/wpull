@@ -22,18 +22,23 @@ class TestRequest(unittest.TestCase):
         request = Request()
         request.parse(b'GET /robots.txt HTTP/1.1\r\n')
         request.parse(b'Host: example.com\r\n')
+        request.parse('Accept: éxample\r\n'.encode('utf_8'))
         request.parse(b'\r\n')
 
         self.assertEqual('http://example.com/robots.txt', request.url)
         self.assertEqual('example.com', request.fields['host'])
+        self.assertEqual('éxample'.encode('utf-8').decode('latin-1'),
+                         request.fields['accept'])
 
         request = Request()
         request.parse(b'GET https://example.com/robots.txt HTTP/1.1\r\n')
         request.parse(b'Host: example.com\r\n')
+        request.parse(b'Accept: \xffexample\r\n')
         request.parse(b'\r\n')
 
         self.assertEqual('https://example.com/robots.txt', request.url)
         self.assertEqual('example.com', request.fields['host'])
+        self.assertEqual('\xffexample', request.fields['accept'])
 
     def test_response(self):
         response = Response(200, 'OK')
@@ -49,12 +54,22 @@ class TestRequest(unittest.TestCase):
     def test_response_parse(self):
         response = Response()
         response.parse(b'HTTP/1.0 200 OK\r\n')
-        response.parse(b'Cake: dolphin\r\n')
+        response.parse('Cake: dolphın\r\n'.encode('utf-8'))
         response.parse(b'\r\n')
 
         self.assertEqual(200, response.status_code)
         self.assertEqual('OK', response.reason)
-        self.assertEqual('dolphin', response.fields['Cake'])
+        self.assertEqual('dolphın'.encode('utf-8').decode('latin-1'),
+                         response.fields['Cake'])
+
+        response = Response()
+        response.parse(b'HTTP/1.0 200 OK\r\n')
+        response.parse(b'Cake: \xffdolphin\r\n')
+        response.parse(b'\r\n')
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual('OK', response.reason)
+        self.assertEqual('\xffdolphin', response.fields['Cake'])
 
     def test_response_empty_reason_line(self):
         response = Response()

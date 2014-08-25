@@ -66,13 +66,13 @@ class TestNameValue(unittest.TestCase):
 
         self.assertEqual('dogé', record['name'])
 
-    def test_name_value_fallback(self):
+    def test_name_value_encoding(self):
         text = '''Name: Кракозябры'''.encode('koi8-r')
-        record = NameValueRecord()
+        record = NameValueRecord(encoding='koi8-r')
         record.parse(text)
 
         self.assertEqual(
-            'Кракозябры'.encode('koi8-r').decode('latin1'),
+            'Кракозябры',
             record['name'])
 
     def test_missing_colon(self):

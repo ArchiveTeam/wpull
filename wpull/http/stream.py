@@ -18,6 +18,7 @@ from wpull.http.chunked import ChunkedTransferReader
 from wpull.http.request import Response
 import wpull.http.util
 from wpull.observer import Observer
+import wpull.util
 
 
 _ = gettext.gettext

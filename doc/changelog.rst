@@ -9,6 +9,7 @@ What's New
 * Fixed possible crash on empty content with deflate compression.
 * Fixed document encoding detection on documents larger than 4096 bytes where an encoded character may have been truncated.
 * Always percent-encode IRIs with UTF-8 to match de facto web browser implementation.
+* HTTP headers are consistently decoded as Latin-1.
 * Scripting API:
 
   * New ``queued_url`` and ``dequeued_url`` hooks contributed by mback2k.

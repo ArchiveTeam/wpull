@@ -43,7 +43,7 @@ class RawRequest(CommonMixin):
         self.method = method
         self.resource_path = resource_path
         self.version = version
-        self.fields = NameValueRecord()
+        self.fields = NameValueRecord(encoding='latin-1')
         self.body = None
         self.encoding = 'latin-1'
 
@@ -63,7 +63,7 @@ class RawRequest(CommonMixin):
         assert self.version
 
         status = '{0} {1} {2}'.format(self.method, self.resource_path, self.version).encode(self.encoding)
-        fields = bytes(self.fields)
+        fields = self.fields.to_bytes(errors='replace')
 
         return b'\r\n'.join([status, fields, b''])
 
@@ -208,7 +208,7 @@ class Response(CommonMixin):
         self.status_code = status_code
         self.reason = reason
         self.version = version
-        self.fields = NameValueRecord()
+        self.fields = NameValueRecord(encoding='latin-1')
         self.body = None
         self.request = request
         self.encoding = 'latin-1'
@@ -230,7 +230,7 @@ class Response(CommonMixin):
         assert self.reason is not None
 
         status = '{0} {1} {2}'.format(self.version, self.status_code, self.reason).encode(self.encoding)
-        fields = bytes(self.fields)
+        fields = self.fields.to_bytes(errors='replace')
 
         return b'\r\n'.join([status, fields, b''])
 
