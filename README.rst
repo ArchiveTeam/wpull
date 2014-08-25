@@ -33,7 +33,6 @@ Requires:
 * `Trollius <https://pypi.python.org/pypi/trollius>`_
 * `lxml <https://pypi.python.org/pypi/lxml>`_
 * `chardet <https://pypi.python.org/pypi/chardet>`_
-* `BeautifulSoup4 <https://pypi.python.org/pypi/beautifulsoup4>`_
 * `SQLAlchemy <https://pypi.python.org/pypi/SQLAlchemy>`_
 * `Lunatic Python (bastibe version)
   <https://github.com/bastibe/lunatic-python>`_ (optional for Lua support)

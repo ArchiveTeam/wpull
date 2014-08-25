@@ -67,7 +67,7 @@ setup_kwargs = dict(
 )
 
 setup_kwargs['install_requires'] = [
-    'tornado', 'trollius', 'lxml', 'chardet', 'sqlalchemy', 'beautifulsoup4',
+    'tornado', 'trollius', 'lxml', 'chardet', 'sqlalchemy',
     'namedlist',
 ]
 
