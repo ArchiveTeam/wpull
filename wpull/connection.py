@@ -190,6 +190,7 @@ class ConnectionPool(object):
             connection = yield From(host_pool.ready.get())
 
         host_pool.busy.add(connection)
+        assert host_pool.count() <= self._max_host_count
 
         raise Return(connection)
 
@@ -248,6 +249,19 @@ class ConnectionPool(object):
         trollius.get_event_loop().call_later(120, self._clean_cb)
 
 
+class ConnectionState(object):
+    '''State of a connection
+
+    Attributes:
+        ready: Connection is ready to be used
+        created: connect has been called successfully
+        dead: Connection is closed
+    '''
+    ready = 'ready'
+    created = 'created'
+    dead = 'dead'
+
+
 class Connection(object):
     '''Network stream.
 
@@ -281,10 +295,11 @@ class Connection(object):
         self._bind_host = bind_host
         self.reader = None
         self.writer = None
-        self.bandwidth_limiter = None
         self._close_timer = None
+        self._state = ConnectionState.ready
 
         # TODO: implement bandwidth limiting
+        self.bandwidth_limiter = None
 
     @property
     def address(self):
@@ -310,10 +325,17 @@ class Connection(object):
         '''Return whether the connection is closed.'''
         return not self.writer or not self.reader or self.reader.at_eof()
 
+    def state(self):
+        '''Return the state of this connection.'''
+        return self._state
+
     @trollius.coroutine
     def connect(self):
         '''Establish a connection.'''
         _logger.debug(__('Connecting to {0}.', self._address))
+
+        if self._state != ConnectionState.ready:
+            raise Exception('Closed connection must be reset before reusing.')
 
         host, port = self._address
         connection_future = trollius.open_connection(
@@ -331,6 +353,7 @@ class Connection(object):
         else:
             self._close_timer = DummyCloseTimer()
 
+        self._state = ConnectionState.created
         _logger.debug('Connected.')
 
     def _connection_kwargs(self):
@@ -354,9 +377,18 @@ class Connection(object):
         if self._close_timer:
             self._close_timer.close()
 
+        self._state = ConnectionState.dead
+
+    def reset(self):
+        '''Prepare connection for reuse.'''
+        self.close()
+        self._state = ConnectionState.ready
+
     @trollius.coroutine
     def write(self, data, drain=True):
         '''Write data.'''
+        assert self._state == ConnectionState.created
+
         self.writer.write(data)
 
         if drain:
@@ -370,6 +402,7 @@ class Connection(object):
     @trollius.coroutine
     def read(self, amount=-1):
         '''Read data.'''
+        assert self._state == ConnectionState.created
 
         data = yield From(
             self.run_network_operation(
@@ -383,6 +416,7 @@ class Connection(object):
     @trollius.coroutine
     def readline(self):
         '''Read a line of data.'''
+        assert self._state == ConnectionState.created
 
         with self._close_timer.with_timeout():
             data = yield From(

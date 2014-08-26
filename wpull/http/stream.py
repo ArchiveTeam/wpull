@@ -430,6 +430,8 @@ class Stream(object):
         Coroutine.
         '''
         if self._connection.closed():
+            self._connection.reset()
+
             yield From(self._connection.connect())
 
 
