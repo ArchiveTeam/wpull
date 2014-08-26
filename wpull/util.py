@@ -162,9 +162,7 @@ def close_on_error(close_func):
     '''Context manager to close object on error.'''
     try:
         yield
-    except (ArithmeticError, ArithmeticError, AssertionError, AttributeError,
-            BufferError, EOFError, ImportError, LookupError, MemoryError,
-            NameError, OSError, ReferenceError, RuntimeError, SyntaxError,
-            SystemError, TypeError, ValueError):
-        close_func()
+    except Exception as error:
+        if not isinstance(error, StopIteration):
+            close_func()
         raise
