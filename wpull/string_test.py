@@ -4,7 +4,8 @@ import codecs
 import itertools
 import unittest
 
-from wpull.string import to_bytes, to_str, detect_encoding, printable_bytes
+from wpull.string import to_bytes, to_str, detect_encoding, printable_bytes, \
+    normalize_codec_name
 
 
 class TestString(unittest.TestCase):
@@ -100,3 +101,12 @@ class TestString(unittest.TestCase):
             b' 1234abc XYZ~',
             printable_bytes(b' 1234\x00abc XYZ\xff~')
         )
+
+    def test_normalize_codec_name(self):
+        self.assertEqual('utf-8', normalize_codec_name('UTF-8'))
+        self.assertEqual('utf-8', normalize_codec_name('uTF_8'))
+        self.assertEqual('utf-8', normalize_codec_name('Utf8'))
+        self.assertEqual('shift_jis', normalize_codec_name('x-sjis'))
+        self.assertFalse(normalize_codec_name('\x00'))
+        self.assertFalse(normalize_codec_name('wolf-howl'))
+        self.assertFalse(normalize_codec_name('dragon-flatulence'))
