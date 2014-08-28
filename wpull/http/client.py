@@ -53,16 +53,22 @@ class Client(object):
                                   self._stream_factory)
                 try:
                     yield session
+                except Exception:
+                    session.close()
+                    raise
                 finally:
-                    session.clean_up()
+                    session.clean()
         else:
             session = Session(self._connection_pool,
                               None,
                               self._stream_factory)
             try:
                 yield session
+            except Exception:
+                session.close()
+                raise
             finally:
-                session.clean_up()
+                session.clean()
 
     def close(self):
         '''Close the connection pool and recorders.'''
@@ -151,8 +157,6 @@ class Session(object):
 
         Coroutine.
         '''
-        self._session_complete = True
-
         if rewind and file and hasattr(file, 'seek'):
             original_offset = file.tell()
         else:
@@ -165,6 +169,7 @@ class Session(object):
                 self._response.body = Body(file)
 
         yield From(self._stream.read_body(self._request, self._response, file=file, raw=raw))
+        self._session_complete = True
 
         if original_offset is not None:
             file.seek(original_offset)
@@ -184,7 +189,21 @@ class Session(object):
         elif data_type in ('response', 'response_body'):
             self._recorder_session.response_data(data)
 
-    def clean_up(self):
+    def done(self):
+        '''Return whether the session was complete.
+
+        A session is complete when it has sent a request,
+        read the response header and the response body.
+        '''
+        return self._session_complete
+
+    def close(self):
+        '''Abort the session if not complete.'''
+        if not self._session_complete and self._connection:
+            self._connection.close()
+            self._session_complete = True
+
+    def clean(self):
         '''Return connection back to the pool.'''
         assert self._session_complete
 

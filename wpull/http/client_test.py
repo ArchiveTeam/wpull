@@ -54,6 +54,10 @@ class MockRecorderSession(BaseRecorderSession):
         self.recorder.response_data += data
 
 
+class MyException(ValueError):
+    pass
+
+
 class TestClient(BadAppTestCase):
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_basic(self):
@@ -111,6 +115,7 @@ class TestClient(BadAppTestCase):
                 response = yield From(session.fetch(request))
                 self.assertEqual(200, response.status_code)
                 yield From(session.read_content())
+                self.assertTrue(session.done())
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_client_recorder(self):
@@ -130,3 +135,21 @@ class TestClient(BadAppTestCase):
 
         self.assertIn(b'GET', recorder.request_data)
         self.assertIn(b'hello', recorder.response_data)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_client_exception_close(self):
+        client = Client()
+
+        with self.assertRaises(AssertionError):
+            with client.session() as session:
+                request = Request(self.get_url('/'))
+                response = yield From(session.fetch(request))
+                self.assertFalse(session.done())
+
+        client = Client()
+
+        with self.assertRaises(MyException):
+            with client.session() as session:
+                request = Request(self.get_url('/'))
+                response = yield From(session.fetch(request))
+                raise MyException('Oops')
