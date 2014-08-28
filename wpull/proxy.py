@@ -37,8 +37,12 @@ class HTTPProxyServer(object):
         while True:
             try:
                 result = yield From(self._process_request(reader, writer))
-            except Exception:
-                _logger.exception('Proxy error')
+            except Exception as error:
+                if isinstance(error, ConnectionError):
+                    _logger.debug('Proxy error', exc_info=True)
+                else:
+                    _logger.exception('Proxy error')
+
                 writer.close()
                 return
 
