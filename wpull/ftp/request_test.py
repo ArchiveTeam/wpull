@@ -30,16 +30,17 @@ class TestRequest(unittest.TestCase):
         self.assertRaises(AssertionError, reply.parse, b'200 Hello again')
 
     def test_reply(self):
-        reply = Reply(200, 'Hello world!\nFerret transfer protocol')
+        reply = Reply(213, 'Hello world!\nFerret transfer protocol')
         self.assertEqual(
-            b'200-Hello world!\r\n200 Ferret transfer protocol\r\n',
+            b'213-Hello world!\r\n213 Ferret transfer protocol\r\n',
             reply.to_bytes()
         )
-        self.assertEqual(200, reply.to_dict()['code'])
+        self.assertEqual(213, reply.to_dict()['code'])
         self.assertEqual(
             'Hello world!\nFerret transfer protocol',
             reply.to_dict()['text']
         )
+        self.assertEqual((2, 1, 3), reply.code_tuple())
 
     def test_parse_command(self):
         command = Command()

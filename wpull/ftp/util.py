@@ -26,3 +26,15 @@ def parse_address(text):
             )
     else:
         raise ValueError('No address found')
+
+
+def reply_code_tuple(code):
+    '''Return the reply code as a tuple.
+
+    Args:
+        code (int): The reply code.
+
+    Returns:
+        tuple: Each item is the digit.
+    '''
+    return (code // 100, code // 10 % 10, code % 10)

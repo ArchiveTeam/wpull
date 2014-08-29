@@ -1,7 +1,9 @@
 '''FTP conversation classes'''
-from wpull.abstract.request import CommonMixin
 import re
+
+from wpull.abstract.request import CommonMixin
 from wpull.errors import ProtocolError
+import wpull.ftp.util
 
 
 class Command(CommonMixin):
@@ -102,3 +104,7 @@ class Reply(CommonMixin):
             'code': self.code,
             'text': self.text
         }
+
+    def code_tuple(self):
+        '''Return a tuple of the reply code.'''
+        return wpull.ftp.util.reply_code_tuple(self.code)
