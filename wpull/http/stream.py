@@ -43,7 +43,12 @@ class Stream(object):
 
     Attributes:
         data_observer (:class:`.observer.Observer`): An observer called with
-            two arguments (str, bytes).
+            two arguments:
+
+            1. str: The data type. Can be ``request``, ``request_body``,
+               ``response``, ``response_body``
+            2. bytes: the raw data
+
         connection: The underlying connection.
     '''
     def __init__(self, connection, keep_alive=True, ignore_length=False):
