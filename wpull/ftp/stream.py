@@ -14,17 +14,39 @@ _logger = logging.getLogger(__name__)
 
 
 class DataStream(object):
-    '''Stream class for a data connection.'''
+    '''Stream class for a data connection.
+
+    Attributes:
+        data_observer (:class:`.observer.Observer`): The data observer.
+            The callback function should accept a single argument: bytes.
+
+    Args:
+        connection (:class:`.connection.Connection`): Connection.
+    '''
     def __init__(self, connection):
         self._connection = connection
+        self._data_observer = Observer()
+
+    @property
+    def data_observer(self):
+        return self._data_observer
 
     def close(self):
+        '''Close connection.'''
         self._connection.close()
+
+    def closed(self):
+        '''Return whether the connection is closed.'''
+        return self._connection.closed()
 
     @trollius.coroutine
     @close_stream_on_error
     def read_file(self, file=None):
-        '''Read from connection to file.'''
+        '''Read from connection to file.
+
+        Args:
+            file: A file object or a writer stream.
+        '''
         if file:
             file_is_async = hasattr(file, 'drain')
 
@@ -40,10 +62,24 @@ class DataStream(object):
                 if file_is_async:
                     yield From(file.drain())
 
+            self._data_observer.notify(data)
+
     # TODO: def write_file()
 
 
 class ControlStream(object):
+    '''Stream class for a control connection.
+
+    Attributes:
+        data_observer (:class:`.observer.Observer`): The data observer.
+            The callback function should accept two arguments:
+
+            1. str: The type of data. Can be ``command`` or ``reply``.
+            2. bytes: The raw data.
+
+    Args:
+        connection (:class:`.connection.Connection`): Connection.
+    '''
     def __init__(self, connection):
         self._connection = connection
         self._data_observer = Observer()
@@ -53,11 +89,17 @@ class ControlStream(object):
         return self._data_observer
 
     def close(self):
+        '''Close the connection.'''
         self._connection.close()
 
     @trollius.coroutine
     @close_stream_on_error
     def write_command(self, command):
+        '''Write a command to the stream.
+
+        Args:
+            command (:class:`.ftp.request.Command`): The command.
+        '''
         _logger.debug('Write command.')
         data = command.to_bytes()
         yield From(self._connection.write(data))
@@ -66,6 +108,11 @@ class ControlStream(object):
     @trollius.coroutine
     @close_stream_on_error
     def read_reply(self):
+        '''Read a reply from the stream.
+
+        Returns:
+            .ftp.request.Reply: The reply
+        '''
         _logger.debug('Read reply')
         reply = Reply()
 
