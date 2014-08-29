@@ -1,27 +1,13 @@
 # encoding=utf-8
 '''HTTP conversation objects.'''
-import abc
+import copy
 import re
 
+from wpull.abstract.request import CommonMixin
 from wpull.errors import ProtocolError
 from wpull.namevalue import NameValueRecord
 import wpull.string
 from wpull.url import URLInfo
-import copy
-
-
-class CommonMixin(object):
-    @abc.abstractmethod
-    def to_dict(self):
-        '''Convert to a dict suitable for JSON.'''
-
-    @abc.abstractmethod
-    def to_bytes(self):
-        '''Serialize to HTTP bytes.'''
-
-    @abc.abstractmethod
-    def parse(self, data):
-        '''Parse from HTTP bytes.'''
 
 
 class RawRequest(CommonMixin):
