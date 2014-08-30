@@ -56,6 +56,7 @@ class Session(BaseSession):
 
         Coroutine.
         '''
+        assert not self._connection
         _logger.debug(__('Client fetch request {0}.', request))
 
         self._request = request

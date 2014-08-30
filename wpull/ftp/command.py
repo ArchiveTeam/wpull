@@ -4,12 +4,11 @@ import logging
 from trollius import From, Return
 import trollius
 
-from wpull.errors import ServerError
 from wpull.ftp.request import Command
-from wpull.ftp.util import ReplyCodes
+from wpull.ftp.stream import DataStream
+from wpull.ftp.util import ReplyCodes, FTPServerError
 import wpull.ftp.util
 import wpull.string
-from wpull.ftp.stream import DataStream
 
 
 _logger = logging.getLogger(__name__)
@@ -28,11 +27,13 @@ class Commander(object):
     @classmethod
     def raise_if_not_match(cls, action, expected_code, reply):
         if expected_code != reply.code:
-            raise ServerError(
+            raise FTPServerError(
                 'Failed action {action}: {reply_code} {reply_text}'
                 .format(action=action, reply_code=reply.code,
                         reply_text=wpull.string.coerce_str_to_ascii(reply.text)
-                        ))
+                        ),
+                reply.code
+                )
 
     @trollius.coroutine
     def reconnect(self):

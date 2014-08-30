@@ -153,9 +153,7 @@ class FTPSession(object):
 
         if not self.data_writer:
             self.writer.write(b'227 Use PORT or PASV first\r\n')
-        elif self.arg in ('example1', 'example2'):
-            self.writer.write(b'550 File error\r\n')
-        else:
+        elif self.arg.lstrip('/') == 'example.txt':
             self.writer.write(b'150 Begin data\r\n')
             self.data_writer.write(
                 'The real treasure is in Smaug’s heart 💗.\n'
@@ -164,6 +162,8 @@ class FTPSession(object):
             self.data_writer = None
             self.writer.write(b'226 End data\r\n')
             self.data_server.close()
+        else:
+            self.writer.write(b'550 File error\r\n')
 
     @trollius.coroutine
     def _cmd_cwd(self):

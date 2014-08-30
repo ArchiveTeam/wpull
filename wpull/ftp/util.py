@@ -1,6 +1,9 @@
 '''Utils'''
 import re
 
+from wpull.errors import ServerError
+import datetime
+
 
 class ReplyCodes(object):
     command_okay = 200
@@ -44,6 +47,13 @@ class ReplyCodes(object):
     requested_action_not_taken = 553
 
 
+class FTPServerError(ServerError):
+    @property
+    def reply_code(self):
+        if len(self.args) >= 2 and isinstance(self.args[1], int):
+            return self.args[1]
+
+
 def parse_address(text):
     '''Parse PASV address.'''
     match = re.search(
@@ -80,3 +90,88 @@ def reply_code_tuple(code):
         tuple: Each item is the digit.
     '''
     return (code // 100, code // 10 % 10, code % 10)
+
+
+def parse_machine_listing(text, convert=True, strict=True):
+    '''Parse machine listing.
+
+    Args:
+        text (str): The listing.
+        convert (bool): Convert sizes and dates.
+        strict (bool): Method of handling errors. ``True`` will raise
+            ``ValueError``. ``False`` will ignore rows with errors.
+
+    Returns:
+        list: A list of dict of the facts defined in RFC 3659.
+        The key names must be lowercase. The filename uses the key
+        ``name``.
+    '''
+    listing = []
+
+    for line in text.splitlines(False):
+        facts = line.split(';')
+        row = {}
+        filename = None
+
+        for fact in facts:
+            name, sep, value = fact.partition('=')
+
+            if sep:
+                name = name.strip().lower()
+                value = value.strip().lower()
+
+                if convert:
+                    try:
+                        value = convert_machine_list_value(name, value)
+                    except ValueError:
+                        if strict:
+                            raise
+
+                row[name] = value
+            else:
+                if name[0:1] == ' ':
+                    # Is a filename
+                    filename = name[1:]
+                else:
+                    name = name.strip().lower()
+                    row[name] = ''
+
+        if filename:
+            row['name'] = filename
+            listing.append(row)
+        elif strict:
+            raise ValueError('Missing filename.')
+
+    return listing
+
+
+def convert_machine_list_value(name, value):
+    '''Convert sizes and time values.
+
+    Size will be ``int`` while time value will be :class:`datetime.datetime`.
+    '''
+    if name == 'modify':
+        return convert_machine_list_time_val(value)
+    elif name == 'size':
+        return int(value)
+    else:
+        return value
+
+
+def convert_machine_list_time_val(text):
+    '''Convert RFC 3659 time-val to datetime objects.'''
+    # TODO: implement fractional seconds
+    text = text[:14]
+
+    if len(text) != 14:
+        raise ValueError('Time value not 14 chars')
+
+    year = int(text[0:4])
+    month = int(text[4:6])
+    day = int(text[6:8])
+    hour = int(text[8:10])
+    minute = int(text[10:12])
+    second = int(text[12:14])
+
+    return datetime.datetime(year, month, day, hour, minute, second,
+                             tzinfo=datetime.timezone.utc)

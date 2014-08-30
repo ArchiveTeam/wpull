@@ -133,3 +133,15 @@ class Response(object):
     def __init__(self):
         self.request = None
         self.body = None
+
+
+class ListingResponse(Response):
+    '''FTP response for a file listing.
+
+    Attributes:
+        files (list): See :func:`.ftp.util.parse_machine_listing` for the
+            format of the list.
+    '''
+    def __init__(self):
+        super().__init__()
+        self.files = []
