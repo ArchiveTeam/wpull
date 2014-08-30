@@ -92,6 +92,21 @@ class ControlStream(object):
         '''Close the connection.'''
         self._connection.close()
 
+    def closed(self):
+        '''Return whether the connection is closed.'''
+        return self._connection.closed()
+
+    @trollius.coroutine
+    def reconnect(self):
+        '''Connected the stream if needed.
+
+        Coroutine.
+        '''
+        if self._connection.closed():
+            self._connection.reset()
+
+            yield From(self._connection.connect())
+
     @trollius.coroutine
     @close_stream_on_error
     def write_command(self, command):
@@ -99,6 +114,8 @@ class ControlStream(object):
 
         Args:
             command (:class:`.ftp.request.Command`): The command.
+
+        Coroutine.
         '''
         _logger.debug('Write command.')
         data = command.to_bytes()
@@ -112,6 +129,8 @@ class ControlStream(object):
 
         Returns:
             .ftp.request.Reply: The reply
+
+        Coroutine.
         '''
         _logger.debug('Read reply')
         reply = Reply()

@@ -36,9 +36,12 @@ class Commander(object):
 
     @trollius.coroutine
     def reconnect(self):
-        '''Reconnect if needed and read the welcome message.'''
+        '''Reconnect if needed and read the welcome message.
+
+        Coroutine.
+        '''
         if self._control_stream.closed():
-            yield From(self._control_stream.connect())
+            yield From(self._control_stream.reconnect())
         else:
             yield From(self._control_stream.write_command(Command('REIN')))
 
@@ -49,7 +52,10 @@ class Commander(object):
 
     @trollius.coroutine
     def login(self, username='anonymous', password='-wpull-lib@'):
-        '''Log in.'''
+        '''Log in.
+
+        Coroutine.
+        '''
         yield From(self._control_stream.write_command(Command('USER', username)))
 
         reply = yield From(self._control_stream.read_reply())
@@ -57,7 +63,9 @@ class Commander(object):
         self.raise_if_not_match(
             'Login username', ReplyCodes.user_name_okay_need_password, reply)
 
-        yield From(self._control_stream.write_command(Command('USER', password)))
+        yield From(self._control_stream.write_command(Command('PASS', password)))
+
+        reply = yield From(self._control_stream.read_reply())
 
         self.raise_if_not_match(
             'Login password', ReplyCodes.user_logged_in_proceed, reply)
@@ -68,6 +76,8 @@ class Commander(object):
 
         Returns:
             tuple: The address (IP address, port) of the passive port.
+
+        Coroutine.
         '''
         yield From(self._control_stream.write_command(Command('PASV')))
 
@@ -90,20 +100,24 @@ class Commander(object):
             command (:class:`.ftp.request.Command`): A command that
                 sends data over the data connection.
             file: A destination file object or a stream writer.
-            connection_factory: A callback that returns
+            connection_factory: A coroutine callback that returns
                 :class:`.connection.Connection`.
             stream_callback: A callback that will be provided an instance of
                 :class:`.ftp.stream.DataStream`.
+
+        Coroutine.
         '''
-
-        address = yield From(self.passive_mode())
-
-        yield From(self._control_stream.write_command('MODE', 'I'))
+        yield From(self._control_stream.write_command(Command('TYPE', 'I')))
         reply = yield From(self._control_stream.read_reply())
 
         self.raise_if_not_match('Binary mode', ReplyCodes.command_okay, reply)
 
-        connection = connection_factory(address)
+        address = yield From(self.passive_mode())
+
+        connection = yield From(connection_factory(address))
+
+        yield From(connection.connect())
+
         data_stream = DataStream(connection)
 
         if stream_callback:
@@ -113,7 +127,10 @@ class Commander(object):
 
     @trollius.coroutine
     def read_stream(self, command, file, data_stream):
-        '''Read from the data stream.'''
+        '''Read from the data stream.
+
+        Coroutine.
+        '''
 
         yield From(self._control_stream.write_command(command))
         reply = yield From(self._control_stream.read_reply())
@@ -125,6 +142,8 @@ class Commander(object):
         )
 
         yield From(data_stream.read_file(file=file))
+
+        reply = yield From(self._control_stream.read_reply())
 
         self.raise_if_not_match(
             'End stream',

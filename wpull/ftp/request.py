@@ -1,7 +1,7 @@
 '''FTP conversation classes'''
 import re
 
-from wpull.abstract.request import CommonMixin
+from wpull.abstract.request import CommonMixin, URLPropertyMixin
 from wpull.errors import ProtocolError
 import wpull.ftp.util
 
@@ -108,3 +108,28 @@ class Reply(CommonMixin):
     def code_tuple(self):
         '''Return a tuple of the reply code.'''
         return wpull.ftp.util.reply_code_tuple(self.code)
+
+
+class Request(URLPropertyMixin):
+    '''FTP request for a file.'''
+    def __init__(self, url):
+        super().__init__()
+        self.url = url
+
+    def to_dict(self):
+        return {
+            'url': self.url,
+            'url_info': self.url_info.to_dict() if self.url_info else None
+        }
+
+
+class Response(object):
+    '''FTP response for a file.
+
+    Attributes:
+        request (:class:`Request`): The corresponding request.
+        body (:class:`.body.Body`): The file.
+    '''
+    def __init__(self):
+        self.request = None
+        self.body = None
