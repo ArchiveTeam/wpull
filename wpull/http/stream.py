@@ -159,6 +159,7 @@ class Stream(object):
             response = Response()
 
         header_lines = []
+        bytes_read = 0
 
         while True:
             try:
@@ -176,6 +177,11 @@ class Stream(object):
 
             header_lines.append(data)
             assert data.endswith(b'\n')
+
+            bytes_read += len(data)
+
+            if bytes_read > 32768:
+                raise ProtocolError('Header too big.')
 
         if not header_lines:
             raise ProtocolError('No header received.')

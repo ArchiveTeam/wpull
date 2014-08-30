@@ -80,6 +80,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/false_gzip': self.false_gzip,
             '/status_line_only': self.status_line_only,
             '/newline_line_only': self.newline_line_only,
+            '/many_headers': self.many_headers,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -574,6 +575,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def newline_line_only(self):
         self.wfile.write(b'\r\n\r\n')
         self.wfile.write(b'Hey')
+        self.close_connection = True
+
+    def many_headers(self):
+        self.wfile.write(b'HTTP/1.1 200 I Heard You Like Headers\r\n')
+        for num in range(10000):
+            self.wfile.write('Hey-{0}:'.format(num).encode('ascii'))
+            self.wfile.write(b'hey' * 1000 + b'\r\n')
+
+        self.wfile.write(b'\r\n')
         self.close_connection = True
 
 

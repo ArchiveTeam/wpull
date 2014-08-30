@@ -487,6 +487,14 @@ class StreamTestsMixin(object):
         with self.assertRaises(ProtocolError):
             yield From(self.fetch(stream, request))
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_many_headers(self):
+        stream = self.new_stream('127.0.0.1', self._port)
+        request = Request(self.get_url('/many_headers'))
+
+        with self.assertRaises(ProtocolError):
+            yield From(self.fetch(stream, request))
+
 
 class TestStream(BadAppTestCase, StreamTestsMixin):
     pass
