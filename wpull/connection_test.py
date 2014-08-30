@@ -237,3 +237,17 @@ class TestConnection(BadAppTestCase):
             pass
         else:
             self.fail()
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_connection_pool_check_in_clean_race_condition(self):
+        connection_pool = ConnectionPool(max_host_count=1)
+
+        connection = yield From(connection_pool.check_out('127.0.0.1', 1234))
+        connection_2_task = trollius.async(connection_pool.check_out('127.0.0.1', 1234))
+        yield From(trollius.sleep(0.01))
+        connection_pool.check_in(connection)
+        connection_pool.clean(force=True)
+        connection_2 = yield From(connection_2_task)
+
+        # This line should not KeyError crash:
+        connection_pool.check_in(connection_2)

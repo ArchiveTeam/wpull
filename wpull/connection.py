@@ -192,6 +192,10 @@ class ConnectionPool(object):
         host_pool.busy.add(connection)
         assert host_pool.count() <= self._max_host_count
 
+        if key not in self._pool:
+            # Pool may have been deleted during a clean
+            self._pool[key] = host_pool
+
         raise Return(connection)
 
     def check_in(self, connection):
