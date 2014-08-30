@@ -24,7 +24,8 @@ class MockFTPServer(object):
             yield From(session.process())
         except Exception:
             _logger.exception('Server error')
-        finally:
+            writer.close()
+        else:
             writer.close()
 
 
@@ -199,6 +200,16 @@ class FTPTestCase(AsyncTestCase):
     def tearDown(self):
         self.server_handle.close()
         AsyncTestCase.tearDown(self)
+
+    def get_url(self, path, username='', password=''):
+        if username or password:
+            return 'ftp://{username}@{password}:127.0.0.1:{port}{path}' \
+                .format(path=path, port=self.server_port(),
+                        username=username, password=password
+                        )
+        else:
+            return 'ftp://127.0.0.1:{port}{path}'.format(
+                path=path, port=self.server_port())
 
 
 if __name__ == '__main__':
