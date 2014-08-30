@@ -87,7 +87,7 @@ class Commander(object):
         self.raise_if_not_match(
             'Passive mode', ReplyCodes.entering_passive_mode, reply)
 
-        return wpull.ftp.util.parse_address(reply.text)
+        raise Return(wpull.ftp.util.parse_address(reply.text))
 
     @trollius.coroutine
     def get_file(self, command, file, connection_factory,
