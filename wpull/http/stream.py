@@ -186,7 +186,6 @@ class Stream(object):
         if not header_lines:
             raise ProtocolError('No header received.')
 
-        # TODO: check for overflow
         response.parse(b''.join(header_lines))
 
         raise Return(response)
