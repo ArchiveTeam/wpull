@@ -175,9 +175,13 @@ class Stream(object):
                 break
 
             header_lines.append(data)
+            assert data.endswith(b'\n')
+
+        if not header_lines:
+            raise ProtocolError('No header received.')
 
         # TODO: check for overflow
-        response.parse(b'\n'.join(header_lines))
+        response.parse(b''.join(header_lines))
 
         raise Return(response)
 

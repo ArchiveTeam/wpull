@@ -470,6 +470,23 @@ class StreamTestsMixin(object):
         self.assertEqual('gzip', response.fields['Content-Encoding'])
         self.assertEqual(b'a' * 100, content)
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_status_line_only(self):
+        stream = self.new_stream('127.0.0.1', self._port)
+        request = Request(self.get_url('/status_line_only'))
+        response, content = yield From(self.fetch(stream, request))
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(b'Hey', content)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_newline_line_only(self):
+        stream = self.new_stream('127.0.0.1', self._port)
+        request = Request(self.get_url('/newline_line_only'))
+
+        with self.assertRaises(ProtocolError):
+            yield From(self.fetch(stream, request))
+
 
 class TestStream(BadAppTestCase, StreamTestsMixin):
     pass

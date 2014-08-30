@@ -78,6 +78,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/bad_redirect': self.bad_redirect,
             '/utf8_then_binary': self.utf8_then_binary,
             '/false_gzip': self.false_gzip,
+            '/status_line_only': self.status_line_only,
+            '/newline_line_only': self.newline_line_only,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -563,6 +565,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
         self.wfile.write(b'a' * 100)
+
+    def status_line_only(self):
+        self.wfile.write(b'HTTP/1.1 200 OK\r\n\r\n')
+        self.wfile.write(b'Hey')
+        self.close_connection = True
+
+    def newline_line_only(self):
+        self.wfile.write(b'\r\n\r\n')
+        self.wfile.write(b'Hey')
+        self.close_connection = True
 
 
 class ConcurrentHTTPServer(socketserver.ThreadingMixIn,
