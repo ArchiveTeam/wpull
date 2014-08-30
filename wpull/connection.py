@@ -207,7 +207,17 @@ class ConnectionPool(object):
 
     @trollius.coroutine
     def session(self, host, port, ssl=False):
-        '''Return a context manager that returns a connection.'''
+        '''Return a context manager that returns a connection.
+
+        Usage::
+
+            session = yield from connection_pool.session('example.com', 80)
+            with session as connection:
+                connection.write(b'blah')
+                connection.close()
+
+        Coroutine.
+        '''
         connection = yield From(self.check_out(host, port, ssl))
 
         @contextlib.contextmanager
