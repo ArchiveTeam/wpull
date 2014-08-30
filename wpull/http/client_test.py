@@ -97,7 +97,7 @@ class TestClient(BadAppTestCase):
     def test_client_exception_recovery(self):
         connection_factory = functools.partial(Connection, timeout=2.0)
         connection_pool = ConnectionPool(connection_factory=connection_factory)
-        client = Client(connection_pool)
+        client = Client(connection_pool=connection_pool)
 
         for dummy in range(7):
             with client.session() as session:

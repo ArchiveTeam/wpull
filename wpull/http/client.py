@@ -1,14 +1,16 @@
 # encoding=utf-8
 '''Basic HTTP Client.'''
+import functools
 import gettext
 import logging
 
 from trollius import From, Return
 import trollius
 
+from wpull.abstract.client import BaseClient, BaseSession
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
-from wpull.abstract.client import BaseClient, BaseSession
+from wpull.http.stream import Stream
 
 
 _ = gettext.gettext
@@ -20,15 +22,21 @@ class Client(BaseClient):
 
     The session object is :class:`Session`.
     '''
+    def __init__(self, stream_factory=Stream, **kwargs):
+        super().__init__(**kwargs)
+        self._stream_factory = stream_factory
+
     def _session_class(self):
-        return Session
+        return functools.partial(Session, stream_factory=self._stream_factory)
 
 
 class Session(BaseSession):
     '''HTTP request and response session.'''
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, stream_factory=None, **kwargs):
+        super().__init__(**kwargs)
 
+        assert stream_factory
+        self._stream_factory = stream_factory
         self._connection = None
         self._stream = None
         self._request = None

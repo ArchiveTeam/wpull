@@ -4,7 +4,6 @@ import contextlib
 import logging
 
 from wpull.connection import ConnectionPool
-from wpull.http.stream import Stream
 
 
 _logger = logging.getLogger(__name__)
@@ -12,8 +11,7 @@ _logger = logging.getLogger(__name__)
 
 class BaseClient(object, metaclass=abc.ABCMeta):
     '''Base client.'''
-    def __init__(self, connection_pool=None, recorder=None,
-                 stream_factory=Stream):
+    def __init__(self, connection_pool=None, recorder=None):
         '''
         Args:
             connection_pool (:class:`.connection.ConnectionPool`): Connection
@@ -28,7 +26,6 @@ class BaseClient(object, metaclass=abc.ABCMeta):
             self._connection_pool = ConnectionPool()
 
         self._recorder = recorder
-        self._stream_factory = stream_factory
 
     @abc.abstractmethod
     def _session_class(self):
@@ -46,9 +43,10 @@ class BaseClient(object, metaclass=abc.ABCMeta):
         '''
         if self._recorder:
             with self._recorder.session() as recorder_session:
-                session = self._session_class()(self._connection_pool,
-                                                recorder_session,
-                                                self._stream_factory)
+                session = self._session_class()(
+                    connection_pool=self._connection_pool,
+                    recorder_session=recorder_session,
+                )
                 try:
                     yield session
                 except Exception:
@@ -57,9 +55,8 @@ class BaseClient(object, metaclass=abc.ABCMeta):
                 finally:
                     session.clean()
         else:
-            session = self._session_class()(self._connection_pool,
-                                            None,
-                                            self._stream_factory)
+            session = self._session_class()(
+                connection_pool=self._connection_pool)
             try:
                 yield session
             except Exception:
@@ -79,10 +76,10 @@ class BaseClient(object, metaclass=abc.ABCMeta):
 
 class BaseSession(object, metaclass=abc.ABCMeta):
     '''Base session.'''
-    def __init__(self, connection_pool, recorder_session, stream_factory):
+    def __init__(self, connection_pool=None, recorder_session=None):
+        assert connection_pool
         self._connection_pool = connection_pool
         self._recorder_session = recorder_session
-        self._stream_factory = stream_factory
 
     @abc.abstractmethod
     def close(self):
