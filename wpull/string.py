@@ -78,15 +78,18 @@ def detect_encoding(data, encoding=None, fallback='latin1', is_html=False):
     candidates = itertools.chain(bs4_detector.encodings, (fallback,))
 
     for candidate in candidates:
-        if not candidate or (candidate == 'ascii' and fallback != 'ascii'):
-            # it's never ascii :)
-            # Falling back on UTF-8/CP-1252/Latin-1 reduces chance of
-            # failure
+        if not candidate:
             continue
 
         candidate = normalize_codec_name(candidate)
 
         if not candidate:
+            continue
+
+        if candidate == 'ascii' and fallback != 'ascii':
+            # it's never ascii :)
+            # Falling back on UTF-8/CP-1252/Latin-1 reduces chance of
+            # failure
             continue
 
         if try_decoding(data, candidate):
