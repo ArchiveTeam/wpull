@@ -223,7 +223,8 @@ class BaseSQLURLTable(BaseURLTable):
         return self.count()
 
     def add(self, new_urls, **kwargs):
-        assert not isinstance(new_urls, (str, bytes))
+        assert not isinstance(new_urls, (str, bytes)), \
+            'Expected a list-like. Got {}'.format(new_urls)
         referrer = kwargs.pop('referrer', None)
         top_url = kwargs.pop('top_url', None)
         url_strings = list(new_urls)
@@ -312,7 +313,8 @@ class BaseSQLURLTable(BaseURLTable):
                 .update({'status': Status.todo})
 
     def remove(self, urls):
-        assert not isinstance(urls, (str, bytes))
+        assert not isinstance(urls, (str, bytes)), \
+            'Expected list-like. Got {}.'.format(urls)
 
         with self._session() as session:
             url_id_map = URLString.get_map(session, urls)

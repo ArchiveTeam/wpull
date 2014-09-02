@@ -567,7 +567,8 @@ class Builder(object):
         if args.server_response:
             recorders.append(self._factory.new('PrintServerResponseRecorder'))
 
-        assert args.verbosity
+        assert args.verbosity, \
+            'Expect logging level. Got {}.'.format(args.verbosity)
 
         if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARNING):
             stream = self._new_encoded_stream(sys.stderr)

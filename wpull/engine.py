@@ -148,7 +148,8 @@ class BaseEngine(object):
     def _set_concurrent(self, new_num):
         '''Set concurrency level.'''
         if self._running:
-            assert new_num >= 0
+            assert new_num >= 0, \
+                'No negative concurrency pls. Got {}.'.format(new_num)
             change = new_num - self.__concurrent
 
             if change < 0:

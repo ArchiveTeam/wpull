@@ -119,7 +119,8 @@ class URLInfo(_URLInfoType):
         if not string:
             raise ValueError('Empty URL')
 
-        assert isinstance(string, str)
+        assert isinstance(string, str), \
+            'Expect str. Got {}.'.format(type(string))
 
         cache_key = (string, default_scheme, encoding, normalization_params)
 

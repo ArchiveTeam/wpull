@@ -87,7 +87,7 @@ def filter_pem(data):
     Returns:
         ``set`` containing each certificate
     '''
-    assert isinstance(data, bytes)
+    assert isinstance(data, bytes), 'Expect bytes. Got {}.'.format(type(data))
     certs = set()
     new_list = []
     in_pem_block = False

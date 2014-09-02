@@ -304,8 +304,9 @@ class Connection(object):
     '''
     def __init__(self, address, hostname=None, timeout=None,
                  connect_timeout=None, bind_host=None):
-        assert len(address) == 2
-        assert '.' in address[0] or ':' in address[0]
+        assert len(address) == 2, 'Expect str & port. Got {}.'.format(address)
+        assert '.' in address[0] or ':' in address[0], \
+            'Expect numerical address. Got {}.'.format(address[0])
 
         self._address = address
         self._hostname = hostname or address[0]
@@ -406,7 +407,8 @@ class Connection(object):
     @trollius.coroutine
     def write(self, data, drain=True):
         '''Write data.'''
-        assert self._state == ConnectionState.created
+        assert self._state == ConnectionState.created, \
+            'Expect conn created. Got {}.'.format(self._state)
 
         self.writer.write(data)
 
@@ -421,7 +423,8 @@ class Connection(object):
     @trollius.coroutine
     def read(self, amount=-1):
         '''Read data.'''
-        assert self._state == ConnectionState.created
+        assert self._state == ConnectionState.created, \
+            'Expect conn created. Got {}.'.format(self._state)
 
         data = yield From(
             self.run_network_operation(
@@ -435,7 +438,8 @@ class Connection(object):
     @trollius.coroutine
     def readline(self):
         '''Read a line of data.'''
-        assert self._state == ConnectionState.created
+        assert self._state == ConnectionState.created, \
+            'Expect conn created. Got {}.'.format(self._state)
 
         with self._close_timer.with_timeout():
             data = yield From(
@@ -551,7 +555,8 @@ class SSLConnection(Connection):
         verify_mode = self._ssl_context.verify_mode
 
         assert verify_mode in (ssl.CERT_NONE, ssl.CERT_REQUIRED,
-                               ssl.CERT_OPTIONAL)
+                               ssl.CERT_OPTIONAL), \
+            'Unknown verify mode {}'.format(verify_mode)
 
         if verify_mode == ssl.CERT_NONE:
             return

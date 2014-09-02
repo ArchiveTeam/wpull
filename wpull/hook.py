@@ -206,7 +206,7 @@ class Callbacks(LegacyCallbacks):
 
     @version.setter
     def version(self, num):
-        assert num in self.AVAILABLE_VERSIONS
+        assert num in self.AVAILABLE_VERSIONS, 'Unknown ver {}'.format(num)
 
         self._version = num
 
