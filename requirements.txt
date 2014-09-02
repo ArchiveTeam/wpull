@@ -1,5 +1,6 @@
 tornado>=3.2.2,<5.0
-trollius>=1.0
+# trollius>=1.0.2
+hg+https://bitbucket.org/enovance/trollius@505d8e0c46f8d91bd3550a2dca1488a594499727#egg=trollius
 lxml>=3.1.0
 chardet>=2.0.1
 sqlalchemy>=0.9
