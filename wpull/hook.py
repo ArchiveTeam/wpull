@@ -25,7 +25,7 @@ def load_lua():
 
 try:
     lua = load_lua()
-except ImportError:
+except (ImportError, AttributeError):
     lua = None
 
 
