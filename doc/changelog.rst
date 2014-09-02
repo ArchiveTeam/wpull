@@ -2,8 +2,8 @@
 What's New
 ==========
 
-0.1000
-======
+0.1000 (2014-09-02)
+===================
 
 * Dropped support for Python 2. Please file an issue if this is a problem.
 * Fixed possible crash on empty content with deflate compression.
@@ -16,7 +16,7 @@ What's New
 
 * API:
 
-  * Switched to Trollius instead of Tornado.
+  * Switched to Trollius instead of Tornado. Please use Trollius 1.0.2 alpha or greater.
   * Most the of internals related to the HTTP protocol were rewritten and as a result, major components are not backwards compatible; lots of changes were made. If you happen to be using Wpull's API, please pin your requirements to ``<0.1000`` if you do not want to make a migration. Please file an issue if this is a problem.
 
 
