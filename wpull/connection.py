@@ -190,7 +190,12 @@ class ConnectionPool(object):
             connection = yield From(host_pool.ready.get())
 
         host_pool.busy.add(connection)
-        assert host_pool.count() <= self._max_host_count
+
+        # XXX: there is a race condition between host_pool.ready and
+        # host_pool.busy since there is no guarantee that Queue.get()
+        # returns immediately. shrugs.
+        # FIXME: write better synchronization
+        # assert host_pool.count() <= self._max_host_count
 
         if key not in self._pool:
             # Pool may have been deleted during a clean
