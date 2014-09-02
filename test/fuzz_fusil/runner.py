@@ -17,6 +17,7 @@ import gzip
 import os.path
 import random
 import sys
+import socket
 
 
 if sys.version_info[0] == 2:
@@ -133,7 +134,7 @@ class FuzzedHttpServer(HttpServer):
                 data = header
             client.sendBytes(data)
             client.close()
-        except ServerClientDisconnect:
+        except (ServerClientDisconnect, socket.error):
             self.clientDisconnection(client)
 
     def mangle_data(self, data, config):
