@@ -1,133 +1,256 @@
 # encoding=utf-8
 '''HTTP conversation objects.'''
+import abc
 import re
 
-from wpull.conversation import BaseRequest, Body, BaseResponse
 from wpull.errors import ProtocolError
 from wpull.namevalue import NameValueRecord
 import wpull.string
 from wpull.url import URLInfo
-import wpull.util
+import copy
 
 
-class Request(BaseRequest):
+class CommonMixin(object):
+    @abc.abstractmethod
+    def to_dict(self):
+        '''Convert to a dict suitable for JSON.'''
+
+    @abc.abstractmethod
+    def to_bytes(self):
+        '''Serialize to HTTP bytes.'''
+
+    @abc.abstractmethod
+    def parse(self, data):
+        '''Parse from HTTP bytes.'''
+
+
+class RawRequest(CommonMixin):
     '''Represents an HTTP request.
 
     Attributes:
         method (str): The HTTP method in the status line. For example, ``GET``,
             ``POST``.
-        resource_url (str): The "path" in the status line.
-        url_info (URLInfo): An instance of :class:`.url.URLInfo` for the
-            request.
+        resource_path (str): The URL or "path" in the status line.
         version (str): The HTTP version in the status line. For example,
             ``HTTP/1.0``.
-        fields (NameValueRecord): An instance of
-            :class:`.namevalue.NameValueRecord` representing  the fields in
+        fields (:class:`.namevalue.NameValueRecord`): The fields in
             the HTTP header.
-        body (Body): An instance of :class:`.conversation.Body`.
-        address (tuple): An address tuple suitable for :func:`socket.connect`.
+        body (:class:`.conversation.Body`): An optional payload.
+        encoding (str): The encoding of the status line.
     '''
-    def __init__(self, method, resource_url, version='HTTP/1.1'):
+    def __init__(self, method=None, resource_path=None, version='HTTP/1.1'):
+        super().__init__()
         self.method = method
-        self.resource_url = resource_url
-        self.url_info = None
+        self.resource_path = resource_path
         self.version = version
-        self.fields = NameValueRecord()
-        self.body = Body()
-        self.address = None
+        self.fields = NameValueRecord(encoding='latin-1')
+        self.body = None
+        self.encoding = 'latin-1'
 
-    @classmethod
-    def new(cls, url, method='GET', url_encoding='utf-8'):
-        '''Create a new request from the URL string.
+    def to_dict(self):
+        return {
+            'method': self.method,
+            'version': self.version,
+            'resource_path': self.resource_path,
+            'fields': list(self.fields.get_all()),
+            'body': self.body.to_dict() if self.body else None,
+            'encoding': self.encoding,
+        }
 
-        Args:
-            url (str): The URL.
-            method (str): The HTTP request method.
-            url_encoding (str): The codec name used to encode/decode the
-                percent-encoded escape sequences in the URL.
+    def to_bytes(self):
+        assert self.method
+        assert self.resource_path
+        assert self.version
 
-        Returns:
-            Request: An instance of :class:`Request`.
-        '''
-        url_info = URLInfo.parse(url, encoding=url_encoding)
-        resource_path = url_info.path
+        status = '{0} {1} {2}'.format(self.method, self.resource_path, self.version).encode(self.encoding)
+        fields = self.fields.to_bytes(errors='replace')
 
-        if url_info.query:
-            resource_path += '?' + url_info.query
+        return b'\r\n'.join([status, fields, b''])
 
-        request = Request(method.upper(), resource_path)
-        request.url_info = url_info
-        request.fields['Host'] = url_info.hostname_with_port
+    def parse(self, data):
+        if not self.resource_path:
+            line, data = data.split(b'\n', 1)
+            self.method, self.resource_path, self.version = self.parse_status_line(line)
 
-        return request
+        self.fields.parse(data, strict=False)
 
-    @classmethod
-    def parse_status_line(cls, string):
+    def parse_status_line(self, data):
         '''Parse the status line bytes.
 
         Returns:
-            tuple: An tuple representing the method, resource path, and
+            tuple: An tuple representing the method, URI, and
             version.
         '''
         match = re.match(
-            br'([a-zA-Z]+)[ \t]+([^ \t]+)[ \t]+(HTTP/1\.[01])',
-            string
+            br'([a-zA-Z]+)[ \t]+([^ \t]+)[ \t]+(HTTP/\d+\.\d+)',
+            data
         )
         if match:
             groups = match.groups()
             if len(groups) == 3:
                 return wpull.string.to_str(
                     (groups[0], groups[1], groups[2]),
-                    encoding='latin-1',
+                    encoding=self.encoding,
                 )
 
-        raise ProtocolError('Error parsing status line ‘{0}’'.format(string))
-
-    def header(self):
-        '''Return the HTTP header as bytes.'''
-        return '{0} {1} {2}\r\n{3}\r\n'.format(
-            self.method, self.resource_url, self.version, str(self.fields)
-        ).encode('utf-8')
+        raise ProtocolError('Error parsing status line.')
 
     def __repr__(self):
         return '<Request({method}, {url}, {version})>'.format(
-            method=self.method, url=self.resource_url, version=self.version
+            method=self.method, url=self.resource_path, version=self.version
         )
 
+    def copy(self):
+        '''Return a copy.'''
+        return copy.deepcopy(self)
 
-class Response(BaseResponse):
+
+class Request(RawRequest):
+    '''Represents a higher level of HTTP request.
+
+    Attributes:
+        url (str): The complete URL string.
+        url_info (:class:`.url.URLInfo`): The URLInfo of the `url` attribute.
+        address (tuple): An address tuple suitable for :func:`socket.connect`.
+
+    Setting :attr:`url` or :attr:`url_info` will update the other
+        respectively.
+    '''
+    def __init__(self, url=None, method='GET', version='HTTP/1.1'):
+        super().__init__(method=method, resource_path=url, version=version)
+
+        self._url = None
+        self._url_info = None
+        self.address = None
+
+        if url:
+            self.url = url
+
+    @property
+    def url(self):
+        return self._url
+
+    @url.setter
+    def url(self, url_str):
+        self._url = url_str
+        self._url_info = URLInfo.parse(url_str)
+
+    @property
+    def url_info(self):
+        return self._url_info
+
+    @url_info.setter
+    def url_info(self, url_info):
+        self._url_info = url_info
+        self._url = url_info.url
+
+    def to_dict(self):
+        dict_obj = super().to_dict()
+        dict_obj['url'] = self._url
+        dict_obj['url_info'] = self._url_info.to_dict() if self._url_info else None
+
+        return dict_obj
+
+    def prepare_for_send(self, full_url=False):
+        '''Modify the request to be suitable for HTTP server.
+
+        Args:
+            full_url (bool): Use full URL as the URI. By default, only
+                the path of the URL is given to the server.
+        '''
+        assert self.url
+        assert self.method
+        assert self.version
+
+        url_info = self.url_info
+
+        if 'Host' not in self.fields:
+            self.fields['Host'] = url_info.hostname_with_port
+
+        if not full_url:
+            if url_info.query:
+                self.resource_path = '{0}?{1}'.format(url_info.path, url_info.query)
+            else:
+                self.resource_path = url_info.path
+
+    def parse(self, data):
+        super().parse(data)
+
+        if not self._url:
+            assert self.resource_path
+
+            if self.resource_path[0:1] == '/' and 'Host' in self.fields:
+                self.url = 'http://{0}{1}'.format(self.fields['Host'], self.resource_path)
+            elif self.resource_path.startswith('http'):
+                self.url = self.resource_path
+
+
+class Response(CommonMixin):
     '''Represents the HTTP response.
 
     Attributes:
-        version (str): The HTTP version in the status line. For example,
-            ``HTTP/1.1``.
         status_code (int): The status code in the status line.
         status_reason (str): The status reason string in the status line.
-        fields (NameValueRecord): An instance of
-            :class:`.namevalue.NameValueRecord` containing the HTTP header
-            (and trailer, if present) fields.
-        body (Body): An instance of :class:`.conversation.Body`.
-        url_info (URLInfo): An instance of :class:`.url.URLInfo` for the
-            of the corresponding request.
+        version (str): The HTTP version in the status line. For example,
+            ``HTTP/1.1``.
+        fields (:class:`.namevalue.NameValueRecord`): The fields in
+            the HTTP headers (and trailer, if present).
+        body (:class:`.conversation.Body`): The optional payload (without
+            and transfer or content encoding).
+        request: The corresponding request.
+        encoding (str): The encoding of the status line.
     '''
-    def __init__(self, version, status_code, status_reason):
-        self.version = version
+    def __init__(self, status_code=None, reason=None, version='HTTP/1.1', request=None):
+        if status_code is not None:
+            assert isinstance(status_code, int)
+            assert reason is not None
+
         self.status_code = status_code
-        self.status_reason = status_reason
-        self.fields = NameValueRecord()
-        self.body = Body()
-        self.url_info = None
+        self.reason = reason
+        self.version = version
+        self.fields = NameValueRecord(encoding='latin-1')
+        self.body = None
+        self.request = request
+        self.encoding = 'latin-1'
+
+    def to_dict(self):
+        return {
+            'status_code': self.status_code,
+            'reason': self.reason,
+            'version': self.version,
+            'fields': list(self.fields.get_all()),
+            'body': self.body.to_dict() if self.body else None,
+            'request': self.request.to_dict() if self.request else None,
+            'encoding': self.encoding,
+        }
+
+    def to_bytes(self):
+        assert self.version
+        assert self.status_code is not None
+        assert self.reason is not None
+
+        status = '{0} {1} {2}'.format(self.version, self.status_code, self.reason).encode(self.encoding)
+        fields = self.fields.to_bytes(errors='replace')
+
+        return b'\r\n'.join([status, fields, b''])
+
+    def parse(self, data):
+        if self.status_code is None:
+            line, data = data.split(b'\n', 1)
+            self.version, self.status_code, self.reason = self.parse_status_line(line)
+
+        self.fields.parse(data, strict=False)
 
     @classmethod
-    def parse_status_line(cls, string):
+    def parse_status_line(cls, data):
         '''Parse the status line bytes.
 
         Returns:
             tuple: An tuple representing the version, code, and reason.
         '''
         match = re.match(
-            br'(HTTP/1\.[01])[ \t]+([0-9]{1,3})[ \t]*([^\r\n]*)',
-            string
+            br'(HTTP/\d+\.\d+)[ \t]+([0-9]{1,3})[ \t]*([^\r\n]*)',
+            data
         )
         if match:
             groups = match.groups()
@@ -137,29 +260,14 @@ class Response(BaseResponse):
                     encoding='latin-1',
                 )
 
-        raise ProtocolError("Error parsing status line '{0}'".format(string))
-
-    def header(self):
-        '''Return the HTTP header as bytes.'''
-        return '{0} {1} {2}\r\n{3}\r\n'.format(
-            self.version,
-            self.status_code,
-            self.status_reason,
-            str(self.fields)
-        ).encode('utf-8')
+        raise ProtocolError(
+            'Error parsing status line "{line}".'
+            .format(line=wpull.string.printable_bytes(data)
+                    .decode('ascii', 'replace'))
+        )
 
     def __repr__(self):
         return '<Response({version}, {code}, {reason})>'.format(
             version=self.version, code=self.status_code,
-            reason=self.status_reason
+            reason=self.reason
         )
-
-    def to_dict(self):
-        '''Convert the response to a :class:`dict`.'''
-        return {
-            'version': self.version,
-            'status_code': self.status_code,
-            'status_reason': self.status_reason,
-            'body': self.body.to_dict(),
-            'url_info': self.url_info.to_dict() if self.url_info else None
-        }

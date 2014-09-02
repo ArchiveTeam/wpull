@@ -3,7 +3,7 @@
 import codecs
 import itertools
 
-from bs4.dammit import UnicodeDammit, EncodingDetector
+from wpull.thirdparty.dammit import UnicodeDammit, EncodingDetector
 
 
 def to_bytes(instance, encoding='utf-8', error='strict'):
@@ -52,7 +52,8 @@ def normalize_codec_name(name):
 
     try:
         return codecs.lookup(name).name
-    except LookupError:
+    except (LookupError, TypeError):
+        # TypeError occurs when name contains \x00
         pass
 
 
@@ -85,6 +86,12 @@ def detect_encoding(data, encoding=None, fallback='latin1', is_html=False):
         if not candidate:
             continue
 
+        if candidate == 'ascii' and fallback != 'ascii':
+            # it's never ascii :)
+            # Falling back on UTF-8/CP-1252/Latin-1 reduces chance of
+            # failure
+            continue
+
         if try_decoding(data, candidate):
             return candidate
 
@@ -96,6 +103,17 @@ def try_decoding(data, encoding):
     try:
         data.decode(encoding, 'strict')
     except UnicodeError:
+        # Data under 16 bytes is very unlikely to be truncated
+        if len(data) > 16:
+            for trim in (1, 2, 3):
+                trimmed_data = data[:-trim]
+                if trimmed_data:
+                    try:
+                        trimmed_data.decode(encoding, 'strict')
+                    except UnicodeError:
+                        continue
+                    else:
+                        return True
         return False
     else:
         return True

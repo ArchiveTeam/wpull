@@ -188,7 +188,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             return
 
         base_url = request.url_info.url
-        content_file = response.body.content_file
+        content_file = response.body
         encoding = self._encoding_override \
             or detect_response_encoding(response, is_html=True)
         linked_urls = set()
@@ -673,8 +673,8 @@ class CSSScraper(CSSReader, BaseDocumentScraper):
         encoding = self._encoding_override \
             or detect_response_encoding(response)
 
-        with wpull.util.reset_file_offset(response.body.content_file):
-            for link in self.read_links(response.body.content_file, encoding):
+        with wpull.util.reset_file_offset(response.body):
+            for link in self.read_links(response.body, encoding):
                 link = urljoin_safe(base_url, link, allow_fragments=False)
 
                 if link:
@@ -725,8 +725,8 @@ class JavaScriptScraper(JavaScriptReader, BaseDocumentScraper):
         encoding = self._encoding_override \
             or detect_response_encoding(response)
 
-        with wpull.util.reset_file_offset(response.body.content_file):
-            for link in self.read_links(response.body.content_file, encoding):
+        with wpull.util.reset_file_offset(response.body):
+            for link in self.read_links(response.body, encoding):
                 link = urljoin_safe(base_url, link, allow_fragments=False)
 
                 if link:
@@ -749,9 +749,9 @@ class SitemapScraper(SitemapReader, BaseDocumentScraper):
         links = set()
 
         try:
-            with wpull.util.reset_file_offset(response.body.content_file):
+            with wpull.util.reset_file_offset(response.body):
                 link_iter = self.read_links(
-                    response.body.content_file, encoding=encoding
+                    response.body, encoding=encoding
                 )
 
                 for link in link_iter:

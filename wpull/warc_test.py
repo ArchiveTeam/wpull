@@ -1,8 +1,8 @@
 # encoding=utf-8
 
 import io
+import unittest
 
-from wpull.backport.testing import unittest
 from wpull.warc import read_cdx
 
 

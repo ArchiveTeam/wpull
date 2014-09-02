@@ -2,6 +2,24 @@
 What's New
 ==========
 
+0.1000 (2014-09-02)
+===================
+
+* Dropped support for Python 2. Please file an issue if this is a problem.
+* Fixed possible crash on empty content with deflate compression.
+* Fixed document encoding detection on documents larger than 4096 bytes where an encoded character may have been truncated.
+* Always percent-encode IRIs with UTF-8 to match de facto web browser implementation.
+* HTTP headers are consistently decoded as Latin-1.
+* Scripting API:
+
+  * New ``queued_url`` and ``dequeued_url`` hooks contributed by mback2k.
+
+* API:
+
+  * Switched to Trollius instead of Tornado. Please use Trollius 1.0.2 alpha or greater.
+  * Most the of internals related to the HTTP protocol were rewritten and as a result, major components are not backwards compatible; lots of changes were made. If you happen to be using Wpull's API, please pin your requirements to ``<0.1000`` if you do not want to make a migration. Please file an issue if this is a problem.
+
+
 0.36.4 (2014-08-07)
 ===================
 

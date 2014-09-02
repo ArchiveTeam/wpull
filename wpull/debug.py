@@ -1,5 +1,6 @@
 # encoding=utf-8
 '''Debugging utilities.'''
+import html
 import io
 import sys
 import traceback
@@ -18,7 +19,7 @@ class DebugConsoleHandler(tornado.web.RequestHandler):
         <p>Welcome to DEBUG CONSOLE!</p>
         <p><tt>Builder()</tt> instance at <tt>wpull_builder</tt>.</p>
         <form method="post">
-            <input id="commandbox" name="command">
+            <input id="commandbox" name="command" value="{command}">
             <input type="submit" value="Execute">
         </form>
         <pre>{output}</pre>
@@ -27,10 +28,12 @@ class DebugConsoleHandler(tornado.web.RequestHandler):
     '''
 
     def get(self):
-        self.write(self.TEMPLATE.format(output='(ready)').encode('utf-8'))
+        self.write(
+            self.TEMPLATE.format(output='(ready)', command='')
+            .encode('utf-8'))
 
     def post(self):
-        command = self.get_argument('command')
+        command = self.get_argument('command', strip=False)
         sys.stdout = io.StringIO()
 
         try:
@@ -44,4 +47,6 @@ class DebugConsoleHandler(tornado.web.RequestHandler):
         finally:
             sys.stdout = sys.__stdout__
 
-        self.write(self.TEMPLATE.format(output=result).encode('utf-8'))
+        self.write(
+            self.TEMPLATE.format(output=result, command=html.escape(command))
+            .encode('utf-8'))

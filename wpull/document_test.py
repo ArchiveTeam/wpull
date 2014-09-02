@@ -1,11 +1,11 @@
 # encoding=utf-8
-import io
-
-from wpull.backport.testing import unittest
-from wpull.document import HTMLReader, SitemapReader, CSSReader, XMLDetector
-from wpull.url import URLInfo
-from wpull.http.request import Request, Response
 import gzip
+import io
+import unittest
+
+from wpull.document import HTMLReader, SitemapReader, CSSReader, XMLDetector
+from wpull.http.request import Request, Response
+from wpull.url import URLInfo
 
 
 CODEC_NAMES = (
@@ -151,17 +151,17 @@ class TestDocument(unittest.TestCase):
             HTMLReader.is_url(URLInfo.parse('example.com/image.jpg'))
         )
         self.assertTrue(
-            HTMLReader.is_request(Request.new('example.com/index.html'))
+            HTMLReader.is_request(Request('example.com/index.html'))
         )
         self.assertFalse(
-            HTMLReader.is_request(Request.new('example.com/image.jpg'))
+            HTMLReader.is_request(Request('example.com/image.jpg'))
         )
 
-        response = Response('HTTP/1.0', '200', 'OK')
+        response = Response(200, 'OK')
         response.fields['Content-Type'] = 'text/html'
         self.assertTrue(HTMLReader.is_response(response))
 
-        response = Response('HTTP/1.0', '200', 'OK')
+        response = Response(200, 'OK')
         response.fields['Content-Type'] = 'image/png'
         self.assertFalse(HTMLReader.is_response(response))
 
@@ -336,17 +336,17 @@ class TestDocument(unittest.TestCase):
             CSSReader.is_url(URLInfo.parse('example.com/image.jpg'))
         )
         self.assertTrue(
-            CSSReader.is_request(Request.new('example.com/index.css'))
+            CSSReader.is_request(Request('example.com/index.css'))
         )
         self.assertFalse(
-            CSSReader.is_request(Request.new('example.com/image.jpg'))
+            CSSReader.is_request(Request('example.com/image.jpg'))
         )
 
-        response = Response('HTTP/1.0', '200', 'OK')
+        response = Response(200, 'OK')
         response.fields['Content-Type'] = 'text/css'
         self.assertTrue(CSSReader.is_response(response))
 
-        response = Response('HTTP/1.0', '200', 'OK')
+        response = Response(200, 'OK')
         response.fields['Content-Type'] = 'image/png'
         self.assertFalse(CSSReader.is_response(response))
 
@@ -408,21 +408,21 @@ class TestDocument(unittest.TestCase):
             XMLDetector.is_url(URLInfo.parse('example.com/image.jpg'))
         )
         self.assertTrue(
-            XMLDetector.is_request(Request.new('example.com/index.xml'))
+            XMLDetector.is_request(Request('example.com/index.xml'))
         )
         self.assertFalse(
-            XMLDetector.is_request(Request.new('example.com/image.jpg'))
+            XMLDetector.is_request(Request('example.com/image.jpg'))
         )
 
-        response = Response('HTTP/1.0', '200', 'OK')
+        response = Response(200, 'OK')
         response.fields['Content-Type'] = 'text/xml'
         self.assertTrue(XMLDetector.is_response(response))
 
-        response = Response('HTTP/1.0', '200', 'OK')
+        response = Response(200, 'OK')
         response.fields['Content-Type'] = 'application/xml'
         self.assertTrue(XMLDetector.is_response(response))
 
-        response = Response('HTTP/1.0', '200', 'OK')
+        response = Response(200, 'OK')
         response.fields['Content-Type'] = 'image/png'
         self.assertFalse(XMLDetector.is_response(response))
 
@@ -459,8 +459,8 @@ class TestDocument(unittest.TestCase):
             SitemapReader.is_url(URLInfo.parse('example.com/image.jpg'))
         )
         self.assertTrue(
-            SitemapReader.is_request(Request.new('example.com/sitemaps34.xml'))
+            SitemapReader.is_request(Request('example.com/sitemaps34.xml'))
         )
         self.assertFalse(
-            SitemapReader.is_request(Request.new('example.com/image.jpg'))
+            SitemapReader.is_request(Request('example.com/image.jpg'))
         )

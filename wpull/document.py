@@ -323,7 +323,7 @@ class HTMLReader(BaseDocumentReader):
             return True
 
         if response.body:
-            return cls.is_file(response.body.content_file)
+            return cls.is_file(response.body)
 
     @classmethod
     def is_request(cls, request):
@@ -519,7 +519,7 @@ class CSSReader(BaseDocumentReader):
         if response.body:
             # Stylesheet mistakenly served as HTML
             if 'html' in response.fields.get('content-type', '').lower() \
-               and cls.is_file(response.body.content_file):
+               and cls.is_file(response.body):
                 return True
 
     @classmethod
@@ -713,7 +713,7 @@ class XMLDetector(BaseDocumentDetector):
             return True
 
         if response.body:
-            if cls.is_file(response.body.content_file):
+            if cls.is_file(response.body):
                 return True
 
     @classmethod
@@ -777,7 +777,7 @@ class SitemapReader(BaseDocumentReader):
     def is_response(cls, response):
         '''Return whether the document is likely to be a Sitemap.'''
         if response.body:
-            if cls.is_file(response.body.content_file):
+            if cls.is_file(response.body):
                 return True
 
     @classmethod
@@ -886,7 +886,7 @@ def detect_response_encoding(response, is_html=False, peek=131072):
     )
 
     encoding = wpull.string.detect_encoding(
-        response.body.content_peek(peek), encoding=encoding, is_html=is_html
+        wpull.util.peek_file(response.body, peek), encoding=encoding, is_html=is_html
     )
 
     _logger.debug(__('Got encoding: {0}', encoding))

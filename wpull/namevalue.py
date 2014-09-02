@@ -17,33 +17,24 @@ class NameValueRecord(collections.MutableMapping):
 
     .. seealso:: http://tools.ietf.org/search/draft-kunze-anvl-02
     '''
-    def __init__(self, normalize_overrides=None):
+    def __init__(self, normalize_overrides=None, encoding='utf-8'):
         self._map = OrderedDefaultDict(list)
         self.raw = None
-        self.encoding = 'utf-8'
+        self.encoding = encoding
         self._normalize_overrides = normalize_overrides
 
-    def parse(self, string, encoding_fallback='latin1', strict=True):
+    def parse(self, string, strict=True):
         '''Parse the string or bytes.
 
         Args:
-            encoding_fallback: If the data is bytes, it will attempt to decode
-                it as UTF-8, otherwise it will use the fallback (default
-                Latin-1) which should preserve the bytes.
             script: If True, errors will not be ignored
 
         Raises:
             :class:`ValueError` if the record is malformed.
         '''
         if isinstance(string, bytes):
-            try:
-                string = string.decode(self.encoding, 'strict')
-            except UnicodeError:
-                if encoding_fallback:
-                    string = string.decode(encoding_fallback)
-                    self.encoding = encoding_fallback
-                else:
-                    raise
+            errors = 'strict' if strict else 'replace'
+            string = string.decode(self.encoding, errors=errors)
 
         if not self.raw:
             self.raw = string
@@ -104,6 +95,10 @@ class NameValueRecord(collections.MutableMapping):
                 yield (name, value)
 
     def __str__(self):
+        return self.to_str()
+
+    def to_str(self):
+        '''Convert to string.'''
         pairs = []
         for name, value in self.get_all():
             if value:
@@ -115,7 +110,11 @@ class NameValueRecord(collections.MutableMapping):
         return '\r\n'.join(pairs)
 
     def __bytes__(self):
-        return str(self).encode(self.encoding)
+        return self.to_bytes()
+
+    def to_bytes(self, errors='strict'):
+        '''Convert to bytes.'''
+        return str(self).encode(self.encoding, errors=errors)
 
 
 def normalize_name(name, overrides=None):

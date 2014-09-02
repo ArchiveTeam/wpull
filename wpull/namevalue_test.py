@@ -1,5 +1,7 @@
 # encoding=utf-8
-from wpull.backport.testing import unittest
+import copy
+import unittest
+
 from wpull.namevalue import guess_line_ending, unfold_lines, NameValueRecord, \
     normalize_name
 
@@ -64,13 +66,13 @@ class TestNameValue(unittest.TestCase):
 
         self.assertEqual('dogé', record['name'])
 
-    def test_name_value_fallback(self):
+    def test_name_value_encoding(self):
         text = '''Name: Кракозябры'''.encode('koi8-r')
-        record = NameValueRecord()
+        record = NameValueRecord(encoding='koi8-r')
         record.parse(text)
 
         self.assertEqual(
-            'Кракозябры'.encode('koi8-r').decode('latin1'),
+            'Кракозябры',
             record['name'])
 
     def test_missing_colon(self):
@@ -119,3 +121,10 @@ class TestNameValue(unittest.TestCase):
 
         record['WARC-Blah'] = 'blah'
         self.assertEqual(['WARC-Type', 'Warc-Blah'], list(record.keys()))
+
+    def test_copy(self):
+        record = NameValueRecord()
+        record['blah'] = 'hello'
+
+        # Check for no crash
+        copy.deepcopy(record)

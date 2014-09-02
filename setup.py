@@ -7,8 +7,6 @@ import re
 import os
 import sys
 
-import backport
-
 
 def get_version():
     path = os.path.join('wpull', 'version.py')
@@ -23,15 +21,15 @@ version = get_version()
 StrictVersion(version)
 
 
-# Get version-appropriate package info via backport.
-config = backport.get_config('backport.conf')
-if sys.version_info[0] == 3:
-    config_section = 'src_package_dir'
-else:
-    config_section = 'dst_package_dir'
-
-PROJECT_PACKAGES = config.options(config_section)
-PROJECT_PACKAGE_DIR = dict(config.items(config_section))
+PROJECT_PACKAGES = [
+    'wpull',
+    'wpull.backport',
+    'wpull.http',
+    'wpull.processor',
+    'wpull.testing',
+    'wpull.thirdparty',
+]
+PROJECT_PACKAGE_DIR = {}
 
 
 setup_kwargs = dict(
@@ -57,12 +55,10 @@ setup_kwargs = dict(
     classifiers=[
         'Development Status :: 4 - Beta',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.6',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.2',
         'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
         'Topic :: Internet :: WWW/HTTP',
         'Topic :: System :: Archiving',
     ],
@@ -71,19 +67,11 @@ setup_kwargs = dict(
 )
 
 setup_kwargs['install_requires'] = [
-    'tornado', 'toro', 'lxml', 'chardet', 'sqlalchemy', 'beautifulsoup4',
+    'tornado', 'trollius', 'lxml', 'chardet', 'sqlalchemy',
     'namedlist',
 ]
 
-if sys.version_info[0] == 2:
-    setup_kwargs['install_requires'].append('futures')
-    # Requiring 3to2 doesn't mean it will be installed first
-    # Also it might cause confusion by downloading from PyPI which
-    # we do not want.
-    # install_requires.append('3to2')
-    setup_kwargs['scripts'] = ['scripts/wpull', 'scripts/wpull2']
-else:
-    setup_kwargs['scripts'] = ['scripts/wpull', 'scripts/wpull3']
+setup_kwargs['scripts'] = ['scripts/wpull', 'scripts/wpull3']
 
 
 if os.environ.get('USE_CX_FREEZE'):
@@ -120,7 +108,7 @@ if os.environ.get('USE_CX_FREEZE'):
 
 
 if __name__ == '__main__':
-    if sys.version_info[0] == 2:
-        backport.translate_project('backport.conf')
+    if sys.version_info[0] < 3:
+        raise Exception('Sorry, Python 2 is not supported.')
 
     setup(**setup_kwargs)

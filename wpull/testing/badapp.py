@@ -10,18 +10,17 @@ import random
 import re
 import socket
 import socketserver
+import ssl
 import struct
 import threading
 import time
 import zlib
 
-import tornado.gen
-from tornado.testing import AsyncTestCase
+import tornado.ioloop
+from tornado.testing import AsyncTestCase as TornadoAsyncTestCase
 
-from wpull.backport.gzip import GzipFile
-from wpull.http.connection import Connection, ConnectionParams
-from wpull.http.request import Request
-from wpull.recorder import DebugPrintRecorder
+from gzip import GzipFile
+from wpull.testing.async import AsyncTestCase
 
 
 _logger = logging.getLogger(__name__)
@@ -47,6 +46,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/overrun': self.overrun_response,
             '/malformed_chunked': self.malformed_chunked,
             '/buffer_overflow': self.buffer_overflow,
+            '/buffer_overflow_header': self.buffer_overflow_header,
             '/bad_chunk_size': self.bad_chunk_size,
             '/content_length_and_chunked': self.content_length_and_chunked,
             '/bad_header_deliminators': self.bad_header_deliminators,
@@ -78,6 +78,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/bad_redirect': self.bad_redirect,
             '/utf8_then_binary': self.utf8_then_binary,
             '/false_gzip': self.false_gzip,
+            '/status_line_only': self.status_line_only,
+            '/newline_line_only': self.newline_line_only,
+            '/many_headers': self.many_headers,
         }
         http.server.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -94,18 +97,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def log_message(self, message, *args):
         _logger.debug(message, *args)
-
-    def finish(self):
-        # This function is backported for 2.6
-        if not self.wfile.closed:
-            try:
-                self.wfile.flush()
-            except socket.error:
-                # An final socket error may have occurred here, such as
-                # the local error ECONNABORTED.
-                pass
-        self.wfile.close()
-        self.rfile.close()
 
     def basic(self):
         self.send_response(200)
@@ -203,6 +194,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(b'0' * 10000)
             time.sleep(0.001)
 
+    def buffer_overflow_header(self):
+        self.send_response(200)
+        for dummy in range(100):
+            self.wfile.write(b'A' * 10000)
+        self.wfile.write(b': A\r\n')
+        self.end_headers()
+
     def bad_chunk_size(self):
         self.send_response(200)
         self.send_header('transfer-encoding', 'chunked')
@@ -285,10 +283,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def big(self):
         self.send_response(200)
-        self.send_header('Content-length', '50000000')
+        self.send_header('Content-length', '10000000')
         self.end_headers()
 
-        for dummy in range(5000):
+        for dummy in range(1000):
             self.wfile.write(b'0' * 10000)
 
     def infinite(self):
@@ -569,22 +567,50 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         self.wfile.write(b'a' * 100)
 
+    def status_line_only(self):
+        self.wfile.write(b'HTTP/1.1 200 OK\r\n\r\n')
+        self.wfile.write(b'Hey')
+        self.close_connection = True
+
+    def newline_line_only(self):
+        self.wfile.write(b'\r\n\r\n')
+        self.wfile.write(b'Hey')
+        self.close_connection = True
+
+    def many_headers(self):
+        self.wfile.write(b'HTTP/1.1 200 I Heard You Like Headers\r\n')
+        for num in range(10000):
+            self.wfile.write('Hey-{0}:'.format(num).encode('ascii'))
+            self.wfile.write(b'hey' * 1000 + b'\r\n')
+
+        self.wfile.write(b'\r\n')
+        self.close_connection = True
+
 
 class ConcurrentHTTPServer(socketserver.ThreadingMixIn,
                            http.server.HTTPServer):
+    daemon_threads = True
+
     def __init__(self, *args, **kwargs):
         http.server.HTTPServer.__init__(self, *args, **kwargs)
 #         self.daemon_threads = True
 
 
 class Server(threading.Thread):
-    def __init__(self, port=0):
+    def __init__(self, port=0, enable_ssl=False):
         threading.Thread.__init__(self)
         self.daemon = True
         self._port = port
         self._server = ConcurrentHTTPServer(
             ('localhost', self._port), Handler)
         self._port = self._server.server_address[1]
+
+        if enable_ssl:
+            self._server.socket = ssl.wrap_socket(
+                self._server.socket,
+                certfile=os.path.join(os.path.dirname(__file__), 'test.pem'),
+                server_side=True)
+
         _logger.debug(
             'Server bound to {0}'.format(self._server.server_address))
         self.started_event = threading.Event()
@@ -604,23 +630,21 @@ class Server(threading.Thread):
         return self._port
 
 
-class BadAppTestCase(AsyncTestCase):
+class BadAppTestCase(AsyncTestCase, TornadoAsyncTestCase):
+    def get_new_ioloop(self):
+        tornado.ioloop.IOLoop.configure(
+            'wpull.testing.async.TornadoAsyncIOLoop',
+            event_loop=self.event_loop)
+        ioloop = tornado.ioloop.IOLoop()
+        return ioloop
+
     def setUp(self):
-        super().setUp()
-        self.http_server = Server()
+        AsyncTestCase.setUp(self)
+        TornadoAsyncTestCase.setUp(self)
+        self.http_server = Server(enable_ssl=self.get_protocol() == 'https')
         self.http_server.start()
         self.http_server.started_event.wait(timeout=5.0)
         self._port = self.http_server.port
-        self.connection = Connection(
-            ('localhost', self._port),
-            params=ConnectionParams(connect_timeout=2.0, read_timeout=60.0)
-        )
-
-    @tornado.gen.coroutine
-    def fetch(self, path):
-        response = yield self.connection.fetch(Request.new(self.get_url(path)),
-                                               DebugPrintRecorder())
-        raise tornado.gen.Return(response)
 
     def get_http_port(self):
         return self._port
@@ -636,7 +660,13 @@ class BadAppTestCase(AsyncTestCase):
     def tearDown(self):
         self.http_server.stop()
         self.http_server.join(timeout=5)
-        super().tearDown()
+        AsyncTestCase.tearDown(self)
+        TornadoAsyncTestCase.tearDown(self)
+
+
+class SSLBadAppTestCase(BadAppTestCase):
+    def get_protocol(self):
+        return 'https'
 
 if __name__ == '__main__':
     server = Server(8888)

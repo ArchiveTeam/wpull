@@ -5,9 +5,9 @@ import logging
 import random
 import socket
 
-import tornado.netutil
+from trollius import From, Return
+import trollius
 
-import wpull.async
 from wpull.backport.logging import BraceMessage as __
 from wpull.cache import FIFOCache
 from wpull.errors import DNSNotFound, NetworkError
@@ -48,6 +48,8 @@ class Resolver(HookableMixin):
     def __init__(self, cache_enabled=True, family=PREFER_IPv4,
                  timeout=None, rotate=False):
         super().__init__()
+        assert family in (socket.AF_INET, socket.AF_INET6, self.PREFER_IPv4,
+                          self.PREFER_IPv6)
 
         if cache_enabled:
             self._cache = self.global_cache
@@ -57,11 +59,10 @@ class Resolver(HookableMixin):
         self._family = family
         self._timeout = timeout
         self._rotate = rotate
-        self._tornado_resolver = tornado.netutil.ThreadedResolver()
 
         self.register_hook('resolve_dns')
 
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def resolve(self, host, port):
         '''Resolve the given hostname and port.
 
@@ -80,10 +81,14 @@ class Resolver(HookableMixin):
         '''
         _logger.debug(__('Lookup address {0} {1}.', host, port))
 
-        results = self._resolve_internally(host, port)
+        host = self._lookup_hook(host, port)
+        results = None
+
+        if self._cache:
+            results = self._get_cache(host, port, self._family)
 
         if results is None:
-            results = yield self._resolve_from_network(host, port)
+            results = yield From(self._resolve_from_network(host, port))
 
         if self._cache:
             self._put_cache(host, port, results)
@@ -104,29 +109,28 @@ class Resolver(HookableMixin):
         family, address = result
         _logger.debug(__('Selected {0} as address.', address))
 
-        raise tornado.gen.Return((family, address))
+        assert '.' in address[0] or ':' in address[0]
 
-    def _resolve_internally(self, host, port):
-        '''Resolve the address using callback hook or cache.'''
-        results = None
+        raise Return((family, address))
 
+    def _lookup_hook(self, host, port):
+        '''Return the address from callback hook'''
         try:
-            hook_host = self.call_hook('resolve_dns', host, port)
+            new_host = self.call_hook('resolve_dns', host, port)
 
-            if hook_host:
-                family = socket.AF_INET6 if ':' in hook_host else socket.AF_INET
-                results = [(family, (hook_host, port))]
+            if new_host:
+                return new_host
+            else:
+                return host
+
         except HookDisconnected:
             pass
 
-        if self._cache and results is None:
-            results = self._get_cache(host, port, self._family)
+        return host
 
-        return results
-
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def _resolve_from_network(self, host, port):
-        '''Resolve the address using Tornado.
+        '''Resolve the address using network.
 
         Returns:
             list: A list of tuples.
@@ -137,8 +141,8 @@ class Resolver(HookableMixin):
 
         try:
             future = self._getaddrinfo_implementation(host, port)
-            results = yield wpull.async.wait_future(future, self._timeout)
-        except wpull.async.TimedOut as error:
+            results = yield From(trollius.wait_for(future, self._timeout))
+        except trollius.TimeoutError as error:
             raise NetworkError('DNS resolve timed out.') from error
         except socket.error as error:
             if error.errno in (
@@ -153,9 +157,9 @@ class Resolver(HookableMixin):
                     'DNS resolution error: {error}'.format(error=error)
                 ) from error
         else:
-            raise tornado.gen.Return(results)
+            raise Return(results)
 
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def _getaddrinfo_implementation(self, host, port):
         '''Call getaddrinfo.'''
 
@@ -164,14 +168,17 @@ class Resolver(HookableMixin):
         else:
             family_flags = self._family
 
-        results = yield self._tornado_resolver.resolve(
-            host, port, family_flags
+        results = yield From(
+            trollius.get_event_loop().getaddrinfo(
+                host, port, family=family_flags
+            )
         )
+        results = list([(result[0], result[4]) for result in results])
 
         if self._family in (self.PREFER_IPv4, self.PREFER_IPv6):
             results = self.sort_results(results, self._family)
 
-        raise tornado.gen.Return(results)
+        raise Return(results)
 
     def _get_cache(self, host, port, family):
         '''Return the address from cache.
@@ -196,6 +203,8 @@ class Resolver(HookableMixin):
     @classmethod
     def sort_results(cls, results, preference):
         '''Sort getaddrinfo results based on preference.'''
+        assert preference in (cls.PREFER_IPv4, cls.PREFER_IPv6)
+
         ipv4_results = [
             result for result in results if result[0] == socket.AF_INET]
         ipv6_results = [

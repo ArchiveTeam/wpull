@@ -1,9 +1,9 @@
 # encoding=utf-8
 import sys
+import unittest
 
-from wpull.backport.testing import unittest
 from wpull.util import (datetime_str, python_version, filter_pem,
-                        parse_iso8601_str, is_ascii)
+                        parse_iso8601_str, is_ascii, close_on_error)
 
 
 DEFAULT_TIMEOUT = 30
@@ -50,3 +50,19 @@ class TestUtil(unittest.TestCase):
     def test_is_acsii(self):
         self.assertTrue(is_ascii('abc'))
         self.assertFalse(is_ascii('😤'))
+
+    def test_close_on_error(self):
+        class MyObject(object):
+            def __init__(self):
+                self.closed = False
+
+            def close(self):
+                self.closed = True
+
+            def oops(self):
+                with close_on_error(self.close):
+                    raise ValueError()
+
+        my_object = MyObject()
+        self.assertRaises(ValueError, my_object.oops)
+        self.assertTrue(my_object.closed)

@@ -7,28 +7,73 @@ Requirements
 
 Wpull requires the following:
 
-.. ⬇ Please keep this list in sync with the README file. ⬇
-
-* `Python 2.6, 2.7, 3.2, 3.3 (or newer) <http://python.org/download/>`_
+* `Python 3.2 or greater <http://python.org/download/>`_
 * `Tornado <https://pypi.python.org/pypi/tornado>`_
-* `Toro <https://pypi.python.org/pypi/toro>`_
+* `Trollius <https://pypi.python.org/pypi/trollius>`_
 * `lxml <https://pypi.python.org/pypi/lxml>`_
 * `chardet <https://pypi.python.org/pypi/chardet>`_
-* `BeautifulSoup4 <https://pypi.python.org/pypi/beautifulsoup4>`_
 * `SQLAlchemy <https://pypi.python.org/pypi/SQLAlchemy>`_
+
+The following are optional:
+
 * `Lunatic Python (bastibe version)
-  <https://github.com/bastibe/lunatic-python>`_ (optional for Lua support)
-* `PhantomJS <http://phantomjs.org/>`_ (optional)
+  <https://github.com/bastibe/lunatic-python>`_ for Lua support
+* `PhantomJS <http://phantomjs.org/>`_ for capturing interactive
+  JavaScript pages
+* `cchardet <https://pypi.python.org/pypi/cchardet>`_ for faster
+  version of chardet
 
 For installing Wpull, it is recommended to use `pip installer
 <http://www.pip-installer.org/>`_.
 
+Wpull is officially supported in a Unix-like environment.
+
+
+Automatic Install
+=================
+
+Once you have installed Python, lxml, and pip, install Wpull with
+dependencies automatically from PyPI::
+
+    pip3 install wpull
+
+.. Tip:: Adding the ``--upgrade`` option will upgrade Wpull to the latest
+   release. Use ``--no-dependencies`` to only upgrade Wpull.
+   
+   Adding the ``--user`` option will install Wpull into your home
+   directory.
+
+Automatic install is usually the best option. However, there may be
+outstanding fixes to bugs that are not yet released to PyPI. In this
+case, use the manual install.
+
+
+Manual Install
+==============
+
+Install the dependencies known to work with Wpull::
+
+    pip3 install -r https://raw2.github.com/chfoo/wpull/master/requirements.txt
+
+Install Wpull from GitHub::
+
+    pip3 install git+https://github.com/chfoo/wpull.git#egg=wpull
+
+.. Tip:: Using ``git+https://github.com/chfoo/wpull.git@develop#egg=wpull``
+   as the path will install Wpull's develop branch.
+
+
+Caveats
+=======
 
 Python
 ++++++
 
 Please obtain the latest Python release from http://python.org/download/
-or your package manager. It is recommended to use Python 3.2 or greater.
+or your package manager. It is recommended to use Python 3.3 or greater.
+Versions 3.2, 3.3, 3.4 are officially supported.
+
+Python 2 is not supported.
 
 
 lxml
@@ -39,6 +84,7 @@ or pre-built package. Windows packages are provided on
 https://pypi.python.org/pypi/lxml. Debian/Ubuntu users
 should install ``python3-lxml``. For more information, see
 http://lxml.de/installation.html.
+
 
 pip
 +++
@@ -60,9 +106,9 @@ can be installed using pip::
 .. Note:: At time of writing, Lunatic Python uses Lua 5.2. If you desire a
    different version of Lua, please see below.
 
-.. Note:: At time of writing, Lunatic Python does not support Python 3.2.
+   At time of writing, Lunatic Python does not support Python 3.2.
 
-.. Note:: The version of Lunatic Python in the Python Package Index (PyPI)
+   The version of Lunatic Python in the Python Package Index (PyPI)
    is out of date.
 
 
@@ -84,68 +130,6 @@ location of the Lunatic Python source code.::
 PhantomJS (Optional)
 ++++++++++++++++++++
 
-It is recommended to download a prebuilt binary build from http://phantomjs.org/download.html.
-
-
-Automatic Install
-=================
-
-Once you have installed Python, lxml, and pip, install Wpull with
-dependencies automatically from PyPI::
-
-    pip3 install wpull
-
-.. Note:: Python 2 users, please see note in the next subsection.
-
-.. Tip:: Adding the ``--upgrade`` option will upgrade Wpull to the latest
-   release. Use ``--no-dependencies`` to only upgrade Wpull.
-
-.. Tip:: Adding the ``--user`` option will install Wpull into your home
-   directory.
-
-
-Python 2.6/2.7
-++++++++++++++
-
-Please ensure you have the *latest* lib3to2 from Bitbucket before installing
-Wpull::
-
-    pip install hg+https://bitbucket.org/amentajo/lib3to2#egg=3to2
-
-.. Note:: The version in PyPI is out of date.
-
-
-Manual Install
-==============
-
-Install the dependencies::
-
-    pip3 install -r https://raw2.github.com/chfoo/wpull/master/requirements.txt
-
-Install Wpull from GitHub::
-
-    pip3 install git+https://github.com/chfoo/wpull.git#egg=wpull
-
-.. Tip:: Using ``git+https://github.com/chfoo/wpull.git@develop#egg=wpull``
-   as the path will install Wpull's develop branch.
-
-
-Python 2.6/2.7
-++++++++++++++
-
-Requires
-
-* `futures <https://pypi.python.org/pypi/futures>`_
-* `lib3to2 <https://bitbucket.org/amentajo/lib3to2>`_
-  (the one on PyPI is *very* outdated!)
-
-Install additional dependencies before installing Wpull::
-
-    pip install -r https://raw2.github.com/chfoo/wpull/master/requirements-py2.txt
-
-.. Note:: Invoking ``setup.py`` (with or without commands/options) will
-   trigger the 3to2 process automatically. The Python 2 compatible source
-   code will be placed in ``py2src_noedit/``. Invoking a Python 2
-   interpreter on the original Python 3 source code will result Wpull
-   failing to run due to syntax errors.
+It is recommended to download a prebuilt binary build from
+http://phantomjs.org/download.html.
 

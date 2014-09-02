@@ -1,8 +1,8 @@
 # encoding=utf-8
 
 import timeit
+import unittest
 
-from wpull.backport.testing import unittest
 from wpull.url import (URLInfo, schemes_similar, is_subdir, unquote,
                        unquote_plus, quote, quote_plus, split_query,
                        uppercase_percent_encoding, urljoin,

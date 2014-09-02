@@ -173,7 +173,7 @@ class WARCRecord(object):
         except ValueError:
             return
 
-        response = Response(version, code, reason)
+        response = Response(status_code=code, reason=reason, version=version)
 
         try:
             response.fields.parse(field_str, strict=False)

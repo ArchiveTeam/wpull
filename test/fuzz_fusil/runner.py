@@ -151,6 +151,8 @@ class FuzzedHttpServer(HttpServer):
 class Fuzzer(Application):
     def setupProject(self):
         self.project.debugger.enabled = False
+        self.config.process_max_user_process = 50
+
         FuzzedHttpServer(self.project, 8898)
 
         process = ProjectProcess(
@@ -162,8 +164,6 @@ class Fuzzer(Application):
             ],
         )
 
-        process.max_memory = 500000000
-
         process.env.set(
             'PYTHONPATH',
             os.path.join(
@@ -173,16 +173,22 @@ class Fuzzer(Application):
         WatchProcess(process, exitcode_score=0.45)
         stdout_watcher = WatchStdout(process)
         stdout_watcher.ignoreRegex(
-            r'Read timed out',
-        )
-        stdout_watcher.ignoreRegex(
-            r'Error parsing status line',
-        )
-        stdout_watcher.ignoreRegex(
             r'WARNING Invalid content length: invalid literal for int'
         )
         stdout_watcher.ignoreRegex(
-            r'encountered an error: zlib error: '
+            r'WARNING Discarding malformed URL '
+        )
+        stdout_watcher.ignoreRegex(
+            r'WARNING Failed to read document at '
+        )
+        stdout_watcher.ignoreRegex(
+            r'ERROR Fetching '
+        )
+        stdout_watcher.ignoreRegex(
+            r'DEBUG '
+        )
+        stdout_watcher.ignoreRegex(
+            r'INFO Fetch(ed|ing) '
         )
 
 if __name__ == "__main__":

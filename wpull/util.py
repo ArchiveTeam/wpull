@@ -4,6 +4,7 @@ import calendar
 import codecs
 import contextlib
 import datetime
+import functools
 import os.path
 import re
 import sys
@@ -154,3 +155,14 @@ def is_ascii(text):
         return False
     else:
         return True
+
+
+@contextlib.contextmanager
+def close_on_error(close_func):
+    '''Context manager to close object on error.'''
+    try:
+        yield
+    except Exception as error:
+        if not isinstance(error, StopIteration):
+            close_func()
+        raise

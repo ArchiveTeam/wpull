@@ -1,23 +1,19 @@
 # encoding=utf-8
 '''Application main interface.'''
+from collections import OrderedDict
 import datetime
 import gettext
 import logging
 import signal
 
-import tornado.ioloop
+from trollius import From, Return
+import trollius
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ServerError, ExitStatus, ProtocolError, \
     SSLVerficationError, DNSNotFound, ConnectionRefused, NetworkError
 from wpull.hook import HookableMixin, HookDisconnected
 import wpull.string
-
-
-try:
-    from collections import OrderedDict
-except ImportError:
-    from wpull.backport.collections import OrderedDict
 
 
 _logger = logging.getLogger(__name__)
@@ -45,7 +41,7 @@ class Application(HookableMixin):
     def __init__(self, builder):
         super().__init__()
         self._builder = builder
-        self._io_loop = tornado.ioloop.IOLoop.current()
+        self._event_loop = trollius.get_event_loop()
         self._exit_code = 0
         self._statistics = None
         self.stop_observer = wpull.observer.Observer()
@@ -66,12 +62,6 @@ class Application(HookableMixin):
 
         status = {'graceful_called': False}
 
-        def graceful_stop_handler(dummy1, dummy2):
-            self._io_loop.add_callback_from_signal(graceful_stop_callback)
-
-        def forceful_stop_handler(dummy1, dummy2):
-            self._io_loop.add_callback_from_signal(forceful_stop_callback)
-
         def graceful_stop_callback():
             if status['graceful_called']:
                 forceful_stop_callback()
@@ -85,10 +75,12 @@ class Application(HookableMixin):
 
         def forceful_stop_callback():
             _logger.info(_('Forcing immediate stop...'))
-            self._builder.factory['Engine'].stop(force=True)
+            self._event_loop.stop()
 
-        signal.signal(signal.SIGINT, graceful_stop_handler)
-        signal.signal(signal.SIGTERM, forceful_stop_handler)
+        self._event_loop.add_signal_handler(signal.SIGINT,
+                                            graceful_stop_callback)
+        self._event_loop.add_signal_handler(signal.SIGTERM,
+                                            forceful_stop_callback)
 
     def run_sync(self):
         '''Run the application.
@@ -98,15 +90,15 @@ class Application(HookableMixin):
         Returns:
             int: The exit status.
         '''
-        return self._io_loop.run_sync(self.run)
+        return self._event_loop.run_until_complete(self.run())
 
-    @tornado.gen.coroutine
+    @trollius.coroutine
     def run(self):
         self._statistics = self._builder.factory['Statistics']
         self._statistics.start()
 
         try:
-            yield self._builder.factory['Engine']()
+            yield From(self._builder.factory['Engine']())
         except Exception as error:
             _logger.exception('Fatal exception.')
             self._update_exit_code_from_error(error)
@@ -137,7 +129,7 @@ class Application(HookableMixin):
         self.stop_observer.notify()
         self._close()
 
-        raise tornado.gen.Return(self._exit_code)
+        raise Return(self._exit_code)
 
     def _update_exit_code_from_error(self, error):
         '''Set the exit code based on the error type.

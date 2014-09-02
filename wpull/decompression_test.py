@@ -2,9 +2,9 @@
 import gzip
 import hashlib
 import io
+import unittest
 import zlib
 
-from wpull.backport.testing import unittest
 from wpull.decompression import DeflateDecompressor, GzipDecompressor
 
 
@@ -36,6 +36,11 @@ class TestDecompression(unittest.TestCase):
 
         self.assertEqual(input_data, test_data)
 
+    def test_deflate_decompressor_flush(self):
+        decompressor = DeflateDecompressor()
+        data = decompressor.flush()
+        self.assertEqual(b'', data)
+
     def test_gzip_decompressor(self):
         file_buffer = io.BytesIO()
         gzip_file = gzip.GzipFile(mode='wb', fileobj=file_buffer)
@@ -48,6 +53,11 @@ class TestDecompression(unittest.TestCase):
         data += decompressor.flush()
 
         self.assertEqual(b'HELLO KITTEN', data)
+
+    def test_gzip_decompressor_flush(self):
+        decompressor = GzipDecompressor()
+        data = decompressor.flush()
+        self.assertEqual(b'', data)
 
     def test_gzip_decompressor_not_gzip(self):
         decompressor = GzipDecompressor()

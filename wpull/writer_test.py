@@ -1,12 +1,14 @@
 # encoding=utf-8
 import hashlib
 import os.path
-import tornado.testing
 import unittest
 
-from wpull.builder import Builder
+from trollius import From
+
 from wpull.app_test import cd_tempdir
+from wpull.builder import Builder
 from wpull.options import AppArgumentParser
+import wpull.testing.async
 from wpull.testing.goodapp import GoodAppTestCase
 from wpull.writer import (url_to_dir_parts, url_to_filename, safe_filename,
                           anti_clobber_dir_path)
@@ -161,7 +163,7 @@ class TestWriter(unittest.TestCase):
 
 
 class TestWriterApp(GoodAppTestCase):
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_new_file_and_clobber(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([self.get_url('/static/my_file.txt')])
@@ -180,7 +182,7 @@ class TestWriterApp(GoodAppTestCase):
                 self.assertIn(b'END', in_file.read())
 
             app = Builder(args).build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
             self.assertEqual(0, exit_code)
 
@@ -188,7 +190,7 @@ class TestWriterApp(GoodAppTestCase):
 
             self.assertTrue(os.path.exists(expected_filename))
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_file_continue(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([self.get_url('/static/my_file.txt'),
@@ -211,7 +213,7 @@ class TestWriterApp(GoodAppTestCase):
                 self.assertEqual('54388a281352fdb2cfa66009ac0e35dd8916af7c',
                                  hashlib.sha1(data).hexdigest())
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_timestamping_hit(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -236,7 +238,7 @@ class TestWriterApp(GoodAppTestCase):
             with open(filename, 'rb') as in_file:
                 self.assertEqual(b'HI', in_file.read())
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_timestamping_miss(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -261,7 +263,7 @@ class TestWriterApp(GoodAppTestCase):
             with open(filename, 'rb') as in_file:
                 self.assertEqual(b'HELLO', in_file.read())
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_timestamping_hit_orig(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -283,7 +285,7 @@ class TestWriterApp(GoodAppTestCase):
 
             builder = Builder(args)
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
             self.assertEqual(0, exit_code)
 
@@ -293,7 +295,7 @@ class TestWriterApp(GoodAppTestCase):
             with open(filename_orig, 'rb') as in_file:
                 self.assertEqual(b'HI', in_file.read())
 
-    @tornado.testing.gen_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_dir_or_file(self):
         arg_parser = AppArgumentParser()
 
@@ -307,7 +309,7 @@ class TestWriterApp(GoodAppTestCase):
 
             os.mkdir('dir_or_file')
 
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
             self.assertEqual(0, exit_code)
 
@@ -326,7 +328,7 @@ class TestWriterApp(GoodAppTestCase):
             with open('dir_or_file', 'wb'):
                 pass
 
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
             self.assertEqual(0, exit_code)
 

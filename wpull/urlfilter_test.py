@@ -1,6 +1,7 @@
 # encoding=utf-8
 
-from wpull.backport.testing import unittest
+import unittest
+
 from wpull.url import URLInfo
 from wpull.urlfilter import (HTTPFilter, HTTPSOnlyFilter, BackwardDomainFilter,
                              HostnameFilter, RecursiveFilter, LevelFilter,

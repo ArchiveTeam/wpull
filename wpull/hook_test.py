@@ -1,8 +1,8 @@
 # encoding=utf-8
 import os.path
 import sys
+import unittest
 
-from wpull.backport.testing import unittest
 from wpull.hook import to_lua_string, to_lua_type
 
 

@@ -13,11 +13,12 @@ import ssl
 import sys
 import tempfile
 
-import tornado.ioloop
 import tornado.testing
+import trollius
 
 from wpull.app import Application
 from wpull.backport.logging import BraceMessage as __
+from wpull.connection import Connection, ConnectionPool, SSLConnection
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
 from wpull.database import URLTable
@@ -26,15 +27,17 @@ from wpull.dns import Resolver
 from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
-from wpull.http.client import Client
-from wpull.http.connection import (Connection, ConnectionPool,
-                                   HostConnectionPool, ConnectionParams)
+from wpull.http.client import Client as HTTPClient
+from wpull.http.stream import Stream as HTTPStream
+from wpull.http.redirect import RedirectTracker
 from wpull.http.request import Request
-from wpull.http.web import RedirectTracker, RichClient
+from wpull.http.robots import RobotsTxtChecker
+from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSClient
-from wpull.processor import (WebProcessor, PhantomJSController,
-                             WebProcessorFetchParams, WebProcessorInstances)
+from wpull.processor.phantomjs import PhantomJSController
+from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
+    WebProcessorInstances
 from wpull.proxy import HTTPProxyServer
 from wpull.recorder import (WARCRecorder, DemuxRecorder,
                             PrintServerResponseRecorder, ProgressRecorder,
@@ -78,18 +81,16 @@ class Builder(object):
         self._factory = Factory({
             'Application': Application,
             'BatchDocumentConverter': BatchDocumentConverter,
-            'Client': Client,
+            'HTTPClient': HTTPClient,
             'CookieJar': CookieJar,
             'CookieJarWrapper': CookieJarWrapper,
             'CookiePolicy': DeFactoCookiePolicy,
-            'Connection': Connection,
             'ConnectionPool': ConnectionPool,
             'CSSScraper': CSSScraper,
             'DemuxDocumentScraper': DemuxDocumentScraper,
             'DemuxRecorder': DemuxRecorder,
             'DemuxURLFilter': DemuxURLFilter,
             'Engine': Engine,
-            'HostConnectionPool': HostConnectionPool,
             'HTTPProxyServer': HTTPProxyServer,
             'HTMLScraper': HTMLScraper,
             'JavaScriptScraper': JavaScriptScraper,
@@ -102,7 +103,7 @@ class Builder(object):
             'RedirectTracker': RedirectTracker,
             'Request': Request,
             'Resolver': Resolver,
-            'RichClient': RichClient,
+            'RobotsTxtChecker': RobotsTxtChecker,
             'RobotsTxtPool': RobotsTxtPool,
             'SitemapScraper': SitemapScraper,
             'Statistics': Statistics,
@@ -110,6 +111,7 @@ class Builder(object):
             'URLTable': URLTable,
             'Waiter': LinearWaiter,
             'WARCRecorder': WARCRecorder,
+            'WebClient': WebClient,
             'WebProcessor': WebProcessor,
             'WebProcessorFetchParams': WebProcessorFetchParams,
             'WebProcessorInstances': WebProcessorInstances,
@@ -150,11 +152,13 @@ class Builder(object):
         url_table = self._build_url_table()
         processor = self._build_processor()
 
-        engine = self._factory.new('Engine',
-                                   url_table,
-                                   processor,
-                                   statistics,
-                                   concurrent=self._args.concurrent,)
+        self._factory.new(
+            'Engine',
+            url_table,
+            processor,
+            statistics,
+            concurrent=self._args.concurrent,
+        )
 
         self._setup_file_logger_close(self.factory['Application'])
         self._setup_console_logger_close(self.factory['Application'])
@@ -325,20 +329,26 @@ class Builder(object):
             lua.execute(in_file.read())
 
     def _setup_debug_console(self):
-        if not self._args.debug_console_port:
+        if self._args.debug_console_port is None:
             return
-
-        _logger.warning(__(
-            _('Opened a debug console at localhost:{port}.'),
-            port=self._args.debug_console_port
-        ))
 
         application = tornado.web.Application(
             [(r'/', DebugConsoleHandler)],
             builder=self
         )
+        sock = socket.socket()
+        sock.bind(('localhost', self._args.debug_console_port))
+        sock.setblocking(0)
+        sock.listen(1)
         http_server = tornado.httpserver.HTTPServer(application)
-        http_server.listen(self._args.debug_console_port, address='localhost')
+        http_server.add_socket(sock)
+
+        _logger.warning(__(
+            _('Opened a debug console at localhost:{port}.'),
+            port=sock.getsockname()[1]
+        ))
+
+        atexit.register(sock.close)
 
     def _build_input_urls(self, default_scheme='http'):
         '''Read the URLs provided by the user.'''
@@ -640,8 +650,9 @@ class Builder(object):
         file_writer = self._build_file_writer()
         post_data = self._get_post_data()
         converter = self._build_document_converter()
-        rich_http_client = self._build_rich_http_client()
+        web_client = self._build_web_client()
         phantomjs_controller = self._build_phantomjs_controller()
+        robots_txt_checker = self._build_robots_txt_checker()
 
         waiter = self._factory.new('Waiter',
                                    wait=args.wait,
@@ -657,6 +668,7 @@ class Builder(object):
             statistics=self._factory['Statistics'],
             converter=converter,
             phantomjs_controller=phantomjs_controller,
+            robots_txt_checker=robots_txt_checker,
         )
 
         web_processor_fetch_params = self._factory.new(
@@ -669,7 +681,7 @@ class Builder(object):
         )
 
         processor = self._factory.new('WebProcessor',
-                                      rich_http_client,
+                                      web_client,
                                       args.directory_prefix,
                                       web_processor_fetch_params,
                                       web_processor_instances)
@@ -757,7 +769,7 @@ class Builder(object):
             A callable object
         '''
         def request_factory(*args, **kwargs):
-            request = self._factory.class_map['Request'].new(*args, **kwargs)
+            request = self._factory.class_map['Request'](*args, **kwargs)
 
             user_agent = self._args.user_agent or self.default_user_agent
 
@@ -776,19 +788,44 @@ class Builder(object):
 
         return request_factory
 
-    def _build_http_client(self):
-        '''Create the HTTP client.
-
-        Returns:
-            Client: An instance of :class:`.http.Client`.
-        '''
+    def _build_connection_pool(self):
+        '''Create connection pool.'''
         args = self._args
-        dns_timeout = args.dns_timeout
         connect_timeout = args.connect_timeout
         read_timeout = args.read_timeout
 
         if args.timeout:
-            dns_timeout = connect_timeout = read_timeout = args.timeout
+            connect_timeout = read_timeout = args.timeout
+
+        connection_factory = functools.partial(
+            Connection,
+            timeout=read_timeout,
+            connect_timeout=connect_timeout,
+            bind_host=self._args.bind_address,
+        )
+
+        ssl_connection_factory = functools.partial(
+            SSLConnection,
+            timeout=read_timeout,
+            connect_timeout=connect_timeout,
+            bind_host=self._args.bind_address,
+            ssl_context=self._build_ssl_options()
+        )
+
+        return self._factory.new(
+            'ConnectionPool',
+            resolver=self._build_resolver(),
+            connection_factory=connection_factory,
+            ssl_connection_factory=ssl_connection_factory
+        )
+
+    def _build_resolver(self):
+        '''Build resolver.'''
+        args = self._args
+        dns_timeout = args.dns_timeout
+
+        if args.timeout:
+            dns_timeout = args.timeout
 
         if args.inet_family == 'IPv4':
             family = socket.AF_INET
@@ -799,57 +836,36 @@ class Builder(object):
         else:
             family = Resolver.PREFER_IPv4
 
-        resolver = self._factory.new('Resolver',
-                                     family=family,
-                                     timeout=dns_timeout,
-                                     rotate=args.rotate_dns,
-                                     cache_enabled=args.dns_cache,)
+        return self._factory.new(
+            'Resolver',
+            family=family,
+            timeout=dns_timeout,
+            rotate=args.rotate_dns,
+            cache_enabled=args.dns_cache,
+        )
 
-        if self._args.bind_address:
-            bind_address = (self._args.bind_address, 0)
-        else:
-            bind_address = None
+    def _build_http_client(self):
+        '''Create the HTTP client.
 
-        def connection_factory(*args, **kwargs):
-            keep_alive = (self._args.http_keep_alive
-                          and not self._args.ignore_length)
-            return self._factory.new(
-                'Connection',
-                *args,
-                resolver=resolver,
-                params=ConnectionParams(
-                    connect_timeout=connect_timeout,
-                    read_timeout=read_timeout,
-                    keep_alive=keep_alive,
-                    ssl_options=self._build_ssl_options(),
-                    ignore_length=self._args.ignore_length,
-                    bind_address=bind_address,
-                ),
-                **kwargs)
-
-        def host_connection_pool_factory(*args, **kwargs):
-            return self._factory.new(
-                'HostConnectionPool',
-                *args, connection_factory=connection_factory, **kwargs)
-
-        connection_pool = self._factory.new(
-            'ConnectionPool',
-            host_connection_pool_factory=host_connection_pool_factory)
+        Returns:
+            Client: An instance of :class:`.http.Client`.
+        '''
         recorder = self._build_recorder()
 
-        return self._factory.new('Client',
-                                 connection_pool=connection_pool,
-                                 recorder=recorder)
+        stream_factory = functools.partial(
+            HTTPStream,
+            ignore_length=self._args.ignore_length,
+            keep_alive=self._args.http_keep_alive)
 
-    def _build_rich_http_client(self):
-        '''Build Rich Client.'''
+        return self._factory.new('HTTPClient',
+                                 connection_pool=self._build_connection_pool(),
+                                 recorder=recorder,
+                                 stream_factory=stream_factory)
+
+    def _build_web_client(self):
+        '''Build Web Client.'''
         cookie_jar = self._build_cookie_jar()
         http_client = self._build_http_client()
-
-        if self._args.robots:
-            robots_txt_pool = self._factory.new('RobotsTxtPool')
-        else:
-            robots_txt_pool = None
 
         redirect_factory = functools.partial(
             self._factory.class_map['RedirectTracker'],
@@ -857,9 +873,8 @@ class Builder(object):
         )
 
         return self._factory.new(
-            'RichClient',
+            'WebClient',
             http_client,
-            robots_txt_pool=robots_txt_pool,
             redirect_tracker_factory=redirect_factory,
             cookie_jar=cookie_jar,
             request_factory=self._build_request_factory(),
@@ -917,11 +932,12 @@ class Builder(object):
 
         proxy_server = self._factory.new(
             'HTTPProxyServer',
-            self.factory['Client']
+            self.factory['HTTPClient'],
+            rewrite=True,
         )
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
 
-        proxy_server.add_socket(proxy_socket)
+        proxy_task = trollius.async(trollius.start_server(proxy_server, sock=proxy_socket))
 
         page_settings = {}
         default_headers = NameValueRecord()
@@ -953,6 +969,7 @@ class Builder(object):
             exe_path=self._args.phantomjs_exe
         )
         phantomjs_client.test_client_exe()
+        phantomjs_client.proxy_task = proxy_task  # FIXME:
 
         phantomjs_controller = self._factory.new(
             'PhantomJSController',
@@ -965,6 +982,17 @@ class Builder(object):
         )
 
         return phantomjs_controller
+
+    def _build_robots_txt_checker(self):
+        if self._args.robots:
+            robots_txt_pool = self._factory.new('RobotsTxtPool')
+            robots_txt_checker = self._factory.new(
+                'RobotsTxtChecker',
+                web_client=self._factory['WebClient'],
+                robots_txt_pool=robots_txt_pool
+            )
+
+            return robots_txt_checker
 
     def _build_ssl_options(self):
         '''Create the SSL options.
