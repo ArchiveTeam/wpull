@@ -374,14 +374,14 @@ class HTMLReader(BaseDocumentReader):
         elements = []
 
         def callback_func(tag, attrib, text, tail=None, end=None):
-            # NOTE: to_str is needed because on Python 2, byte strings may be
+            # NOTE: If we ever support Python 2 again, byte strings may be
             # returned from lxml
             elements.append(HTMLReadElement(
-                wpull.string.to_str(tag),
-                wpull.string.to_str(dict(attrib))
+                tag,
+                dict(attrib)
                 if attrib is not None else None,
-                wpull.string.to_str(text),
-                wpull.string.to_str(tail),
+                text,
+                tail,
                 end
             ))
 
@@ -469,7 +469,7 @@ class HTMLReader(BaseDocumentReader):
                 io.BytesIO(wpull.util.peek_file(file)), parser=parser
             )
             if tree.getroot() is not None:
-                return wpull.string.to_str(tree.docinfo.doctype)
+                return tree.docinfo.doctype
         except lxml.etree.LxmlError:
             pass
 
