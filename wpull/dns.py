@@ -96,8 +96,8 @@ class Resolver(HookableMixin):
 
         if not results:
             raise DNSNotFound(
-                "DNS resolution for '{0}' did not return any results."
-                .format(wpull.string.coerce_str_to_ascii(host))
+                "DNS resolution for {0} did not return any results."
+                .format(repr(host))
             )
 
         _logger.debug(__('Resolved addresses: {0}.', results))
