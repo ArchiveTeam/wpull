@@ -209,10 +209,14 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
         else:
             url = link_info.link
 
-        url_info = URLInfo.parse(url, encoding=self._encoding)
-        new_url = self._get_new_url(url_info)
+        try:
+            url_info = URLInfo.parse(url, encoding=self._encoding)
+        except ValueError:
+            return url
+        else:
+            new_url = self._get_new_url(url_info)
 
-        return new_url
+            return new_url
 
     def _convert_css_attrib(self, link_info):
         done_key = (link_info.element, link_info.attrib)

@@ -1,29 +1,54 @@
 # encoding=utf-8
-'''URLs.'''
+'''URL parsing based on WHATWG URL living spec.'''
 import collections
+from encodings import idna
 import fnmatch
-import functools
 import itertools
 import mimetypes
 import re
 import string
-import sys
 import urllib.parse
 
-import namedlist
-
-from wpull.cache import LRUCache
-import wpull.string
+import tornado.netutil
 
 
-RELAXED_SAFE_CHARS = '/!$&()*+,:;=@[]~'
-'''Characters in URL path that should be safe to not escape.'''
+DEFAULT_PORTS = {
+    'http': 80,
+    'https': 443,
+    'ftp': 21,
+}
+'''Mapping of scheme to default port number.'''
 
-RELAXED_SAFE_QUERY_KEYS_CHARS = '/!$()*+,:;?@[]~'
-'''Characters in URL query keys that should be safe to not escape.'''
+URL_PATTERN = re.compile(
+    r'(http|https|ftp)://([^/?#]+)([^?#]*)\??([^#]*)\#?(.*)', re.IGNORECASE)
+'''Regex for matching something like a HTTP or FTP URL.'''
 
-RELAXED_SAFE_QUERY_VALUE_CHARS = RELAXED_SAFE_QUERY_KEYS_CHARS + '='
-'''Characters in URL query values that should be safe to not escape.'''
+NETLOC_PATTERN = re.compile(r'([^@]*)(?:@|^)([^@]+?)(:(\d+)$|$)')
+'''Regex for matching the netloc of a HTTP or FTP URL.'''
+
+DEFAULT_ENCODE_SET = frozenset(b' "#<>?`')
+'''Percent encoding set as defined by WHATWG URL living standard.
+
+Does not include U+0000 to U+001F nor U+001F or above.
+'''
+
+PASSWORD_ENCODE_SET = DEFAULT_ENCODE_SET & frozenset(b'/@\\')
+'''Encoding set for passwords.'''
+
+USERNAME_ENCODE_SET = PASSWORD_ENCODE_SET & frozenset(b':')
+'''Encoding set for usernames.'''
+
+QUERY_KEY_ENCODE_SET = frozenset(b'"#<>?`+=')
+'''Encoding set for query keys.
+
+Doesn't include U+0020 so a replace can be made later.
+'''
+
+QUERY_VALUE_ENCODE_SET = frozenset(b'"#<>?`+')
+'''Encoding set for query values.
+
+Doesn't include U+0020 so a replace can be made later.
+'''
 
 
 _URLInfoType = collections.namedtuple(
@@ -40,24 +65,9 @@ _URLInfoType = collections.namedtuple(
         'port',
         'raw',
         'encoding',
+        'raw_hostname',
     ]
 )
-
-
-NormalizationParams = namedlist.namedtuple(
-    'NormalizationParamsType',
-    [
-        ('sort_query', False),
-        ('always_delim_query', False)
-    ]
-)
-'''Parameters for URL normalization.
-
-Args:
-    sort_query (bool): Whether to sort the query string items.
-    always_delim_query: Whether to always deliminate the key-value items where
-        value is empty.
-'''
 
 
 class URLInfo(_URLInfoType):
@@ -81,25 +91,15 @@ class URLInfo(_URLInfoType):
         url: The normalized URL string
         encoding: The character encoding of the percent-encoded data (IRI).
 
-    This class will attempt to percent-encode any URLs deemed to be not yet
-    percent-encoded. Otherwise, it will attempt to percent-encode parts
-    of the URL that should be percent-encoded. It will also uppercase the
-    percent-encoding sequences.
+    This class will attempt to percent-encode unacceptable characters.
+    It will also uppercase the percent-encoding sequences.
 
     This class will convert hostnames to the proper IDNA ASCII sequences.
 
-    This class is currently only specialized for HTTP protocols.
-    '''
-    DEFAULT_PORTS = {
-        'http': 80,
-        'https': 443,
-    }
-
-    cache = LRUCache(max_items=1000)
-
+    This class is currently only specialized for HTTP/FTP protocols.
+'''
     @classmethod
-    def parse(cls, string, default_scheme='http', encoding='utf8',
-              normalization_params=None, use_cache=True):
+    def parse(cls, text, default_scheme='http', encoding='utf-8'):
         '''Parse and return a new info from the given URL.
 
         Args:
@@ -107,173 +107,122 @@ class URLInfo(_URLInfoType):
             default_scheme (str): The default scheme if not specified.
             encoding (str): The name of the encoding to be used for IRI
                 support.
-            normalization_params: Instance of :class:`NormalizationParams`
-                describing further normalization settings.
 
         Returns:
             :class:`URLInfo`
 
         Raises:
-            `ValueError`: The URL is seriously malformed.
+            `ValueError`: The URL is seriously malformed or unsupported.
         '''
-        if not string:
+        if not text:
             raise ValueError('Empty URL')
 
-        assert isinstance(string, str), \
-            'Expect str. Got {}.'.format(type(string))
+        assert isinstance(text, str), \
+            'Expect str. Got {}.'.format(type(text))
 
-        cache_key = (string, default_scheme, encoding, normalization_params)
+        if '://' not in text:
+            if text.startswith('//'):
+                text = '{}:{}'.format(default_scheme, text)
+            elif ':' not in text[:8]:
+                text = '{}://{}'.format(default_scheme, text)
 
-        if use_cache:
+        match = URL_PATTERN.match(text)
+
+        if not match:
+            raise ValueError('Failed to parse HTTP or FTP URL: {}'
+                             .format(repr(text)))
+
+        scheme = (match.group(1) or default_scheme).lower()
+        netloc = match.group(2)
+
+        netloc_match = NETLOC_PATTERN.match(netloc)
+
+        if not netloc_match:
+            raise ValueError('Failed to parse netloc.')
+
+        user_and_password = netloc_match.group(1)
+
+        if user_and_password:
+            username, dummy, password = user_and_password.partition(':')
+        else:
+            username = None
+            password = None
+
+        raw_hostname = netloc_match.group(2)
+        hostname = normalize_hostname(raw_hostname)
+        ipv6_result = check_ipv6(hostname)
+
+        if ipv6_result == 'invalid':
+            raise ValueError('Invalid IPv6 address.')
+        elif ipv6_result == 'ok':
+            hostname = hostname[1:-1]
+
+        port = netloc_match.group(4)
+
+        if port:
+            port = int(port)
+
+            if port > 65535:
+                raise ValueError('Port number {} seems unreasonable.'
+                                 .format(port))
+        else:
             try:
-                return cls.cache[cache_key]
-            except KeyError:
-                pass
+                port = DEFAULT_PORTS[scheme]
+            except KeyError as error:
+                raise ValueError('Default port missing.') from error
 
-        if normalization_params is None:
-            normalization_params = NormalizationParams()
-
-        url_split_result = urllib.parse.urlsplit(string)
-
-        if not url_split_result.scheme:
-            url_split_result = urllib.parse.urlsplit(
-                '{0}://{1}'.format(default_scheme, string)
-            )
-
-        if url_split_result.scheme in ('http', 'https'):
-            if string.startswith('//'):
-                url_split_result = urllib.parse.urlsplit(
-                    '{0}:{1}'.format(url_split_result.scheme, string)
-                )
-
-            elif not url_split_result.hostname:
-                raise ValueError('Missing hostname for HTTP protocol.')
-
-        port = url_split_result.port
-
-        if not port:
-            port = 80 if url_split_result.scheme == 'http' else 443
+        path = normalize_path(match.group(3), encoding=encoding)
+        query = normalize_query(match.group(4), encoding=encoding)
+        fragment = match.group(5)
 
         url_info = URLInfo(
-            url_split_result.scheme,
-            url_split_result.netloc,
-            cls.normalize_path(url_split_result.path, encoding=encoding),
-            cls.normalize_query(
-                url_split_result.query, encoding=encoding,
-                sort=normalization_params.sort_query,
-                always_delim=normalization_params.always_delim_query,
-            ),
-            url_split_result.fragment,
-            url_split_result.username,
-            url_split_result.password,
-            cls.normalize_hostname(url_split_result.hostname),
+            scheme,
+            netloc,
+            path,
+            query,
+            fragment,
+            username,
+            password,
+            hostname,
             port,
-            string,
-            wpull.string.normalize_codec_name(encoding),
+            text,
+            encoding,
+            raw_hostname
         )
-
-        if use_cache:
-            cls.cache[cache_key] = url_info
 
         return url_info
-
-    @classmethod
-    def normalize_hostname(cls, hostname):
-        '''Normalize the hostname.'''
-        if hostname:
-            if '[' in hostname \
-               or ']' in hostname:
-                # XXX: Python lib IPv6 checking can't get it right.
-                raise ValueError('Failed to parse IPv6 URL correctly.')
-
-            # Double encodes to work around issue #82 (Python #21103).
-            return hostname\
-                .encode('idna').decode('ascii')\
-                .encode('idna').decode('ascii')
-        else:
-            return hostname
-
-    @classmethod
-    def normalize_path(cls, path, encoding='utf8'):
-        '''Normalize the path.'''
-        if path is None:
-            return
-
-        if is_percent_encoded(path):
-            return flatten_path(
-                quasi_quote(path, encoding='latin-1', safe=RELAXED_SAFE_CHARS)
-            ) or '/'
-        else:
-            return flatten_path(
-                quote(path, encoding=encoding, safe=RELAXED_SAFE_CHARS)
-            ) or '/'
-
-    @classmethod
-    def normalize_query(cls, query, encoding='utf8',
-                        sort=False, always_delim=False):
-        '''Normalize the query.
-
-        Args:
-            query (str): The query string.
-            encoding (str): IRI encoding.
-            sort (bool): If True, the items will be sorted.
-            always_delim (bool): If True, the equal sign ``=`` deliminator
-                will always be present for each key-value item.
-        '''
-        if not query:
-            return
-
-        query_list = split_query(query, keep_blank_values=True)
-        query_test_str = ''.join(
-            itertools.chain(*[(key, value or '') for key, value in query_list])
-        )
-
-        if is_percent_encoded(query_test_str):
-            quote_func = functools.partial(
-                quasi_quote_plus, encoding='latin-1')
-        else:
-            quote_func = functools.partial(quote_plus, encoding=encoding)
-
-        if sort:
-            query_list.sort()
-
-        return '&'.join([
-            '='.join((
-                quote_func(name, safe=RELAXED_SAFE_QUERY_KEYS_CHARS),
-                quote_func(value or '', safe=RELAXED_SAFE_QUERY_VALUE_CHARS)
-            ))
-            if value is not None or always_delim else
-            quote_func(name)
-            for name, value in query_list])
 
     @property
     def url(self):
         '''Return a normalized URL string.'''
-        if self.scheme not in ('http', 'https'):
-            url_split_result = urllib.parse.urlsplit(self.raw)
-            return url_split_result.geturl()
+        if not self.username:
+            userpass = ''
+        elif self.password:
+            userpass = '{}:{}@'.format(self.username, self.password)
+        else:
+            userpass = '{}:@'.format(self.username)
 
-        return urllib.parse.urlunsplit([
-            self.scheme,
-            self.hostname_with_port,
-            self.path,
-            self.query,
-            ''
-        ])
+        if self.query:
+            query = '?{}'.format(self.query)
+        else:
+            query = ''
+
+        return '{scheme}://{userpass}{host}{path}{query}'\
+            .format(scheme=self.scheme, userpass=userpass,
+                    host=self.hostname_with_port, path=self.path, query=query)
 
     def is_port_default(self):
         '''Return whether the URL is using the default port.'''
-        if self.scheme in self.DEFAULT_PORTS:
-            return self.DEFAULT_PORTS[self.scheme] == self.port
+        if self.scheme in DEFAULT_PORTS:
+            return DEFAULT_PORTS[self.scheme] == self.port
 
     def is_ipv6(self):
         '''Return whether the URL is IPv6.'''
-        host_part = self.netloc.rsplit('@', 1)[-1]
-        return '[' in host_part
+        return self.raw_hostname[0] == '['
 
     @property
     def hostname_with_port(self):
-        '''Return the hostname with port.'''
+        '''Return the hostname with optional port.'''
         hostname = self.hostname or ''
         assert '[' not in hostname
         assert ']' not in hostname
@@ -361,64 +310,58 @@ def is_subdir(base_path, test_path, trailing_slash=False, wildcards=False):
         return test_path.startswith(base_path)
 
 
-def quote(string, safe='/', encoding='utf-8', errors='strict'):
-    '''``urllib.parse.quote`` with Python 2 compatbility.'''
-    if sys.version_info[0] == 2:
-        # Backported behavior
-        return urllib.parse.quote(
-            string.encode(encoding, errors),
-            safe.encode(encoding, errors)
-        ).decode(encoding, errors)
+class PercentEncoderMap(collections.defaultdict):
+    '''Helper map for percent encoding.'''
+    # This class is based on urllib.parse.Quoter
+    def __init__(self, encode_set):
+        self.encode_set = encode_set
+
+    def __missing__(self, char):
+        if char < 0x20 or char > 0x7E or char in self.encode_set:
+            result = '%{:02X}'.format(char)
+        else:
+            result = chr(char)
+        self[char] = result
+        return result
+
+
+_percent_encoder_map_cache = {}
+'''Cache of :class:`PercentEncoderMap`.'''
+
+
+def percent_encode(text, encode_set=DEFAULT_ENCODE_SET, encoding='utf-8'):
+    '''Percent encode text.
+
+    Unlike Python's ``quote``, this function accepts a blacklist instead of
+    a whitelist of safe characters.
+    '''
+    byte_string = text.encode(encoding)
+
+    try:
+        mapping = _percent_encoder_map_cache[encode_set]
+    except KeyError:
+        mapping = _percent_encoder_map_cache[encode_set] = PercentEncoderMap(
+            encode_set).__getitem__
+
+    return ''.join([mapping(char) for char in byte_string])
+
+
+def percent_encode_plus(text, encode_set=QUERY_KEY_ENCODE_SET,
+                        encoding='utf-8'):
+    '''Percent encode text for query strings.
+
+    Unlike Python's ``quote_plus``, this function accepts a blacklist instead
+    of a whitelist of safe characters.
+    '''
+    if ' ' not in text:
+        return percent_encode(text, encode_set, encoding)
     else:
-        return urllib.parse.quote(string, safe, encoding, errors)
+        result = percent_encode(text, encode_set, encoding)
+        return result.replace(' ', '+')
 
 
-def quote_plus(string, safe='', encoding='utf-8', errors='strict'):
-    '''``urllib.parse.quote_plus`` with Python 2 compatbility.'''
-    if sys.version_info[0] == 2:
-        # Backported behavior
-        return urllib.parse.quote_plus(
-            string.encode(encoding, errors),
-            safe.encode(encoding, errors)
-        ).decode(encoding, errors)
-    else:
-        return urllib.parse.quote_plus(string, safe, encoding, errors)
-
-
-def unquote(string, encoding='utf-8', errors='strict'):
-    '''``urllib.parse.unquote`` with Python 2 compatbility.'''
-    if sys.version_info[0] == 2:
-        return urllib.parse.unquote(
-            string.encode(encoding, errors)
-        ).decode(encoding, errors)
-    else:
-        return urllib.parse.unquote(string, encoding, errors)
-
-
-def unquote_plus(string, encoding='utf-8', errors='strict'):
-    '''``urllib.parse.unquote_plus`` with Python 2 compatbility.'''
-    if sys.version_info[0] == 2:
-        return urllib.parse.unquote_plus(
-            string.encode(encoding, errors)
-        ).decode(encoding, errors)
-    else:
-        return urllib.parse.unquote_plus(string, encoding, errors)
-
-
-def quasi_quote(string, safe='/', encoding='latin-1', errors='strict'):
-    '''Normalize a quoted URL path.'''
-    return quote(
-        unquote(string, encoding, errors),
-        safe, encoding, errors
-    )
-
-
-def quasi_quote_plus(string, safe='', encoding='latin-1', errors='strict'):
-    '''Normalize a quoted URL query string.'''
-    return quote_plus(
-        unquote_plus(string, encoding, errors),
-        safe, encoding, errors
-    )
+percent_decode = urllib.parse.unquote
+percent_decode_plus = urllib.parse.unquote_plus
 
 
 def split_query(qs, keep_blank_values=False):
@@ -427,59 +370,119 @@ def split_query(qs, keep_blank_values=False):
     Note for empty values: If an equal sign (``=``) is present, the value
     will be an empty string (``''``). Otherwise, the value will be ``None``::
 
-        >>> split_query('a=&b', keep_blank_values=True)
+        >>> list(split_query('a=&b', keep_blank_values=True))
         [('a', ''), ('b', None)]
 
     '''
-    new_list = []
-
     for pair in qs.split('&'):
-        items = pair.split('=', 1)
+        name, delim, value = pair.partition('=')
 
-        if len(items) == 1:
-            name = items[0]
+        if not delim and keep_blank_values:
             value = None
-        else:
-            name, value = items
 
         if keep_blank_values or value:
-            new_list.append((name, value))
-
-    return new_list
+            yield (name, value)
 
 
-def uppercase_percent_encoding(string):
+def uppercase_percent_encoding(text):
     '''Uppercases percent-encoded sequences.'''
+    if '%' not in text:
+        return text
+
     return re.sub(
         r'%[a-f0-9][a-f0-9]',
         lambda match: match.group(0).upper(),
-        string)
+        text)
 
 
-PRINTABLE_CHARS = frozenset(
-    string.digits + string.ascii_letters + string.punctuation
-)
-HEX_CHARS = frozenset(string.hexdigits)
+def normalize_hostname(hostname):
+    '''Normalizes a hostname so that it is ASCII and valid domain name.'''
+    result = idna.nameprep(hostname).encode('idna').decode('ascii')
+
+    try:
+        idna.ToUnicode(result)
+    except (ValueError, TypeError, IndexError) as error:
+        raise ValueError('Non-roundtrip IDNA.') from error
+    else:
+        return result
 
 
-def is_percent_encoded(url):
-    '''Return whether the URL is percent-encoded.'''
-    input_chars = frozenset(url)
+_is_valid_ip = tornado.netutil.is_valid_ip
 
-    if not input_chars <= PRINTABLE_CHARS:
-        return False
 
-    for match_str in re.findall('%(..)', url):
-        if not frozenset(match_str) <= HEX_CHARS:
-            return False
+def check_ipv6(hostname):
+    '''Check if raw hostname is actually a IPv6 address.
 
-    return True
+    Returns:
+        str: ``not``, ``ok``, ``invalid``
+    '''
+    if '[' in hostname or ']' in hostname:
+        content = hostname[1:-1]
+
+        if '[' in content or ']' in content:
+            return 'invalid'
+
+        return 'ok' if _is_valid_ip(content) else 'invalid'
+    else:
+        return 'not'
+
+
+def normalize_path(path, encoding='utf-8'):
+    '''Normalize a path string.
+
+    Flattens a path by removing dot parts,
+    percent-encodes unacceptable characters and ensures percent-encoding is
+    uppercase.
+    '''
+    if not path.startswith('/'):
+        path = '/' + path
+    path = percent_encode(flatten_path(path), encoding=encoding)
+    return uppercase_percent_encoding(path)
+
+
+def normalize_query(text, encoding='utf-8'):
+    '''Normalize a query string.
+
+    Percent-encodes unacceptable characters and ensures percent-encoding is
+    uppercase.
+    '''
+    items = []
+
+    for key, value in split_query(text, True):
+        key = percent_encode_plus(key, encode_set=QUERY_KEY_ENCODE_SET,
+                                  encoding=encoding)
+        if value is not None:
+            value = percent_encode_plus(value, encode_set=QUERY_VALUE_ENCODE_SET,
+                                        encoding=encoding)
+            items.append('{}={}'.format(key, value))
+        else:
+            items.append(key)
+
+    return uppercase_percent_encoding('&'.join(items))
+
+
+def query_to_map(text):
+    '''Return a mapping from query key to value lists.'''
+    dict_obj = {}
+
+    for key, value in split_query(text, True):
+        if key not in dict_obj:
+            dict_obj[key] = []
+
+        if value:
+            dict_obj[key].append(value.replace('+', ' '))
+        else:
+            dict_obj[key].append('')
+
+    return query_to_map(text)
 
 
 def urljoin(base_url, url, allow_fragments=True):
     '''Join URLs like ``urllib.parse.urljoin`` but allow double-slashes.'''
+    assert '://' in base_url, 'base_url {} not a absolute URL'.format(base_url)
+
     if url.startswith('//'):
-        scheme = urllib.parse.urlsplit(base_url).scheme
+        scheme = re.match(r'(\w+)://', base_url).group(1)
         return urllib.parse.urljoin(
             base_url,
             '{0}:{1}'.format(scheme, url),
@@ -490,11 +493,16 @@ def urljoin(base_url, url, allow_fragments=True):
             base_url, url, allow_fragments=allow_fragments)
 
 
-def flatten_path(path, slashes=False):
+def flatten_path(path, strip_slashes=False):
     '''Flatten an absolute URL path by removing the dot segments.
 
     :func:`urllib.parse.urljoin` has some support for removing dot segments,
     but it is conservative and only removes them as needed.
+
+    Arguments:
+        path (str): The URL path.
+        strip_slashes (bool): If True, the leading and trailing slashes are
+            removed.
     '''
     # Based on posixpath.normpath
     parts = path.split('/')
@@ -502,7 +510,7 @@ def flatten_path(path, slashes=False):
     new_parts = collections.deque()
 
     for part in parts:
-        if part == '.' or (slashes and not part):
+        if part == '.' or (strip_slashes and not part):
             continue
         elif part != '..':
             new_parts.append(part)

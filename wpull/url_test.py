@@ -3,10 +3,10 @@
 import timeit
 import unittest
 
-from wpull.url import (URLInfo, schemes_similar, is_subdir, unquote,
-                       unquote_plus, quote, quote_plus, split_query,
-                       uppercase_percent_encoding, urljoin,
-                       flatten_path, is_likely_link, is_unlikely_link)
+from wpull.url import URLInfo, schemes_similar, is_subdir, split_query, \
+    percent_decode, percent_decode_plus, percent_encode, percent_encode_plus, \
+    uppercase_percent_encoding, urljoin, flatten_path, is_likely_link, \
+    is_unlikely_link
 
 
 class TestURL(unittest.TestCase):
@@ -67,7 +67,7 @@ class TestURL(unittest.TestCase):
         url_info = URLInfo.parse(
             'HTTP://username:password@example.com/asdf/ghjk/')
         self.assertEqual(
-            'http://example.com/asdf/ghjk/',
+            'http://username:password@example.com/asdf/ghjk/',
             url_info.url
         )
         self.assertEqual(
@@ -92,15 +92,7 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('http://example.com/ð').url
         )
 
-        url_info = URLInfo.parse('mailto:user@example.com')
-        self.assertEqual(
-            'mailto:user@example.com',
-            url_info.url
-        )
-        self.assertEqual(
-            'mailto',
-            url_info.scheme
-        )
+        self.assertRaises(ValueError, URLInfo.parse, 'mailto:user@example.com')
 
         self.assertEqual(
             'http://example.com/',
@@ -114,14 +106,14 @@ class TestURL(unittest.TestCase):
         self.assertRaises(ValueError, URLInfo.parse, 'example....com')
         self.assertRaises(ValueError, URLInfo.parse, 'http://example....com')
         self.assertRaises(ValueError, URLInfo.parse, 'http://example…com')
-#         self.assertRaises(ValueError, URLInfo.parse, 'http://[34.4kf]::4')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://[34.4kf]::4')
         self.assertRaises(ValueError, URLInfo.parse, 'http://[34.4kf::4')
         self.assertRaises(ValueError, URLInfo.parse, 'http://dmn3]:3a:45')
         self.assertRaises(ValueError, URLInfo.parse, ':38/3')
         self.assertRaises(ValueError, URLInfo.parse, 'http://][a:@1]')
-#         self.assertRaises(ValueError, URLInfo.parse, 'http://[[aa]]:4:]6')
-        self.assertNotIn('[', URLInfo.parse('http://[a]').hostname)
-        self.assertNotIn(']', URLInfo.parse('http://[a]').hostname)
+        self.assertRaises(ValueError, URLInfo.parse, 'http://[[aa]]:4:]6')
+        self.assertNotIn('[', URLInfo.parse('http://[a::]').hostname)
+        self.assertNotIn(']', URLInfo.parse('http://[a::]').hostname)
         self.assertRaises(ValueError, URLInfo.parse, 'http://[[a]')
         self.assertRaises(ValueError, URLInfo.parse, 'http://[[a]]a]')
         self.assertRaises(ValueError, URLInfo.parse, 'http://[[a:a]]')
@@ -193,26 +185,27 @@ class TestURL(unittest.TestCase):
                           '?blah=%95%B6%8E%9A%89%BB%82%AF').url
         )
 
-        self.assertEqual(
-            'http://example.com/'
-            '?blah=http://example.com/?fail=true',
-            URLInfo.parse(
-                'http://example.com/'
-                '?blah=http%3A%2F%2Fexample.com%2F%3Ffail%3Dtrue').url
-        )
-        self.assertEqual(
-            'http://example.com/'
-            '?blah=http://example.com/?fail=true',
-            URLInfo.parse(
-                'http://example.com/'
-                '?blah=http://example.com/?fail%3Dtrue').url
-        )
-
-        self.assertEqual(
-            'http://example.com/??blah=blah[0:]=blah?blah%22&d%26_',
-            URLInfo.parse(
-                'http://example.com/??blah=blah[0:]=bl%61h?blah"&d%26_').url
-        )
+# Old tests to check percent-decode unneeded percent-encoding
+#         self.assertEqual(
+#             'http://example.com/'
+#             '?blah=http://example.com/?fail=true',
+#             URLInfo.parse(
+#                 'http://example.com/'
+#                 '?blah=http%3A%2F%2Fexample.com%2F%3Ffail%3Dtrue').url
+#         )
+#         self.assertEqual(
+#             'http://example.com/'
+#             '?blah=http://example.com/?fail=true',
+#             URLInfo.parse(
+#                 'http://example.com/'
+#                 '?blah=http://example.com/?fail%3Dtrue').url
+#         )
+#
+#         self.assertEqual(
+#             'http://example.com/??blah=blah[0:]=blah?blah%22&d%26_',
+#             URLInfo.parse(
+#                 'http://example.com/??blah=blah[0:]=bl%61h?blah"&d%26_').url
+#         )
 
         self.assertEqual(
             'http://example.com/',
@@ -240,10 +233,11 @@ class TestURL(unittest.TestCase):
             URLInfo.parse(
                 'http://example.com/@49IMG.DLL/$SESSION$/imagé.png;large').url
         )
-        self.assertEqual(
-            'http://example.com/$c/%25system.exe/',
-            URLInfo.parse('http://example.com/$c/%system.exe/').url
-        )
+# Old test to check if url is falsely percent-encoded
+#         self.assertEqual(
+#             'http://example.com/$c/%25system.exe/',
+#             URLInfo.parse('http://example.com/$c/%system.exe/').url
+#         )
 
         self.assertEqual(
             'http://example.com/?a',
@@ -290,6 +284,7 @@ class TestURL(unittest.TestCase):
         ]
 
         for url in urls:
+            print(url)
             URLInfo.parse(URLInfo.parse(url).url)
 
     @unittest.skip('TODO: implement these')
@@ -393,27 +388,27 @@ class TestURL(unittest.TestCase):
 
     def test_split_query(self):
         self.assertEqual([],
-                         split_query('&'))
+                         list(split_query('&')))
         self.assertEqual([('a', 'ð')],
-                         split_query('a=ð'))
+                         list(split_query('a=ð')))
         self.assertEqual([('a', 'ð')],
-                         split_query('a=ð&b'))
+                         list(split_query('a=ð&b')))
         self.assertEqual([('a', 'ð')],
-                         split_query('a=ð&b='))
+                         list(split_query('a=ð&b=')))
         self.assertEqual([('a', 'ð'), ('b', '')],
-                         split_query('a=ð&b=', keep_blank_values=True))
+                         list(split_query('a=ð&b=', keep_blank_values=True)))
         self.assertEqual([('a', 'ð'), ('b', '%2F')],
-                         split_query('a=ð&b=%2F'))
+                         list(split_query('a=ð&b=%2F')))
 
     def test_url_quote(self):
-        self.assertEqual('a ', unquote('a%20'))
-        self.assertEqual('að', unquote('a%C3%B0'))
-        self.assertEqual('a ', unquote_plus('a+'))
-        self.assertEqual('að', unquote_plus('a%C3%B0'))
-        self.assertEqual('a%20', quote('a '))
-        self.assertEqual('a%C3%B0', quote('að'))
-        self.assertEqual('a+', quote_plus('a '))
-        self.assertEqual('a%C3%B0', quote_plus('að'))
+        self.assertEqual('a ', percent_decode('a%20'))
+        self.assertEqual('að', percent_decode('a%C3%B0'))
+        self.assertEqual('a ', percent_decode_plus('a+'))
+        self.assertEqual('að', percent_decode_plus('a%C3%B0'))
+        self.assertEqual('a%20', percent_encode('a '))
+        self.assertEqual('a%C3%B0', percent_encode('að'))
+        self.assertEqual('a+', percent_encode_plus('a '))
+        self.assertEqual('a%C3%B0', percent_encode_plus('að'))
 
     def test_uppercase_percent_encoding(self):
         self.assertEqual(
