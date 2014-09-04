@@ -397,14 +397,14 @@ def uppercase_percent_encoding(text):
 
 def normalize_hostname(hostname):
     '''Normalizes a hostname so that it is ASCII and valid domain name.'''
-    result = idna.nameprep(hostname).encode('idna').decode('ascii')
+    result = hostname.encode('idna')
 
     try:
-        idna.ToUnicode(result)
+        result.decode('idna')
     except (ValueError, TypeError, IndexError) as error:
         raise ValueError('Non-roundtrip IDNA.') from error
     else:
-        return result
+        return result.decode('ascii')
 
 
 _is_valid_ip = tornado.netutil.is_valid_ip
@@ -446,19 +446,22 @@ def normalize_query(text, encoding='utf-8'):
     Percent-encodes unacceptable characters and ensures percent-encoding is
     uppercase.
     '''
-    items = []
-
-    for key, value in split_query(text, True):
-        key = percent_encode_plus(key, encode_set=QUERY_KEY_ENCODE_SET,
-                                  encoding=encoding)
-        if value is not None:
-            value = percent_encode_plus(value, encode_set=QUERY_VALUE_ENCODE_SET,
-                                        encoding=encoding)
-            items.append('{}={}'.format(key, value))
-        else:
-            items.append(key)
-
-    return uppercase_percent_encoding('&'.join(items))
+#     items = []
+#
+#     for key, value in split_query(text, True):
+#         key = percent_encode_plus(key, encode_set=QUERY_KEY_ENCODE_SET,
+#                                   encoding=encoding)
+#         if value is not None:
+#             value = percent_encode_plus(value, encode_set=QUERY_VALUE_ENCODE_SET,
+#                                         encoding=encoding)
+#             items.append('{}={}'.format(key, value))
+#         else:
+#             items.append(key)
+#
+#     return uppercase_percent_encoding('&'.join(items))
+#     return  uppercase_percent_encoding(percent_encode_plus(text, encode_set=QUERY_VALUE_ENCODE_SET,
+#                                         encoding=encoding))
+    return text
 
 
 def query_to_map(text):

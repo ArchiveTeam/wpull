@@ -281,6 +281,7 @@ class TestURL(unittest.TestCase):
             '?blah=http%3A%2F%2Fexample.com%2F%3Ffail%3Dtrue',
             'http://example.com/??blah=blah[0:]=bl%61h?blah"&d%26_',
             'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6',
+            'http://asðf.com/',
         ]
 
         for url in urls:
@@ -324,7 +325,7 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('https://[::ffff:c000:0280]').url
         )
 
-    @unittest.skip('experiment only')
+#     @unittest.skip('experiment only')
     def test_url_info_timing(self):
         t1 = timeit.timeit(
             '''URLInfo.parse(
@@ -335,18 +336,19 @@ class TestURL(unittest.TestCase):
             number=2000,
             setup='import random; from wpull.url import URLInfo',
         )
-        t2 = timeit.timeit(
-            '''URLInfo.parse(
-            "http://asdjfklðkjir.com:585?" +
-            "$fasjdfklfd=45asdfasdf345hd.s&g4=4d&&" +
-            str(random.randint(0,1000))
-            , use_cache=False
-            )''',
-            number=2000,
-            setup='import random; from wpull.url import URLInfo',
-        )
-        print(t1, t2)
-        self.assertLess(t1, t2)
+#         t2 = timeit.timeit(
+#             '''URLInfo.parse(
+#             "http://asdjfklðkjir.com:585?" +
+#             "$fasjdfklfd=45asdfasdf345hd.s&g4=4d&&" +
+#             str(random.randint(0,1000))
+#             , use_cache=False
+#             )''',
+#             number=2000,
+#             setup='import random; from wpull.url import URLInfo',
+#         )
+#         print(t1, t2)
+#         self.assertLess(t1, t2)
+        print(t1)
 
     def test_url_info_to_dict(self):
         url_info = URLInfo.parse('https://example.com/file.jpg')
