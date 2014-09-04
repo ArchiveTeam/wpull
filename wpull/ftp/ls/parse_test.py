@@ -1,5 +1,5 @@
 import unittest
-from wpull.ftp.ls.parse import parse
+from wpull.ftp.ls.parse import ListingParser
 
 
 UNIX_LS = '''-rw-r--r--   1 root     other        531 Jan 29 03:26 README
@@ -17,8 +17,12 @@ MSDOS_LS = '''04-27-00  09:09PM       <DIR>          licensed
 class TestParse(unittest.TestCase):
     def test_parse_unix(self):
         # TODO: check values
-        print(parse(UNIX_LS))
+        parser = ListingParser(UNIX_LS)
+        parser.run_heuristics()
+        print(parser.parse())
 
     def test_parse_msdos(self):
         # TODO: check values
-        print(parse(MSDOS_LS))
+        parser = ListingParser(MSDOS_LS)
+        parser.run_heuristics()
+        print(parser.parse())

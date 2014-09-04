@@ -1,5 +1,7 @@
 import unittest
-from wpull.ftp.ls.heuristic import guess_listing_type
+
+from wpull.ftp.ls.listing import guess_listing_type
+
 
 UNIX_LS = '''-rw-r--r--   1 root     other        531 Jan 29 03:26 README
 dr-xr-xr-x   2 root     other        512 Apr  8  1994 etc
@@ -30,7 +32,7 @@ MVS_LS = '''  WYOSPT 3420   2003/05/21  1  200  FB      80  8053  PS  48-MVS.FIL
 
 class TestHeuristic(unittest.TestCase):
     def test_guess_listing_type(self):
-        self.assertEqual('unix', guess_listing_type(UNIX_LS))
-        self.assertEqual('msdos', guess_listing_type(MSDOS_LS))
-        self.assertEqual('nlst', guess_listing_type(NLST_LS))
-        self.assertEqual('unknown', guess_listing_type(MVS_LS))
+        self.assertEqual('unix', guess_listing_type(UNIX_LS.splitlines()))
+        self.assertEqual('msdos', guess_listing_type(MSDOS_LS.splitlines()))
+        self.assertEqual('nlst', guess_listing_type(NLST_LS.splitlines()))
+        self.assertEqual('unknown', guess_listing_type(MVS_LS.splitlines()))
