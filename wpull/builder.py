@@ -145,8 +145,6 @@ class Builder(object):
         self._setup_console_logger()
         self._setup_file_logger()
         self._setup_debug_console()
-        self._warn_unsafe_options()
-        self._warn_silly_options()
 
         statistics = self._factory.new('Statistics')
         statistics.quota = self._args.quota
@@ -167,6 +165,8 @@ class Builder(object):
         self._setup_console_logger_close(self.factory['Application'])
 
         self._install_script_hooks()
+        self._warn_unsafe_options()
+        self._warn_silly_options()
 
         return self._factory['Application']
 
