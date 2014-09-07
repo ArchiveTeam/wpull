@@ -30,6 +30,13 @@ wpull Package
     api/decompression
     api/dns
     api/document
+    api/document.base
+    api/document.css
+    api/document.html
+    api/document.javascript
+    api/document.sitemap
+    api/document.util
+    api/document.xml
     api/engine
     api/errors
     api/factory
@@ -56,6 +63,11 @@ wpull Package
     api/recorder
     api/robotstxt
     api/scraper
+    api/scraper.base
+    api/scraper.css
+    api/scraper.html
+    api/scraper.sitemap
+    api/scraper.util
     api/stats
     api/string
     api/url

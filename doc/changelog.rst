@@ -2,6 +2,11 @@
 What's New
 ==========
 
+* API:
+
+    ``document`` and ``scraper`` were put into their own packages.
+
+
 0.1000 (2014-09-02)
 ===================
 
