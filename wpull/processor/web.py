@@ -7,13 +7,13 @@ import logging
 import os.path
 import tempfile
 
+from trollius.coroutines import Return, From
 import namedlist
 import trollius
-from trollius.coroutines import Return, From
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
-from wpull.document import HTMLReader
+from wpull.document.html import HTMLReader
 from wpull.errors import NetworkError, ProtocolError, ServerError, \
     ConnectionRefused, DNSNotFound
 from wpull.hook import HookableMixin, HookDisconnected
@@ -23,13 +23,15 @@ from wpull.item import Status, LinkType
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSRPCTimedOut
 from wpull.processor.base import BaseProcessor
-from wpull.scraper import DemuxDocumentScraper, CSSScraper, HTMLScraper
+from wpull.scraper.base import DemuxDocumentScraper
+from wpull.scraper.css import CSSScraper
+from wpull.scraper.html import HTMLScraper
 from wpull.stats import Statistics
-import wpull.string
 from wpull.url import URLInfo
 from wpull.urlfilter import DemuxURLFilter
 from wpull.waiter import LinearWaiter
 from wpull.writer import NullWriter
+import wpull.string
 
 
 _logger = logging.getLogger(__name__)

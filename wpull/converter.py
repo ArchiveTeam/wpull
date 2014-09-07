@@ -12,9 +12,11 @@ import lxml.html
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.database import Status
-from wpull.scraper import HTMLScraper, CSSScraper
-import wpull.string
+from wpull.scraper.css import CSSScraper
+from wpull.scraper.html import HTMLScraper
 from wpull.url import URLInfo
+import wpull.document.html
+import wpull.string
 
 
 _ = gettext.gettext
@@ -132,7 +134,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
                 self._encoding = encoding
 
                 for element in elements:
-                    if element.tag == wpull.document.COMMENT:
+                    if element.tag == wpull.document.html.COMMENT:
                         out_file.write(
                             '<!--{0}-->'.format(element.text)
                         )

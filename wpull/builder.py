@@ -1,10 +1,10 @@
 # encoding=utf-8
 '''Application support.'''
+from http.cookiejar import CookieJar
 import atexit
 import codecs
 import functools
 import gettext
-from http.cookiejar import CookieJar
 import itertools
 import logging
 import os.path
@@ -28,10 +28,10 @@ from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
 from wpull.http.client import Client as HTTPClient
-from wpull.http.stream import Stream as HTTPStream
 from wpull.http.redirect import RedirectTracker
 from wpull.http.request import Request
 from wpull.http.robots import RobotsTxtChecker
+from wpull.http.stream import Stream as HTTPStream
 from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSClient
@@ -43,8 +43,11 @@ from wpull.recorder import (WARCRecorder, DemuxRecorder,
                             PrintServerResponseRecorder, ProgressRecorder,
                             OutputDocumentRecorder, WARCRecorderParams)
 from wpull.robotstxt import RobotsTxtPool
-from wpull.scraper import (HTMLScraper, CSSScraper, DemuxDocumentScraper,
-                           SitemapScraper, JavaScriptScraper)
+from wpull.scraper.base import DemuxDocumentScraper
+from wpull.scraper.css import CSSScraper
+from wpull.scraper.html import HTMLScraper
+from wpull.scraper.javascript import JavaScriptScraper
+from wpull.scraper.sitemap import SitemapScraper
 from wpull.stats import Statistics
 from wpull.url import URLInfo
 from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, HTTPFilter,
@@ -53,12 +56,12 @@ from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, HTTPFilter,
                              SpanHostsFilter, RegexFilter, DirectoryFilter,
                              BackwardFilenameFilter, ParentFilter)
 from wpull.util import ASCIIStreamWriter
-import wpull.version
 from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
                           IgnoreFileWriter, TimestampingFileWriter,
                           AntiClobberFileWriter)
+import wpull.version
 
 
 # Module lua is imported later on demand.
