@@ -48,6 +48,7 @@ wpull Package
     api/http.request
     api/http.robots
     api/http.stream
+    api/http.proxy
     api/http.util
     api/http.web
     api/item

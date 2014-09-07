@@ -28,6 +28,7 @@ from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
 from wpull.http.client import Client as HTTPClient
+from wpull.http.proxy import ProxyAdapter
 from wpull.http.redirect import RedirectTracker
 from wpull.http.request import Request
 from wpull.http.robots import RobotsTxtChecker
@@ -861,10 +862,39 @@ class Builder(object):
             ignore_length=self._args.ignore_length,
             keep_alive=self._args.http_keep_alive)
 
+        proxy_adapter = self._build_proxy_adapter()
+
         return self._factory.new('HTTPClient',
                                  connection_pool=self._build_connection_pool(),
                                  recorder=recorder,
-                                 stream_factory=stream_factory)
+                                 stream_factory=stream_factory,
+                                 proxy_adapter=proxy_adapter)
+
+    def _build_proxy_adapter(self):
+        if self._args.no_proxy:
+            return
+
+        if self._args.https_proxy:
+            http_proxy = self._args.http_proxy.split(':', 1)
+            ssl_ = True
+        elif self._args.http_proxy:
+            http_proxy = self._args.http_proxy.split(':', 1)
+            ssl_ = False
+        else:
+            return
+
+        http_proxy[1] = int(http_proxy[1])
+
+        use_connect = not self._args.no_secure_proxy_tunnel
+
+        if self._args.proxy_user:
+            authentication = (self._args.proxy_user, self._args.proxy_password)
+        else:
+            authentication = None
+
+        return self._factory.new(
+            'ProxyAdapter', http_proxy, ssl=ssl_, use_connect=use_connect,
+            authentication=authentication)
 
     def _build_web_client(self):
         '''Build Web Client.'''
@@ -1100,6 +1130,17 @@ class Builder(object):
                 _('Spanning hosts is allowed for linked pages, '
                   'but the recursive option is not on.')
             )
+
+        if self._args.warc_file and \
+                (self._args.http_proxy or self._args.https_proxy):
+            _logger.warning(_('WARC specifications do not handle proxies.'))
+
+        if self._args.no_secure_proxy_tunnel:
+            _logger.warning(_('HTTPS without encryption is enabled.'))
+
+        if self._args.proxy_password and self._args.warc_file:
+            _logger.warning(
+                _('Your proxy password is recorded in the WARC file.'))
 
     def _warn_unsafe_options(self):
         '''Print warnings about any enabled hazardous options.
