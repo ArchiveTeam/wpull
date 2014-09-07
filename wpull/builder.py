@@ -226,6 +226,9 @@ class Builder(object):
                 .format(min_level)
             )
 
+        if current_level <= logging.INFO:
+            logging.captureWarnings(True)
+
     def _setup_console_logger(self):
         '''Set up the console logger.
 
