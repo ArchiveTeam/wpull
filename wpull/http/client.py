@@ -56,8 +56,10 @@ class Client(object):
                                   self._proxy_adapter)
                 try:
                     yield session
-                except Exception:
-                    session.close()
+                except Exception as error:
+                    if not isinstance(error, StopIteration):
+                        _logger.debug('Close session.')
+                        session.close()
                     raise
                 finally:
                     session.clean()
@@ -68,8 +70,10 @@ class Client(object):
                               self._proxy_adapter)
             try:
                 yield session
-            except Exception:
-                session.close()
+            except Exception as error:
+                if not isinstance(error, StopIteration):
+                    _logger.debug('Close session.')
+                    session.close()
                 raise
             finally:
                 session.clean()

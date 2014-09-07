@@ -100,8 +100,9 @@ class Application(HookableMixin):
         try:
             yield From(self._builder.factory['Engine']())
         except Exception as error:
-            _logger.exception('Fatal exception.')
-            self._update_exit_code_from_error(error)
+            if not isinstance(error, StopIteration):
+                _logger.exception('Fatal exception.')
+                self._update_exit_code_from_error(error)
 
         self._compute_exit_code_from_stats()
 
