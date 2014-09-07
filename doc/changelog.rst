@@ -2,7 +2,7 @@
 What's New
 ==========
 
-* Support for HTTP/HTTPS proxies but no HTTPS tunnelling support. Wpull will refuse to start without the insecure override option. Proxy authentication not yet supported.
+* Support for HTTP/HTTPS proxies but no HTTPS tunnelling support. Wpull will refuse to start without the insecure override option. Note that if authentication and WARC file is enabled, the username and password is recorded into the WARC file.
 
 
 0.1000 (2014-09-02)

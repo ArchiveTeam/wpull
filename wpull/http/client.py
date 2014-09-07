@@ -115,6 +115,9 @@ class Session(object):
 
         connection = yield From(self._check_out_connection(request))
 
+        if self._proxy_adapter:
+            self._proxy_adapter.add_auth_header(request)
+
         self._stream = stream = self._stream_factory(connection)
         request.address = connection.address
 

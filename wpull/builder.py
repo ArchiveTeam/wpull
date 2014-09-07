@@ -1,10 +1,10 @@
 # encoding=utf-8
 '''Application support.'''
+from http.cookiejar import CookieJar
 import atexit
 import codecs
 import functools
 import gettext
-from http.cookiejar import CookieJar
 import itertools
 import logging
 import os.path
@@ -28,10 +28,11 @@ from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
 from wpull.http.client import Client as HTTPClient
-from wpull.http.stream import Stream as HTTPStream
+from wpull.http.proxy import ProxyAdapter
 from wpull.http.redirect import RedirectTracker
 from wpull.http.request import Request
 from wpull.http.robots import RobotsTxtChecker
+from wpull.http.stream import Stream as HTTPStream
 from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSClient
@@ -53,13 +54,12 @@ from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, HTTPFilter,
                              SpanHostsFilter, RegexFilter, DirectoryFilter,
                              BackwardFilenameFilter, ParentFilter)
 from wpull.util import ASCIIStreamWriter
-import wpull.version
 from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
                           IgnoreFileWriter, TimestampingFileWriter,
                           AntiClobberFileWriter)
-from wpull.http.proxy import ProxyAdapter
+import wpull.version
 
 
 # Module lua is imported later on demand.
@@ -885,7 +885,14 @@ class Builder(object):
 
         use_connect = not self._args.no_secure_proxy_tunnel
 
-        return self._factory.new('ProxyAdapter', http_proxy, ssl_, use_connect)
+        if self._args.proxy_user:
+            authentication = (self._args.proxy_user, self._args.proxy_password)
+        else:
+            authentication = None
+
+        return self._factory.new(
+            'ProxyAdapter', http_proxy, ssl=ssl_, use_connect=use_connect,
+            authentication=authentication)
 
     def _build_web_client(self):
         '''Build Web Client.'''
@@ -1128,6 +1135,10 @@ class Builder(object):
 
         if self._args.no_secure_proxy_tunnel:
             _logger.warning(_('HTTPS without encryption is enabled.'))
+
+        if self._args.proxy_password and self._args.warc_file:
+            _logger.warning(
+                _('Your proxy password is recorded in the WARC file.'))
 
     def _warn_unsafe_options(self):
         '''Print warnings about any enabled hazardous options.

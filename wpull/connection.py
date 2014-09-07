@@ -321,7 +321,7 @@ class Connection(object):
         self.writer = None
         self._close_timer = None
         self._state = ConnectionState.ready
-        self.tunneled = False
+        self._tunneled = False
 
         # TODO: implement bandwidth limiting
         self.bandwidth_limiter = None
@@ -345,6 +345,17 @@ class Connection(object):
     @property
     def ssl(self):
         return False
+
+    @property
+    def tunneled(self):
+        if self.closed():
+            self._tunneled = False
+
+        return self._tunneled
+
+    @tunneled.setter
+    def tunneled(self, value):
+        self._tunneled = value
 
     def closed(self):
         '''Return whether the connection is closed.'''

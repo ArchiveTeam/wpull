@@ -341,14 +341,16 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=os.environ.get('https_proxy'),
             help=_('HTTP proxy for HTTPS requests')
         )
-#         self.add_argument(
-#             '--proxy-user',
-#             metavar='USER'
-#         )
-#         self.add_argument(
-#             '--proxy-password',
-#             metavar='PASS'
-#         )
+        group.add_argument(
+            '--proxy-user',
+            metavar='USER',
+            help=_('username for proxy "basic" authentication')
+        )
+        group.add_argument(
+            '--proxy-password',
+            metavar='PASS',
+            help=_('password for proxy "basic" authentication')
+        )
         group.add_argument(
             '--no-proxy',
             action='store_true',
@@ -1198,6 +1200,10 @@ class AppArgumentParser(argparse.ArgumentParser):
                 (args.no_secure_proxy_tunnel):
             self.error(_('secure connections with proxy not supported. '
                          'Override with --no-secure-proxy-tunnel.'))
+
+        if (args.proxy_user or args.proxy_password) and not \
+                (args.proxy_user and args.proxy_password):
+            self.error(_('both username and password must be supplied'))
 
     def _post_warc_args(self, args):
         option_names = ('clobber_method', 'timestamping', 'continue_download')
