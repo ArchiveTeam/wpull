@@ -172,6 +172,8 @@ class ConnectionPool(object):
     @trollius.coroutine
     def check_out(self, host, port, ssl=False):
         '''Return an available connection.'''
+        assert isinstance(port, int), 'Expect int. Got {}'.format(type(port))
+
         family, address = yield From(self._resolver.resolve(host, port))
         key = (host, port, ssl)
 
