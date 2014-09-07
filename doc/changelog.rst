@@ -2,6 +2,9 @@
 What's New
 ==========
 
+* Support for HTTP/HTTPS proxies but no HTTPS tunnelling support. Wpull will refuse to start without the insecure override option. Proxy authentication not yet supported.
+
+
 0.1000 (2014-09-02)
 ===================
 

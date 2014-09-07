@@ -336,11 +336,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=os.environ.get('http_proxy'),
             help=_('HTTP proxy for HTTP requests')
         )
-#         group.add_argument(
-#             '--https-proxy',
-#             default=os.environ.get('https_proxy'),
-#             help=_('HTTP proxy for HTTPS requests')
-#         )
+        group.add_argument(
+            '--https-proxy',
+            default=os.environ.get('https_proxy'),
+            help=_('HTTP proxy for HTTPS requests')
+        )
 #         self.add_argument(
 #             '--proxy-user',
 #             metavar='USER'
@@ -353,6 +353,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--no-proxy',
             action='store_true',
             help=_('disable proxy support'),
+        )
+        group.add_argument(
+            '--no-secure-proxy-tunnel',
+            action='store_true',
+            help=_('disable use of encryption when using proxy')
         )
 
     def _add_download_args(self):
@@ -1189,9 +1194,10 @@ class AppArgumentParser(argparse.ArgumentParser):
         if not args.verbosity:
             args.verbosity = logging.INFO
 
-#         if (args.http_proxy or args.https_proxy) and not \
-#                 (args.http_proxy and args.https_proxy):
-#             self.error(_('both HTTP and HTTPS proxy must be set'))
+        if (args.http_proxy or args.https_proxy) and not \
+                (args.no_secure_proxy_tunnel):
+            self.error(_('secure connections with proxy not supported. '
+                         'Override with --no-secure-proxy-tunnel.'))
 
     def _post_warc_args(self, args):
         option_names = ('clobber_method', 'timestamping', 'continue_download')

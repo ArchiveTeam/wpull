@@ -8,26 +8,31 @@ from wpull.http.stream import Stream
 
 class ProxyAdapter(object):
     '''Proxy adapter.'''
-    def __init__(self, http_proxy, https_proxy):
+    def __init__(self, http_proxy, ssl=False, use_connect=True):
         self._http_proxy = http_proxy
-        self._https_proxy = https_proxy
+        self._ssl = ssl
+        self._use_connect = use_connect
 
     @trollius.coroutine
-    def check_out(self, connection_pool, host, port, ssl):
-        '''Check out a connection from the pool and establish the tunnel.'''
+    def check_out(self, connection_pool):
+        '''Check out a connection from the pool'''
 
-        if ssl:
-            proxy_host, proxy_port = self._https_proxy
-        else:
-            proxy_host, proxy_port = self._http_proxy
+        proxy_host, proxy_port = self._http_proxy
 
         connection = yield From(connection_pool.check_out(
-            proxy_host, proxy_port))
+            proxy_host, proxy_port, self._ssl))
 
-        if connection.tunneled or not ssl:
-            raise Return(connection)
+        raise Return(connection)
+
+    @trollius.coroutine
+    def connect(self, connection_pool, connection, address, ssl=False):
+        '''Connect and establish a tunnel if needed.'''
+        if connection.tunneled or not ssl or not self._use_connect:
+            return
 
         stream = Stream(connection, keep_alive=True)
+        host, port = address
+
         request = RawRequest('CONNECT', '{0}:{1}'.format(host, port))
 
         yield From(stream.write_request(request))

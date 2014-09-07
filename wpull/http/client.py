@@ -113,28 +113,7 @@ class Session(object):
         '''
         _logger.debug(__('Client fetch request {0}.', request))
 
-        self._request = request
-
-        request.prepare_for_send()
-
-        host = request.url_info.hostname
-        port = request.url_info.port
-        ssl = request.url_info.scheme == 'https'
-        scheme = request.url_info.scheme
-        full_url = False
-
-        if self._proxy_adapter:
-            connection = yield From(
-                self._proxy_adapter.check_out(
-                    self._connection_pool, host, port, ssl))
-
-            if scheme == 'http':
-                full_url = True
-        else:
-            connection = yield From(
-                self._connection_pool.check_out(host, port, ssl))
-
-        self._connection = connection
+        connection = yield From(self._check_out_connection(request))
 
         self._stream = stream = self._stream_factory(connection)
         request.address = connection.address
@@ -143,6 +122,8 @@ class Session(object):
 
         if self._recorder_session:
             self._recorder_session.pre_request(request)
+
+        full_url = bool(self._proxy_adapter)
 
         yield From(stream.write_request(request, full_url=full_url))
 
@@ -163,6 +144,27 @@ class Session(object):
         self._session_complete = False
 
         raise Return(response)
+
+    @trollius.coroutine
+    def _check_out_connection(self, request):
+        self._request = request
+        host = request.url_info.hostname
+        port = request.url_info.port
+        ssl = request.url_info.scheme == 'https'
+
+        if self._proxy_adapter:
+            connection = yield From(
+                self._proxy_adapter.check_out(self._connection_pool))
+
+            yield From(self._proxy_adapter.connect(
+                self._connection_pool, connection, (host, port), ssl))
+        else:
+            connection = yield From(
+                self._connection_pool.check_out(host, port, ssl))
+
+        self._connection = connection
+
+        raise Return(connection)
 
     @trollius.coroutine
     def read_content(self, file=None, raw=False, rewind=True):

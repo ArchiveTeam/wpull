@@ -869,15 +869,23 @@ class Builder(object):
                                  proxy_adapter=proxy_adapter)
 
     def _build_proxy_adapter(self):
-        if self._args.no_proxy or not self._args.http_proxy:
+        if self._args.no_proxy:
             return
 
-        http_proxy = self._args.http_proxy.split(':', 1)
-        http_proxy[1] = int(http_proxy[1])
-#         https_proxy = self._args.https_proxy.split(':', 1)
-        https_proxy = None
+        if self._args.https_proxy:
+            http_proxy = self._args.http_proxy.split(':', 1)
+            ssl_ = True
+        elif self._args.http_proxy:
+            http_proxy = self._args.http_proxy.split(':', 1)
+            ssl_ = False
+        else:
+            return
 
-        return self._factory.new('ProxyAdapter', http_proxy, https_proxy)
+        http_proxy[1] = int(http_proxy[1])
+
+        use_connect = not self._args.no_secure_proxy_tunnel
+
+        return self._factory.new('ProxyAdapter', http_proxy, ssl_, use_connect)
 
     def _build_web_client(self):
         '''Build Web Client.'''
@@ -1114,10 +1122,12 @@ class Builder(object):
                   'but the recursive option is not on.')
             )
 
-#         if self._args.warc_file and \
-#                 (self._args.http_proxy or self._args.https_proxy):
-        if self._args.warc_file and self._args.http_proxy:
-            _logger.warning('WARC specifications do not handle proxies.')
+        if self._args.warc_file and \
+                (self._args.http_proxy or self._args.https_proxy):
+            _logger.warning(_('WARC specifications do not handle proxies.'))
+
+        if self._args.no_secure_proxy_tunnel:
+            _logger.warning(_('HTTPS without encryption is enabled.'))
 
     def _warn_unsafe_options(self):
         '''Print warnings about any enabled hazardous options.

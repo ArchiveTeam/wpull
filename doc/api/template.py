@@ -28,6 +28,7 @@ MODULES = [
     'http.request',
     'http.robots',
     'http.stream',
+    'http.proxy',
     'http.util',
     'http.web',
     'item',

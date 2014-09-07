@@ -7,9 +7,11 @@ Brief Option Overview
                      [--database FILE] [--concurrent N]
                      [--debug-console-port PORT] [-o FILE | -a FILE]
                      [-d | -q | -v | -nv] [--ascii-print] [-i FILE] [-F]
-                     [-B URL] [-t NUMBER] [--retry-connrefused]
-                     [--retry-dns-error] [-O FILE] [-nc] [-c]
-                     [--progress TYPE={bar,dot}] [-N]
+                     [-B URL] [--http-proxy HTTP_PROXY]
+                     [--https-proxy HTTPS_PROXY] [--no-proxy]
+                     [--no-secure-proxy-tunnel] [-t NUMBER]
+                     [--retry-connrefused] [--retry-dns-error] [-O FILE] [-nc]
+                     [-c] [--progress TYPE={bar,dot}] [-N]
                      [--no-use-server-timestamps] [-S] [-T SECONDS]
                      [--dns-timeout SECS] [--connect-timeout SECS]
                      [--read-timeout SECS] [-w SECONDS] [--waitretry SECONDS]
@@ -83,6 +85,15 @@ Brief Option Overview
                           download URLs listed in FILE
     -F, --force-html      read URL input files as HTML files
     -B URL, --base URL    resolves input relative URLs to URL
+
+  proxy:
+    --http-proxy HTTP_PROXY
+                          HTTP proxy for HTTP requests
+    --https-proxy HTTPS_PROXY
+                          HTTP proxy for HTTPS requests
+    --no-proxy            disable proxy support
+    --no-secure-proxy-tunnel
+                          disable use of encryption when using proxy
 
   download:
     -t NUMBER, --tries NUMBER
