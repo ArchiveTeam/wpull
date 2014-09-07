@@ -1,6 +1,7 @@
 # encoding=utf-8
 '''Item queue management and processing.'''
 import abc
+import contextlib
 import gettext
 import logging
 import os
@@ -218,12 +219,13 @@ class Engine(BaseEngine, HookableMixin):
     '''
 
     def __init__(self, url_table, processor, statistics,
-                 concurrent=1):
+                 concurrent=1, ignore_exceptions=False):
         super().__init__()
 
         self._url_table = url_table
         self._processor = processor
         self._statistics = statistics
+        self._ignore_exceptions = ignore_exceptions
         self._num_worker_busy = 0
 
         self._set_concurrent(concurrent)
@@ -265,7 +267,8 @@ class Engine(BaseEngine, HookableMixin):
 
     @trollius.coroutine
     def _get_item(self):
-        return self._get_next_url_record()
+        with self._maybe_ignore_exceptions():
+            return self._get_next_url_record()
 
     def _get_next_url_record(self):
         '''Return the next available URL from the URL table.
@@ -300,11 +303,27 @@ class Engine(BaseEngine, HookableMixin):
     @trollius.coroutine
     def _process_item(self, url_record):
         '''Process given item.'''
+
+        with self._maybe_ignore_exceptions():
+            yield From(self._process_url_item(url_record))
+
+    @trollius.coroutine
+    def _process_url_item(self, url_record):
+        '''Process an item.
+
+        Args:
+            url_item (:class:`.item.URLItem`): The item to process.
+
+        This function calls :meth:`.processor.BaseProcessor.process`.
+        '''
         assert url_record
 
         url_encoding = url_record.url_encoding or 'utf8'
         url_info = URLInfo.parse(url_record.url, encoding=url_encoding)
         url_item = URLItem(self._url_table, url_info, url_record)
+
+        _logger.debug(__('Begin session for {0} {1}.',
+                         url_record, url_item.url_info))
 
         # The URL supplied to the program is not considered part of the queue.
         if url_record.level > 0:
@@ -313,7 +332,7 @@ class Engine(BaseEngine, HookableMixin):
             except HookDisconnected:
                 pass
 
-        yield From(self._process_url_item(url_item))
+        yield From(self._processor.process(url_item))
 
         assert url_item.is_processed
 
@@ -323,20 +342,6 @@ class Engine(BaseEngine, HookableMixin):
             _logger.debug('Stopping due to quota.')
             self.stop()
 
-    @trollius.coroutine
-    def _process_url_item(self, url_item):
-        '''Process an item.
-
-        Args:
-            url_item (:class:`.item.URLItem`): The item to process.
-
-        This function calls :meth:`.processor.BaseProcessor.process`.
-        '''
-        _logger.debug(__('Begin session for {0} {1}.',
-                         url_item.url_record, url_item.url_info))
-
-        yield From(self._processor.process(url_item))
-
         _logger.debug(__('End session for {0} {1}.',
                          url_item.url_record, url_item.url_info))
 
@@ -344,3 +349,16 @@ class Engine(BaseEngine, HookableMixin):
         '''Stop the engine.'''
         _logger.debug(__('Stopping'))
         self._stop()
+
+    @contextlib.contextmanager
+    def _maybe_ignore_exceptions(self):
+        if self._ignore_exceptions:
+            try:
+                yield
+            except Exception as error:
+                if not isinstance(error, StopIteration):
+                    _logger.exception('Ignored exception. Program unstable!')
+                else:
+                    raise
+        else:
+            yield

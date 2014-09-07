@@ -76,7 +76,8 @@ class Builder(object):
     Args:
         args: Options from :class:`argparse.ArgumentParser`
     '''
-    UNSAFE_OPTIONS = frozenset(['save_headers', 'no_iri', 'output_document'])
+    UNSAFE_OPTIONS = frozenset(['save_headers', 'no_iri', 'output_document',
+                                'ignore_fatal_errors'])
 
     def __init__(self, args):
         self.default_user_agent = 'Wpull/{0} (gzip)'.format(
@@ -160,6 +161,7 @@ class Builder(object):
             processor,
             statistics,
             concurrent=self._args.concurrent,
+            ignore_exceptions=self._args.ignore_fatal_errors
         )
 
         self._setup_file_logger_close(self.factory['Application'])
@@ -1153,6 +1155,7 @@ class Builder(object):
         * ``--save-headers``
         * ``--no-iri``
         * ``--output-document``
+        * ``--ignore-errors`
         '''
         enabled_options = []
 

@@ -244,6 +244,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=int,
             help=_('run a web debug console at given port number')
         )
+        group.add_argument(
+            '--ignore-fatal-errors',
+            action='store_true',
+            help=_('ignore all internal fatal exception errors')
+        )
 
     def _add_log_and_input_args(self):
         group = self.add_argument_group(_('logging and input'))
