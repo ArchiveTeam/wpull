@@ -20,3 +20,6 @@ class TestFactory(unittest.TestCase):
         self.assertEqual(1, len(factory))
         self.assertEqual(['dict'], list(iter(factory)))
         self.assertEqual(my_instance, factory.instance_map['dict'])
+
+        with self.assertRaises(ValueError):
+            factory.new('dict', [('hi', 'hello')])
