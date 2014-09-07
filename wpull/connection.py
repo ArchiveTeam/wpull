@@ -303,6 +303,8 @@ class Connection(object):
         host (str): Host name.
         port (int): Port number.
         ssl (bool): Whether connection is SSL.
+        tunneled (bool): Whether the connection has been tunneled with the
+            ``CONNECT`` request.
     '''
     def __init__(self, address, hostname=None, timeout=None,
                  connect_timeout=None, bind_host=None):
@@ -319,6 +321,7 @@ class Connection(object):
         self.writer = None
         self._close_timer = None
         self._state = ConnectionState.ready
+        self.tunneled = False
 
         # TODO: implement bandwidth limiting
         self.bandwidth_limiter = None

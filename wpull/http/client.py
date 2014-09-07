@@ -25,9 +25,10 @@ class Client(object):
         recorder (:class:`.recorder.BaseRecorder`): Recorder.
         stream_factory: A function that returns a new
             :class:`.http.stream.Stream`.
+        proxy_adapter (:class:`.http.proxy.ProxyAdapter): Optional proxy.
     '''
     def __init__(self, connection_pool=None, recorder=None,
-                 stream_factory=Stream):
+                 stream_factory=Stream, proxy_adapter=None):
         if connection_pool is not None:
             self._connection_pool = connection_pool
         else:
@@ -35,6 +36,7 @@ class Client(object):
 
         self._recorder = recorder
         self._stream_factory = stream_factory
+        self._proxy_adapter = proxy_adapter
 
     @contextlib.contextmanager
     def session(self):
@@ -50,7 +52,8 @@ class Client(object):
             with self._recorder.session() as recorder_session:
                 session = Session(self._connection_pool,
                                   recorder_session,
-                                  self._stream_factory)
+                                  self._stream_factory,
+                                  self._proxy_adapter)
                 try:
                     yield session
                 except Exception:
@@ -61,7 +64,8 @@ class Client(object):
         else:
             session = Session(self._connection_pool,
                               None,
-                              self._stream_factory)
+                              self._stream_factory,
+                              self._proxy_adapter)
             try:
                 yield session
             except Exception:
@@ -81,10 +85,12 @@ class Client(object):
 
 class Session(object):
     '''HTTP request and response session.'''
-    def __init__(self, connection_pool, recorder_session, stream_factory):
+    def __init__(self, connection_pool, recorder_session, stream_factory,
+                 proxy_adapter):
         self._connection_pool = connection_pool
         self._recorder_session = recorder_session
         self._stream_factory = stream_factory
+        self._proxy_adapter = proxy_adapter
 
         self._connection = None
         self._stream = None
@@ -114,9 +120,22 @@ class Session(object):
         host = request.url_info.hostname
         port = request.url_info.port
         ssl = request.url_info.scheme == 'https'
+        scheme = request.url_info.scheme
+        full_url = False
 
-        self._connection = connection = yield From(self._connection_pool
-                                                   .check_out(host, port, ssl))
+        if self._proxy_adapter:
+            connection = yield From(
+                self._proxy_adapter.check_out(
+                    self._connection_pool, host, port, ssl))
+
+            if scheme == 'http':
+                full_url = True
+        else:
+            connection = yield From(
+                self._connection_pool.check_out(host, port, ssl))
+
+        self._connection = connection
+
         self._stream = stream = self._stream_factory(connection)
         request.address = connection.address
 
@@ -125,7 +144,7 @@ class Session(object):
         if self._recorder_session:
             self._recorder_session.pre_request(request)
 
-        yield From(stream.write_request(request))
+        yield From(stream.write_request(request, full_url=full_url))
 
         if request.body:
             assert 'Content-Length' in request.fields

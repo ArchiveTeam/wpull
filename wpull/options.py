@@ -182,6 +182,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         )
         self._add_startup_args()
         self._add_log_and_input_args()
+        self._add_proxy_args()
         self._add_download_args()
         self._add_directories_args()
         self._add_http_args()
@@ -328,6 +329,32 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             help=_('read configuration from FILE'),
 #         )
 
+    def _add_proxy_args(self):
+        group = self.add_argument_group(_('proxy'))
+        group.add_argument(
+            '--http-proxy',
+            default=os.environ.get('http_proxy'),
+            help=_('HTTP proxy for HTTP requests')
+        )
+#         group.add_argument(
+#             '--https-proxy',
+#             default=os.environ.get('https_proxy'),
+#             help=_('HTTP proxy for HTTPS requests')
+#         )
+#         self.add_argument(
+#             '--proxy-user',
+#             metavar='USER'
+#         )
+#         self.add_argument(
+#             '--proxy-password',
+#             metavar='PASS'
+#         )
+        group.add_argument(
+            '--no-proxy',
+            action='store_true',
+            help=_('disable proxy support'),
+        )
+
     def _add_download_args(self):
         group = self.add_argument_group('download')
         group.add_argument(
@@ -453,11 +480,6 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('randomly perturb the time between requests'),
         )
-#         self.add_argument(
-#             '--no-proxy',
-#             action='store_true',
-#             help=_('disable proxy support'),
-#         )
         group.add_argument(
             '-Q',
             '--quota',
@@ -650,14 +672,6 @@ class AppArgumentParser(argparse.ArgumentParser):
             help=_('follow only up to NUMBER document redirects'),
             default=20,
         )
-#         self.add_argument(
-#             '--proxy-user',
-#             metavar='USER'
-#         )
-#         self.add_argument(
-#             '--proxy-password',
-#             metavar='PASS'
-#         )
         group.add_argument(
             '--referer',
             metavar='URL',
@@ -1174,6 +1188,10 @@ class AppArgumentParser(argparse.ArgumentParser):
 
         if not args.verbosity:
             args.verbosity = logging.INFO
+
+#         if (args.http_proxy or args.https_proxy) and not \
+#                 (args.http_proxy and args.https_proxy):
+#             self.error(_('both HTTP and HTTPS proxy must be set'))
 
     def _post_warc_args(self, args):
         option_names = ('clobber_method', 'timestamping', 'continue_download')

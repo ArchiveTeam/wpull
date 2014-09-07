@@ -75,7 +75,7 @@ class Stream(object):
 
     @trollius.coroutine
     @close_stream_on_error
-    def write_request(self, request):
+    def write_request(self, request, full_url=False):
         '''Send the request's HTTP status line and header fields.
 
         This class will automatically connect the connection if the
@@ -85,7 +85,7 @@ class Stream(object):
         '''
         _logger.debug('Sending headers.')
         yield From(self._reconnect())
-        request.prepare_for_send()
+        request.prepare_for_send(full_url=full_url)
 
         if self._ignore_length:
             request.fields['Connection'] = 'close'

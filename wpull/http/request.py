@@ -172,6 +172,8 @@ class Request(RawRequest):
                 self.resource_path = '{0}?{1}'.format(url_info.path, url_info.query)
             else:
                 self.resource_path = url_info.path
+        else:
+            self.resource_path = url_info.url
 
     def parse(self, data):
         super().parse(data)

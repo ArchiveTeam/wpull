@@ -59,6 +59,7 @@ from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
                           IgnoreFileWriter, TimestampingFileWriter,
                           AntiClobberFileWriter)
+from wpull.http.proxy import ProxyAdapter
 
 
 # Module lua is imported later on demand.
@@ -100,6 +101,7 @@ class Builder(object):
             'PhantomJSController': PhantomJSController,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
             'ProgressRecorder': ProgressRecorder,
+            'ProxyAdapter': ProxyAdapter,
             'RedirectTracker': RedirectTracker,
             'Request': Request,
             'Resolver': Resolver,
@@ -858,10 +860,24 @@ class Builder(object):
             ignore_length=self._args.ignore_length,
             keep_alive=self._args.http_keep_alive)
 
+        proxy_adapter = self._build_proxy_adapter()
+
         return self._factory.new('HTTPClient',
                                  connection_pool=self._build_connection_pool(),
                                  recorder=recorder,
-                                 stream_factory=stream_factory)
+                                 stream_factory=stream_factory,
+                                 proxy_adapter=proxy_adapter)
+
+    def _build_proxy_adapter(self):
+        if self._args.no_proxy or not self._args.http_proxy:
+            return
+
+        http_proxy = self._args.http_proxy.split(':', 1)
+        http_proxy[1] = int(http_proxy[1])
+#         https_proxy = self._args.https_proxy.split(':', 1)
+        https_proxy = None
+
+        return self._factory.new('ProxyAdapter', http_proxy, https_proxy)
 
     def _build_web_client(self):
         '''Build Web Client.'''
@@ -1097,6 +1113,11 @@ class Builder(object):
                 _('Spanning hosts is allowed for linked pages, '
                   'but the recursive option is not on.')
             )
+
+#         if self._args.warc_file and \
+#                 (self._args.http_proxy or self._args.https_proxy):
+        if self._args.warc_file and self._args.http_proxy:
+            _logger.warning('WARC specifications do not handle proxies.')
 
     def _warn_unsafe_options(self):
         '''Print warnings about any enabled hazardous options.
