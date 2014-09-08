@@ -21,22 +21,28 @@ class LineParser(object):
     def __init__(self):
         self.type = None
         self.date_format = None
-        self.hour_period = None
+        self.is_day_period = None
 
     def guess_type(self, sample_lines):
         self.type = guess_listing_type(sample_lines)
         return self.type
 
     def set_datetime_format(self, datetime_format):
-        self.date_format, self.hour_period = datetime_format
+        self.date_format, self.is_day_period = datetime_format
 
     def parse(self, lines):
         if self.type == 'msdos':
             return self.parse_msdos(lines)
+        elif self.type == 'unix':
+            return self.parse_unix(lines)
+        elif self.type == 'nlst':
+            return self.parse_nlst(lines)
+        else:
+            raise ValueError('Unsupported listing type.')
 
     def parse_datetime(self, text):
         return parse_datetime(text, date_format=self.date_format,
-                              hour_period=self.hour_period)
+                              is_day_period=self.is_day_period)
 
     def parse_nlst(self, lines):
         entries = []
@@ -54,7 +60,7 @@ class LineParser(object):
 
             datetime_str = '{} {}'.format(date_str, time_str)
 
-            file_datetime = self.parse_datetime(datetime_str)
+            file_datetime = self.parse_datetime(datetime_str)[0]
 
             if fields[2] == '<DIR>':
                 file_size = None
@@ -71,8 +77,48 @@ class LineParser(object):
         return entries
 
     def parse_unix(self, lines):
-        # TODO: write me
-        pass
+        # This method uses some Filezilla parsing algorithms
+        entries = []
+
+        for line in lines:
+            fields = line.split(' ')
+            after_perm_index = 0
+
+            # Search for the permissions field by checking the file type
+            for field in fields:
+                after_perm_index += len(field)
+                if not field:
+                    continue
+
+                # If the filesystem goes corrupt, it may show ? instead
+                # but I don't really care in that situation.
+                if field[0] in 'bcdlps-':
+                    if field[0] == 'd':
+                        file_type = 'dir'
+                    elif field[0] == '-':
+                        file_type = 'file'
+                    else:
+                        file_type = 'other'
+                    break
+            else:
+                raise ValueError('Failed to parse file type.')
+
+            line = line[after_perm_index:]
+
+            # We look for the position of the date and use the integer
+            # before it as the file size.
+            # We look for the position of the time and use the text
+            # after it as the filename
+            datetime_obj, start_index, end_index = self.parse_datetime(line)
+
+            file_size = int(line[:start_index].rstrip().rpartition(' ')[-1])
+
+            filename = line[end_index:].partition('->')[0].strip()
+
+            entries.append(
+                FileEntry(filename, file_type, file_size, datetime_obj))
+
+        return entries
 
 
 def guess_listing_type(lines, threshold=100):

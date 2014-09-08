@@ -1,4 +1,8 @@
+import datetime
+import functools
 import unittest
+
+from wpull.ftp.ls.listing import FileEntry
 from wpull.ftp.ls.parse import ListingParser
 
 
@@ -16,13 +20,42 @@ MSDOS_LS = '''04-27-00  09:09PM       <DIR>          licensed
 
 class TestParse(unittest.TestCase):
     def test_parse_unix(self):
-        # TODO: check values
         parser = ListingParser(UNIX_LS)
         parser.run_heuristics()
-        print(parser.parse())
+        results = parser.parse()
+        date_factory = functools.partial(datetime.datetime,
+                                         tzinfo=datetime.timezone.utc)
+
+        current_year = datetime.datetime.utcnow().year
+        self.assertEqual(
+            [
+                FileEntry('README', 'file', 531,
+                          date_factory(current_year, 1, 29, 3, 26)),
+                FileEntry('etc', 'dir', 512,
+                          date_factory(1994, 4, 8)),
+                FileEntry('etc', 'dir', 512,
+                          date_factory(1994, 4, 8)),
+                FileEntry('bin', 'other', 7,
+                          date_factory(current_year, 1, 25, 0, 17)),
+            ],
+            results
+        )
 
     def test_parse_msdos(self):
-        # TODO: check values
         parser = ListingParser(MSDOS_LS)
         parser.run_heuristics()
-        print(parser.parse())
+        results = parser.parse()
+        date_factory = functools.partial(datetime.datetime,
+                                         tzinfo=datetime.timezone.utc)
+
+        self.assertEqual(
+            [
+                FileEntry('licensed', 'dir', None,
+                          date_factory(2000, 4, 27, 21, 9)),
+                FileEntry('pub', 'dir', None,
+                          date_factory(2000, 7, 18, 10, 16)),
+                FileEntry('readme.htm', 'file', 589,
+                          date_factory(2000, 4, 14, 15, 47)),
+            ],
+            results
+        )

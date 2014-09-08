@@ -19,13 +19,13 @@ class ListingParser(object):
             self.lines = itertools.chain(sample_lines, file)
             self.sample_lines = sample_lines
 
-        self.listing_parser = LineParser()
+        self.line_parser = LineParser()
 
     def run_heuristics(self):
-        listing_type = self.listing_parser.guess_type(self.sample_lines)
+        listing_type = self.line_parser.guess_type(self.sample_lines)
         datetime_format = wpull.ftp.ls.date.guess_datetime_format(self.sample_lines)
-        self.listing_parser.set_datetime_format(datetime_format)
+        self.line_parser.set_datetime_format(datetime_format)
         return listing_type, datetime_format
 
     def parse(self):
-        return self.listing_parser.parse(self.lines)
+        return self.line_parser.parse(self.lines)
