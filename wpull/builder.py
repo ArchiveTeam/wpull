@@ -568,6 +568,7 @@ class Builder(object):
                         digests=args.warc_digests,
                         cdx=args.warc_cdx,
                         max_size=args.warc_max_size,
+                        move_to=args.warc_move,
                         url_table=url_table,
                         software_string=software_string,
                     ),
