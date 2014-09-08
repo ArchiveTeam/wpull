@@ -2,6 +2,7 @@
 What's New
 ==========
 
+* Fixed ``--warc-move`` option which had no effect.
 * Support for HTTP/HTTPS proxies but no HTTPS tunnelling support. Wpull will refuse to start without the insecure override option. Note that if authentication and WARC file is enabled, the username and password is recorded into the WARC file.
 * Added ``--ignore-fatal-errors`` option.
 
