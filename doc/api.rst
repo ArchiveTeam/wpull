@@ -58,6 +58,7 @@ wpull Package
     api/phantomjs
     api/processor
     api/processor.base
+    api/processor.rule
     api/processor.phantomjs
     api/processor.web
     api/proxy

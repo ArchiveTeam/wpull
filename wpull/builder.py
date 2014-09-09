@@ -63,6 +63,7 @@ from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
                           IgnoreFileWriter, TimestampingFileWriter,
                           AntiClobberFileWriter)
 import wpull.version
+from wpull.processor.rule import FetchRule
 
 
 _logger = logging.getLogger(__name__)
@@ -95,6 +96,7 @@ class Builder(object):
             'DemuxRecorder': DemuxRecorder,
             'DemuxURLFilter': DemuxURLFilter,
             'Engine': Engine,
+            'FetchRule': FetchRule,
             'HTTPProxyServer': HTTPProxyServer,
             'HTMLScraper': HTMLScraper,
             'JavaScriptScraper': JavaScriptScraper,
@@ -665,6 +667,9 @@ class Builder(object):
         web_client = self._build_web_client()
         phantomjs_controller = self._build_phantomjs_controller()
         robots_txt_checker = self._build_robots_txt_checker()
+        fetch_rule = self._factory.new(
+            'FetchRule',
+            url_filter=url_filter, robots_txt_checker=robots_txt_checker)
 
         waiter = self._factory.new('Waiter',
                                    wait=args.wait,
@@ -673,14 +678,13 @@ class Builder(object):
 
         web_processor_instances = self._factory.new(
             'WebProcessorInstances',
-            url_filter=url_filter,
+            fetch_rule=fetch_rule,
             document_scraper=document_scraper,
             file_writer=file_writer,
             waiter=waiter,
             statistics=self._factory['Statistics'],
             converter=converter,
             phantomjs_controller=phantomjs_controller,
-            robots_txt_checker=robots_txt_checker,
         )
 
         web_processor_fetch_params = self._factory.new(

@@ -331,7 +331,7 @@ class HookEnvironment(object):
         self.factory['WebProcessor'].connect_hook(
             'queued_url',
             self._queued_url)
-        self.factory['WebProcessor'].connect_hook(
+        self.factory['FetchRule'].connect_hook(
             'should_fetch',
             self._should_fetch)
         self.factory['WebProcessor'].connect_hook(

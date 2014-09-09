@@ -45,6 +45,7 @@ MODULES = [
     'phantomjs',
     'processor',
     'processor.base',
+    'processor.rule',
     'processor.phantomjs',
     'processor.web',
     'proxy',
