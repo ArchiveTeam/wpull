@@ -65,7 +65,6 @@ from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
 import wpull.version
 
 
-# Module lua is imported later on demand.
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
 
@@ -326,16 +325,18 @@ class Builder(object):
         _logger.info(__(_('Using Lua hook script {filename}.'),
                         filename=filename))
 
-        lua = wpull.hook.load_lua()
-        hook_environment = HookEnvironment(self._factory, is_lua=True)
+        hook_environment = HookEnvironment(self._factory)
 
         hook_environment.connect_hooks()
 
-        lua_globals = lua.globals()
-        lua_globals.wpull_hook = hook_environment
+        adapter_filename = os.path.join(
+            os.path.dirname(__file__), '_luahook.py')
 
-        with open(filename, 'rb') as in_file:
-            lua.execute(in_file.read())
+        with open(adapter_filename, 'rb') as in_file:
+            code = compile(in_file.read(), filename, 'exec')
+            context = {'wpull_hook': hook_environment}
+            exec(code, context, context)
+            context['install'](filename)
 
     def _setup_debug_console(self):
         if self._args.debug_console_port is None:

@@ -10,6 +10,10 @@ What's New
 
     ``document`` and ``scraper`` were put into their own packages.
 
+* Scripting:
+
+  * Dropped support for Scripting API version 1.
+
 
 0.1000 (2014-09-02)
 ===================

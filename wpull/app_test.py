@@ -402,32 +402,6 @@ class TestApp(GoodAppTestCase):
                 self.assertTrue(False)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_app_python_script(self):
-        arg_parser = AppArgumentParser()
-        filename = os.path.join(os.path.dirname(__file__),
-                                'testing', 'py_hook_script.py')
-        args = arg_parser.parse_args([
-            self.get_url('/'),
-            'localhost:1',
-            '--python-script', filename,
-            '--page-requisites',
-            '--reject-regex', '/post/',
-        ])
-        builder = Builder(args)
-
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
-
-        self.assertEqual(42, exit_code)
-
-        engine = builder.factory['Engine']
-        self.assertEqual(2, engine.concurrent)
-
-        stats = builder.factory['Statistics']
-        self.assertGreater(1.0, stats.duration)
-
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_python_script_api_2(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
@@ -468,34 +442,6 @@ class TestApp(GoodAppTestCase):
             exit_code = yield From(app.run())
 
         self.assertEqual(1, exit_code)
-
-    @unittest.skipIf(sys.version_info[0:2] == (3, 2),
-                     'lua module not working in this python version')
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_app_lua_script(self):
-        arg_parser = AppArgumentParser()
-        filename = os.path.join(os.path.dirname(__file__),
-                                'testing', 'lua_hook_script.lua')
-        args = arg_parser.parse_args([
-            self.get_url('/'),
-            'localhost:1',
-            '--lua-script', filename,
-            '--page-requisites',
-            '--reject-regex', '/post/',
-        ])
-        builder = Builder(args)
-
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
-
-        self.assertEqual(42, exit_code)
-
-        engine = builder.factory['Engine']
-        self.assertEqual(2, engine.concurrent)
-
-        stats = builder.factory['Statistics']
-        self.assertGreater(1.0, stats.duration)
 
     @unittest.skipIf(sys.version_info[0:2] == (3, 2),
                      'lua module not working in this python version')

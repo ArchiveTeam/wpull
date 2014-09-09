@@ -3,7 +3,7 @@ import os.path
 import sys
 import unittest
 
-from wpull.hook import to_lua_string, to_lua_type
+from wpull._luahook import to_lua_string, to_lua_type
 
 
 class TestHook(unittest.TestCase):
