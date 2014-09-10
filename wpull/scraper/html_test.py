@@ -3,12 +3,17 @@ import shutil
 import unittest
 
 from wpull.body import Body
-from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
 from wpull.http.request import Request, Response
 from wpull.scraper.html import HTMLScraper
+from wpull.util import IS_PYPY
 import wpull.util
 
+
+if not IS_PYPY:
+    from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser
+else:
+    LxmlHTMLParser = type(NotImplemented)
 
 ROOT_PATH = os.path.join(os.path.dirname(__file__), '..')
 
@@ -451,6 +456,7 @@ class Mixin(object):
         )
 
 
+@unittest.skipIf(IS_PYPY, 'Not supported under PyPy')
 class TestLxmlHTMLScraper(Mixin, unittest.TestCase):
     def get_html_parser(self):
         return LxmlHTMLParser()

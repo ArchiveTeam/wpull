@@ -1,11 +1,17 @@
 import unittest
 
 from wpull.body import Body
-from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
 from wpull.http.request import Request, Response
 from wpull.scraper.sitemap import SitemapScraper
+from wpull.util import IS_PYPY
 import wpull.util
+
+
+if not IS_PYPY:
+    from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser
+else:
+    LxmlHTMLParser = type(NotImplemented)
 
 
 class Mixin(object):
@@ -140,6 +146,7 @@ class Mixin(object):
         self.assertFalse(inline_urls)
 
 
+@unittest.skipIf(IS_PYPY, 'Not supported under PyPy')
 class TestLxmlSitemap(Mixin, unittest.TestCase):
     def get_html_parser(self):
         return LxmlHTMLParser()

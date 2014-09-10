@@ -8,8 +8,6 @@ import logging
 import os.path
 import shutil
 
-import lxml.html
-
 from wpull.backport.logging import BraceMessage as __
 from wpull.database import Status
 from wpull.document.htmlparse.element import Comment, Element, Doctype
@@ -21,6 +19,12 @@ import wpull.string
 
 _ = gettext.gettext
 _logger = logging.getLogger(__name__)
+
+
+# Snipped from lxml.html.def:
+empty_tags = frozenset([
+    'area', 'base', 'basefont', 'br', 'col', 'frame', 'hr',
+    'img', 'input', 'isindex', 'link', 'meta', 'param'])
 
 
 class BaseDocumentConverter(object, metaclass=abc.ABCMeta):
@@ -146,7 +150,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
                         )
                     elif isinstance(element, Element):
                         if element.end:
-                            if element.tag not in lxml.html.defs.empty_tags:
+                            if element.tag not in empty_tags:
                                 self._out_file.write('</{0}>'
                                                      .format(element.tag))
 
@@ -197,12 +201,12 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
 
             self._out_file.write(' {0}="{1}"'.format(name, value))
 
-        if is_xhtml and element.tag in lxml.html.defs.empty_tags:
+        if is_xhtml and element.tag in empty_tags:
             self._out_file.write('/')
 
         self._out_file.write('>')
 
-        if element.tag not in lxml.html.defs.empty_tags:
+        if element.tag not in empty_tags:
             if new_text:
                 self._out_file.write(new_text)
 

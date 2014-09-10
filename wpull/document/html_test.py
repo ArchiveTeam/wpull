@@ -5,9 +5,15 @@ from wpull.document.base_test import CODEC_NAMES, EBCDIC
 from wpull.document.html import HTMLReader
 from wpull.document.htmlparse.element import Element
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
-from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser
 from wpull.http.request import Request, Response
 from wpull.url import URLInfo
+from wpull.util import IS_PYPY
+
+
+if not IS_PYPY:
+    from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser
+else:
+    LxmlHTMLParser = type(NotImplemented)
 
 
 class Mixin(object):
@@ -237,6 +243,7 @@ class Mixin(object):
             all(isinstance(element, Element) for element in elements))
 
 
+@unittest.skipIf(IS_PYPY, 'Not supported under PyPy')
 class TestLxmlHTML(Mixin, unittest.TestCase):
     def get_html_parser(self):
         return LxmlHTMLParser()

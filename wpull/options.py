@@ -8,6 +8,7 @@ import ssl
 import sys
 
 from wpull.backport.logging import BraceMessage as __
+from wpull.util import IS_PYPY
 import wpull.string
 import wpull.version
 
@@ -778,8 +779,8 @@ class AppArgumentParser(argparse.ArgumentParser):
         )
         group.add_argument(
             '--html-parser',
-            choices=['libxml2-lxml', 'html5lib'],
-            default='libxml2-lxml',
+            choices=['html5lib'] if IS_PYPY else ['libxml2-lxml', 'html5lib'],
+            default='html5lib'if IS_PYPY else 'libxml2-lxml',
             help=_('select HTML parsing library and strategy')
         )
 

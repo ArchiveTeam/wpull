@@ -6,10 +6,14 @@ import contextlib
 import datetime
 import functools
 import os.path
+import platform
 import re
 import sys
 import time
 import zipfile
+
+
+IS_PYPY = platform.python_implementation() == 'PyPy'
 
 
 class ASCIIStreamWriter(codecs.StreamWriter):

@@ -6,6 +6,7 @@ What's New
 * Support for HTTP/HTTPS proxies but no HTTPS tunnelling support. Wpull will refuse to start without the insecure override option. Note that if authentication and WARC file is enabled, the username and password is recorded into the WARC file.
 * Added ``--ignore-fatal-errors`` option.
 * Added ``--http-parser`` option. You can now use html5lib as the HTML parser.
+* Support for PyPy 2.3.1 running with Python 3.2 implementation.
 
 * API:
 

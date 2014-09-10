@@ -6,9 +6,14 @@ import unittest
 from wpull.app_test import cd_tempdir
 from wpull.converter import CSSConverter, HTMLConverter
 from wpull.database import URLTable, Status
-from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
+from wpull.util import IS_PYPY
 
+
+if not IS_PYPY:
+    from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser
+else:
+    LxmlHTMLParser = type(NotImplemented)
 
 CSS_TEXT = '''
 body {
@@ -239,6 +244,7 @@ class Mixin(object):
             self.assertIn("<hr/>", converted_text)
 
 
+@unittest.skipIf(IS_PYPY, 'Not supported under PyPy')
 class TestLxmlConverter(unittest.TestCase, Mixin):
     def get_html_parser(self):
         return LxmlHTMLParser()

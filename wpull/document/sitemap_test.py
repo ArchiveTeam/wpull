@@ -3,11 +3,17 @@ import io
 import unittest
 
 from wpull.document.base_test import CODEC_NAMES, EBCDIC
-from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
 from wpull.document.sitemap import SitemapReader
 from wpull.http.request import Request
 from wpull.url import URLInfo
+from wpull.util import IS_PYPY
+
+
+if not IS_PYPY:
+    from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser
+else:
+    LxmlHTMLParser = type(NotImplemented)
 
 
 class Mixin(object):
@@ -77,6 +83,7 @@ class Mixin(object):
         )
 
 
+@unittest.skipIf(IS_PYPY, 'Not supported under PyPy')
 class TestLxmlSitemap(Mixin, unittest.TestCase):
     def get_html_parser(self):
         return LxmlHTMLParser()

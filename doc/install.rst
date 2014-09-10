@@ -11,7 +11,15 @@ Wpull requires the following:
 * `Tornado <https://pypi.python.org/pypi/tornado>`_
 * `Trollius <https://pypi.python.org/pypi/trollius>`_
 * `lxml <https://pypi.python.org/pypi/lxml>`_
+
+   Or `html5lib <https://pypi.python.org/pypi/html5lib`_ for slower
+   but much better HTML parsing
+
 * `chardet <https://pypi.python.org/pypi/chardet>`_
+
+   Or `cchardet <https://pypi.python.org/pypi/cchardet>`_ for faster
+   version of chardet
+
 * `SQLAlchemy <https://pypi.python.org/pypi/SQLAlchemy>`_
 
 The following are optional:
@@ -20,8 +28,6 @@ The following are optional:
   <https://github.com/bastibe/lunatic-python>`_ for Lua support
 * `PhantomJS <http://phantomjs.org/>`_ for capturing interactive
   JavaScript pages
-* `cchardet <https://pypi.python.org/pypi/cchardet>`_ for faster
-  version of chardet
 
 For installing Wpull, it is recommended to use `pip installer
 <http://www.pip-installer.org/>`_.
@@ -72,6 +78,8 @@ Python
 Please obtain the latest Python release from http://python.org/download/
 or your package manager. It is recommended to use Python 3.3 or greater.
 Versions 3.2, 3.3, 3.4 are officially supported.
+
+PyPy 2.3.1 (Python 3.2 implementation) is supported.
 
 Python 2 is not supported.
 
