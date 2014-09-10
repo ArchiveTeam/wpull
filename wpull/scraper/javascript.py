@@ -8,7 +8,8 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.document.javascript import JavaScriptReader
 from wpull.document.util import detect_response_encoding
 from wpull.scraper.base import BaseTextStreamScraper
-from wpull.scraper.util import is_likely_inline
+from wpull.scraper.util import is_likely_inline, is_likely_link, \
+    is_unlikely_link
 import wpull.util
 
 
@@ -24,8 +25,8 @@ class JavaScriptScraper(JavaScriptReader, BaseTextStreamScraper):
 
     def iter_text(self, file, encoding=None):
         for text, match in super().iter_text(file, encoding):
-            if match and wpull.url.is_likely_link(text) and \
-                    not wpull.url.is_unlikely_link(text):
+            if match and is_likely_link(text) and \
+                    not is_unlikely_link(text):
                 try:
                     yield (json.loads('"{0}"'.format(text)), match)
                 except ValueError:

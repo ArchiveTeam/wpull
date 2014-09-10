@@ -7,14 +7,14 @@ import re
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.document.html import HTMLReader
+from wpull.document.htmlparse.element import Element
 from wpull.document.util import detect_response_encoding
 from wpull.scraper.base import BaseHTMLScraper
 from wpull.scraper.css import CSSScraper
 from wpull.scraper.javascript import JavaScriptScraper
 from wpull.scraper.util import urljoin_safe, clean_link_soup, parse_refresh, \
-    is_likely_inline
+    is_likely_inline, is_likely_link, is_unlikely_link
 import wpull.util
-from wpull.document.htmlparse.element import Element
 
 
 _ = gettext.gettext
@@ -522,8 +522,8 @@ class ElementWalker(object):
                     yield link
 
             elif attrib_name.startswith('data-'):
-                if wpull.url.is_likely_link(attrib_value) \
-                   and not wpull.url.is_unlikely_link(attrib_value):
+                if is_likely_link(attrib_value) \
+                   and not is_unlikely_link(attrib_value):
                     yield attrib_name, attrib_value
 
             elif attrib_name == 'srcset':
