@@ -63,6 +63,7 @@ wpull Package
     api/processor.web
     api/proxy
     api/recorder
+    api/regexstream
     api/robotstxt
     api/scraper
     api/scraper.base

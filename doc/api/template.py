@@ -50,6 +50,7 @@ MODULES = [
     'processor.web',
     'proxy',
     'recorder',
+    'regexstream',
     'robotstxt',
     'scraper',
     'scraper.base',
