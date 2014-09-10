@@ -25,6 +25,7 @@ PROJECT_PACKAGES = [
     'wpull',
     'wpull.backport',
     'wpull.document',
+    'wpull.document.htmlparse',
     'wpull.http',
     'wpull.processor',
     'wpull.scraper',
@@ -70,7 +71,7 @@ setup_kwargs = dict(
 
 setup_kwargs['install_requires'] = [
     'tornado', 'trollius', 'lxml', 'chardet', 'sqlalchemy',
-    'namedlist',
+    'namedlist', 'html5lib',
 ]
 
 setup_kwargs['scripts'] = ['scripts/wpull', 'scripts/wpull3']
