@@ -776,6 +776,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('request servers to use HTTP compression'),
         )
+        group.add_argument(
+            '--html-parser',
+            choices=['libxml2-lxml', 'html5lib'],
+            default='libxml2-lxml',
+            help=_('select HTML parsing library and strategy')
+        )
 
     def _add_ssl_args(self):
         self._ssl_version_map = {
