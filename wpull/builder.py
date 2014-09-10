@@ -105,6 +105,7 @@ class Builder(object):
             'PhantomJSClient': PhantomJSClient,
             'PhantomJSController': PhantomJSController,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
+            'ProxyAdapter': ProxyAdapter,
             'ProgressRecorder': ProgressRecorder,
             'RedirectTracker': RedirectTracker,
             'Request': Request,
@@ -1161,7 +1162,7 @@ class Builder(object):
         * ``--save-headers``
         * ``--no-iri``
         * ``--output-document``
-        * ``--ignore-errors`
+        * ``--ignore-fatal-errors`
         '''
         enabled_options = []
 
