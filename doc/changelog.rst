@@ -8,7 +8,8 @@ What's New
 
 * API:
 
-    ``document`` and ``scraper`` were put into their own packages.
+  * ``document`` and ``scraper`` were put into their own packages.
+  * HTML parsing was put into ``document.htmlparse`` package.
 
 * Scripting:
 
