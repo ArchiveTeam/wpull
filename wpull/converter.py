@@ -183,7 +183,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
                     if text:
                         new_text = text
 
-            if new_value:
+            if new_value and link_info.attrib:
                 if new_attribs[link_info.attrib] == unfilled_value:
                     new_attribs[link_info.attrib] = [new_value]
                 else:
@@ -228,7 +228,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
         return new_url
 
     def _convert_css_attrib(self, link_info):
-        done_key = (id(link_info.element), id(link_info.attrib))
+        done_key = (link_info.element, link_info.attrib)
 
         if done_key in self._css_already_done:
             return
@@ -245,7 +245,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
         return new_value
 
     def _convert_css_text(self, link_info):
-        if id(link_info.element) in self._css_already_done:
+        if link_info.element in self._css_already_done:
             return
 
         text = wpull.string.to_str(link_info.element.text)

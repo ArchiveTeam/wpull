@@ -1,12 +1,12 @@
 '''Parsing using html5lib python.'''
+import html5lib.constants
+import html5lib.tokenizer
+import io
 import os.path
 
-import html5lib.tokenizer
-import html5lib.constants
-
+from wpull.collections import FrozenDict, EmptyFrozenDict
 from wpull.document.htmlparse.base import BaseParser
 from wpull.document.htmlparse.element import Comment, Doctype, Element
-import io
 
 
 DOCTYPE = html5lib.constants.tokenTypes['Doctype']
@@ -45,11 +45,11 @@ class HTMLParser(BaseParser):
                     buffer = None
 
                 if tail_buffer:
-                    yield Element(tag, {}, None, tail_buffer.getvalue(), True)
+                    yield Element(tag, EmptyFrozenDict(), None, tail_buffer.getvalue(), True)
                     tail_buffer = None
 
                 tag = token['name']
-                attrib = dict(token['data'])
+                attrib = FrozenDict(dict(token['data']))
                 buffer = io.StringIO()
 
                 if token['name'] == 'script':
@@ -67,7 +67,7 @@ class HTMLParser(BaseParser):
                     buffer = None
 
                 if tail_buffer:
-                    yield Element(tag, {}, None, tail_buffer.getvalue(), True)
+                    yield Element(tag, EmptyFrozenDict(), None, tail_buffer.getvalue(), True)
                     tail_buffer = None
 
                 tail_buffer = io.StringIO()
@@ -88,7 +88,7 @@ class HTMLParser(BaseParser):
             buffer = None
 
         if tail_buffer:
-            yield Element(tag, {}, None, tail_buffer.getvalue(), True)
+            yield Element(tag, EmptyFrozenDict(), None, tail_buffer.getvalue(), True)
             tail_buffer = None
 
 
