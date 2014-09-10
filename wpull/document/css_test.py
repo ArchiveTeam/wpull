@@ -57,7 +57,7 @@ class TestCSS(unittest.TestCase):
 
         links = set()
 
-        for link in reader.read_links(
+        for link in reader.iter_links(
                 io.BytesIO(css_data), encoding='ascii'):
             links.add(link)
 
@@ -76,7 +76,7 @@ class TestCSS(unittest.TestCase):
 
         links = set()
 
-        for link in reader.read_links(
+        for link in reader.iter_links(
                 io.BytesIO(css_data), encoding='ascii'):
             links.add(link)
 

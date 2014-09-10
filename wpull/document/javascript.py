@@ -1,18 +1,22 @@
 import codecs
-import io
 import json
 import re
 
-from wpull.document.base import BaseDocumentReader
+from wpull.document.base import BaseTextStreamReader, \
+    BaseDocumentDetector
 import wpull.string
+from wpull.regexstream import RegexStream
+import io
 
 
-class JavaScriptReader(BaseDocumentReader):
+class JavaScriptReader(BaseDocumentDetector, BaseTextStreamReader):
     '''JavaScript Document Reader.'''
     # Pattern based from https://github.com/internetarchive/heritrix3/
     # blob/ffd248f7800dbd4bff1cf8afaa57a0a3e945ed85/modules/src/
     # main/java/org/archive/modules/extractor/ExtractorJS.java
     URL_PATTERN = r'''(\\{0,8}['"])(https?://[^'"]{1,500}|[^\s'"]{1,500})(?:\1)'''
+    URL_REGEX = re.compile(URL_PATTERN)
+
     BUFFER_SIZE = 1048576
     STREAM_REWIND = 4096
 
@@ -46,6 +50,16 @@ class JavaScriptReader(BaseDocumentReader):
                      peeked_data):
             return True
 
+    def iter_text(self, file, encoding=None):
+        if isinstance(file, io.TextIOBase):
+            stream = file
+        else:
+            stream = codecs.getreader(encoding or 'latin1')(file)
+        regex_stream = RegexStream(stream, self.URL_REGEX)
+
+        for match, text in regex_stream.stream():
+            yield (text, bool(match))
+
     def read_links(self, file, encoding=None):
         '''Return an iterator of links found in the document.
 
@@ -56,47 +70,4 @@ class JavaScriptReader(BaseDocumentReader):
         Returns:
             iterable: str
         '''
-        stream = codecs.getreader(encoding or 'latin1')(file)
-        # stream = io.TextIOWrapper(file, encoding=encoding or 'latin1')
-        buffer = None
-
-        while True:
-            text = stream.read(self.BUFFER_SIZE)
-
-            if not text:
-                break
-
-            if not buffer and len(text) == self.BUFFER_SIZE:
-                buffer = io.StringIO()
-
-            if buffer:
-                buffer.write(text)
-                buffer.seek(0)
-
-                text = buffer.getvalue()
-
-            for link in self.scrape_links(text):
-                yield link
-
-            if buffer:
-                buffer.truncate()
-                buffer.write(text[:-self.STREAM_REWIND])
-
-    @classmethod
-    def scrape_links(cls, text):
-        '''Scrape any thing that might be a link.
-
-        Returns:
-            iterable: Each item is a str.
-        '''
-        text = re.sub(r'''(["'])([,;+])''', r'\1\2\n', text)
-
-        for match in re.finditer(cls.URL_PATTERN, text):
-            text = match.group(2)
-
-            if wpull.url.is_likely_link(text) \
-               and not wpull.url.is_unlikely_link(text):
-                try:
-                    yield json.loads('"{0}"'.format(text))
-                except ValueError:
-                    yield text
+        return [item[0] for item in self.iter_text(file, encoding) if item[1]]

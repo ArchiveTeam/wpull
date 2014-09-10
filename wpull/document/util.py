@@ -2,8 +2,6 @@
 
 import logging
 
-import lxml.html
-
 from wpull.backport.logging import BraceMessage as __
 import wpull.http.util
 import wpull.util
@@ -57,31 +55,3 @@ def detect_response_encoding(response, is_html=False, peek=131072):
 def is_gzip(data):
     '''Return whether the data is likely to be gzip.'''
     return data.startswith(b'\x1f\x8b')
-
-
-def to_lxml_encoding(encoding):
-    '''Check if lxml supports the specified encoding.
-
-    Returns:
-        str, None
-    '''
-    # XXX: Workaround lxml not liking utf-16-le
-    try:
-        lxml.html.HTMLParser(encoding=encoding)
-    except LookupError:
-        encoding = encoding.replace('-', '')
-    else:
-        return encoding
-    try:
-        lxml.html.HTMLParser(encoding=encoding)
-    except LookupError:
-        encoding = encoding.replace('_', '')
-    else:
-        return encoding
-
-    try:
-        lxml.html.HTMLParser(encoding=encoding)
-    except LookupError:
-        pass
-    else:
-        return encoding

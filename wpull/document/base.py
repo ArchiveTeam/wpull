@@ -96,17 +96,57 @@ class BaseDocumentDetector(object, metaclass=abc.ABCMeta):
         raise NotImplementedError()  # optional override
 
 
-class BaseDocumentReader(BaseDocumentDetector):
-    '''Base class for classes that read documents.'''
-
+class BaseTextStreamReader(object, metaclass=abc.ABCMeta):
+    '''Base class for document readers that filters link and non-link text.'''
     @abc.abstractmethod
-    def read_links(self, file, encoding=None):
-        '''Return an iterator of links found in the document.
+    def iter_text(self, file, encoding=None):
+        '''Return the file text and links.
 
         Args:
             file: A file object containing the document.
             encoding (str): The encoding of the document.
 
-        The items returned will depend on the implementation.
+        Returns:
+            iterator: Each item is a tuple:
+
+            1. str: The text
+            2. bool: Whether the text is a likely a link
+
+        The links returned are raw text and will require further processing.
+        '''
+
+    def iter_links(self, file, encoding=None):
+        '''Return the links.
+
+        This function is a convenience function for calling :meth:`iter_text`
+        and returning only the links.
+        '''
+        return [item[0] for item in self.iter_text(file, encoding) if item[1]]
+
+
+class BaseExtractiveReader(object, metaclass=abc.ABCMeta):
+    '''Base class for document readers that can only extract links.'''
+    def iter_links(self, file, encoding=None):
+        '''Return links from file.
+
+        Returns:
+            iterator: Each item is a str which represents a link.
+        '''
+
+
+class BaseHTMLReader(object, metaclass=abc.ABCMeta):
+    '''Base class for document readers for handling SGML-like documents.'''
+
+    @abc.abstractmethod
+    def iter_elements(self, file, encoding=None):
+        '''Return an iterator of elements found in the document.
+
+        Args:
+            file: A file object containing the document.
+            encoding (str): The encoding of the document.
+
+        Returns:
+            iterator: Each item is an element from
+            :module:`.document.htmlparse.element`
         '''
         pass

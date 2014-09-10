@@ -3,14 +3,18 @@ import io
 import unittest
 
 from wpull.document.base_test import CODEC_NAMES, EBCDIC
+from wpull.document.htmlparse.lxml import HTMLParser as LxmlHTMLParser
 from wpull.document.sitemap import SitemapReader
 from wpull.http.request import Request
 from wpull.url import URLInfo
 
 
-class TestSitemap(unittest.TestCase):
+class Mixin(object):
+    def get_html_parser(self):
+        raise NotImplementedError()
+
     def test_sitemap_encoding(self):
-        reader = SitemapReader()
+        reader = SitemapReader(self.get_html_parser())
 
         for name in CODEC_NAMES:
             if name in EBCDIC or name == 'utf_8_sig':
@@ -23,7 +27,7 @@ class TestSitemap(unittest.TestCase):
                 '<urlset><url><loc>blah</loc></url></urlset>'.encode(name)
             )
             print('->', name)
-            links = tuple(reader.read_links(data, encoding=name))
+            links = tuple(reader.iter_links(data, encoding=name))
             link = links[0]
             self.assertEqual('blah', link)
 
@@ -65,3 +69,8 @@ class TestSitemap(unittest.TestCase):
         self.assertFalse(
             SitemapReader.is_request(Request('example.com/image.jpg'))
         )
+
+
+class TestLxmlSitemap(Mixin, unittest.TestCase):
+    def get_html_parser(self):
+        return LxmlHTMLParser()

@@ -1,12 +1,7 @@
 '''HTML document readers.'''
 import io
 
-import lxml.etree
-import lxml.html
-
-from wpull.document.base import BaseDocumentReader
-from wpull.document.util import to_lxml_encoding
-from wpull.document.xml import XMLDetector
+from wpull.document.base import BaseHTMLReader, BaseDocumentDetector
 import wpull.string
 
 
@@ -185,12 +180,14 @@ class HTMLReadElement(object):
         )
 
 
-class HTMLReader(BaseDocumentReader):
+class HTMLReader(BaseDocumentDetector, BaseHTMLReader):
     '''HTML document reader.
 
-    This reader uses lxml as the parser.
+    Arguments:
+        html_parser (:class:`.document.htmlparse.BaseParser`): An HTML parser.
     '''
-    BUFFER_SIZE = 1048576
+    def __init__(self, html_parser):
+        self._html_parser = html_parser
 
     @classmethod
     def is_response(cls, response):
@@ -228,142 +225,5 @@ class HTMLReader(BaseDocumentReader):
            or b'<a href' in peeked_data:
             return True
 
-    def read_tree(self, file, encoding=None, target_class=HTMLParserTarget,
-                  parser_type='html'):
-        '''Return an iterator of elements found in the document.
-
-        Args:
-            file: A file object containing the document.
-            encoding (str): The encoding of the document.
-            target_class: A class to be used for target parsing.
-            parser_type (str): The type of parser to use. Accepted values:
-                ``html``, ``xhtml``, ``xml``.
-
-        Returns:
-            iterable: class:`HTMLReadElement`
-        '''
-        if encoding:
-            lxml_encoding = to_lxml_encoding(encoding) or 'latin1'
-        else:
-            lxml_encoding = encoding
-
-        elements = []
-
-        def callback_func(tag, attrib, text, tail=None, end=None):
-            # NOTE: If we ever support Python 2 again, byte strings may be
-            # returned from lxml
-            elements.append(HTMLReadElement(
-                tag,
-                dict(attrib)
-                if attrib is not None else None,
-                text,
-                tail,
-                end
-            ))
-
-        target = target_class(callback_func)
-
-        if parser_type == 'html':
-            parser = lxml.html.HTMLParser(
-                encoding=lxml_encoding, target=target
-            )
-        elif parser_type == 'xhtml':
-            parser = lxml.html.XHTMLParser(
-                encoding=lxml_encoding, target=target, recover=True
-            )
-        else:
-            parser = lxml.etree.XMLParser(
-                encoding=lxml_encoding, target=target, recover=True
-            )
-
-        if parser_type == 'html':
-            # XXX: Force libxml2 to do full read in case of early "</html>"
-            # See https://github.com/chfoo/wpull/issues/104
-            # See https://bugzilla.gnome.org/show_bug.cgi?id=727935
-            for dummy in range(3):
-                parser.feed('<html>'.encode(encoding))
-
-        while True:
-            data = file.read(self.BUFFER_SIZE)
-
-            if not data:
-                break
-
-            parser.feed(data)
-
-            for element in elements:
-                yield element
-
-            elements = []
-
-        parser.close()
-
-        for element in elements:
-            yield element
-
-    def read_links(self, file, encoding=None):
-        '''Return an iterator of partial elements found in the document.
-
-        Args:
-            file: A file object containing the document.
-            encoding (str): The encoding of the document.
-
-        This function does not return elements to rebuild the tree, but
-        rather element fragments that can be scraped for links.
-
-        Returns:
-            iterable: class:`HTMLReadElement`
-        '''
-        parser_type = self.detect_parser_type(file, encoding=encoding)
-
-        if parser_type == 'xhtml':
-            # Use the HTML parser because there exists XHTML soup
-            parser_type = 'html'
-
-        elements = self.read_tree(
-            file, encoding=encoding, target_class=HTMLLightParserTarget,
-            parser_type=parser_type
-        )
-
-        return elements
-
-    @classmethod
-    def parse_doctype(cls, file, encoding=None):
-        '''Get the doctype from the document.
-
-        Returns:
-            str, None
-        '''
-        if encoding:
-            lxml_encoding = to_lxml_encoding(encoding) or 'latin1'
-        else:
-            lxml_encoding = encoding
-
-        try:
-            parser = lxml.etree.XMLParser(encoding=lxml_encoding, recover=True)
-            tree = lxml.etree.parse(
-                io.BytesIO(wpull.util.peek_file(file)), parser=parser
-            )
-            if tree.getroot() is not None:
-                return tree.docinfo.doctype
-        except lxml.etree.LxmlError:
-            pass
-
-    @classmethod
-    def detect_parser_type(cls, file, encoding=None):
-        '''Get the suitable parser type for the document.
-
-        Returns:
-            str
-        '''
-        is_xml = XMLDetector.is_file(file)
-        doctype = cls.parse_doctype(file, encoding=encoding) or ''
-
-        if not doctype and is_xml:
-            return 'xml'
-
-        if 'XHTML' in doctype:
-            return 'xhtml'
-
-        return 'html'
-
+    def iter_elements(self, file, encoding=None):
+        return self._html_parser.parse(file, encoding)

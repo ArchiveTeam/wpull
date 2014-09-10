@@ -3,11 +3,15 @@ import unittest
 
 from wpull.document.base_test import CODEC_NAMES
 from wpull.document.html import HTMLReader
+from wpull.document.htmlparse.lxml import HTMLParser as LxmlHTMLParser
 from wpull.http.request import Request, Response
 from wpull.url import URLInfo
 
 
-class TestHTML(unittest.TestCase):
+class Mixin(object):
+    def get_html_parser(self):
+        raise NotImplementedError()
+
     def test_html_detect(self):
         self.assertTrue(HTMLReader.is_file(
             io.BytesIO('<html><body>hi</body></html>'.encode('utf-16le'))
@@ -60,15 +64,17 @@ class TestHTML(unittest.TestCase):
         self.assertFalse(HTMLReader.is_response(response))
 
     def test_html_parse_doctype(self):
+        html_parser = self.get_html_parser()
+
         self.assertIn(
             'html',
-            HTMLReader.parse_doctype(
+            html_parser.parse_doctype(
                 io.BytesIO(b'<!DOCTYPE HTML><html></html>')
             )
         )
         self.assertIn(
             'XHTML',
-            HTMLReader.parse_doctype(
+            html_parser.parse_doctype(
                 io.BytesIO(b'''
                 <!DOCTYPE html PUBLIC
                 "-//W3C//DTD XHTML 1.0 Transitional//EN"
@@ -77,25 +83,25 @@ class TestHTML(unittest.TestCase):
                 ''')
             )
         )
-        self.assertFalse(HTMLReader.parse_doctype(io.BytesIO(b'hello world!')))
-        self.assertFalse(HTMLReader.parse_doctype(io.BytesIO(b'')))
-        self.assertFalse(HTMLReader.parse_doctype(io.BytesIO(b'\x00')))
-        self.assertFalse(HTMLReader.parse_doctype(io.BytesIO(b'A\xfe')))
+        self.assertFalse(html_parser.parse_doctype(io.BytesIO(b'hello world!')))
+        self.assertFalse(html_parser.parse_doctype(io.BytesIO(b'')))
+        self.assertFalse(html_parser.parse_doctype(io.BytesIO(b'\x00')))
+        self.assertFalse(html_parser.parse_doctype(io.BytesIO(b'A\xfe')))
 
     def test_html_encoding(self):
-        reader = HTMLReader()
+        reader = HTMLReader(self.get_html_parser())
 
         for name in CODEC_NAMES:
             data = io.BytesIO('<img>'.encode(name))
-            elements = tuple(reader.read_links(data, encoding=name))
+            elements = tuple(reader.iter_elements(data, encoding=name))
             html_element = elements[0]
             self.assertEqual('html', html_element.tag)
-    
+
     def test_html_layout(self):
-        reader = HTMLReader()
+        reader = HTMLReader(self.get_html_parser())
 
         elements = tuple(
-            reader.read_tree(io.BytesIO(b'''
+            reader.iter_elements(io.BytesIO(b'''
             <html>
                 <head>
                     <title>hi</title>
@@ -120,7 +126,7 @@ class TestHTML(unittest.TestCase):
         self.assertEqual('html', elements[9].tag)
 
     def test_html_early_html(self):
-        reader = HTMLReader()
+        reader = HTMLReader(self.get_html_parser())
 
         for test_string in [
             b'''<!DOCTYPE HTML><html></html><img>''',
@@ -181,10 +187,13 @@ class TestHTML(unittest.TestCase):
             ''',
         ]:
             elements = tuple(
-                reader.read_links(io.BytesIO(test_string), encoding='ascii')
+                reader.iter_elements(io.BytesIO(test_string), encoding='ascii')
             )
-            self.assertEqual('img', elements[-1].tag)
-            elements = tuple(
-                reader.read_tree(io.BytesIO(test_string), encoding='ascii')
-            )
-            self.assertEqual('img', elements[-4].tag)
+            print(elements)
+            element_tags = tuple(element.tag for element in elements)
+            self.assertIn('img', element_tags)
+
+
+class TestLxmlHTML(Mixin, unittest.TestCase):
+    def get_html_parser(self):
+        return LxmlHTMLParser()
