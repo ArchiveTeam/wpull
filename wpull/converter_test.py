@@ -1,11 +1,12 @@
 # encoding=utf-8
-import os.path
 from tempfile import TemporaryDirectory
+import os.path
 import unittest
 
 from wpull.app_test import cd_tempdir
 from wpull.converter import CSSConverter, HTMLConverter
 from wpull.database import URLTable, Status
+from wpull.document.htmlparse.lxml import HTMLParser as LxmlHTMLParser
 
 
 CSS_TEXT = '''
@@ -56,7 +57,10 @@ XHTML_TEXT = '''
 '''
 
 
-class TestConverter(unittest.TestCase):
+class Mixin(object):
+    def get_html_parser(self):
+        raise NotImplementedError()
+
     def test_css_converter(self):
         with cd_tempdir() as temp_dir:
             url_table = URLTable()
@@ -148,7 +152,7 @@ class TestConverter(unittest.TestCase):
                 with open(filename, 'wb'):
                     pass
 
-            converter = HTMLConverter(url_table)
+            converter = HTMLConverter(self.get_html_parser(), url_table)
 
             converter.convert(
                 html_filename, new_html_filename,
@@ -214,7 +218,7 @@ class TestConverter(unittest.TestCase):
                 with open(filename, 'wb'):
                     pass
 
-            converter = HTMLConverter(url_table)
+            converter = HTMLConverter(self.get_html_parser(), url_table)
 
             converter.convert(
                 html_filename, new_html_filename,
@@ -232,3 +236,8 @@ class TestConverter(unittest.TestCase):
             self.assertIn("url('ferret.jpg')", converted_text)
             self.assertIn("hello world!!", converted_text)
             self.assertIn("<hr/>", converted_text)
+
+
+class TestLxmlConverter(unittest.TestCase, Mixin):
+    def get_html_parser(self):
+        return LxmlHTMLParser()

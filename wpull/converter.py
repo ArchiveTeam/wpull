@@ -1,21 +1,21 @@
 # encoding=utf-8
 '''Document content post-processing.'''
 import abc
+import codecs
 import gettext
 import io
 import logging
 import os.path
-import re
 import shutil
 
 import lxml.html
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.database import Status
+from wpull.document.htmlparse.element import Comment, Element
 from wpull.scraper.css import CSSScraper
-from wpull.scraper.html import HTMLScraper
+from wpull.scraper.html import HTMLScraper, ElementWalker
 from wpull.url import URLInfo
-import wpull.document.html
 import wpull.string
 
 
@@ -37,10 +37,10 @@ class BatchDocumentConverter(object):
         url_table: An instance of :class:`.database.URLTable`.
         backup (bool): Whether back up files are created.
     '''
-    def __init__(self, url_table, backup=False):
+    def __init__(self, html_parser, url_table, backup=False):
         self._url_table = url_table
         self._backup_enabled = backup
-        self._html_converter = HTMLConverter(url_table)
+        self._html_converter = HTMLConverter(html_parser, url_table)
         self._css_converter = CSSConverter(url_table)
 
     def convert_all(self):
@@ -99,8 +99,8 @@ class BatchDocumentConverter(object):
 
 class HTMLConverter(HTMLScraper, BaseDocumentConverter):
     '''HTML converter.'''
-    def __init__(self, url_table):
-        super().__init__()
+    def __init__(self, html_parser, url_table):
+        super().__init__(html_parser)
         self._url_table = url_table
         self._css_converter = CSSConverter(url_table)
         self._out_file = None
@@ -118,12 +118,13 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
             )
 
         with open(input_filename, 'rb') as in_file:
-            doctype = self.parse_doctype(in_file, encoding=encoding)
+            doctype = self._html_parser.parse_doctype(in_file,
+                                                      encoding=encoding)
             is_xhtml = doctype and 'XHTML' in doctype
 
         with open(input_filename, 'rb') as in_file:
             with open(output_filename, 'wb') as bin_out_file:
-                elements = self.read_tree(in_file, encoding=encoding)
+                elements = self.iter_elements(in_file, encoding=encoding)
                 out_file = io.TextIOWrapper(bin_out_file, encoding=encoding)
 
                 if doctype:
@@ -134,18 +135,20 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
                 self._encoding = encoding
 
                 for element in elements:
-                    if element.tag == wpull.document.html.COMMENT:
+                    if isinstance(element, Comment):
                         out_file.write(
                             '<!--{0}-->'.format(element.text)
                         )
-                    elif element.end:
-                        if element.tag not in lxml.html.defs.empty_tags:
-                            self._out_file.write('</{0}>'.format(element.tag))
+                    elif isinstance(element, Element):
+                        if element.end:
+                            if element.tag not in lxml.html.defs.empty_tags:
+                                self._out_file.write('</{0}>'
+                                                     .format(element.tag))
 
-                        if element.tail:
-                            self._out_file.write(element.tail)
-                    else:
-                        self._convert_element(element, is_xhtml=is_xhtml)
+                            if element.tail:
+                                self._out_file.write(element.tail)
+                        else:
+                            self._convert_element(element, is_xhtml=is_xhtml)
 
                 self._out_file.close()
                 self._out_file = None
@@ -158,7 +161,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
         unfilled_value = object()
         new_attribs = dict(((name, unfilled_value) for name in element.attrib))
 
-        for link_info in self.iter_links_element(element):
+        for link_info in ElementWalker.iter_links_element(element):
             new_value = None
 
             if link_info.value_type == 'plain':
@@ -217,7 +220,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
         return new_url
 
     def _convert_css_attrib(self, link_info):
-        done_key = (link_info.element, link_info.attrib)
+        done_key = (id(link_info.element), id(link_info.attrib))
 
         if done_key in self._css_already_done:
             return
@@ -234,7 +237,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
         return new_value
 
     def _convert_css_text(self, link_info):
-        if link_info.element in self._css_already_done:
+        if id(link_info.element) in self._css_already_done:
             return
 
         text = wpull.string.to_str(link_info.element.text)
@@ -242,7 +245,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
             text, base_url=self._base_url
         )
 
-        self._css_already_done.add(link_info.element)
+        self._css_already_done.add(id(link_info.element))
 
         return new_text
 
@@ -260,39 +263,43 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
 
 class CSSConverter(CSSScraper, BaseDocumentConverter):
     '''CSS converter.'''
-    ALL_URL_PATTERN = r'{0}|{1}'.format(
-        CSSScraper.URL_PATTERN, CSSScraper.IMPORT_URL_PATTERN)
-
     def __init__(self, url_table):
         super().__init__()
         self._url_table = url_table
 
     def convert(self, input_filename, output_filename, base_url=None):
-        with open(input_filename, 'rb') as in_file:
-            text = in_file.read()
+        with open(input_filename, 'rb') as in_file, \
+                open(output_filename, 'wb') as out_file:
+            encoding = wpull.string.detect_encoding(
+                wpull.util.peek_file(in_file))
+            out_stream = codecs.getwriter(encoding)(out_file)
 
-        encoding = wpull.string.detect_encoding(text)
-        text = text.decode(encoding)
-        new_text = self.convert_text(text, base_url)
-
-        with open(output_filename, 'wb') as out_file:
-            out_file.write(new_text.encode(encoding))
+            for text, is_link in self.iter_processed_text(in_file, encoding):
+                if is_link:
+                    out_stream.write(self.get_new_url(text, base_url))
+                else:
+                    out_stream.write(text)
 
     def convert_text(self, text, base_url=None):
-        def repl(match):
-            url = match.group(1) or match.group(2)
-
-            if base_url:
-                url = wpull.url.urljoin(base_url, url)
-
-            url_record = self._url_table.get(url)
-
-            if url_record \
-               and url_record.status == Status.done and url_record.filename:
-                new_url = url_record.filename
+        text_list = []
+        for text, is_link in self.iter_processed_text(io.StringIO(text)):
+            if is_link:
+                text_list.append(self.get_new_url(text, base_url))
             else:
-                new_url = url
+                text_list.append(text)
 
-            return match.group().replace(url, new_url)
+        return ''.join(text_list)
 
-        return re.sub(self.ALL_URL_PATTERN, repl, text)
+    def get_new_url(self, url, base_url=None):
+        if base_url:
+            url = wpull.url.urljoin(base_url, url)
+
+        url_record = self._url_table.get(url)
+
+        if url_record \
+           and url_record.status == Status.done and url_record.filename:
+            new_url = url_record.filename
+        else:
+            new_url = url
+
+        return new_url

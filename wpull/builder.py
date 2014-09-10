@@ -98,6 +98,7 @@ class Builder(object):
             'Engine': Engine,
             'FetchRule': FetchRule,
             'HTTPProxyServer': HTTPProxyServer,
+            'HTMLParser': NotImplemented,
             'HTMLScraper': HTMLScraper,
             'JavaScriptScraper': JavaScriptScraper,
             'OutputDocumentRecorder': OutputDocumentRecorder,
@@ -123,7 +124,7 @@ class Builder(object):
             'WebProcessorFetchParams': WebProcessorFetchParams,
             'WebProcessorInstances': WebProcessorInstances,
         })
-        self._url_infos = tuple(self._build_input_urls())
+        self._url_infos = None
         self._ca_certs_file = None
         self._file_log_handler = None
         self._console_log_handler = None
@@ -145,10 +146,14 @@ class Builder(object):
         '''
         self._factory.new('Application', self)
 
+        self._build_html_parser()
         self._setup_logging()
         self._setup_console_logger()
         self._setup_file_logger()
         self._setup_debug_console()
+
+        self._build_demux_document_scraper()
+        self._url_infos = tuple(self._build_input_urls())
 
         statistics = self._factory.new('Statistics')
         statistics.quota = self._args.quota
@@ -422,7 +427,7 @@ class Builder(object):
 
     def _read_input_file_as_html(self):
         '''Read input file as HTML and return the links.'''
-        scrape_info = HTMLScraper.scrape_file(
+        scrape_info = self._factory['HTMLScraper'].scrape_file(
             self._args.input_file,
             encoding=self._args.local_encoding or 'utf-8'
         )
@@ -487,15 +492,23 @@ class Builder(object):
 
         return filters
 
+    def _build_demux_document_scraper(self):
+        '''Create demux document scraper.'''
+        self._factory.new(
+            'DemuxDocumentScraper', self._build_document_scrapers())
+
     def _build_document_scrapers(self):
         '''Create the document scrapers.
 
         Returns:
             A list of document scrapers
         '''
+        html_parser = self._factory['HTMLParser']
+
         scrapers = [
             self._factory.new(
                 'HTMLScraper',
+                html_parser,
                 followed_tags=self._args.follow_tags,
                 ignored_tags=self._args.ignore_tags,
                 only_relative=self._args.relative,
@@ -514,10 +527,17 @@ class Builder(object):
 
         if self._args.sitemaps:
             scrapers.append(self._factory.new(
-                'SitemapScraper', encoding_override=self._args.remote_encoding,
+                'SitemapScraper', html_parser,
+                encoding_override=self._args.remote_encoding,
             ))
 
         return scrapers
+
+    def _build_html_parser(self):
+        '''Build HTML parser.'''
+        from wpull.document.htmlparse.lxml import HTMLParser
+        self._factory.class_map['HTMLParser'] = HTMLParser
+        self._factory.new('HTMLParser')
 
     def _build_url_table(self):
         '''Create the URL table.
@@ -660,8 +680,7 @@ class Builder(object):
         args = self._args
         url_filter = self._factory.new('DemuxURLFilter',
                                        self._build_url_filters())
-        document_scraper = self._factory.new('DemuxDocumentScraper',
-                                             self._build_document_scrapers())
+        document_scraper = self._factory['DemuxDocumentScraper']
         file_writer = self._build_file_writer()
         post_data = self._get_post_data()
         converter = self._build_document_converter()
@@ -965,6 +984,7 @@ class Builder(object):
 
         converter = self._factory.new(
             'BatchDocumentConverter',
+            self._factory['HTMLParser'],
             self._factory['URLTable'],
             backup=self._args.backup_converted
         )
