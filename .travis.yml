@@ -12,9 +12,9 @@ before_install:
 
 # command to install dependencies
 install:
-  - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' ]]; then 
+  - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' ]]; then
       pip install -r requirements.txt;
-    else;
+    else
       pip install -r requirements-pypy.txt;
     fi
   - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' ]]; then
