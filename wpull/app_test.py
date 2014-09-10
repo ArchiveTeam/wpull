@@ -1,19 +1,19 @@
 # encoding=utf-8
+from http import cookiejar
+from tempfile import TemporaryDirectory
 import contextlib
 import gzip
 import hashlib
-from http import cookiejar
 import logging
 import os
 import socket
 import sys
-from tempfile import TemporaryDirectory
 import tempfile
 import unittest
 
 from tornado.testing import AsyncHTTPSTestCase
-import tornado.testing
 from trollius import From, Return
+import tornado.testing
 import trollius
 
 from wpull.builder import Builder
@@ -21,10 +21,11 @@ from wpull.dns import Resolver
 from wpull.errors import ExitStatus
 from wpull.options import AppArgumentParser
 from wpull.testing.async import AsyncTestCase
-import wpull.testing.async
 from wpull.testing.badapp import BadAppTestCase
 from wpull.testing.goodapp import GoodAppTestCase
 from wpull.url import URLInfo
+from wpull.util import IS_PYPY
+import wpull.testing.async
 
 
 DEFAULT_TIMEOUT = 30
@@ -446,6 +447,7 @@ class TestApp(GoodAppTestCase):
 
     @unittest.skipIf(sys.version_info[0:2] == (3, 2),
                      'lua module not working in this python version')
+    @unittest.skipIf(IS_PYPY, 'Not supported under PyPy')
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_lua_script_api_2(self):
         arg_parser = AppArgumentParser()
