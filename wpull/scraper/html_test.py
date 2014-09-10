@@ -3,16 +3,21 @@ import shutil
 import unittest
 
 from wpull.body import Body
+from wpull.document.htmlparse.lxml import HTMLParser as LxmlHTMLParser
 from wpull.http.request import Request, Response
 from wpull.scraper.html import HTMLScraper
 import wpull.util
 
+
 ROOT_PATH = os.path.join(os.path.dirname(__file__), '..')
 
 
-class TestHTML(unittest.TestCase):
+class Mixin(object):
+    def get_html_parser(self):
+        raise NotImplementedError()
+
     def test_html_scraper_links(self):
-        scraper = HTMLScraper()
+        scraper = HTMLScraper(self.get_html_parser())
         request = Request('http://example.com/')
         response = Response(200, 'OK')
         response.body = Body()
@@ -111,7 +116,7 @@ class TestHTML(unittest.TestCase):
             self.assertIsInstance(url, str)
 
     def test_html_soup(self):
-        scraper = HTMLScraper()
+        scraper = HTMLScraper(self.get_html_parser())
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
@@ -140,7 +145,7 @@ class TestHTML(unittest.TestCase):
         )
 
     def test_html_mojibake(self):
-        scraper = HTMLScraper()
+        scraper = HTMLScraper(self.get_html_parser())
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
@@ -169,7 +174,7 @@ class TestHTML(unittest.TestCase):
         )
 
     def test_html_krokozyabry(self):
-        scraper = HTMLScraper()
+        scraper = HTMLScraper(self.get_html_parser())
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
@@ -198,7 +203,7 @@ class TestHTML(unittest.TestCase):
         )
 
     def test_html_scraper_links_base_href(self):
-        scraper = HTMLScraper()
+        scraper = HTMLScraper(self.get_html_parser())
         request = Request('http://example.com/')
         response = Response(200, 'OK')
         response.body = Body()
@@ -234,7 +239,7 @@ class TestHTML(unittest.TestCase):
         )
 
     def test_xhtml(self):
-        scraper = HTMLScraper()
+        scraper = HTMLScraper(self.get_html_parser())
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
@@ -264,7 +269,7 @@ class TestHTML(unittest.TestCase):
         )
 
     def test_xhtml_invalid(self):
-        scraper = HTMLScraper()
+        scraper = HTMLScraper(self.get_html_parser())
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
@@ -295,7 +300,7 @@ class TestHTML(unittest.TestCase):
         )
 
     def test_html_wrong_charset(self):
-        scraper = HTMLScraper()
+        scraper = HTMLScraper(self.get_html_parser())
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
@@ -336,7 +341,7 @@ class TestHTML(unittest.TestCase):
         )
 
     def test_html_not_quite_charset(self):
-        scraper = HTMLScraper()
+        scraper = HTMLScraper(self.get_html_parser())
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
@@ -362,7 +367,7 @@ class TestHTML(unittest.TestCase):
         )
 
     def test_html_garbage(self):
-        scraper = HTMLScraper()
+        scraper = HTMLScraper(self.get_html_parser())
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
@@ -381,7 +386,7 @@ class TestHTML(unittest.TestCase):
 
     def test_html_encoding_lxml_name_mismatch(self):
         '''It should accept encoding names with underscore.'''
-        scraper = HTMLScraper()
+        scraper = HTMLScraper(self.get_html_parser())
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
@@ -398,7 +403,7 @@ class TestHTML(unittest.TestCase):
         self.assertEqual('euc_kr', scrape_info['encoding'])
 
     def test_html_serious_bad_encoding(self):
-        scraper = HTMLScraper(encoding_override='utf8')
+        scraper = HTMLScraper(self.get_html_parser(), encoding_override='utf8')
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
@@ -416,7 +421,7 @@ class TestHTML(unittest.TestCase):
         self.assertTrue(scrape_info)
 
     def test_rss_as_html(self):
-        scraper = HTMLScraper()
+        scraper = HTMLScraper(self.get_html_parser())
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
@@ -444,3 +449,7 @@ class TestHTML(unittest.TestCase):
             linked_urls
         )
 
+
+class TestLxmlHTMLScraper(Mixin, unittest.TestCase):
+    def get_html_parser(self):
+        return LxmlHTMLParser()

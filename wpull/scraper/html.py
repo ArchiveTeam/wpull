@@ -5,17 +5,16 @@ import itertools
 import logging
 import re
 
-import lxml.etree
-
 from wpull.backport.logging import BraceMessage as __
 from wpull.document.html import HTMLReader
 from wpull.document.util import detect_response_encoding
-from wpull.scraper.base import BaseDocumentScraper
+from wpull.scraper.base import BaseHTMLScraper
 from wpull.scraper.css import CSSScraper
 from wpull.scraper.javascript import JavaScriptScraper
 from wpull.scraper.util import urljoin_safe, clean_link_soup, parse_refresh, \
     is_likely_inline
 import wpull.util
+from wpull.document.htmlparse.element import Element
 
 
 _ = gettext.gettext
@@ -52,7 +51,7 @@ Attributes:
 '''
 
 
-class HTMLScraper(HTMLReader, BaseDocumentScraper):
+class HTMLScraper(HTMLReader, BaseHTMLScraper):
     '''Scraper for HTML documents.
 
     Args:
@@ -61,44 +60,11 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         robots: If True, discard any links if they cannot be followed
         only_relative: If True, discard any links that are not absolute paths
     '''
-    LINK_ATTRIBUTES = frozenset([
-        'action', 'archive', 'background', 'cite', 'classid',
-        'codebase', 'data', 'href', 'longdesc', 'profile', 'src',
-        'usemap',
-        'dynsrc', 'lowsrc',
-    ])
-    '''HTML element attributes that may contain links.'''
-    ATTR_INLINE = 1
-    '''Flag for embedded objects (like images, stylesheets) in documents.'''
-    ATTR_HTML = 2
-    '''Flag for links that point to other documents.'''
-    TAG_ATTRIBUTES = {
-        'a': {'href': ATTR_HTML},
-        'applet': {'code': ATTR_INLINE},
-        'area': {'href': ATTR_HTML},
-        'bgsound': {'src': ATTR_INLINE},
-        'body': {'background': ATTR_INLINE},
-        'embed': {'href': ATTR_HTML, 'src': ATTR_INLINE | ATTR_HTML},
-        'fig': {'src': ATTR_INLINE},
-        'form': {'action': ATTR_HTML},
-        'frame': {'src': ATTR_INLINE | ATTR_HTML},
-        'iframe': {'src': ATTR_INLINE | ATTR_HTML},
-        'img': {
-            'href': ATTR_INLINE, 'lowsrc': ATTR_INLINE, 'src': ATTR_INLINE},
-        'input': {'src': ATTR_INLINE},
-        'layer': {'src': ATTR_INLINE | ATTR_HTML},
-        'object': {'data': ATTR_INLINE},
-        'overlay': {'src': ATTR_INLINE | ATTR_HTML},
-        'script': {'src': ATTR_INLINE},
-        'table': {'background': ATTR_INLINE},
-        'td': {'background': ATTR_INLINE},
-        'th': {'background': ATTR_INLINE},
-    }
-    '''Mapping of element tag names to attributes containing links.'''
 
-    def __init__(self, followed_tags=None, ignored_tags=None, robots=False,
+    def __init__(self, html_parser, followed_tags=None, ignored_tags=None,
+                 robots=False,
                  only_relative=False, encoding_override=None):
-        super().__init__()
+        super().__init__(html_parser)
         self._robots = robots
         self._only_relative = only_relative
         self._encoding_override = encoding_override
@@ -128,13 +94,13 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
 
         try:
             with wpull.util.reset_file_offset(content_file):
-                elements = self.read_links(content_file, encoding=encoding)
+                elements = self.iter_elements(content_file, encoding=encoding)
 
                 result_meta_info = self._process_elements(
                     elements, response, base_url, linked_urls, inline_urls
                 )
 
-        except (UnicodeError, lxml.etree.LxmlError) as error:
+        except (UnicodeError, self._html_parser.parser_error) as error:
             _logger.warning(__(
                 _('Failed to read document at ‘{url}’: {error}'),
                 url=request.url_info.url, error=error
@@ -159,7 +125,10 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
         doc_base_url = None
 
         for element in elements:
-            if robots_check_needed and self.robots_cannot_follow(element):
+            if not isinstance(element, Element):
+                continue
+
+            if robots_check_needed and ElementWalker.robots_cannot_follow(element):
                 robots_check_needed = False
                 robots_no_follow = True
 
@@ -168,7 +137,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
                     base_url, clean_link_soup(element.attrib.get('href', ''))
                 )
 
-            link_infos = self.iter_links_element(element)
+            link_infos = ElementWalker.iter_links_element(element)
 
             if inject_refresh and 'Refresh' in response.fields:
                 link = parse_refresh(response.fields['Refresh'])
@@ -218,19 +187,17 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
 
         return {'robots_no_follow': robots_no_follow}
 
-    @classmethod
     def scrape_file(self, file, encoding=None, base_url=None):
         '''Scrape a file for links.
 
         See :meth:`scrape` for the return value.
         '''
-        scraper = HTMLScraper()
-        elements = scraper.read_links(file, encoding=encoding)
+        elements = self.iter_elements(file, encoding=encoding)
 
         linked_urls = set()
         inline_urls = set()
 
-        link_infos = self.iter_links(elements)
+        link_infos = ElementWalker.iter_links(elements)
 
         for link_info in link_infos:
             element_base_url = base_url
@@ -262,6 +229,61 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             'encoding': encoding,
         }
 
+    def _is_accepted(self, element_tag):
+        '''Return if the link is accepted by the filters.'''
+        element_tag = element_tag.lower()
+
+        if self._ignored_tags is not None \
+           and element_tag in self._ignored_tags:
+            return False
+
+        if self._followed_tags is not None:
+            return element_tag in self._followed_tags
+        else:
+            return True
+
+
+class ElementWalker(object):
+    '''Iterate elements.'''
+
+    LINK_ATTRIBUTES = frozenset([
+        'action', 'archive', 'background', 'cite', 'classid',
+        'codebase', 'data', 'href', 'longdesc', 'profile', 'src',
+        'usemap',
+        'dynsrc', 'lowsrc',
+    ])
+    '''HTML element attributes that may contain links.'''
+    ATTR_INLINE = 1
+    '''Flag for embedded objects (like images, stylesheets) in documents.'''
+    ATTR_HTML = 2
+    '''Flag for links that point to other documents.'''
+    TAG_ATTRIBUTES = {
+        'a': {'href': ATTR_HTML},
+        'applet': {'code': ATTR_INLINE},
+        'area': {'href': ATTR_HTML},
+        'bgsound': {'src': ATTR_INLINE},
+        'body': {'background': ATTR_INLINE},
+        'embed': {'href': ATTR_HTML, 'src': ATTR_INLINE | ATTR_HTML},
+        'fig': {'src': ATTR_INLINE},
+        'form': {'action': ATTR_HTML},
+        'frame': {'src': ATTR_INLINE | ATTR_HTML},
+        'iframe': {'src': ATTR_INLINE | ATTR_HTML},
+        'img': {
+            'href': ATTR_INLINE, 'lowsrc': ATTR_INLINE, 'src': ATTR_INLINE},
+        'input': {'src': ATTR_INLINE},
+        'layer': {'src': ATTR_INLINE | ATTR_HTML},
+        'object': {'data': ATTR_INLINE},
+        'overlay': {'src': ATTR_INLINE | ATTR_HTML},
+        'script': {'src': ATTR_INLINE},
+        'table': {'background': ATTR_INLINE},
+        'td': {'background': ATTR_INLINE},
+        'th': {'background': ATTR_INLINE},
+    }
+    '''Mapping of element tag names to attributes containing links.'''
+
+    css_scraper = CSSScraper()
+    javascript_scraper = JavaScriptScraper()
+
     @classmethod
     def iter_links(cls, elements):
         '''Iterate the document root for links.
@@ -270,6 +292,9 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             iterable: A iterator of :class:`LinkedInfo`.
         '''
         for element in elements:
+            if not isinstance(element, Element):
+                continue
+
             for link_infos in cls.iter_links_element(element):
                 yield link_infos
 
@@ -305,7 +330,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             yield link_info
 
         if 'style' in attrib:
-            for link in CSSScraper.scrape_urls(attrib['style']):
+            for link in cls.css_scraper.scrape_links(attrib['style']):
                 yield LinkInfo(
                     element, element.tag, 'style',
                     link,
@@ -423,10 +448,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
     def iter_links_style_element(cls, element):
         '''Iterate a ``style`` element.'''
         if element.text:
-            link_iter = itertools.chain(
-                CSSScraper.scrape_imports(element.text),
-                CSSScraper.scrape_urls(element.text)
-            )
+            link_iter = cls.css_scraper.scrape_links(element.text)
             for link in link_iter:
                 yield LinkInfo(
                     element, element.tag, None,
@@ -440,7 +462,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
     def iter_links_script_element(cls, element):
         '''Iterate a ``script`` element.'''
         if element.text:
-            link_iter = JavaScriptScraper.scrape_links(element.text)
+            link_iter = cls.javascript_scraper.scrape_links(element.text)
 
             for link in link_iter:
                 inline = is_likely_inline(link)
@@ -509,7 +531,7 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
     @classmethod
     def iter_links_by_js_attrib(cls, attrib_name, attrib_value):
         '''Iterate links of a JavaScript pseudo-link attribute.'''
-        links = JavaScriptScraper.scrape_links(attrib_value)
+        links = cls.javascript_scraper.scrape_links(attrib_value)
 
         for link in links:
             yield attrib_name, link
@@ -541,19 +563,6 @@ class HTMLScraper(HTMLReader, BaseDocumentScraper):
             return attr_flags & cls.ATTR_HTML
 
         return attribute == 'href'
-
-    def _is_accepted(self, element_tag):
-        '''Return if the link is accepted by the filters.'''
-        element_tag = element_tag.lower()
-
-        if self._ignored_tags is not None \
-           and element_tag in self._ignored_tags:
-            return False
-
-        if self._followed_tags is not None:
-            return element_tag in self._followed_tags
-        else:
-            return True
 
     @classmethod
     def robots_cannot_follow(self, element):

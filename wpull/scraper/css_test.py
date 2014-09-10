@@ -11,7 +11,7 @@ ROOT_PATH = os.path.join(os.path.dirname(__file__), '..')
 
 
 class TestCSS(unittest.TestCase):
-    def test_scrape_css_urls(self):
+    def test_scrape_import_urls(self):
         text = '''
         @import url("fineprint.css") print;
         @import url("bluish.css") projection, tv;
@@ -23,28 +23,16 @@ class TestCSS(unittest.TestCase):
         @import warm.css;
         '''
 
-        urls = set(CSSScraper.scrape_urls(text))
+        urls = set(CSSScraper().scrape_links(text))
 
         self.assertEqual({
             'fineprint.css',
             'bluish.css',
             'chrome://communicator/skin/',
-            'landscape.css',
-            'cool.css'
-        },
-            urls
-        )
-
-        urls = set(CSSScraper.scrape_imports(text))
-
-        self.assertEqual({
-            'fineprint.css',
-            'bluish.css',
-            'custom.css',
-            'chrome://communicator/skin/',
-            'common.css',
             'landscape.css',
             'cool.css',
+            'custom.css',
+            'common.css',
             'warm.css',
         },
             urls

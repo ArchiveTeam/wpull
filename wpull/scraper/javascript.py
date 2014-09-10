@@ -1,13 +1,14 @@
 '''Javascript scraper.'''
 
 import gettext
+import json
 import logging
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.document.javascript import JavaScriptReader
 from wpull.document.util import detect_response_encoding
-from wpull.scraper.base import BaseDocumentScraper, ScrapedLinkResult
-from wpull.scraper.util import is_likely_inline, urljoin_safe
+from wpull.scraper.base import BaseTextStreamScraper
+from wpull.scraper.util import is_likely_inline
 import wpull.util
 
 
@@ -15,29 +16,42 @@ _ = gettext.gettext
 _logger = logging.getLogger(__name__)
 
 
-class JavaScriptScraper(JavaScriptReader, BaseDocumentScraper):
+class JavaScriptScraper(JavaScriptReader, BaseTextStreamScraper):
     '''Scrapes JavaScript documents.'''
     def __init__(self, encoding_override=None):
         super().__init__()
         self._encoding_override = encoding_override
 
+    def iter_text(self, file, encoding=None):
+        for text, match in super().iter_text(file, encoding):
+            if match and wpull.url.is_likely_link(text) and \
+                    not wpull.url.is_unlikely_link(text):
+                try:
+                    yield (json.loads('"{0}"'.format(text)), match)
+                except ValueError:
+                    yield (text, match)
+            else:
+                yield (text, None)
+
     def scrape(self, request, response):
         if not self.is_supported(request=request, response=response):
             return
 
-        scraped_links = self.iter_scrape(request, response)
         inline_urls = set()
         linked_urls = set()
-        encoding = 'latin1'
+        base_url = request.url_info.url
+        encoding = self._encoding_override or \
+            detect_response_encoding(response)
 
         try:
-            for scraped_link in scraped_links:
-                encoding = scraped_link.encoding
+            with wpull.util.reset_file_offset(response.body):
+                for link in self.iter_processed_links(response.body, encoding,
+                                                      base_url):
 
-                if is_likely_inline(scraped_link.link):
-                    inline_urls.add(scraped_link.link)
-                else:
-                    linked_urls.add(scraped_link.link)
+                    if is_likely_inline(link):
+                        inline_urls.add(link)
+                    else:
+                        linked_urls.add(link)
 
         except UnicodeError as error:
             _logger.warning(__(
@@ -50,18 +64,3 @@ class JavaScriptScraper(JavaScriptReader, BaseDocumentScraper):
             'linked_urls': linked_urls,
             'encoding': encoding,
         }
-
-    def iter_scrape(self, request, response):
-        if not self.is_supported(request=request, response=response):
-            return
-
-        base_url = request.url_info.url
-        encoding = self._encoding_override \
-            or detect_response_encoding(response)
-
-        with wpull.util.reset_file_offset(response.body):
-            for link in self.read_links(response.body, encoding):
-                link = urljoin_safe(base_url, link, allow_fragments=False)
-
-                if link:
-                    yield ScrapedLinkResult(link, True, encoding)

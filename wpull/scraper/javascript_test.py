@@ -4,7 +4,6 @@ import unittest
 
 from wpull.body import Body
 from wpull.http.request import Request, Response
-from wpull.scraper.html import HTMLScraper
 from wpull.scraper.javascript import JavaScriptScraper
 import wpull.util
 
@@ -53,8 +52,8 @@ class TestJavascript(unittest.TestCase):
         )
 
     def test_javascript_heavy_inline_monstrosity(self):
-        scraper = HTMLScraper()
-        request = Request('http://example.com/')
+        scraper = JavaScriptScraper()
+        request = Request('http://example.com/test.js')
         response = Response(200, 'OK')
         response.body = Body()
 
@@ -63,6 +62,7 @@ class TestJavascript(unittest.TestCase):
                                           'testing', 'samples',
                                           'twitchplayspokemonfirered.html')
             with open(html_file_path, 'rb') as in_file:
+                in_file.seek(0x147)
                 shutil.copyfileobj(in_file, response.body)
 
         scrape_info = scraper.scrape(request, response)
@@ -80,3 +80,6 @@ class TestJavascript(unittest.TestCase):
             'usg=AFQjCNElFBxZYdNm5mWoRSncf5tbdIJQ-A',
             linked_urls
         )
+
+        print('\n'.join(inline_urls))
+        print('\n'.join(linked_urls))

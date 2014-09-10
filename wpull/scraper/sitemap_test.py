@@ -1,14 +1,18 @@
 import unittest
 
 from wpull.body import Body
+from wpull.document.htmlparse.lxml import HTMLParser as LxmlHTMLParser
 from wpull.http.request import Request, Response
 from wpull.scraper.sitemap import SitemapScraper
 import wpull.util
 
 
-class TestSitemap(unittest.TestCase):
+class Mixin(object):
+    def get_html_parser(self):
+        raise NotImplementedError()
+
     def test_sitemap_scraper_robots(self):
-        scraper = SitemapScraper()
+        scraper = SitemapScraper(self.get_html_parser())
         request = Request('http://example.com/robots.txt')
         response = Response(200, 'OK')
         response.body = Body()
@@ -30,7 +34,7 @@ class TestSitemap(unittest.TestCase):
         self.assertFalse(inline_urls)
 
     def test_sitemap_scraper_invalid_robots(self):
-        scraper = SitemapScraper()
+        scraper = SitemapScraper(self.get_html_parser())
         request = Request('http://example.com/robots.txt')
         response = Response(200, 'OK')
         response.body = Body()
@@ -48,7 +52,7 @@ class TestSitemap(unittest.TestCase):
         self.assertFalse(inline_urls)
 
     def test_sitemap_scraper_xml_index(self):
-        scraper = SitemapScraper()
+        scraper = SitemapScraper(self.get_html_parser())
         request = Request('http://example.com/sitemap.xml')
         response = Response(200, 'OK')
         response.body = Body()
@@ -78,7 +82,7 @@ class TestSitemap(unittest.TestCase):
         self.assertFalse(inline_urls)
 
     def test_sitemap_scraper_xml(self):
-        scraper = SitemapScraper()
+        scraper = SitemapScraper(self.get_html_parser())
         request = Request('http://example.com/sitemap.xml')
         response = Response(200, 'OK')
         response.body = Body()
@@ -109,7 +113,7 @@ class TestSitemap(unittest.TestCase):
         self.assertFalse(inline_urls)
 
     def test_sitemap_scraper_invalid_xml(self):
-        scraper = SitemapScraper()
+        scraper = SitemapScraper(self.get_html_parser())
         request = Request('http://example.com/sitemap.xml')
         response = Response(200, 'OK')
         response.body = Body()
@@ -133,3 +137,8 @@ class TestSitemap(unittest.TestCase):
             linked_urls
         )
         self.assertFalse(inline_urls)
+
+
+class TestLxmlSitemap(Mixin, unittest.TestCase):
+    def get_html_parser(self):
+        return LxmlHTMLParser()
