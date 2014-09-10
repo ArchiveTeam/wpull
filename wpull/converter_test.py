@@ -6,7 +6,8 @@ import unittest
 from wpull.app_test import cd_tempdir
 from wpull.converter import CSSConverter, HTMLConverter
 from wpull.database import URLTable, Status
-from wpull.document.htmlparse.lxml import HTMLParser as LxmlHTMLParser
+from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser
+from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
 
 
 CSS_TEXT = '''
@@ -241,3 +242,8 @@ class Mixin(object):
 class TestLxmlConverter(unittest.TestCase, Mixin):
     def get_html_parser(self):
         return LxmlHTMLParser()
+
+
+class TestHTML5LibConverter(unittest.TestCase, Mixin):
+    def get_html_parser(self):
+        return HTML5LibHTMLParser()

@@ -36,8 +36,8 @@ wpull Package
     api/document.htmlparse
     api/document.htmlparse.base
     api/document.htmlparse.element
-    api/document.htmlparse.html5lib
-    api/document.htmlparse.lxml
+    api/document.htmlparse.html5lib_
+    api/document.htmlparse.lxml_
     api/document.javascript
     api/document.sitemap
     api/document.util

@@ -535,7 +535,7 @@ class Builder(object):
 
     def _build_html_parser(self):
         '''Build HTML parser.'''
-        from wpull.document.htmlparse.lxml import HTMLParser
+        from wpull.document.htmlparse.lxml_ import HTMLParser
         self._factory.class_map['HTMLParser'] = HTMLParser
         self._factory.new('HTMLParser')
 

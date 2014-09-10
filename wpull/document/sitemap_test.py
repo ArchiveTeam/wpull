@@ -3,7 +3,8 @@ import io
 import unittest
 
 from wpull.document.base_test import CODEC_NAMES, EBCDIC
-from wpull.document.htmlparse.lxml import HTMLParser as LxmlHTMLParser
+from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser
+from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
 from wpull.document.sitemap import SitemapReader
 from wpull.http.request import Request
 from wpull.url import URLInfo
@@ -18,8 +19,12 @@ class Mixin(object):
 
         for name in CODEC_NAMES:
             if name in EBCDIC or name == 'utf_8_sig':
-                # FIXME: we're assuming that all codecs are ASCII backward
+                # XXX: we're assuming that all codecs are ASCII backward
                 # compatable
+                continue
+
+            if name.endswith('_le') or name.endswith('_be'):
+                # XXX: Assume BOM is always included
                 continue
 
             data = io.BytesIO(
@@ -32,6 +37,7 @@ class Mixin(object):
             self.assertEqual('blah', link)
 
     def test_sitemap_detect(self):
+        # It should detect without BOM
         self.assertTrue(SitemapReader.is_file(
             io.BytesIO('<?xml > <urlset >'.encode('utf-16le'))
         ))
@@ -74,3 +80,8 @@ class Mixin(object):
 class TestLxmlSitemap(Mixin, unittest.TestCase):
     def get_html_parser(self):
         return LxmlHTMLParser()
+
+
+class TestHTML5LibSitemap(Mixin, unittest.TestCase):
+    def get_html_parser(self):
+        return HTML5LibHTMLParser()

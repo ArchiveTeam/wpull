@@ -47,7 +47,6 @@ class JavaScriptScraper(JavaScriptReader, BaseTextStreamScraper):
             with wpull.util.reset_file_offset(response.body):
                 for link in self.iter_processed_links(response.body, encoding,
                                                       base_url):
-
                     if is_likely_inline(link):
                         inline_urls.add(link)
                     else:

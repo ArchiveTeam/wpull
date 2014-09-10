@@ -178,7 +178,7 @@ class HTMLParser(BaseParser):
             for element in elements:
                 yield element
 
-            elements.clear()
+            del elements[:]
 
         parser.close()
 

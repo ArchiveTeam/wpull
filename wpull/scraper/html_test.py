@@ -3,7 +3,8 @@ import shutil
 import unittest
 
 from wpull.body import Body
-from wpull.document.htmlparse.lxml import HTMLParser as LxmlHTMLParser
+from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser
+from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
 from wpull.http.request import Request, Response
 from wpull.scraper.html import HTMLScraper
 import wpull.util
@@ -453,3 +454,8 @@ class Mixin(object):
 class TestLxmlHTMLScraper(Mixin, unittest.TestCase):
     def get_html_parser(self):
         return LxmlHTMLParser()
+
+
+class TestHTML5LibHTMLScraper(Mixin, unittest.TestCase):
+    def get_html_parser(self):
+        return HTML5LibHTMLParser()

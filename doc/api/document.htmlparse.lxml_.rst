@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`document.htmlparse.html5lib` Module
-=========================================
+:mod:`document.htmlparse.lxml_` Module
+======================================
 
-.. automodule:: wpull.document.htmlparse.html5lib
+.. automodule:: wpull.document.htmlparse.lxml_
     :members:
     :show-inheritance:
     :private-members:

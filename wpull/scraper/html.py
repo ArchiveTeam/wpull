@@ -173,9 +173,14 @@ class HTMLScraper(HTMLReader, BaseHTMLScraper):
                             base_url, clean_base_url
                         ) or base_url
 
+                cleaned_url = clean_link_soup(link_info.link)
+
+                if not cleaned_url:
+                    continue
+
                 url = urljoin_safe(
                     element_base_url,
-                    clean_link_soup(link_info.link),
+                    cleaned_url,
                     allow_fragments=False
                 )
 

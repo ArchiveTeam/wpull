@@ -12,7 +12,7 @@ import lxml.html
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.database import Status
-from wpull.document.htmlparse.element import Comment, Element
+from wpull.document.htmlparse.element import Comment, Element, Doctype
 from wpull.scraper.css import CSSScraper
 from wpull.scraper.html import HTMLScraper, ElementWalker
 from wpull.url import URLInfo
@@ -118,9 +118,14 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
             )
 
         with open(input_filename, 'rb') as in_file:
-            doctype = self._html_parser.parse_doctype(in_file,
-                                                      encoding=encoding)
-            is_xhtml = doctype and 'XHTML' in doctype
+            try:
+                doctype = self._html_parser.parse_doctype(in_file,
+                                                          encoding=encoding)
+                is_xhtml = doctype and 'XHTML' in doctype
+            except AttributeError:
+                # using html5lib
+                is_xhtml = False
+                doctype = None
 
         with open(input_filename, 'rb') as in_file:
             with open(output_filename, 'wb') as bin_out_file:
@@ -149,6 +154,9 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
                                 self._out_file.write(element.tail)
                         else:
                             self._convert_element(element, is_xhtml=is_xhtml)
+                    elif isinstance(element, Doctype):
+                        doctype = element.text
+                        is_xhtml = doctype and 'XHTML' in doctype
 
                 self._out_file.close()
                 self._out_file = None
@@ -303,3 +311,6 @@ class CSSConverter(CSSScraper, BaseDocumentConverter):
             new_url = url
 
         return new_url
+
+
+# TODO: add javascript conversion
