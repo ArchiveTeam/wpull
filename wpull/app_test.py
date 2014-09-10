@@ -427,7 +427,12 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(2, engine.concurrent)
 
         stats = builder.factory['Statistics']
-        self.assertGreater(1.0, stats.duration)
+
+        if IS_PYPY:
+            # Account for JIT warm-up period
+            self.assertGreater(10.0, stats.duration)
+        else:
+            self.assertGreater(1.0, stats.duration)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_python_script_stop(self):
