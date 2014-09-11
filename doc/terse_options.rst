@@ -31,6 +31,7 @@ Brief Option Overview
                      [--post-data STRING | --post-file FILE]
                      [--content-on-error] [--http-compression]
                      [--html-parser {html5lib,libxml2-lxml}]
+                     [--link-extractors <css,html,javascript>]
                      [--secure-protocol PR={SSLv3,TLSv1,auto}] [--https-only]
                      [--no-check-certificate] [--certificate FILE]
                      [--certificate-type TYPE={PEM}] [--private-key FILE]
@@ -189,6 +190,9 @@ Brief Option Overview
     --html-parser {html5lib,libxml2-lxml}
                           select HTML parsing library and strategy (default:
                           libxml2-lxml)
+    --link-extractors <css,html,javascript>
+                          specify which link extractors to use (default:
+                          ['html', 'css', 'javascript'])
 
   SSL:
     --secure-protocol PR={SSLv3,TLSv1,auto}

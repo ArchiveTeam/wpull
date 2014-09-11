@@ -8,6 +8,7 @@ What's New
 * Added ``--http-parser`` option. You can now use html5lib as the HTML parser.
 * Support for PyPy 2.3.1 running with Python 3.2 implementation.
 * Consistent URL parsing among various Python versions.
+* Added ``--link-extractors`` option.
 
 * API:
 

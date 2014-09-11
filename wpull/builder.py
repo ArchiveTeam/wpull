@@ -46,7 +46,7 @@ from wpull.recorder import (WARCRecorder, DemuxRecorder,
 from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper.base import DemuxDocumentScraper
 from wpull.scraper.css import CSSScraper
-from wpull.scraper.html import HTMLScraper
+from wpull.scraper.html import HTMLScraper, ElementWalker
 from wpull.scraper.javascript import JavaScriptScraper
 from wpull.scraper.sitemap import SitemapScraper
 from wpull.stats import Statistics
@@ -96,6 +96,7 @@ class Builder(object):
             'DemuxRecorder': DemuxRecorder,
             'DemuxURLFilter': DemuxURLFilter,
             'Engine': Engine,
+            'ElementWalker': ElementWalker,
             'FetchRule': FetchRule,
             'HTTPProxyServer': HTTPProxyServer,
             'HTMLParser': NotImplemented,
@@ -504,26 +505,36 @@ class Builder(object):
             A list of document scrapers
         '''
         html_parser = self._factory['HTMLParser']
+        element_walker = self._factory.new('ElementWalker')
 
         scrapers = [
             self._factory.new(
                 'HTMLScraper',
                 html_parser,
+                element_walker,
                 followed_tags=self._args.follow_tags,
                 ignored_tags=self._args.ignore_tags,
                 only_relative=self._args.relative,
                 robots=self._args.robots,
                 encoding_override=self._args.remote_encoding,
             ),
-            self._factory.new(
+        ]
+
+        if 'css' in self._args.link_extractors:
+            css_scraper = self._factory.new(
                 'CSSScraper',
                 encoding_override=self._args.remote_encoding,
-            ),
-            self._factory.new(
+            )
+            scrapers.append(css_scraper)
+            element_walker.css_scraper = css_scraper
+
+        if 'javascript' in self._args.link_extractors:
+            javascript_scraper = self._factory.new(
                 'JavaScriptScraper',
                 encoding_override=self._args.remote_encoding,
-            ),
-        ]
+            )
+            scrapers.append(javascript_scraper)
+            element_walker.javascript_scraper = javascript_scraper
 
         if self._args.sitemaps:
             scrapers.append(self._factory.new(
@@ -989,6 +1000,7 @@ class Builder(object):
         converter = self._factory.new(
             'BatchDocumentConverter',
             self._factory['HTMLParser'],
+            self._factory['ElementWalker'],
             self._factory['URLTable'],
             backup=self._args.backup_converted
         )

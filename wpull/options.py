@@ -783,6 +783,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             default='html5lib'if IS_PYPY else 'libxml2-lxml',
             help=_('select HTML parsing library and strategy')
         )
+        group.add_argument(
+            '--link-extractors',
+            choices=CommaChoiceListArgs(['html', 'css', 'javascript']),
+            type=self.comma_choice_list,
+            default=['html', 'css', 'javascript'],
+            help=_('specify which link extractors to use')
+        )
 
     def _add_ssl_args(self):
         self._ssl_version_map = {
