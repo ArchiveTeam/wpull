@@ -215,11 +215,14 @@ class HTMLScraper(HTMLReader, BaseHTMLScraper):
                         base_url, clean_base_url
                     ) or base_url
 
-            url = urljoin_safe(
-                element_base_url,
-                clean_link_soup(link_info.link),
-                allow_fragments=False
-            )
+            if element_base_url:
+                url = urljoin_safe(
+                    element_base_url,
+                    clean_link_soup(link_info.link),
+                    allow_fragments=False
+                )
+            else:
+                url = clean_link_soup(link_info.link)
 
             if url:
                 if link_info.inline:
