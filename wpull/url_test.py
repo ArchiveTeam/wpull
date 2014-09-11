@@ -3,10 +3,9 @@
 import timeit
 import unittest
 
-from wpull.url import (URLInfo, schemes_similar, is_subdir, unquote,
-                       unquote_plus, quote, quote_plus, split_query,
-                       uppercase_percent_encoding, urljoin,
-                       flatten_path)
+from wpull.url import URLInfo, schemes_similar, is_subdir, split_query, \
+    percent_decode, percent_decode_plus, percent_encode, percent_encode_plus, \
+    uppercase_percent_encoding, urljoin, flatten_path
 
 
 class TestURL(unittest.TestCase):
@@ -107,19 +106,18 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('http://example.com:80').url
         )
 
-        # URL parsing is really different in each version of Python...
         self.assertRaises(ValueError, URLInfo.parse, '')
         self.assertRaises(ValueError, URLInfo.parse, '#')
         self.assertRaises(ValueError, URLInfo.parse, 'http://')
         self.assertRaises(ValueError, URLInfo.parse, 'example....com')
         self.assertRaises(ValueError, URLInfo.parse, 'http://example....com')
         self.assertRaises(ValueError, URLInfo.parse, 'http://example…com')
-#         self.assertRaises(ValueError, URLInfo.parse, 'http://[34.4kf]::4')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://[34.4kf]::4')
         self.assertRaises(ValueError, URLInfo.parse, 'http://[34.4kf::4')
         self.assertRaises(ValueError, URLInfo.parse, 'http://dmn3]:3a:45')
         self.assertRaises(ValueError, URLInfo.parse, ':38/3')
         self.assertRaises(ValueError, URLInfo.parse, 'http://][a:@1]')
-#         self.assertRaises(ValueError, URLInfo.parse, 'http://[[aa]]:4:]6')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://[[aa]]:4:]6')
         self.assertNotIn('[', URLInfo.parse('http://[a]').hostname)
         self.assertNotIn(']', URLInfo.parse('http://[a]').hostname)
         self.assertRaises(ValueError, URLInfo.parse, 'http://[[a]')
@@ -195,21 +193,21 @@ class TestURL(unittest.TestCase):
 
         self.assertEqual(
             'http://example.com/'
-            '?blah=http://example.com/?fail=true',
+            '?blah=http%3A%2F%2Fexample.com%2F%3Ffail%3Dtrue',
             URLInfo.parse(
                 'http://example.com/'
                 '?blah=http%3A%2F%2Fexample.com%2F%3Ffail%3Dtrue').url
         )
         self.assertEqual(
             'http://example.com/'
-            '?blah=http://example.com/?fail=true',
+            '?blah=http://example.com/?fail%3Dtrue',
             URLInfo.parse(
                 'http://example.com/'
                 '?blah=http://example.com/?fail%3Dtrue').url
         )
 
         self.assertEqual(
-            'http://example.com/??blah=blah[0:]=blah?blah%22&d%26_',
+            'http://example.com/??blah=blah[0:]=bl%61h?blah%22&d%26_',
             URLInfo.parse(
                 'http://example.com/??blah=blah[0:]=bl%61h?blah"&d%26_').url
         )
@@ -241,7 +239,7 @@ class TestURL(unittest.TestCase):
                 'http://example.com/@49IMG.DLL/$SESSION$/imagé.png;large').url
         )
         self.assertEqual(
-            'http://example.com/$c/%25system.exe/',
+            'http://example.com/$c/%system.exe/',
             URLInfo.parse('http://example.com/$c/%system.exe/').url
         )
 
@@ -405,15 +403,15 @@ class TestURL(unittest.TestCase):
         self.assertEqual([('a', 'ð'), ('b', '%2F')],
                          split_query('a=ð&b=%2F'))
 
-    def test_url_quote(self):
-        self.assertEqual('a ', unquote('a%20'))
-        self.assertEqual('að', unquote('a%C3%B0'))
-        self.assertEqual('a ', unquote_plus('a+'))
-        self.assertEqual('að', unquote_plus('a%C3%B0'))
-        self.assertEqual('a%20', quote('a '))
-        self.assertEqual('a%C3%B0', quote('að'))
-        self.assertEqual('a+', quote_plus('a '))
-        self.assertEqual('a%C3%B0', quote_plus('að'))
+    def test_url_percent_encode(self):
+        self.assertEqual('a ', percent_decode('a%20'))
+        self.assertEqual('að', percent_decode('a%C3%B0'))
+        self.assertEqual('a ', percent_decode_plus('a+'))
+        self.assertEqual('að', percent_decode_plus('a%C3%B0'))
+        self.assertEqual('a%20', percent_encode('a '))
+        self.assertEqual('a%C3%B0', percent_encode('að'))
+        self.assertEqual('a+', percent_encode_plus('a '))
+        self.assertEqual('a%C3%B0', percent_encode_plus('að'))
 
     def test_uppercase_percent_encoding(self):
         self.assertEqual(
