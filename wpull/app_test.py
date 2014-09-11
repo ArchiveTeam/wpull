@@ -1018,7 +1018,8 @@ class TestAppBad(BadAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    # XXX: slow on pypy
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT * 4)
     def test_bad_utf8(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
