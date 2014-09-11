@@ -1,6 +1,7 @@
 '''URL parsing based on WHATWG URL living spec.'''
 import collections
 import fnmatch
+import functools
 import re
 import urllib.parse
 
@@ -97,6 +98,7 @@ class URLInfo(object):
         self.encoding = None
 
     @classmethod
+    @functools.lru_cache()
     def parse(cls, url, default_scheme='http', encoding='utf-8'):
         url = url.strip()
         if not url.isprintable():
@@ -336,14 +338,16 @@ class URLInfo(object):
         return self.raw != other.raw
 
 
+@functools.lru_cache()
 def normalize_hostname(hostname):
     '''Normalizes a hostname so that it is ASCII and valid domain name.'''
-    hostname = hostname.encode('idna').decode('ascii')
+    new_hostname = hostname.encode('idna').decode('ascii')
 
-    # May raise UnicodeError
-    hostname.encode('idna')
+    if hostname != new_hostname:
+        # Check for round-trip. May raise UnicodeError
+        new_hostname.encode('idna')
 
-    return hostname
+    return new_hostname
 
 
 def normalize_path(path, encoding='utf-8'):
