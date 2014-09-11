@@ -4,9 +4,11 @@ import random
 from trollius import From
 import trollius
 
-from wpull.engine import BaseEngine
+from wpull.engine import BaseEngine, Engine
 from wpull.testing.async import AsyncTestCase
 import wpull.testing.async
+from wpull.database import SQLiteURLTable
+from wpull.stats import Statistics
 
 
 DEFAULT_TIMEOUT = 10
@@ -55,6 +57,15 @@ class MockEngine(BaseEngine):
     @concurrent.setter
     def concurrent(self, num):
         self._set_concurrent(num)
+
+
+class MockProcessor(object):
+    @trollius.coroutine
+    def process(self, url_item):
+        url_item.skip()
+
+    def close(self):
+        pass
 
 
 class TestEngine(AsyncTestCase):
@@ -109,3 +120,20 @@ class TestEngine(AsyncTestCase):
             pass
         else:
             self.fail()
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_engine_bad_url_record(self):
+        url_table = SQLiteURLTable(':memory:')
+        processor = MockProcessor()
+        statistics = Statistics()
+
+        url_table.add([
+            'http://example.........com/invalidurl',
+            'http://www.example.comáb©：ðéf',
+            'correct horse battery staple',
+        ])
+
+        engine = Engine(url_table, processor, statistics)
+
+        # It shouldn't crash with ValueError during URL parse
+        yield From(engine())

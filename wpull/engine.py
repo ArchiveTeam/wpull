@@ -312,14 +312,25 @@ class Engine(BaseEngine, HookableMixin):
         '''Process an item.
 
         Args:
-            url_item (:class:`.item.URLItem`): The item to process.
+            url_item (:class:`.database.URLRecord`): The item to process.
 
         This function calls :meth:`.processor.BaseProcessor.process`.
         '''
         assert url_record
 
         url_encoding = url_record.url_encoding or 'utf8'
-        url_info = URLInfo.parse(url_record.url, encoding=url_encoding)
+
+        try:
+            url_info = URLInfo.parse(url_record.url, encoding=url_encoding)
+        except ValueError as error:
+            _logger.warning(__(_(
+                'Unable to process malformed URL ‘{url}’: {error}.'),
+                url=url_record.url, error=error
+                ))
+            url_item = URLItem(self._url_table, None, url_record)
+            url_item.skip()
+            return
+
         url_item = URLItem(self._url_table, url_info, url_record)
 
         _logger.debug(__('Begin session for {0} {1}.',
