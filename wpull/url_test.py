@@ -9,11 +9,64 @@ from wpull.url import URLInfo, schemes_similar, is_subdir, split_query, \
 
 
 class TestURL(unittest.TestCase):
-    def test_url_info(self):
+    def test_url_info_naked(self):
         self.assertEqual(
             'http://example.com/',
             URLInfo.parse('example.com').url
         )
+        self.assertEqual(
+            'http://example.com/',
+            URLInfo.parse('//example.com').url
+        )
+        self.assertEqual(
+            'http://example.com/blah',
+            URLInfo.parse('//example.com/blah').url
+        )
+
+        url_info = URLInfo.parse('example.com:8080')
+        self.assertEqual('http://example.com:8080/', url_info.url)
+        self.assertEqual('example.com:8080', url_info.hostname_with_port)
+        self.assertEqual(8080, URLInfo.parse('example.com:8080').port)
+
+        self.assertEqual(
+            'http://example.com/asdf',
+            URLInfo.parse('example.com/asdf#blah').url
+        )
+        self.assertEqual(
+            'http://example.com/asdf/ghjk',
+            URLInfo.parse('example.com/asdf/ghjk#blah').url
+        )
+        self.assertEqual(
+            'http://example.com/',
+            URLInfo.parse('example.com/').url
+        )
+        self.assertEqual(
+            'https://example.com/',
+            URLInfo.parse('https://example.com').url
+        )
+
+    def test_url_info_parts(self):
+        url_info = URLInfo.parse(
+            'HTTP://userName:pass%3Aword@[::1]:81/ásdf/ghjk?a=b=c&d#/?')
+        self.assertEqual('http://[::1]:81/%C3%A1sdf/ghjk?a=b=c&d', url_info.url)
+        self.assertEqual('http', url_info.scheme)
+        self.assertEqual('userName:pass%3Aword@[::1]:81',
+                         url_info.authority)
+        self.assertEqual('/ásdf/ghjk?a=b=c&d#/?', url_info.resource)
+        self.assertEqual('userName', url_info.username)
+        self.assertEqual('pass:word', url_info.password)
+        self.assertEqual('[::1]:81', url_info.host)
+        self.assertEqual('::1', url_info.hostname)
+        self.assertEqual(81, url_info.port)
+        self.assertEqual('/%C3%A1sdf/ghjk', url_info.path)
+        self.assertEqual('a=b=c&d', url_info.query)
+        self.assertEqual('/?', url_info.fragment)
+        self.assertEqual('utf-8', url_info.encoding)
+        self.assertEqual(
+            'HTTP://userName:pass%3Aword@[::1]:81/ásdf/ghjk?a=b=c&d#/?',
+            url_info.raw)
+
+    def test_url_info_default_port(self):
         self.assertEqual(
             80,
             URLInfo.parse('http://example.com').port
@@ -32,101 +85,13 @@ class TestURL(unittest.TestCase):
         )
         self.assertEqual(
             'http://example.com/',
-            URLInfo.parse('example.com/').url
-        )
-        self.assertEqual(
-            'https://example.com/',
-            URLInfo.parse('https://example.com').url
-        )
-        self.assertEqual(
-            'http://example.com/',
-            URLInfo.parse('//example.com').url
-        )
-        self.assertEqual(
-            'http://example.com:8080/',
-            URLInfo.parse('example.com:8080').url
-        )
-        self.assertEqual(
-            'example.com:8080',
-            URLInfo.parse('example.com:8080').hostname_with_port
-        )
-        self.assertEqual(
-            8080,
-            URLInfo.parse('example.com:8080').port
-        )
-        self.assertEqual(
-            'http://example.com/asdf',
-            URLInfo.parse('example.com/asdf#blah').url
-        )
-        self.assertEqual(
-            'http://example.com/asdf/ghjk',
-            URLInfo.parse('example.com/asdf/ghjk#blah').url
-        )
-
-        url_info = URLInfo.parse(
-            'HTTP://username:password@example.com/asdf/ghjk/')
-        self.assertEqual(
-            'http://example.com/asdf/ghjk/',
-            url_info.url
-        )
-        self.assertEqual(
-            'http',
-            url_info.scheme
-        )
-        self.assertEqual(
-            'username',
-            url_info.username
-        )
-        self.assertEqual(
-            'password',
-            url_info.password
-        )
-        self.assertEqual(
-            'utf-8',
-            url_info.encoding
-        )
-
-        self.assertEqual(
-            'http://example.com/%C3%B0',
-            URLInfo.parse('http://example.com/ð').url
-        )
-
-        url_info = URLInfo.parse('mailto:user@example.com')
-        self.assertEqual(
-            'mailto:user@example.com',
-            url_info.url
-        )
-        self.assertEqual(
-            'mailto',
-            url_info.scheme
-        )
-
-        self.assertEqual(
-            'http://example.com/',
             URLInfo.parse('http://example.com:80').url
         )
 
-        self.assertRaises(ValueError, URLInfo.parse, '')
-        self.assertRaises(ValueError, URLInfo.parse, '#')
-        self.assertRaises(ValueError, URLInfo.parse, 'http://')
-        self.assertRaises(ValueError, URLInfo.parse, 'example....com')
-        self.assertRaises(ValueError, URLInfo.parse, 'http://example....com')
-        self.assertRaises(ValueError, URLInfo.parse, 'http://example…com')
-        self.assertRaises(ValueError, URLInfo.parse, 'http://[34.4kf]::4')
-        self.assertRaises(ValueError, URLInfo.parse, 'http://[34.4kf::4')
-        self.assertRaises(ValueError, URLInfo.parse, 'http://dmn3]:3a:45')
-        self.assertRaises(ValueError, URLInfo.parse, ':38/3')
-        self.assertRaises(ValueError, URLInfo.parse, 'http://][a:@1]')
-        self.assertRaises(ValueError, URLInfo.parse, 'http://[[aa]]:4:]6')
-        self.assertNotIn('[', URLInfo.parse('http://[a]').hostname)
-        self.assertNotIn(']', URLInfo.parse('http://[a]').hostname)
-        self.assertRaises(ValueError, URLInfo.parse, 'http://[[a]')
-        self.assertRaises(ValueError, URLInfo.parse, 'http://[[a]]a]')
-        self.assertRaises(ValueError, URLInfo.parse, 'http://[[a:a]]')
-
+    def test_url_info_percent_encode(self):
         self.assertEqual(
-            'http://example.com/blah',
-            URLInfo.parse('//example.com/blah').url
+            'http://example.com/%C3%B0',
+            URLInfo.parse('http://example.com/ð').url
         )
         self.assertEqual(
             'http://example.com/blah%20blah/',
@@ -212,6 +177,46 @@ class TestURL(unittest.TestCase):
                 'http://example.com/??blah=blah[0:]=bl%61h?blah"&d%26_').url
         )
 
+    def test_url_info_not_http(self):
+        url_info = URLInfo.parse('mailto:user@example.com')
+        self.assertEqual('mailto:user@example.com', url_info.url)
+        self.assertEqual('mailto', url_info.scheme)
+
+    def test_url_info_invalids(self):
+        self.assertRaises(ValueError, URLInfo.parse, '')
+        self.assertRaises(ValueError, URLInfo.parse, '#')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://')
+        self.assertRaises(ValueError, URLInfo.parse, 'example....com')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://example....com')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://example…com')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://[34.4kf]::4')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://[34.4kf::4')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://dmn3]:3a:45')
+        self.assertRaises(ValueError, URLInfo.parse, ':38/3')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://][a:@1]')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://[[aa]]:4:]6')
+        self.assertNotIn('[', URLInfo.parse('http://[a]').hostname)
+        self.assertNotIn(']', URLInfo.parse('http://[a]').hostname)
+        self.assertRaises(ValueError, URLInfo.parse, 'http://[[a]')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://[[a]]a]')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://[[a:a]]')
+        self.assertRaises(ValueError, URLInfo.parse, 'http:///')
+        self.assertRaises(ValueError, URLInfo.parse, 'http:///horse')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://?what?')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://#egg=wpull')
+        self.assertRaises(ValueError, URLInfo.parse,
+                          'http://:@example.com:?@/')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://\x00/')
+        self.assertRaises(ValueError, URLInfo.parse, 'http:/a')
+        self.assertRaises(ValueError, URLInfo.parse, 'http://@@example.com/@')
+        self.assertRaises(
+            ValueError, URLInfo.parse,
+            'http://ｆａｔ３２ｄｅｆｒａｇｍｅｎｔｅｒ.internets：：８０')
+        self.assertRaises(
+            ValueError, URLInfo.parse,
+            'http://ｆａｔ３２ｄｅｆｒａｇｍｅｎｔｅｒ.internets：８０/')
+
+    def test_url_info_path_folding(self):
         self.assertEqual(
             'http://example.com/',
             URLInfo.parse('http://example.com/../').url
@@ -228,6 +233,8 @@ class TestURL(unittest.TestCase):
             'http://example.com/a/style.css',
             URLInfo.parse('http://example.com/a/b/../style.css').url
         )
+
+    def test_url_info_reserved_char_is_ok(self):
         self.assertEqual(
             'http://example.com/@49IMG.DLL/$SESSION$/image.png;large',
             URLInfo.parse(
@@ -243,10 +250,37 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('http://example.com/$c/%system.exe/').url
         )
 
+    def test_url_info_misleading_parts(self):
         self.assertEqual(
             'http://example.com/?a',
             URLInfo.parse('http://example.com?a').url
         )
+        self.assertEqual(
+            'http://example.com/?a?',
+            URLInfo.parse('http://example.com?a?').url
+        )
+        self.assertEqual(
+            'http://example.com/',
+            URLInfo.parse('http://example.com#a').url
+        )
+        self.assertEqual(
+            'http://example.com/',
+            URLInfo.parse('http://example.com#a?').url
+        )
+        self.assertEqual(
+            'http://example.com/?a',
+            URLInfo.parse('http://example.com?a#').url
+        )
+        self.assertEqual(
+            'http://example.com/:10',
+            URLInfo.parse('http://example.com/:10').url
+        )
+        self.assertEqual(
+            'http://example.com/?@/',
+            URLInfo.parse('http://:@example.com?@/').url
+        )
+
+    def test_url_info_query(self):
         self.assertEqual(
             'http://example.com/?a=',
             URLInfo.parse('http://example.com?a=').url
@@ -263,6 +297,8 @@ class TestURL(unittest.TestCase):
             'http://example.com/?a=1&b=',
             URLInfo.parse('http://example.com?a=1&b=').url
         )
+
+    def test_url_info_ipv6(self):
         self.assertEqual(
             'https://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080/ipv6',
             URLInfo.parse(
@@ -274,6 +310,17 @@ class TestURL(unittest.TestCase):
             URLInfo.parse(
                 'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6'
             ).url
+        )
+
+    def test_url_info_trailing_dot(self):
+        self.assertEqual(
+            'http://example.com./',
+            URLInfo.parse('http://example.com./').url
+        )
+
+        self.assertEqual(
+            'http://example.com.:81/',
+            URLInfo.parse('http://example.com.:81/').url
         )
 
     def test_url_info_round_trip(self):
@@ -326,30 +373,6 @@ class TestURL(unittest.TestCase):
             'https://[::ffff:192.0.2.128]/',
             URLInfo.parse('https://[::ffff:c000:0280]').url
         )
-
-    @unittest.skip('experiment only')
-    def test_url_info_timing(self):
-        t1 = timeit.timeit(
-            '''URLInfo.parse(
-            "http://asdjfklðkjir.com:585?" +
-            "$fasjdfklfd=45asdfasdf345hd.s&g4=4d&&" +
-            str(random.randint(0,1000))
-            )''',
-            number=2000,
-            setup='import random; from wpull.url import URLInfo',
-        )
-        t2 = timeit.timeit(
-            '''URLInfo.parse(
-            "http://asdjfklðkjir.com:585?" +
-            "$fasjdfklfd=45asdfasdf345hd.s&g4=4d&&" +
-            str(random.randint(0,1000))
-            , use_cache=False
-            )''',
-            number=2000,
-            setup='import random; from wpull.url import URLInfo',
-        )
-        print(t1, t2)
-        self.assertLess(t1, t2)
 
     def test_url_info_to_dict(self):
         url_info = URLInfo.parse('https://example.com/file.jpg')

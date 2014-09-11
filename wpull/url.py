@@ -1,8 +1,9 @@
-'''URL parsing based on WHATWG URL living spec.'''
+'''URL parsing based on WHATWG URL living standard.'''
 import collections
 import fnmatch
 import functools
 import re
+import string
 import urllib.parse
 
 
@@ -41,6 +42,15 @@ FRAGMENT_ENCODE_SET = frozenset(b' "<>`')
 QUERY_VALUE_ENCODE_SET = QUERY_ENCODE_SET | frozenset(b'&+%')
 '''Encoding set for a query value.'''
 
+FORBIDDEN_HOSTNAME_CHARS = frozenset('#%/:?@[\\]')
+'''Forbidden hostname characters.
+
+Does not include non-printing characters. Meant for ASCII.
+'''
+
+VALID_IPv6_ADDRESS_CHARS = frozenset(string.hexdigits + '.:')
+'''Valid IPv6 address characters.'''
+
 
 class URLInfo(object):
     '''Represent parts of a URL.
@@ -48,17 +58,17 @@ class URLInfo(object):
     Attributes:
         raw (str): Original string.
         scheme (str): Protocol (for example, HTTP, FTP).
-        authority (str): Userinfo and host.
+        authority (str): Raw userinfo and host.
         path (str): Location of resource.
         query (str): Additional request parameters.
         fragment (str): Named anchor of a document.
-        userinfo (str): Username and password.
+        userinfo (str): Raw username and password.
         username (str): Username.
         password (str): Password.
-        host (str): Hostname and port.
+        host (str): Raw hostname and port.
         hostname (str): Hostname or IP address.
         port (int): IP address port number.
-        resource (int): Path, query, and fragment.
+        resource (int): Raw path, query, and fragment.
         query_map (dict): Mapping of the query. Values are lists.
         url (str): A normalized URL without userinfo and fragment.
         encoding (str): Codec name for IRI support.
@@ -134,29 +144,26 @@ class URLInfo(object):
 
             return info
 
-        remaining = remaining.lstrip('/')
+        if remaining.startswith('//'):
+            remaining = remaining[2:]
 
         path_index = remaining.find('/')
         query_index = remaining.find('?')
         fragment_index = remaining.find('#')
 
-        if path_index >= 0:
-            authority_index = path_index
-        elif query_index >= 0:
-            authority_index = query_index
-        elif fragment_index >= 0:
-            authority_index = fragment_index
-        else:
+        try:
+            index_tuple = (path_index, query_index, fragment_index)
+            authority_index = min(num for num in index_tuple if num >= 0)
+        except ValueError:
             authority_index = len(remaining)
 
         authority = remaining[:authority_index]
         resource = remaining[authority_index:]
 
-        if query_index >= 0:
-            path_index = query_index
-        elif fragment_index >= 0:
-            path_index = fragment_index
-        else:
+        try:
+            index_tuple = (query_index, fragment_index)
+            path_index = min(num for num in index_tuple if num >= 0)
+        except ValueError:
             path_index = len(remaining)
 
         path = remaining[authority_index + 1:path_index] or '/'
@@ -184,11 +191,11 @@ class URLInfo(object):
         info.fragment = normalize_fragment(fragment, encoding=encoding)
 
         info.userinfo = userinfo
-        info.username = normalize_username(username, encoding=encoding)
-        info.password = normalize_password(password, encoding=encoding)
+        info.username = percent_decode(username, encoding=encoding)
+        info.password = percent_decode(password, encoding=encoding)
 
         info.host = host
-        info.hostname = normalize_hostname(hostname)
+        info.hostname = hostname
         info.port = port or RELATIVE_SCHEME_DEFAULT_PORTS[scheme]
 
         info.resource = resource
@@ -229,20 +236,26 @@ class URLInfo(object):
     def parse_hostname(cls, hostname):
         if hostname.startswith('['):
             return cls.parse_ipv6_hostname(hostname)
-        elif '[' in hostname or ']' in hostname:
-            raise ValueError('Invalid hostname: {}'.format(ascii(hostname)))
         else:
-            return hostname
+            new_hostname = normalize_hostname(hostname)
+
+            if any(char in new_hostname for char in FORBIDDEN_HOSTNAME_CHARS):
+                raise ValueError('Invalid hostname: {}'
+                                 .format(ascii(hostname)))
+
+            return new_hostname
 
     @classmethod
     def parse_ipv6_hostname(cls, hostname):
         if not hostname.startswith('[') or not hostname.endswith(']'):
-            raise ValueError('Invalid IPv6 address: {}'.format(ascii(hostname)))
+            raise ValueError('Invalid IPv6 address: {}'
+                             .format(ascii(hostname)))
 
         hostname = hostname[1:-1]
 
-        if '[' in hostname or ']' in hostname:
-            raise ValueError('Invalid IPv6 address: {}'.format(ascii(hostname)))
+        if any(char not in VALID_IPv6_ADDRESS_CHARS for char in hostname):
+            raise ValueError('Invalid IPv6 address: {}'
+                             .format(ascii(hostname)))
 
         return hostname
 
