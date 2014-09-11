@@ -9,6 +9,22 @@ from wpull.url import URLInfo, schemes_similar, is_subdir, split_query, \
 
 
 class TestURL(unittest.TestCase):
+    @unittest.skip('experiment only')
+    def test_lib_vs_wpull(self):
+        result_1 = timeit.timeit('''
+        from urllib.parse import urlsplit
+        for i in range(1000):
+            urlsplit('http://donkey{i}.com/waffles{i}'.format(i=i))
+        ''', number=100)
+        result_2 = timeit.timeit('''
+        from wpull.url import URLInfo
+        parse = URLInfo.parse
+        for i in range(1000):
+            parse('http://donkey{i}.com/waffles{i}'.format(i=i))
+        ''', number=100)
+
+        print(result_1, result_2)
+
     def test_url_info_naked(self):
         self.assertEqual(
             'http://example.com/',
