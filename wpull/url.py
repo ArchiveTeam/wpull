@@ -338,6 +338,19 @@ class URLInfo(object):
         return self.raw != other.raw
 
 
+def normalize(url, **kwargs):
+    '''Normalize a URL.
+
+    This function is a convenience function that is equivalent to::
+
+        >>> URLInfo.parse('http://example.com').url
+        'http://example.com'
+
+    :seealso: :func:`URLInfo.parse`.
+    '''
+    return URLInfo.parse(url, **kwargs).url
+
+
 @functools.lru_cache()
 def normalize_hostname(hostname):
     '''Normalizes a hostname so that it is ASCII and valid domain name.'''
