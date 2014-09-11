@@ -41,10 +41,11 @@ class BatchDocumentConverter(object):
         url_table: An instance of :class:`.database.URLTable`.
         backup (bool): Whether back up files are created.
     '''
-    def __init__(self, html_parser, url_table, backup=False):
+    def __init__(self, html_parser, element_walker, url_table, backup=False):
         self._url_table = url_table
         self._backup_enabled = backup
-        self._html_converter = HTMLConverter(html_parser, url_table)
+        self._html_converter = HTMLConverter(html_parser, element_walker,
+                                             url_table)
         self._css_converter = CSSConverter(url_table)
 
     def convert_all(self):
@@ -103,8 +104,8 @@ class BatchDocumentConverter(object):
 
 class HTMLConverter(HTMLScraper, BaseDocumentConverter):
     '''HTML converter.'''
-    def __init__(self, html_parser, url_table):
-        super().__init__(html_parser)
+    def __init__(self, html_parser, element_walker, url_table):
+        super().__init__(html_parser, element_walker)
         self._url_table = url_table
         self._css_converter = CSSConverter(url_table)
         self._out_file = None
@@ -173,7 +174,7 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
         unfilled_value = object()
         new_attribs = dict(((name, unfilled_value) for name in element.attrib))
 
-        for link_info in ElementWalker.iter_links_element(element):
+        for link_info in self._element_walker.iter_links_element(element):
             new_value = None
 
             if link_info.value_type == 'plain':

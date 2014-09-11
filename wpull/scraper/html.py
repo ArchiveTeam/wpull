@@ -55,16 +55,21 @@ class HTMLScraper(HTMLReader, BaseHTMLScraper):
     '''Scraper for HTML documents.
 
     Args:
+        html_parser (class:`.document.htmlparse.base.BaseParser):
+            An HTML parser such as the lxml or html5lib one.
+        element_walker (class:`ElementWalker`): HTML element walker.
         followed_tags: A list of tags that should be scraped
         ignored_tags: A list of tags that should not be scraped
         robots: If True, discard any links if they cannot be followed
         only_relative: If True, discard any links that are not absolute paths
     '''
 
-    def __init__(self, html_parser, followed_tags=None, ignored_tags=None,
+    def __init__(self, html_parser, element_walker,
+                 followed_tags=None, ignored_tags=None,
                  robots=False,
                  only_relative=False, encoding_override=None):
         super().__init__(html_parser)
+        self._element_walker = element_walker
         self._robots = robots
         self._only_relative = only_relative
         self._encoding_override = encoding_override
@@ -137,7 +142,7 @@ class HTMLScraper(HTMLReader, BaseHTMLScraper):
                     base_url, clean_link_soup(element.attrib.get('href', ''))
                 )
 
-            link_infos = ElementWalker.iter_links_element(element)
+            link_infos = self._element_walker.iter_links_element(element)
 
             if inject_refresh and 'Refresh' in response.fields:
                 link = parse_refresh(response.fields['Refresh'])
@@ -202,7 +207,7 @@ class HTMLScraper(HTMLReader, BaseHTMLScraper):
         linked_urls = set()
         inline_urls = set()
 
-        link_infos = ElementWalker.iter_links(elements)
+        link_infos = self._element_walker.iter_links(elements)
 
         for link_info in link_infos:
             element_base_url = base_url
@@ -252,8 +257,6 @@ class HTMLScraper(HTMLReader, BaseHTMLScraper):
 
 
 class ElementWalker(object):
-    '''Iterate elements.'''
-
     LINK_ATTRIBUTES = frozenset([
         'action', 'archive', 'background', 'cite', 'classid',
         'codebase', 'data', 'href', 'longdesc', 'profile', 'src',
@@ -289,11 +292,18 @@ class ElementWalker(object):
     }
     '''Mapping of element tag names to attributes containing links.'''
 
-    css_scraper = CSSScraper()
-    javascript_scraper = JavaScriptScraper()
+    '''Iterate elements looking for links.
 
-    @classmethod
-    def iter_links(cls, elements):
+    Args:
+        css_scraper (:class:`.scraper.css.CSSScraper`): Optional CSS scraper.
+        javascript_scraper (:class:`.scraper.javascript.JavaScriptScraper):
+            Optional JavaScript scraper.
+    '''
+    def __init__(self, css_scraper=None, javascript_scraper=None):
+        self.css_scraper = css_scraper
+        self.javascript_scraper = javascript_scraper
+
+    def iter_links(self, elements):
         '''Iterate the document root for links.
 
         Returns:
@@ -303,42 +313,41 @@ class ElementWalker(object):
             if not isinstance(element, Element):
                 continue
 
-            for link_infos in cls.iter_links_element(element):
+            for link_infos in self.iter_links_element(element):
                 yield link_infos
 
-    @classmethod
-    def iter_links_element(cls, element):
+    def iter_links_element(self, element):
         '''Iterate a HTML element.'''
         # reference: lxml.html.HtmlMixin.iterlinks()
         attrib = element.attrib
         tag = element.tag
 
         if tag == 'link':
-            iterable = cls.iter_links_link_element(element)
+            iterable = self.iter_links_link_element(element)
         elif tag == 'meta':
-            iterable = cls.iter_links_meta_element(element)
+            iterable = self.iter_links_meta_element(element)
         elif tag in ('object', 'applet'):
-            iterable = cls.iter_links_object_element(element)
+            iterable = self.iter_links_object_element(element)
         elif tag == 'param':
-            iterable = cls.iter_links_param_element(element)
+            iterable = self.iter_links_param_element(element)
         elif tag == 'style':
-            iterable = cls.iter_links_style_element(element)
+            iterable = self.iter_links_style_element(element)
         elif tag == 'script':
-            iterable = cls.iter_links_script_element(element)
+            iterable = self.iter_links_script_element(element)
         else:
-            iterable = cls.iter_links_plain_element(element)
+            iterable = self.iter_links_plain_element(element)
 
         # RSS/Atom
         if tag in ('link', 'url', 'icon'):
             iterable = itertools.chain(
-                iterable, cls.iter_links_element_text(element)
+                iterable, self.iter_links_element_text(element)
             )
 
         for link_info in iterable:
             yield link_info
 
-        if 'style' in attrib:
-            for link in cls.css_scraper.scrape_links(attrib['style']):
+        if 'style' in attrib and self.css_scraper:
+            for link in self.css_scraper.scrape_links(attrib['style']):
                 yield LinkInfo(
                     element, element.tag, 'style',
                     link,
@@ -359,8 +368,7 @@ class ElementWalker(object):
                 'plain'
             )
 
-    @classmethod
-    def iter_links_link_element(cls, element):
+    def iter_links_link_element(self, element):
         '''Iterate a ``link`` for URLs.
 
         This function handles stylesheets and icons in addition to
@@ -369,7 +377,7 @@ class ElementWalker(object):
         rel = element.attrib.get('rel', '')
         inline = 'stylesheet' in rel or 'icon' in rel
 
-        for attrib_name, link in cls.iter_links_by_attrib(element):
+        for attrib_name, link in self.iter_links_by_attrib(element):
             yield LinkInfo(
                 element, element.tag, attrib_name,
                 link,
@@ -452,11 +460,10 @@ class ElementWalker(object):
                 'plain'
             )
 
-    @classmethod
-    def iter_links_style_element(cls, element):
+    def iter_links_style_element(self, element):
         '''Iterate a ``style`` element.'''
-        if element.text:
-            link_iter = cls.css_scraper.scrape_links(element.text)
+        if self.css_scraper and element.text:
+            link_iter = self.css_scraper.scrape_links(element.text)
             for link in link_iter:
                 yield LinkInfo(
                     element, element.tag, None,
@@ -466,11 +473,10 @@ class ElementWalker(object):
                     'css'
                 )
 
-    @classmethod
-    def iter_links_script_element(cls, element):
+    def iter_links_script_element(self, element):
         '''Iterate a ``script`` element.'''
-        if element.text:
-            link_iter = cls.javascript_scraper.scrape_links(element.text)
+        if self.javascript_scraper and element.text:
+            link_iter = self.javascript_scraper.scrape_links(element.text)
 
             for link in link_iter:
                 inline = is_likely_inline(link)
@@ -483,16 +489,15 @@ class ElementWalker(object):
                     'script'
                 )
 
-        for link in cls.iter_links_plain_element(element):
+        for link in self.iter_links_plain_element(element):
             yield link
 
-    @classmethod
-    def iter_links_plain_element(cls, element):
+    def iter_links_plain_element(self, element):
         '''Iterate any element for links using generic rules.'''
-        for attrib_name, link in cls.iter_links_by_attrib(element):
-            if attrib_name in cls.LINK_ATTRIBUTES:
-                inline = cls.is_link_inline(element.tag, attrib_name)
-                linked = cls.is_html_link(element.tag, attrib_name)
+        for attrib_name, link in self.iter_links_by_attrib(element):
+            if attrib_name in self.LINK_ATTRIBUTES:
+                inline = self.is_link_inline(element.tag, attrib_name)
+                linked = self.is_html_link(element.tag, attrib_name)
             else:
                 inline = is_likely_inline(link)
                 linked = not inline
@@ -505,41 +510,41 @@ class ElementWalker(object):
                 'plain'
             )
 
-    @classmethod
-    def iter_links_by_attrib(cls, element):
+    def iter_links_by_attrib(self, element):
         '''Iterate an element by looking at its attributes for links.'''
         for attrib_name in element.attrib.keys():
             attrib_value = element.attrib.get(attrib_name)
 
-            if attrib_name in cls.LINK_ATTRIBUTES:
-                if attrib_value.lstrip().startswith('javascript:'):
-                    for link in cls.iter_links_by_js_attrib(attrib_name,
-                                                            attrib_value):
+            if attrib_name in self.LINK_ATTRIBUTES:
+                if self.javascript_scraper and \
+                        attrib_value.lstrip().startswith('javascript:'):
+                    for link in self.iter_links_by_js_attrib(attrib_name,
+                                                             attrib_value):
                         yield link
                 else:
                     yield attrib_name, attrib_value
 
-            elif attrib_name[:5] in ('onkey', 'oncli', 'onmou'):
-                for link in cls.iter_links_by_js_attrib(attrib_name,
-                                                        attrib_value):
+            elif self.javascript_scraper and \
+                    attrib_name[:5] in ('onkey', 'oncli', 'onmou'):
+                for link in self.iter_links_by_js_attrib(attrib_name,
+                                                         attrib_value):
                     yield link
 
             elif attrib_name.startswith('data-'):
                 if is_likely_link(attrib_value) \
-                   and not is_unlikely_link(attrib_value):
+                        and not is_unlikely_link(attrib_value):
                     yield attrib_name, attrib_value
 
             elif attrib_name == 'srcset':
-                items = cls.iter_links_by_srcset_attrib(
+                items = self.iter_links_by_srcset_attrib(
                     attrib_name, attrib_value)
 
                 for item in items:
                     yield item
 
-    @classmethod
-    def iter_links_by_js_attrib(cls, attrib_name, attrib_value):
+    def iter_links_by_js_attrib(self, attrib_name, attrib_value):
         '''Iterate links of a JavaScript pseudo-link attribute.'''
-        links = cls.javascript_scraper.scrape_links(attrib_value)
+        links = self.javascript_scraper.scrape_links(attrib_value)
 
         for link in links:
             yield attrib_name, link
@@ -573,7 +578,7 @@ class ElementWalker(object):
         return attribute == 'href'
 
     @classmethod
-    def robots_cannot_follow(self, element):
+    def robots_cannot_follow(cls, element):
         '''Return whether we cannot follow links due to robots.txt directives.
         '''
         return (

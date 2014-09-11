@@ -8,6 +8,8 @@ from wpull.converter import CSSConverter, HTMLConverter
 from wpull.database import URLTable, Status
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
 from wpull.util import IS_PYPY
+from wpull.scraper.html import ElementWalker
+from wpull.scraper.css import CSSScraper
 
 
 if not IS_PYPY:
@@ -158,7 +160,9 @@ class Mixin(object):
                 with open(filename, 'wb'):
                     pass
 
-            converter = HTMLConverter(self.get_html_parser(), url_table)
+            element_walker = ElementWalker(css_scraper=CSSScraper())
+            converter = HTMLConverter(
+                self.get_html_parser(), element_walker, url_table)
 
             converter.convert(
                 html_filename, new_html_filename,
@@ -224,7 +228,9 @@ class Mixin(object):
                 with open(filename, 'wb'):
                     pass
 
-            converter = HTMLConverter(self.get_html_parser(), url_table)
+            element_walker = ElementWalker(css_scraper=CSSScraper())
+            converter = HTMLConverter(
+                self.get_html_parser(), element_walker, url_table)
 
             converter.convert(
                 html_filename, new_html_filename,
