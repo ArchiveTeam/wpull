@@ -500,7 +500,7 @@ class WebProcessorSession(object):
             num_inline_urls += new_inline
             num_linked_urls += new_linked
 
-        _logger.debug(__('Found URLs: inline={0} linked={1}',
+        _logger.debug(__('Candidate URLs: inline={0} linked={1}',
                          num_inline_urls, num_linked_urls
                          ))
 
