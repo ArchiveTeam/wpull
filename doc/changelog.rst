@@ -7,11 +7,13 @@ What's New
 * Added ``--ignore-fatal-errors`` option.
 * Added ``--http-parser`` option. You can now use html5lib as the HTML parser.
 * Support for PyPy 2.3.1 running with Python 3.2 implementation.
+* Consistent URL parsing among various Python versions.
 
 * API:
 
   * ``document`` and ``scraper`` were put into their own packages.
   * HTML parsing was put into ``document.htmlparse`` package.
+  * ``url.URLInfo`` no longer supports normalizing URLs by percent decoding unreserved/safe characters.
 
 * Scripting:
 
