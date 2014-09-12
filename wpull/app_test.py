@@ -493,7 +493,8 @@ class TestApp(GoodAppTestCase):
             app = builder.build()
             exit_code = yield From(app.run())
 
-            urls = list(iter(builder.factory['URLTable']))
+            urls = tuple(url_record.url for url_record in
+                         builder.factory['URLTable'].get_all())
             self.assertIn(
                 self.get_url('/%E6%96%87%E5%AD%97%E5%8C%96%E3%81%91'),
                 urls

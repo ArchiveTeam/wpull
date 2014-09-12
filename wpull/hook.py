@@ -1,11 +1,9 @@
 # encoding=utf-8
 '''Python and Lua scripting supprt.'''
-import itertools
 import logging
-import sys
 
 from wpull.backport.logging import BraceMessage as __
-from wpull.database import Status
+from wpull.item import Status
 
 
 _logger = logging.getLogger(__name__)
@@ -483,7 +481,7 @@ class HookEnvironment(object):
         kwargs = dict(link_type=link_type, post_data=post_data)
 
         if replace:
-            url_item.url_table.remove([url])
+            url_item.url_table.remove_one(url)
 
         if inline:
             added_url_infos = url_item.add_inline_url_infos([url_info], **kwargs)

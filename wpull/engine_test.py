@@ -4,11 +4,11 @@ import random
 from trollius import From
 import trollius
 
+from wpull.database.sqltable import SQLiteURLTable
 from wpull.engine import BaseEngine, Engine
+from wpull.stats import Statistics
 from wpull.testing.async import AsyncTestCase
 import wpull.testing.async
-from wpull.database import SQLiteURLTable
-from wpull.stats import Statistics
 
 
 DEFAULT_TIMEOUT = 10
@@ -127,7 +127,7 @@ class TestEngine(AsyncTestCase):
         processor = MockProcessor()
         statistics = Statistics()
 
-        url_table.add([
+        url_table.add_many([
             'http://example.........com/invalidurl',
             'http://www.example.comáb©：ðéf',
             'correct horse battery staple',

@@ -10,7 +10,7 @@ from trollius import From, Return
 import trollius
 
 from wpull.backport.logging import BraceMessage as __
-from wpull.database import NotFound
+from wpull.database.base import NotFound
 from wpull.hook import HookableMixin, HookDisconnected
 from wpull.item import Status, URLItem
 from wpull.url import URLInfo
@@ -283,16 +283,14 @@ class Engine(BaseEngine, HookableMixin):
         _logger.debug('Get next URL todo.')
 
         try:
-            url_record = self._url_table.get_and_update(
-                Status.todo, new_status=Status.in_progress)
+            url_record = self._url_table.check_out(Status.todo)
         except NotFound:
             url_record = None
 
         if not url_record:
             try:
                 _logger.debug('Get next URL error.')
-                url_record = self._url_table.get_and_update(
-                    Status.error, new_status=Status.in_progress)
+                url_record = self._url_table.check_out(Status.error)
             except NotFound:
                 url_record = None
 
@@ -318,10 +316,8 @@ class Engine(BaseEngine, HookableMixin):
         '''
         assert url_record
 
-        url_encoding = url_record.url_encoding or 'utf8'
-
         try:
-            url_info = URLInfo.parse(url_record.url, encoding=url_encoding)
+            url_info = URLInfo.parse(url_record.url)
         except ValueError as error:
             _logger.warning(__(_(
                 'Unable to process malformed URL ‘{url}’: {error}.'),

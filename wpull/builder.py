@@ -21,7 +21,7 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.connection import Connection, ConnectionPool, SSLConnection
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
-from wpull.database import URLTable
+from wpull.database.sqltable import URLTable
 from wpull.debug import DebugConsoleHandler
 from wpull.dns import Resolver
 from wpull.engine import Engine
@@ -561,7 +561,7 @@ class Builder(object):
             URLTable: An instance of :class:`.database.BaseURLTable`.
         '''
         url_table = self._factory.new('URLTable', path=self._args.database)
-        url_table.add([url_info.url for url_info in self._url_infos])
+        url_table.add_many([url_info.url for url_info in self._url_infos])
         return url_table
 
     def _build_recorder(self):

@@ -9,8 +9,9 @@ import os.path
 import shutil
 
 from wpull.backport.logging import BraceMessage as __
-from wpull.database import Status
+from wpull.database.base import NotFound
 from wpull.document.htmlparse.element import Comment, Element, Doctype
+from wpull.item import Status
 from wpull.scraper.css import CSSScraper
 from wpull.scraper.html import HTMLScraper, ElementWalker
 from wpull.url import URLInfo
@@ -50,7 +51,7 @@ class BatchDocumentConverter(object):
 
     def convert_all(self):
         '''Convert all links in URL table.'''
-        for url_record in self._url_table.values():
+        for url_record in self._url_table.get_all():
             if url_record.status != Status.done:
                 continue
 
@@ -263,7 +264,10 @@ class HTMLConverter(HTMLScraper, BaseDocumentConverter):
         return new_text
 
     def _get_new_url(self, url_info):
-        url_record = self._url_table.get(url_info.url)
+        try:
+            url_record = self._url_table.get_one(url_info.url)
+        except NotFound:
+            url_record = None
 
         if url_record \
            and url_record.status == Status.done and url_record.filename:
@@ -307,7 +311,7 @@ class CSSConverter(CSSScraper, BaseDocumentConverter):
         if base_url:
             url = wpull.url.urljoin(base_url, url)
 
-        url_record = self._url_table.get(url)
+        url_record = self._url_table.get_one(url)
 
         if url_record \
            and url_record.status == Status.done and url_record.filename:
