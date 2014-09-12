@@ -20,6 +20,10 @@ What's New
 
   * Dropped support for Scripting API version 1.
 
+* Database schema:
+
+  * Column ``url_encoding`` is removed from ``urls`` table.
+
 
 0.1000 (2014-09-02)
 ===================
