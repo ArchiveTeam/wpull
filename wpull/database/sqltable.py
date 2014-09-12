@@ -70,8 +70,8 @@ class BaseSQLURLTable(BaseURLTable):
             url_strings.append(top_url)
 
         with self._session() as session:
-            query = insert(URLString).prefix_with('OR IGNORE')\
-                .values([{'url': url} for url in url_strings])
+            query = insert(URLString, [{'url': url} for url in url_strings])\
+                .prefix_with('OR IGNORE')
             session.execute(query)
 
             last_primary_key = session.query(func.max(URL.id)).scalar()
@@ -91,7 +91,7 @@ class BaseSQLURLTable(BaseURLTable):
                     values['top_url_str_id'] = select([URLString.id])\
                         .where(URLString.url == top_url)
 
-                query = insert(URL).prefix_with('OR IGNORE').values([values])
+                query = insert(URL, [values]).prefix_with('OR IGNORE')
                 result = session.execute(query)
 
                 if result.inserted_primary_key[0] != last_primary_key:
