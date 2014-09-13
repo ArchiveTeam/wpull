@@ -49,7 +49,7 @@ class BaseEngine(object):
         Coroutine.
         '''
         self._running = True
-        self._producer_task = trollius.async(self._run_producer())
+        self._producer_task = trollius.async(self._run_producer_wrapper())
         worker_tasks = self._worker_tasks
 
         while self._running:
@@ -85,6 +85,18 @@ class BaseEngine(object):
             self._item_get_semaphore.release()
 
         yield From(self._producer_task)
+
+    @trollius.coroutine
+    def _run_producer_wrapper(self):
+        '''Run the producer, if exception, stop engine.'''
+        try:
+            yield From(self._run_producer())
+        except Exception as error:
+            if not isinstance(error, StopIteration):
+                # Stop the workers so the producer exception will be handled
+                _logger.error('Producer died.')
+                self._stop()
+            raise
 
     @trollius.coroutine
     def _run_producer(self):
