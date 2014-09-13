@@ -5,7 +5,7 @@ import unittest
 
 from wpull.url import URLInfo, schemes_similar, is_subdir, split_query, \
     percent_decode, percent_decode_plus, percent_encode, percent_encode_plus, \
-    uppercase_percent_encoding, urljoin, flatten_path
+    uppercase_percent_encoding, urljoin, flatten_path, parse_url_or_log
 
 
 class TestURL(unittest.TestCase):
@@ -528,3 +528,7 @@ class TestURL(unittest.TestCase):
             '/dog/doc/index.html',
             flatten_path('/dog/../dog/./cat/../doc/././../doc/index.html')
         )
+
+    def test_parse_url_or_log(self):
+        self.assertTrue(parse_url_or_log('http://example.com'))
+        self.assertFalse(parse_url_or_log('http://'))

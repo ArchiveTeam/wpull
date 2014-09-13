@@ -2,9 +2,17 @@
 import collections
 import fnmatch
 import functools
+import gettext
+import logging
 import re
 import string
 import urllib.parse
+
+from wpull.backport.logging import BraceMessage as __
+
+
+_logger = logging.getLogger(__name__)
+_ = gettext.gettext
 
 
 RELATIVE_SCHEME_DEFAULT_PORTS = {
@@ -349,6 +357,22 @@ class URLInfo(object):
 
     def __ne__(self, other):
         return self.raw != other.raw
+
+
+def parse_url_or_log(url, encoding='utf-8'):
+    '''Parse and return a URLInfo.
+
+    This function logs a warning if the URL cannot be parsed and returns
+    None.
+    '''
+    try:
+        url_info = URLInfo.parse(url, encoding=encoding)
+    except ValueError as error:
+        _logger.warning(__(
+            _('Unable to parse URL ‘{url}’: {error}.'),
+            url=url, error=error))
+    else:
+        return url_info
 
 
 def normalize(url, **kwargs):
