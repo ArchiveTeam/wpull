@@ -10,10 +10,9 @@ from wpull.document.html import HTMLReader
 from wpull.document.htmlparse.element import Element
 from wpull.document.util import detect_response_encoding
 from wpull.scraper.base import BaseHTMLScraper
-from wpull.scraper.css import CSSScraper
-from wpull.scraper.javascript import JavaScriptScraper
 from wpull.scraper.util import urljoin_safe, clean_link_soup, parse_refresh, \
     is_likely_inline, is_likely_link, is_unlikely_link
+from wpull.url import percent_decode
 import wpull.util
 
 
@@ -518,8 +517,8 @@ class ElementWalker(object):
             if attrib_name in self.LINK_ATTRIBUTES:
                 if self.javascript_scraper and \
                         attrib_value.lstrip().startswith('javascript:'):
-                    for link in self.iter_links_by_js_attrib(attrib_name,
-                                                             attrib_value):
+                    for link in self.iter_links_by_js_attrib(
+                            attrib_name, percent_decode(attrib_value)):
                         yield link
                 else:
                     yield attrib_name, attrib_value
