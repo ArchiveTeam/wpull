@@ -29,6 +29,7 @@ PROJECT_PACKAGES = [
     'wpull.document',
     'wpull.document.htmlparse',
     'wpull.ftp',
+    'wpull.ftp.ls',
     'wpull.http',
     'wpull.processor',
     'wpull.scraper',
