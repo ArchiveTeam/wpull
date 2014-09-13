@@ -132,6 +132,8 @@ class Request(RawRequest, URLPropertyMixin):
                 self.resource_path = '{0}?{1}'.format(url_info.path, url_info.query)
             else:
                 self.resource_path = url_info.path
+        else:
+            self.resource_path = url_info.url
 
     def parse(self, data):
         super().parse(data)
@@ -162,7 +164,8 @@ class Response(CommonMixin):
     '''
     def __init__(self, status_code=None, reason=None, version='HTTP/1.1', request=None):
         if status_code is not None:
-            assert isinstance(status_code, int)
+            assert isinstance(status_code, int), \
+                'Expect int, got {}'.format(type(status_code))
             assert reason is not None
 
         self.status_code = status_code

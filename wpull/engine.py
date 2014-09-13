@@ -1,6 +1,7 @@
 # encoding=utf-8
 '''Item queue management and processing.'''
 import abc
+import contextlib
 import gettext
 import logging
 import os
@@ -9,10 +10,10 @@ from trollius import From, Return
 import trollius
 
 from wpull.backport.logging import BraceMessage as __
-from wpull.database import NotFound
+from wpull.database.base import NotFound
 from wpull.hook import HookableMixin, HookDisconnected
 from wpull.item import Status, URLItem
-from wpull.url import URLInfo
+from wpull.url import parse_url_or_log
 
 
 _logger = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ class BaseEngine(object):
         Coroutine.
         '''
         self._running = True
-        self._producer_task = trollius.async(self._run_producer())
+        self._producer_task = trollius.async(self._run_producer_wrapper())
         worker_tasks = self._worker_tasks
 
         while self._running:
@@ -84,6 +85,18 @@ class BaseEngine(object):
             self._item_get_semaphore.release()
 
         yield From(self._producer_task)
+
+    @trollius.coroutine
+    def _run_producer_wrapper(self):
+        '''Run the producer, if exception, stop engine.'''
+        try:
+            yield From(self._run_producer())
+        except Exception as error:
+            if not isinstance(error, StopIteration):
+                # Stop the workers so the producer exception will be handled
+                _logger.error('Producer died.')
+                self._stop()
+            raise
 
     @trollius.coroutine
     def _run_producer(self):
@@ -148,7 +161,8 @@ class BaseEngine(object):
     def _set_concurrent(self, new_num):
         '''Set concurrency level.'''
         if self._running:
-            assert new_num >= 0
+            assert new_num >= 0, \
+                'No negative concurrency pls. Got {}.'.format(new_num)
             change = new_num - self.__concurrent
 
             if change < 0:
@@ -217,16 +231,17 @@ class Engine(BaseEngine, HookableMixin):
     '''
 
     def __init__(self, url_table, processor, statistics,
-                 concurrent=1):
+                 concurrent=1, ignore_exceptions=False):
         super().__init__()
 
         self._url_table = url_table
         self._processor = processor
         self._statistics = statistics
+        self._ignore_exceptions = ignore_exceptions
         self._num_worker_busy = 0
 
         self._set_concurrent(concurrent)
-        self.register_hook('engine_run', 'dequeued_url')
+        self.register_hook('engine_run')
 
     @property
     def concurrent(self):
@@ -264,7 +279,8 @@ class Engine(BaseEngine, HookableMixin):
 
     @trollius.coroutine
     def _get_item(self):
-        return self._get_next_url_record()
+        with self._maybe_ignore_exceptions():
+            return self._get_next_url_record()
 
     def _get_next_url_record(self):
         '''Return the next available URL from the URL table.
@@ -279,16 +295,14 @@ class Engine(BaseEngine, HookableMixin):
         _logger.debug('Get next URL todo.')
 
         try:
-            url_record = self._url_table.get_and_update(
-                Status.todo, new_status=Status.in_progress)
+            url_record = self._url_table.check_out(Status.todo)
         except NotFound:
             url_record = None
 
         if not url_record:
             try:
                 _logger.debug('Get next URL error.')
-                url_record = self._url_table.get_and_update(
-                    Status.error, new_status=Status.in_progress)
+                url_record = self._url_table.check_out(Status.error)
             except NotFound:
                 url_record = None
 
@@ -299,20 +313,34 @@ class Engine(BaseEngine, HookableMixin):
     @trollius.coroutine
     def _process_item(self, url_record):
         '''Process given item.'''
+
+        with self._maybe_ignore_exceptions():
+            yield From(self._process_url_item(url_record))
+
+    @trollius.coroutine
+    def _process_url_item(self, url_record):
+        '''Process an item.
+
+        Args:
+            url_item (:class:`.database.URLRecord`): The item to process.
+
+        This function calls :meth:`.processor.BaseProcessor.process`.
+        '''
         assert url_record
 
-        url_encoding = url_record.url_encoding or 'utf8'
-        url_info = URLInfo.parse(url_record.url, encoding=url_encoding)
+        url_info = parse_url_or_log(url_record.url)
+
+        if not url_info:
+            url_item = URLItem(self._url_table, None, url_record)
+            url_item.skip()
+            return
+
         url_item = URLItem(self._url_table, url_info, url_record)
 
-        # The URL supplied to the program is not considered part of the queue.
-        if url_record.level > 0:
-            try:
-                self.call_hook('dequeued_url', url_info, url_record)
-            except HookDisconnected:
-                pass
+        _logger.debug(__('Begin session for {0} {1}.',
+                         url_record, url_item.url_info))
 
-        yield From(self._process_url_item(url_item))
+        yield From(self._processor.process(url_item))
 
         assert url_item.is_processed
 
@@ -322,20 +350,6 @@ class Engine(BaseEngine, HookableMixin):
             _logger.debug('Stopping due to quota.')
             self.stop()
 
-    @trollius.coroutine
-    def _process_url_item(self, url_item):
-        '''Process an item.
-
-        Args:
-            url_item (:class:`.item.URLItem`): The item to process.
-
-        This function calls :meth:`.processor.BaseProcessor.process`.
-        '''
-        _logger.debug(__('Begin session for {0} {1}.',
-                         url_item.url_record, url_item.url_info))
-
-        yield From(self._processor.process(url_item))
-
         _logger.debug(__('End session for {0} {1}.',
                          url_item.url_record, url_item.url_info))
 
@@ -343,3 +357,16 @@ class Engine(BaseEngine, HookableMixin):
         '''Stop the engine.'''
         _logger.debug(__('Stopping'))
         self._stop()
+
+    @contextlib.contextmanager
+    def _maybe_ignore_exceptions(self):
+        if self._ignore_exceptions:
+            try:
+                yield
+            except Exception as error:
+                if not isinstance(error, StopIteration):
+                    _logger.exception('Ignored exception. Program unstable!')
+                else:
+                    raise
+        else:
+            yield

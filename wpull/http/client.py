@@ -1,5 +1,6 @@
 # encoding=utf-8
 '''Basic HTTP Client.'''
+import contextlib
 import functools
 import gettext
 import logging
@@ -21,10 +22,13 @@ class Client(BaseClient):
     '''Stateless HTTP/1.1 client.
 
     The session object is :class:`Session`.
+
+        proxy_adapter (:class:`.http.proxy.ProxyAdapter): Optional proxy.
     '''
     def __init__(self, stream_factory=Stream, **kwargs):
         super().__init__(**kwargs)
         self._stream_factory = stream_factory
+        self._proxy_adapter = proxy_adapter
 
     def _session_class(self):
         return functools.partial(Session, stream_factory=self._stream_factory)
@@ -59,16 +63,11 @@ class Session(BaseSession):
         assert not self._connection
         _logger.debug(__('Client fetch request {0}.', request))
 
-        self._request = request
+        connection = yield From(self._check_out_connection(request))
 
-        request.prepare_for_send()
+        if self._proxy_adapter:
+            self._proxy_adapter.add_auth_header(request)
 
-        host = request.url_info.hostname
-        port = request.url_info.port
-        ssl = request.url_info.scheme == 'https'
-
-        self._connection = connection = yield From(self._connection_pool
-                                                   .check_out(host, port, ssl))
         self._stream = stream = self._stream_factory(connection)
         request.address = connection.address
 
@@ -77,7 +76,9 @@ class Session(BaseSession):
         if self._recorder_session:
             self._recorder_session.pre_request(request)
 
-        yield From(stream.write_request(request))
+        full_url = bool(self._proxy_adapter)
+
+        yield From(stream.write_request(request, full_url=full_url))
 
         if request.body:
             assert 'Content-Length' in request.fields
@@ -96,6 +97,27 @@ class Session(BaseSession):
         self._session_complete = False
 
         raise Return(response)
+
+    @trollius.coroutine
+    def _check_out_connection(self, request):
+        self._request = request
+        host = request.url_info.hostname
+        port = request.url_info.port
+        ssl = request.url_info.scheme == 'https'
+
+        if self._proxy_adapter:
+            connection = yield From(
+                self._proxy_adapter.check_out(self._connection_pool))
+
+            yield From(self._proxy_adapter.connect(
+                self._connection_pool, connection, (host, port), ssl))
+        else:
+            connection = yield From(
+                self._connection_pool.check_out(host, port, ssl))
+
+        self._connection = connection
+
+        raise Return(connection)
 
     @trollius.coroutine
     def read_content(self, file=None, raw=False, rewind=True):

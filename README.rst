@@ -26,23 +26,13 @@ is not considered stable.**
 Install
 =======
 
-Requires:
+Wpull uses `Python 3 <http://python.org/download/>`_.
 
-* `Python 3.2, 3.3 (or newer) <http://python.org/download/>`_
-* `Tornado <https://pypi.python.org/pypi/tornado>`_
-* `Trollius <https://pypi.python.org/pypi/trollius>`_
-* `lxml <https://pypi.python.org/pypi/lxml>`_
-* `chardet <https://pypi.python.org/pypi/chardet>`_
-* `SQLAlchemy <https://pypi.python.org/pypi/SQLAlchemy>`_
-* `Lunatic Python (bastibe version)
-  <https://github.com/bastibe/lunatic-python>`_ (optional for Lua support)
-* `PhantomJS <http://phantomjs.org/>`_ (optional)
-
-Once you install the requirements, install Wpull from PyPI using pip::
+Once Python is installed, download Wpull from PyPI using pip::
 
     pip3 install wpull
 
-For detailed installation instructions, please see
+For detailed installation instructions and potential caveats, please see
 http://wpull.readthedocs.org/en/master/install.html.
 
 

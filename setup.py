@@ -25,9 +25,13 @@ PROJECT_PACKAGES = [
     'wpull',
     'wpull.abstract',
     'wpull.backport',
+    'wpull.database',
+    'wpull.document',
+    'wpull.document.htmlparse',
     'wpull.ftp',
     'wpull.http',
     'wpull.processor',
+    'wpull.scraper',
     'wpull.testing',
     'wpull.thirdparty',
 ]
@@ -70,7 +74,7 @@ setup_kwargs = dict(
 
 setup_kwargs['install_requires'] = [
     'tornado', 'trollius', 'lxml', 'chardet', 'sqlalchemy',
-    'namedlist',
+    'namedlist', 'html5lib',
 ]
 
 setup_kwargs['scripts'] = ['scripts/wpull', 'scripts/wpull3']

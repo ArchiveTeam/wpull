@@ -53,6 +53,10 @@ class Factory(collections.Mapping, object):
         Returns:
             instance
         '''
+        if name in self._instance_map:
+            raise ValueError('Instance {0} is already initialized'
+                             .format(name))
+
         instance = self._class_map[name](*args, **kwargs)
         self._instance_map[name] = instance
         return instance

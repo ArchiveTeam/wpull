@@ -69,7 +69,7 @@ class Stream(object):
 
     @trollius.coroutine
     @close_stream_on_error
-    def write_request(self, request):
+    def write_request(self, request, full_url=False):
         '''Send the request's HTTP status line and header fields.
 
         This class will automatically connect the connection if the
@@ -79,7 +79,7 @@ class Stream(object):
         '''
         _logger.debug('Sending headers.')
         yield From(self._reconnect())
-        request.prepare_for_send()
+        request.prepare_for_send(full_url=full_url)
 
         if self._ignore_length:
             request.fields['Connection'] = 'close'
@@ -153,6 +153,7 @@ class Stream(object):
             response = Response()
 
         header_lines = []
+        bytes_read = 0
 
         while True:
             try:
@@ -169,9 +170,17 @@ class Stream(object):
                 break
 
             header_lines.append(data)
+            assert data.endswith(b'\n')
 
-        # TODO: check for overflow
-        response.parse(b'\n'.join(header_lines))
+            bytes_read += len(data)
+
+            if bytes_read > 32768:
+                raise ProtocolError('Header too big.')
+
+        if not header_lines:
+            raise ProtocolError('No header received.')
+
+        response.parse(b''.join(header_lines))
 
         raise Return(response)
 

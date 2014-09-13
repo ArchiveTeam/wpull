@@ -5,11 +5,14 @@ Brief Option Overview
 
   usage: __main__.py [-h] [-V] [--python-script FILE | --lua-script FILE]
                      [--database FILE] [--concurrent N]
-                     [--debug-console-port PORT] [-o FILE | -a FILE]
-                     [-d | -q | -v | -nv] [--ascii-print] [-i FILE] [-F]
-                     [-B URL] [-t NUMBER] [--retry-connrefused]
-                     [--retry-dns-error] [-O FILE] [-nc] [-c]
-                     [--progress TYPE={bar,dot}] [-N]
+                     [--debug-console-port PORT] [--ignore-fatal-errors]
+                     [-o FILE | -a FILE] [-d | -q | -v | -nv] [--ascii-print]
+                     [-i FILE] [-F] [-B URL] [--http-proxy HTTP_PROXY]
+                     [--https-proxy HTTPS_PROXY] [--proxy-user USER]
+                     [--proxy-password PASS] [--no-proxy]
+                     [--no-secure-proxy-tunnel] [-t NUMBER]
+                     [--retry-connrefused] [--retry-dns-error] [-O FILE] [-nc]
+                     [-c] [--progress TYPE={bar,dot}] [-N]
                      [--no-use-server-timestamps] [-S] [-T SECONDS]
                      [--dns-timeout SECS] [--connect-timeout SECS]
                      [--read-timeout SECS] [-w SECONDS] [--waitretry SECONDS]
@@ -27,6 +30,8 @@ Brief Option Overview
                      [--keep-session-cookies]
                      [--post-data STRING | --post-file FILE]
                      [--content-on-error] [--http-compression]
+                     [--html-parser {html5lib,libxml2-lxml}]
+                     [--link-extractors <css,html,javascript>]
                      [--secure-protocol PR={SSLv3,TLSv1,auto}] [--https-only]
                      [--no-check-certificate] [--certificate FILE]
                      [--certificate-type TYPE={PEM}] [--private-key FILE]
@@ -68,6 +73,8 @@ Brief Option Overview
     --concurrent N        run at most N downloads at the same time (default: 1)
     --debug-console-port PORT
                           run a web debug console at given port number
+    --ignore-fatal-errors
+                          ignore all internal fatal exception errors
 
   logging and input:
     -o FILE, --output-file FILE
@@ -83,6 +90,18 @@ Brief Option Overview
                           download URLs listed in FILE
     -F, --force-html      read URL input files as HTML files
     -B URL, --base URL    resolves input relative URLs to URL
+
+  proxy:
+    --http-proxy HTTP_PROXY
+                          HTTP proxy for HTTP requests
+    --https-proxy HTTPS_PROXY
+                          HTTP proxy for HTTPS requests
+    --proxy-user USER     username for proxy "basic" authentication
+    --proxy-password PASS
+                          password for proxy "basic" authentication
+    --no-proxy            disable proxy support
+    --no-secure-proxy-tunnel
+                          disable use of encryption when using proxy
 
   download:
     -t NUMBER, --tries NUMBER
@@ -168,6 +187,12 @@ Brief Option Overview
     --post-file FILE      use POST for all requests with query in FILE
     --content-on-error    keep error pages
     --http-compression    request servers to use HTTP compression
+    --html-parser {html5lib,libxml2-lxml}
+                          select HTML parsing library and strategy (default:
+                          libxml2-lxml)
+    --link-extractors <css,html,javascript>
+                          specify which link extractors to use (default:
+                          ['html', 'css', 'javascript'])
 
   SSL:
     --secure-protocol PR={SSLv3,TLSv1,auto}

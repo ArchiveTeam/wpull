@@ -1,18 +1,18 @@
 # encoding=utf-8
+from tempfile import TemporaryDirectory
 import contextlib
 import logging
 import os.path
-from tempfile import TemporaryDirectory
 import unittest
 
 from wpull.body import Body
-from wpull.database import URLTable
+from wpull.database.sqltable import URLTable
 from wpull.http.request import Request, Response
 from wpull.recorder import WARCRecorder, WARCRecorderParams, BaseRecorder, \
     BaseRecorderSession, DemuxRecorder
+from wpull.warc import WARCRecord
 import wpull.util
 import wpull.version
-from wpull.warc import WARCRecord
 
 
 _logger = logging.getLogger(__name__)

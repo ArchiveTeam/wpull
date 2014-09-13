@@ -180,7 +180,7 @@ class PhantomJSController(object):
         record = WARCRecord()
         record.set_common_fields('resource', content_type)
         record.fields['WARC-Target-URI'] = 'urn:X-wpull:snapshot?url={0}'\
-            .format(wpull.url.quote(url))
+            .format(wpull.url.percent_encode_query_value(url))
 
         if self._action_warc_record:
             record.fields['WARC-Concurrent-To'] = \
@@ -214,7 +214,7 @@ class PhantomJSController(object):
         self._action_warc_record = record = WARCRecord()
         record.set_common_fields('metadata', 'application/json')
         record.fields['WARC-Target-URI'] = 'urn:X-wpull:snapshot?url={0}'\
-            .format(wpull.url.quote(url))
+            .format(wpull.url.percent_encode_query_value(url))
         record.block_file = io.BytesIO(log_data)
 
         self._warc_recorder.set_length_and_maybe_checksums(record)

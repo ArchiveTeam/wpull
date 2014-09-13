@@ -6,10 +6,14 @@ import contextlib
 import datetime
 import functools
 import os.path
+import platform
 import re
 import sys
 import time
 import zipfile
+
+
+IS_PYPY = platform.python_implementation() == 'PyPy'
 
 
 class ASCIIStreamWriter(codecs.StreamWriter):
@@ -87,7 +91,7 @@ def filter_pem(data):
     Returns:
         ``set`` containing each certificate
     '''
-    assert isinstance(data, bytes)
+    assert isinstance(data, bytes), 'Expect bytes. Got {}.'.format(type(data))
     certs = set()
     new_list = []
     in_pem_block = False
