@@ -1,6 +1,5 @@
 # encoding=utf8
 '''HTML protocol streamers.'''
-import functools
 import gettext
 import http.client
 import itertools
@@ -11,6 +10,7 @@ import zlib
 from trollius import From, Return
 import trollius
 
+from wpull.abstract.stream import close_stream_on_error
 from wpull.backport.logging import BraceMessage as __
 import wpull.decompression
 from wpull.errors import NetworkError, ProtocolError
@@ -18,7 +18,6 @@ from wpull.http.chunked import ChunkedTransferReader
 from wpull.http.request import Response
 import wpull.http.util
 from wpull.observer import Observer
-import wpull.util
 
 
 _ = gettext.gettext
@@ -30,16 +29,6 @@ DEFAULT_NO_CONTENT_CODES = frozenset(itertools.chain(
     [http.client.NO_CONTENT, http.client.NOT_MODIFIED]
 ))
 '''Status codes where a response body is prohibited.'''
-
-
-def close_stream_on_error(func):
-    '''Decorator to close stream on error.'''
-    @trollius.coroutine
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        with wpull.util.close_on_error(self.close):
-            raise Return((yield From(func(self, *args, **kwargs))))
-    return wrapper
 
 
 class Stream(object):
@@ -54,7 +43,12 @@ class Stream(object):
 
     Attributes:
         data_observer (:class:`.observer.Observer`): An observer called with
-            two arguments (str, bytes).
+            two arguments:
+
+            1. str: The data type. Can be ``request``, ``request_body``,
+               ``response``, ``response_body``
+            2. bytes: the raw data
+
         connection: The underlying connection.
     '''
     def __init__(self, connection, keep_alive=True, ignore_length=False):

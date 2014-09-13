@@ -23,10 +23,13 @@ StrictVersion(version)
 
 PROJECT_PACKAGES = [
     'wpull',
+    'wpull.abstract',
     'wpull.backport',
     'wpull.database',
     'wpull.document',
     'wpull.document.htmlparse',
+    'wpull.ftp',
+    'wpull.ftp.ls',
     'wpull.http',
     'wpull.processor',
     'wpull.scraper',
