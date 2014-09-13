@@ -17,6 +17,10 @@ wpull Package
 .. toctree::
 
     api/_luahook
+    api/abstract
+    api/abstract.client
+    api/abstract.request
+    api/abstract.stream
     api/app
     api/bandwidth
     api/body
@@ -50,6 +54,16 @@ wpull Package
     api/engine
     api/errors
     api/factory
+    api/ftp
+    api/ftp.client
+    api/ftp.command
+    api/ftp.ls
+    api/ftp.ls.date
+    api/ftp.ls.listing
+    api/ftp.ls.parse
+    api/ftp.request
+    api/ftp.stream
+    api/ftp.util
     api/hook
     api/http
     api/http.chunked
