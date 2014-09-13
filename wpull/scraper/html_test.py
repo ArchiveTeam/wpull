@@ -1,25 +1,40 @@
-# encoding=utf-8
 import os.path
 import shutil
 import unittest
 
 from wpull.body import Body
+from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
 from wpull.http.request import Request, Response
-from wpull.scraper import (HTMLScraper, CSSScraper, clean_link_soup,
-                           SitemapScraper, parse_refresh, JavaScriptScraper)
+from wpull.scraper.css import CSSScraper
+from wpull.scraper.html import HTMLScraper, ElementWalker
+from wpull.scraper.javascript import JavaScriptScraper
+from wpull.util import IS_PYPY
 import wpull.util
 
 
-class TestDocument(unittest.TestCase):
+if not IS_PYPY:
+    from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser
+else:
+    LxmlHTMLParser = type(NotImplemented)
+
+ROOT_PATH = os.path.join(os.path.dirname(__file__), '..')
+
+
+class Mixin(object):
+    def get_html_parser(self):
+        raise NotImplementedError()
+
     def test_html_scraper_links(self):
-        scraper = HTMLScraper()
+        element_walker = ElementWalker(
+            css_scraper=CSSScraper(), javascript_scraper=JavaScriptScraper())
+        scraper = HTMLScraper(self.get_html_parser(), element_walker)
         request = Request('http://example.com/')
         response = Response(200, 'OK')
         response.body = Body()
         response.fields['Refresh'] = '3; url=header_refresh.html'
 
         with wpull.util.reset_file_offset(response.body):
-            html_file_path = os.path.join(os.path.dirname(__file__),
+            html_file_path = os.path.join(ROOT_PATH,
                                           'testing', 'samples',
                                           'many_urls.html')
             with open(html_file_path, 'rb') as in_file:
@@ -111,14 +126,16 @@ class TestDocument(unittest.TestCase):
             self.assertIsInstance(url, str)
 
     def test_html_soup(self):
-        scraper = HTMLScraper()
+        element_walker = ElementWalker(
+            css_scraper=CSSScraper(), javascript_scraper=JavaScriptScraper())
+        scraper = HTMLScraper(self.get_html_parser(), element_walker)
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
         response.fields['Refresh'] = 'yes'
 
         with wpull.util.reset_file_offset(response.body):
-            html_file_path = os.path.join(os.path.dirname(__file__),
+            html_file_path = os.path.join(ROOT_PATH,
                                           'testing', 'samples', 'soup.html')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
@@ -140,14 +157,16 @@ class TestDocument(unittest.TestCase):
         )
 
     def test_html_mojibake(self):
-        scraper = HTMLScraper()
+        element_walker = ElementWalker(
+            css_scraper=CSSScraper(), javascript_scraper=JavaScriptScraper())
+        scraper = HTMLScraper(self.get_html_parser(), element_walker)
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
         response.fields['content-type'] = 'text/html; charset=Shift_JIS'
 
         with wpull.util.reset_file_offset(response.body):
-            html_file_path = os.path.join(os.path.dirname(__file__),
+            html_file_path = os.path.join(ROOT_PATH,
                                           'testing', 'samples',
                                           'mojibake.html')
             with open(html_file_path, 'rb') as in_file:
@@ -169,14 +188,16 @@ class TestDocument(unittest.TestCase):
         )
 
     def test_html_krokozyabry(self):
-        scraper = HTMLScraper()
+        element_walker = ElementWalker(
+            css_scraper=CSSScraper(), javascript_scraper=JavaScriptScraper())
+        scraper = HTMLScraper(self.get_html_parser(), element_walker)
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
         response.fields['content-type'] = 'text/html; charset=KOI8-R'
 
         with wpull.util.reset_file_offset(response.body):
-            html_file_path = os.path.join(os.path.dirname(__file__),
+            html_file_path = os.path.join(ROOT_PATH,
                                           'testing', 'samples',
                                           'krokozyabry.html')
             with open(html_file_path, 'rb') as in_file:
@@ -198,13 +219,15 @@ class TestDocument(unittest.TestCase):
         )
 
     def test_html_scraper_links_base_href(self):
-        scraper = HTMLScraper()
+        element_walker = ElementWalker(
+            css_scraper=CSSScraper(), javascript_scraper=JavaScriptScraper())
+        scraper = HTMLScraper(self.get_html_parser(), element_walker)
         request = Request('http://example.com/')
         response = Response(200, 'OK')
         response.body = Body()
 
         with wpull.util.reset_file_offset(response.body):
-            html_file_path = os.path.join(os.path.dirname(__file__),
+            html_file_path = os.path.join(ROOT_PATH,
                                           'testing', 'samples',
                                           'basehref.html')
             with open(html_file_path, 'rb') as in_file:
@@ -234,13 +257,15 @@ class TestDocument(unittest.TestCase):
         )
 
     def test_xhtml(self):
-        scraper = HTMLScraper()
+        element_walker = ElementWalker(
+            css_scraper=CSSScraper(), javascript_scraper=JavaScriptScraper())
+        scraper = HTMLScraper(self.get_html_parser(), element_walker)
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
 
         with wpull.util.reset_file_offset(response.body):
-            html_file_path = os.path.join(os.path.dirname(__file__),
+            html_file_path = os.path.join(ROOT_PATH,
                                           'testing', 'samples', 'xhtml.html')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
@@ -264,13 +289,15 @@ class TestDocument(unittest.TestCase):
         )
 
     def test_xhtml_invalid(self):
-        scraper = HTMLScraper()
+        element_walker = ElementWalker(
+            css_scraper=CSSScraper(), javascript_scraper=JavaScriptScraper())
+        scraper = HTMLScraper(self.get_html_parser(), element_walker)
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
 
         with wpull.util.reset_file_offset(response.body):
-            html_file_path = os.path.join(os.path.dirname(__file__),
+            html_file_path = os.path.join(ROOT_PATH,
                                           'testing', 'samples',
                                           'xhtml_invalid.html')
             with open(html_file_path, 'rb') as in_file:
@@ -295,13 +322,15 @@ class TestDocument(unittest.TestCase):
         )
 
     def test_html_wrong_charset(self):
-        scraper = HTMLScraper()
+        element_walker = ElementWalker(
+            css_scraper=CSSScraper(), javascript_scraper=JavaScriptScraper())
+        scraper = HTMLScraper(self.get_html_parser(), element_walker)
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
 
         with wpull.util.reset_file_offset(response.body):
-            html_file_path = os.path.join(os.path.dirname(__file__),
+            html_file_path = os.path.join(ROOT_PATH,
                                           'testing', 'samples', 'kcna.html')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
@@ -336,13 +365,15 @@ class TestDocument(unittest.TestCase):
         )
 
     def test_html_not_quite_charset(self):
-        scraper = HTMLScraper()
+        element_walker = ElementWalker(
+            css_scraper=CSSScraper(), javascript_scraper=JavaScriptScraper())
+        scraper = HTMLScraper(self.get_html_parser(), element_walker)
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
 
         with wpull.util.reset_file_offset(response.body):
-            html_file_path = os.path.join(os.path.dirname(__file__),
+            html_file_path = os.path.join(ROOT_PATH,
                                           'testing', 'samples',
                                           'videogame_top.htm')
             with open(html_file_path, 'rb') as in_file:
@@ -362,7 +393,9 @@ class TestDocument(unittest.TestCase):
         )
 
     def test_html_garbage(self):
-        scraper = HTMLScraper()
+        element_walker = ElementWalker(
+            css_scraper=CSSScraper(), javascript_scraper=JavaScriptScraper())
+        scraper = HTMLScraper(self.get_html_parser(), element_walker)
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
@@ -381,7 +414,9 @@ class TestDocument(unittest.TestCase):
 
     def test_html_encoding_lxml_name_mismatch(self):
         '''It should accept encoding names with underscore.'''
-        scraper = HTMLScraper()
+        element_walker = ElementWalker(
+            css_scraper=CSSScraper(), javascript_scraper=JavaScriptScraper())
+        scraper = HTMLScraper(self.get_html_parser(), element_walker)
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
@@ -398,14 +433,17 @@ class TestDocument(unittest.TestCase):
         self.assertEqual('euc_kr', scrape_info['encoding'])
 
     def test_html_serious_bad_encoding(self):
-        scraper = HTMLScraper(encoding_override='utf8')
+        element_walker = ElementWalker(
+            css_scraper=CSSScraper(), javascript_scraper=JavaScriptScraper())
+        scraper = HTMLScraper(self.get_html_parser(), element_walker,
+                              encoding_override='utf8')
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
         response.fields['content-type'] = 'text/html; charset=utf8'
 
         with wpull.util.reset_file_offset(response.body):
-            html_file_path = os.path.join(os.path.dirname(__file__),
+            html_file_path = os.path.join(ROOT_PATH,
                                           'testing', 'samples',
                                           'xkcd_1_evil.html')
             with open(html_file_path, 'rb') as in_file:
@@ -416,14 +454,16 @@ class TestDocument(unittest.TestCase):
         self.assertTrue(scrape_info)
 
     def test_rss_as_html(self):
-        scraper = HTMLScraper()
+        element_walker = ElementWalker(
+            css_scraper=CSSScraper(), javascript_scraper=JavaScriptScraper())
+        scraper = HTMLScraper(self.get_html_parser(), element_walker)
         request = Request('http://example.com/')
         response = Response(200, '')
         response.body = Body()
         response.fields['content-type'] = 'application/rss+xml'
 
         with wpull.util.reset_file_offset(response.body):
-            html_file_path = os.path.join(os.path.dirname(__file__),
+            html_file_path = os.path.join(ROOT_PATH,
                                           'testing', 'samples', 'rss.xml')
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
@@ -444,346 +484,13 @@ class TestDocument(unittest.TestCase):
             linked_urls
         )
 
-    def test_scrape_css_urls(self):
-        text = '''
-        @import url("fineprint.css") print;
-        @import url("bluish.css") projection, tv;
-        @import 'custom.css';
-        @import url("chrome://communicator/skin/");
-        @import "common.css" screen, projection;
-        @import url('landscape.css') screen and (orientation:landscape);
-        @import url(cool.css);
-        @import warm.css;
-        '''
 
-        urls = set(CSSScraper.scrape_urls(text))
+@unittest.skipIf(IS_PYPY, 'Not supported under PyPy')
+class TestLxmlHTMLScraper(Mixin, unittest.TestCase):
+    def get_html_parser(self):
+        return LxmlHTMLParser()
 
-        self.assertEqual({
-            'fineprint.css',
-            'bluish.css',
-            'chrome://communicator/skin/',
-            'landscape.css',
-            'cool.css'
-        },
-            urls
-        )
 
-        urls = set(CSSScraper.scrape_imports(text))
-
-        self.assertEqual({
-            'fineprint.css',
-            'bluish.css',
-            'custom.css',
-            'chrome://communicator/skin/',
-            'common.css',
-            'landscape.css',
-            'cool.css',
-            'warm.css',
-        },
-            urls
-        )
-
-    def test_css_scraper_links(self):
-        scraper = CSSScraper()
-        request = Request('http://example.com/styles.css')
-        response = Response(200, 'OK')
-        response.body = Body()
-
-        with wpull.util.reset_file_offset(response.body):
-            html_file_path = os.path.join(os.path.dirname(__file__),
-                                          'testing', 'samples', 'styles.css')
-            with open(html_file_path, 'rb') as in_file:
-                shutil.copyfileobj(in_file, response.body)
-
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
-
-        self.assertEqual({
-            'http://example.com/mobile.css',
-            'http://example.com/images/star.gif',
-        },
-            inline_urls
-        )
-        self.assertFalse(linked_urls)
-
-    def test_css_scraper_mojibake(self):
-        scraper = CSSScraper()
-        request = Request('http://example.com/styles.css')
-        response = Response(200, 'OK')
-        response.body = Body()
-
-        with wpull.util.reset_file_offset(response.body):
-            html_file_path = os.path.join(os.path.dirname(__file__),
-                                          'testing', 'samples', 'mojibake.css')
-            with open(html_file_path, 'rb') as in_file:
-                shutil.copyfileobj(in_file, response.body)
-
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
-
-        self.assertEqual({
-            'http://example.com/文字化け.png',
-        },
-            inline_urls
-        )
-        self.assertFalse(linked_urls)
-
-    def test_css_scraper_krokozyabry(self):
-        scraper = CSSScraper()
-        request = Request('http://example.com/styles.css')
-        response = Response(200, 'OK')
-        response.body = Body()
-
-        with wpull.util.reset_file_offset(response.body):
-            html_file_path = os.path.join(os.path.dirname(__file__),
-                                          'testing', 'samples',
-                                          'krokozyabry.css')
-            with open(html_file_path, 'rb') as in_file:
-                shutil.copyfileobj(in_file, response.body)
-
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
-
-        self.assertEqual({
-            'http://example.com/Кракозябры.png',
-        },
-            inline_urls
-        )
-        self.assertFalse(linked_urls)
-
-    def test_sitemap_scraper_robots(self):
-        scraper = SitemapScraper()
-        request = Request('http://example.com/robots.txt')
-        response = Response(200, 'OK')
-        response.body = Body()
-
-        with wpull.util.reset_file_offset(response.body):
-            response.body.write(
-                b'Sitemap: http://example.com/sitemap00.xml'
-            )
-
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
-
-        self.assertEqual({
-            'http://example.com/sitemap00.xml',
-        },
-            linked_urls
-        )
-        self.assertFalse(inline_urls)
-
-    def test_sitemap_scraper_invalid_robots(self):
-        scraper = SitemapScraper()
-        request = Request('http://example.com/robots.txt')
-        response = Response(200, 'OK')
-        response.body = Body()
-
-        with wpull.util.reset_file_offset(response.body):
-            response.body.write(
-                b'dsfju3wrji kjasSItemapsdmjfkl wekie;er :Ads fkj3m /Dk'
-            )
-
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
-
-        self.assertFalse(linked_urls)
-        self.assertFalse(inline_urls)
-
-    def test_sitemap_scraper_xml_index(self):
-        scraper = SitemapScraper()
-        request = Request('http://example.com/sitemap.xml')
-        response = Response(200, 'OK')
-        response.body = Body()
-
-        with wpull.util.reset_file_offset(response.body):
-            response.body.write(
-                b'''<?xml version="1.0" encoding="UTF-8"?>
-                <sitemapindex
-                xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-                   <sitemap>
-                      <loc>http://www.example.com/sitemap1.xml.gz</loc>
-                      <lastmod>2004-10-01T18:23:17+00:00</lastmod>
-                   </sitemap>
-                </sitemapindex>
-            '''
-            )
-
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
-
-        self.assertEqual({
-            'http://www.example.com/sitemap1.xml.gz',
-        },
-            linked_urls
-        )
-        self.assertFalse(inline_urls)
-
-    def test_sitemap_scraper_xml(self):
-        scraper = SitemapScraper()
-        request = Request('http://example.com/sitemap.xml')
-        response = Response(200, 'OK')
-        response.body = Body()
-
-        with wpull.util.reset_file_offset(response.body):
-            response.body.write(
-                b'''<?xml version="1.0" encoding="UTF-8"?>
-                <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-                   <url>
-                      <loc>http://www.example.com/</loc>
-                      <lastmod>2005-01-01</lastmod>
-                      <changefreq>monthly</changefreq>
-                      <priority>0.8</priority>
-                   </url>
-                </urlset>
-            '''
-            )
-
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
-
-        self.assertEqual({
-            'http://www.example.com/',
-        },
-            linked_urls
-        )
-        self.assertFalse(inline_urls)
-
-    def test_sitemap_scraper_invalid_xml(self):
-        scraper = SitemapScraper()
-        request = Request('http://example.com/sitemap.xml')
-        response = Response(200, 'OK')
-        response.body = Body()
-
-        with wpull.util.reset_file_offset(response.body):
-            response.body.write(
-                b'''<?xml version="1.0" encoding="UTF-8"?>
-                <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-                   <url>
-                      <loc>http://www.example.com/</loc>
-            '''
-            )
-
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
-
-        self.assertEqual({
-            'http://www.example.com/',
-        },
-            linked_urls
-        )
-        self.assertFalse(inline_urls)
-
-    def test_javascript_scraper(self):
-        scraper = JavaScriptScraper()
-        request = Request('http://example.com/script.js')
-        response = Response(200, 'OK')
-        response.body = Body()
-
-        with wpull.util.reset_file_offset(response.body):
-            html_file_path = os.path.join(os.path.dirname(__file__),
-                                          'testing', 'samples', 'script.js')
-            with open(html_file_path, 'rb') as in_file:
-                shutil.copyfileobj(in_file, response.body)
-
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
-
-        self.assertEqual({
-            'http://example.com/script_variable.png',
-        },
-            inline_urls
-        )
-        self.assertEqual({
-            'http://example.com/document_write.html',
-            'http://example.com/http_document_write.html',
-            'http://example.com/http_document_write2.html',
-            'http://example.com/http document write.html',
-            'http://example.com/script_variable.html',
-            'http://example.com/http_script_variable.html',
-            'https://example.com/https_script_variable.html',
-            'ftp://example.com/ftp_script_variable.html',
-            'http://example.com/end_dir_script_variable/',
-            'http://example.com/start_dir_script_variable',
-            'http://example.com/../relative_dir_script_variable',
-            'http://example.com/script_json.html',
-            'http://example.com/http_script_json.html?a=b',
-        },
-            linked_urls
-        )
-
-    def test_javascript_heavy_inline_monstrosity(self):
-        scraper = HTMLScraper()
-        request = Request('http://example.com/')
-        response = Response(200, 'OK')
-        response.body = Body()
-
-        with wpull.util.reset_file_offset(response.body):
-            html_file_path = os.path.join(os.path.dirname(__file__),
-                                          'testing', 'samples',
-                                          'twitchplayspokemonfirered.html')
-            with open(html_file_path, 'rb') as in_file:
-                shutil.copyfileobj(in_file, response.body)
-
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
-
-        self.assertIn(
-            'http://cdn.bulbagarden.net/upload/archive/a/a4/'
-            '20090718115357%21195Quagsire.png',
-            inline_urls
-        )
-        self.assertIn(
-            'http://www.google.com/url?q=http%3A%2F%2Fwww.reddit.com%2F'
-            'user%2FGoldenSandslash15&sa=D&sntz=1&'
-            'usg=AFQjCNElFBxZYdNm5mWoRSncf5tbdIJQ-A',
-            linked_urls
-        )
-
-    def test_clean_link_soup(self):
-        self.assertEqual(
-            'http://example.com',
-            clean_link_soup('http://example.com  ')
-        )
-        self.assertEqual(
-            'http://example.com/',
-            clean_link_soup('\n\r\thttp://example.com\n\r\r\r\n\t/')
-        )
-        self.assertEqual(
-            'http://example.com/ something',
-            clean_link_soup('http://example.com\n\t / something  \n\r\t')
-        )
-        self.assertEqual(
-            'http://example.com/dog cat/',
-            clean_link_soup('http://example.com/\n dog \tcat\r/\n')
-        )
-        self.assertEqual(
-            'ßðf ¤Jáßðff ßðfœ³²œ¤ œë ßfœ',
-            clean_link_soup('ß\tðf ¤Jáßðf\n f ßðfœ³²œ¤ œë ßfœ ')
-        )
-
-    def test_parse_refresh(self):
-        self.assertEqual(
-            'http://example.com', parse_refresh('10;url="http://example.com"')
-        )
-        self.assertEqual(
-            'http://example.com', parse_refresh('10;url= http://example.com ')
-        )
-        self.assertEqual(
-            'example.com', parse_refresh("url =' example.com '")
-        )
-        self.assertFalse(
-            parse_refresh('url=')
-        )
-        self.assertFalse(
-            parse_refresh('url =     ')
-        )
+class TestHTML5LibHTMLScraper(Mixin, unittest.TestCase):
+    def get_html_parser(self):
+        return HTML5LibHTMLParser()

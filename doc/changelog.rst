@@ -2,8 +2,32 @@
 What's New
 ==========
 
-0.1000
-======
+* Fixed ``--warc-move`` option which had no effect.
+* Support for HTTP/HTTPS proxies but no HTTPS tunnelling support. Wpull will refuse to start without the insecure override option. Note that if authentication and WARC file is enabled, the username and password is recorded into the WARC file.
+* Improved database performance.
+* Added ``--ignore-fatal-errors`` option.
+* Added ``--http-parser`` option. You can now use html5lib as the HTML parser.
+* Support for PyPy 2.3.1 running with Python 3.2 implementation.
+* Consistent URL parsing among various Python versions.
+* Added ``--link-extractors`` option.
+
+* API:
+
+  * ``document`` and ``scraper`` were put into their own packages.
+  * HTML parsing was put into ``document.htmlparse`` package.
+  * ``url.URLInfo`` no longer supports normalizing URLs by percent decoding unreserved/safe characters.
+
+* Scripting:
+
+  * Dropped support for Scripting API version 1.
+
+* Database schema:
+
+  * Column ``url_encoding`` is removed from ``urls`` table.
+
+
+0.1000 (2014-09-02)
+===================
 
 * Dropped support for Python 2. Please file an issue if this is a problem.
 * Fixed possible crash on empty content with deflate compression.
@@ -16,7 +40,7 @@ What's New
 
 * API:
 
-  * Switched to Trollius instead of Tornado.
+  * Switched to Trollius instead of Tornado. Please use Trollius 1.0.2 alpha or greater.
   * Most the of internals related to the HTTP protocol were rewritten and as a result, major components are not backwards compatible; lots of changes were made. If you happen to be using Wpull's API, please pin your requirements to ``<0.1000`` if you do not want to make a migration. Please file an issue if this is a problem.
 
 

@@ -100,8 +100,17 @@ class Application(HookableMixin):
         try:
             yield From(self._builder.factory['Engine']())
         except Exception as error:
-            _logger.exception('Fatal exception.')
-            self._update_exit_code_from_error(error)
+            if not isinstance(error, StopIteration):
+                _logger.exception('Fatal exception.')
+                self._update_exit_code_from_error(error)
+
+                _logger.critical(_(
+                    'Sorry, Wpull unexpectedly crashed. '
+                    'Please report this problem to the authors at Wpull\'s '
+                    'issue tracker so it may be fixed. '
+                    'If you know how to program, maybe help us fix it? '
+                    'Thank you for helping us help you help us all.'
+                ))
 
         self._compute_exit_code_from_stats()
 

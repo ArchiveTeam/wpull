@@ -3,12 +3,14 @@ import os.path
 import sys
 import unittest
 
-from wpull.hook import to_lua_string, to_lua_type
+from wpull._luahook import to_lua_string, to_lua_type
+from wpull.util import IS_PYPY
 
 
 class TestHook(unittest.TestCase):
     @unittest.skipIf(sys.version_info[0:2] == (3, 2),
                      'lua module not working in this python version')
+    @unittest.skipIf(IS_PYPY, 'Not supported under PyPy')
     def test_lua_type_sanity(self):
         import lua
 

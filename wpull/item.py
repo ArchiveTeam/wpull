@@ -38,7 +38,6 @@ _URLRecordType = collections.namedtuple(
         'referrer',
         'inline',
         'link_type',
-        'url_encoding',
         'post_data',
         'filename',
     ]
@@ -51,6 +50,7 @@ class LinkType(object):
     '''html document.'''
     css = 'css'
     '''stylesheet.'''
+    javascript = 'javascript'
 
 
 class URLRecord(_URLRecordType):
@@ -75,8 +75,6 @@ class URLRecord(_URLRecordType):
             * ``html``: HTML document
             * ``css``: CSS document
 
-        url_encoding (str): The name of the codec used to encode/decode
-            the URL. See :class:`.url.URLInfo`.
         post_data (str): If given, the URL should be fetched as a
             POST request containing `post_data`.
         filename (str): The path to where the file was saved.
@@ -84,13 +82,12 @@ class URLRecord(_URLRecordType):
     @property
     def url_info(self):
         '''Return an :class:`.url.URLInfo` for the ``url``.'''
-        return URLInfo.parse(self.url, encoding=self.url_encoding or 'utf8')
+        return URLInfo.parse(self.url)
 
     @property
     def referrer_info(self):
         '''Return an :class:`.url.URLInfo` for the ``referrer``.'''
-        return URLInfo.parse(
-            self.referrer, encoding=self.url_encoding or 'utf8')
+        return URLInfo.parse(self.referrer)
 
     def to_dict(self):
         '''Return the values as a ``dict``.
@@ -111,7 +108,6 @@ class URLRecord(_URLRecordType):
                 self.referrer_info.to_dict() if self.referrer else None,
             'inline': self.inline,
             'link_type': self.link_type,
-            'url_encoding': self.url_encoding,
             'post_data': self.post_data,
             'filename': self.filename,
         }
@@ -150,7 +146,7 @@ class URLItem(object):
     def skip(self):
         '''Mark the item as processed without download.'''
         _logger.debug(__(_('Skipping ‘{url}’.'), url=self._url))
-        self._url_table.update(self._url, status=Status.skipped)
+        self._url_table.check_in(self._url, Status.skipped)
 
         self._processed = True
 
@@ -168,10 +164,10 @@ class URLItem(object):
             self._try_count_incremented = True
 
         _logger.debug(__('Marking URL {0} status {1}.', self._url, status))
-        self._url_table.update(
+        self._url_table.check_in(
             self._url,
+            status,
             increment_try_count=increment_try_count,
-            status=status,
             filename=filename,
         )
 
@@ -179,37 +175,29 @@ class URLItem(object):
 
     def set_value(self, **kwargs):
         '''Set values for the URL in table.'''
-        self._url_table.update(self._url, **kwargs)
+        self._url_table.update_one(self._url, **kwargs)
 
-    def add_inline_url_infos(self, url_infos, encoding=None, link_type=None,
+    def add_inline_url_infos(self, url_infos, link_type=None,
                              post_data=None):
         '''Add inline links scraped from the document.
 
         Args:
             url_infos (iterable): A list of :class:`.url.URLInfo`
-            encoding (str): The encoding of the document.
         Returns:
             A list of added :class:`.url.URLInfo`.
         '''
         inline_urls = tuple([info.url for info in url_infos])
         _logger.debug(__('Adding inline URLs {0}', inline_urls))
-        added_urls = self._url_table.add(
+        self._url_table.add_many(
             inline_urls,
             inline=True,
             level=self._url_record.level + 1,
             referrer=self._url_record.url,
             top_url=self._url_record.top_url or self._url_record.url,
-            url_encoding=encoding,
             post_data=post_data,
         )
-        added_url_infos = list()
-        for url_info in url_infos:
-            if url_info.url in added_urls:
-                added_url_infos.append(url_info)
-                added_urls.remove(url_info.url)
-        return added_url_infos
 
-    def add_linked_url_infos(self, url_infos, encoding=None, link_type=None,
+    def add_linked_url_infos(self, url_infos, link_type=None,
                              post_data=None):
         '''Add linked links scraped from the document.
 
@@ -221,23 +209,16 @@ class URLItem(object):
         '''
         linked_urls = tuple([info.url for info in url_infos])
         _logger.debug(__('Adding linked URLs {0}', linked_urls))
-        added_urls = self._url_table.add(
+        self._url_table.add_many(
             linked_urls,
             level=self._url_record.level + 1,
             referrer=self._url_record.url,
             top_url=self._url_record.top_url or self._url_record.url,
             link_type=link_type,
-            url_encoding=encoding,
             post_data=post_data,
         )
-        added_url_infos = list()
-        for url_info in url_infos:
-            if url_info.url in added_urls:
-                added_url_infos.append(url_info)
-                added_urls.remove(url_info.url)
-        return added_url_infos
 
-    def child_url_record(self, url_info, inline=False, encoding=None,
+    def child_url_record(self, url_info, inline=False,
                          link_type=None, post_data=None):
         '''Return a child URLRecord.
 
@@ -253,7 +234,6 @@ class URLItem(object):
             self._url_record.url,  # referrer
             inline,  # inline
             link_type,  # link_type
-            encoding,  # url_encoding
             post_data,  # post_data
             None  # filename
         )

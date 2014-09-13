@@ -23,7 +23,7 @@ class DeFactoCookiePolicy(DefaultCookiePolicy):
         if not DefaultCookiePolicy.set_ok(self, cookie, request):
             return False
 
-        cookie_string = repr(cookie)
+        cookie_string = '{}={}'.format(cookie.name, cookie.value)
 
         if len(cookie_string) > 4100:
             return False

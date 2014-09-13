@@ -145,7 +145,7 @@ def normalize_name(name, overrides=None):
 
 def guess_line_ending(string):
     '''Return the most likely line delimiter from the string.'''
-    assert isinstance(string, str)
+    assert isinstance(string, str), 'Expect str. Got {}'.format(type(string))
     crlf_count = string.count('\r\n')
     lf_count = string.count('\n')
 
@@ -161,7 +161,7 @@ def unfold_lines(string):
     Any line that starts with a space or tab is joined to the previous
     line.
     '''
-    assert isinstance(string, str)
+    assert isinstance(string, str), 'Expect str. Got {}'.format(type(string))
     line_ending = guess_line_ending(string)
     lines = string.split(line_ending)
     line_buffer = io.StringIO()

@@ -172,6 +172,8 @@ class ConnectionPool(object):
     @trollius.coroutine
     def check_out(self, host, port, ssl=False):
         '''Return an available connection.'''
+        assert isinstance(port, int), 'Expect int. Got {}'.format(type(port))
+
         family, address = yield From(self._resolver.resolve(host, port))
         key = (host, port, ssl)
 
@@ -190,7 +192,16 @@ class ConnectionPool(object):
             connection = yield From(host_pool.ready.get())
 
         host_pool.busy.add(connection)
-        assert host_pool.count() <= self._max_host_count
+
+        # XXX: there is a race condition between host_pool.ready and
+        # host_pool.busy since there is no guarantee that Queue.get()
+        # returns immediately. shrugs.
+        # FIXME: write better synchronization
+        # assert host_pool.count() <= self._max_host_count
+
+        if key not in self._pool:
+            # Pool may have been deleted during a clean
+            self._pool[key] = host_pool
 
         raise Return(connection)
 
@@ -207,7 +218,17 @@ class ConnectionPool(object):
 
     @trollius.coroutine
     def session(self, host, port, ssl=False):
-        '''Return a context manager that returns a connection.'''
+        '''Return a context manager that returns a connection.
+
+        Usage::
+
+            session = yield from connection_pool.session('example.com', 80)
+            with session as connection:
+                connection.write(b'blah')
+                connection.close()
+
+        Coroutine.
+        '''
         connection = yield From(self.check_out(host, port, ssl))
 
         @contextlib.contextmanager
@@ -282,11 +303,14 @@ class Connection(object):
         host (str): Host name.
         port (int): Port number.
         ssl (bool): Whether connection is SSL.
+        tunneled (bool): Whether the connection has been tunneled with the
+            ``CONNECT`` request.
     '''
     def __init__(self, address, hostname=None, timeout=None,
                  connect_timeout=None, bind_host=None):
-        assert len(address) == 2
-        assert '.' in address[0] or ':' in address[0]
+        assert len(address) == 2, 'Expect str & port. Got {}.'.format(address)
+        assert '.' in address[0] or ':' in address[0], \
+            'Expect numerical address. Got {}.'.format(address[0])
 
         self._address = address
         self._hostname = hostname or address[0]
@@ -297,6 +321,7 @@ class Connection(object):
         self.writer = None
         self._close_timer = None
         self._state = ConnectionState.ready
+        self._tunneled = False
 
         # TODO: implement bandwidth limiting
         self.bandwidth_limiter = None
@@ -320,6 +345,17 @@ class Connection(object):
     @property
     def ssl(self):
         return False
+
+    @property
+    def tunneled(self):
+        if self.closed():
+            self._tunneled = False
+
+        return self._tunneled
+
+    @tunneled.setter
+    def tunneled(self, value):
+        self._tunneled = value
 
     def closed(self):
         '''Return whether the connection is closed.'''
@@ -387,7 +423,8 @@ class Connection(object):
     @trollius.coroutine
     def write(self, data, drain=True):
         '''Write data.'''
-        assert self._state == ConnectionState.created
+        assert self._state == ConnectionState.created, \
+            'Expect conn created. Got {}.'.format(self._state)
 
         self.writer.write(data)
 
@@ -402,7 +439,8 @@ class Connection(object):
     @trollius.coroutine
     def read(self, amount=-1):
         '''Read data.'''
-        assert self._state == ConnectionState.created
+        assert self._state == ConnectionState.created, \
+            'Expect conn created. Got {}.'.format(self._state)
 
         data = yield From(
             self.run_network_operation(
@@ -416,7 +454,8 @@ class Connection(object):
     @trollius.coroutine
     def readline(self):
         '''Read a line of data.'''
-        assert self._state == ConnectionState.created
+        assert self._state == ConnectionState.created, \
+            'Expect conn created. Got {}.'.format(self._state)
 
         with self._close_timer.with_timeout():
             data = yield From(
@@ -532,7 +571,8 @@ class SSLConnection(Connection):
         verify_mode = self._ssl_context.verify_mode
 
         assert verify_mode in (ssl.CERT_NONE, ssl.CERT_REQUIRED,
-                               ssl.CERT_OPTIONAL)
+                               ssl.CERT_OPTIONAL), \
+            'Unknown verify mode {}'.format(verify_mode)
 
         if verify_mode == ssl.CERT_NONE:
             return

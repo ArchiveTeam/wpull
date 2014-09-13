@@ -1,35 +1,36 @@
 # encoding=utf8
 '''Web processing.'''
 import copy
+import functools
 import gettext
 import io
 import logging
 import os.path
 import tempfile
 
+from trollius.coroutines import Return, From
 import namedlist
 import trollius
-from trollius.coroutines import Return, From
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
-from wpull.document import HTMLReader
+from wpull.document.html import HTMLReader
 from wpull.errors import NetworkError, ProtocolError, ServerError, \
     ConnectionRefused, DNSNotFound
 from wpull.hook import HookableMixin, HookDisconnected
-from wpull.http.request import Response
-from wpull.http.web import LoopType
 from wpull.item import Status, LinkType
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSRPCTimedOut
 from wpull.processor.base import BaseProcessor
-from wpull.scraper import DemuxDocumentScraper, CSSScraper, HTMLScraper
+from wpull.processor.rule import FetchRule
+from wpull.scraper.base import DemuxDocumentScraper
+from wpull.scraper.css import CSSScraper
+from wpull.scraper.html import HTMLScraper
 from wpull.stats import Statistics
-import wpull.string
-from wpull.url import URLInfo
-from wpull.urlfilter import DemuxURLFilter
 from wpull.waiter import LinearWaiter
 from wpull.writer import NullWriter
+import wpull.string
+import wpull.url
 
 
 _logger = logging.getLogger(__name__)
@@ -61,20 +62,19 @@ Args:
 WebProcessorInstances = namedlist.namedtuple(
     'WebProcessorInstancesType',
     [
-        ('url_filter', DemuxURLFilter([])),
+        ('fetch_rule', FetchRule()),
         ('document_scraper', DemuxDocumentScraper([])),
         ('file_writer', NullWriter()),
         ('waiter', LinearWaiter()),
         ('statistics', Statistics()),
         ('converter', None),
         ('phantomjs_controller', None),
-        ('robots_txt_checker', None)
     ]
 )
 '''WebProcessorInstances
 
 Args:
-    url_filter ( :class:`.urlfilter.DemuxURLFilter`): The URL filter.
+    fetch_url ( :class:`.processor.rule.FetchRule`): The fetch rule.
     document_scraper (:class:`.scaper.DemuxDocumentScraper`): The document
         scraper.
     file_writer (:class`.writer.BaseWriter`): The file writer.
@@ -115,9 +115,9 @@ class WebProcessor(BaseProcessor, HookableMixin):
         self._session_class = WebProcessorSession
 
         self.register_hook(
-            'should_fetch', 'scrape_document',
+            'scrape_document',
             'handle_response', 'handle_error',
-            'wait_time', 'queued_url'
+            'wait_time',
         )
 
     @property
@@ -180,6 +180,9 @@ class WebProcessorSession(object):
 
         self._request = None
         self._temp_files = set()
+
+        self._fetch_rule = processor.instances.fetch_rule
+        self._strong_redirects = self._processor.fetch_params.strong_redirects
 
     def _new_initial_request(self, with_body=True):
         '''Return a new Request to be passed to the Web Client.'''
@@ -313,11 +316,17 @@ class WebProcessorSession(object):
             1. bool: If True, the URL should be fetched.
             2. str: A short reason string explaining the verdict.
         '''
+        is_redirect = False
 
-        verdict, reason, test_info = self._should_fetch_filters(url_info, url_record)
-        verdict, reason = self._should_fetch_hook(url_info, url_record, verdict, reason, test_info)
+        if self._strong_redirects:
+            try:
+                is_redirect = self._web_client_session.redirect_tracker\
+                    .is_redirect()
+            except AttributeError:
+                pass
 
-        return verdict, reason
+        return self._fetch_rule.check_subsequent_web_request(
+            url_info, url_record, is_redirect=is_redirect)
 
     @trollius.coroutine
     def _should_fetch_reason_with_robots(self, url_info, url_record):
@@ -326,75 +335,12 @@ class WebProcessorSession(object):
 
         Coroutine.
         '''
-        verdict, reason, test_info = self._should_fetch_filters(url_info, url_record)
-
-        if verdict and self._processor.instances.robots_txt_checker:
-            request = self._new_initial_request(with_body=False)
-            can_fetch = yield From(
-                self._processor.instances.robots_txt_checker.can_fetch(request)
-            )
-            if not can_fetch:
-                verdict = False
-                reason = 'robotstxt'
-
-        verdict, reason = self._should_fetch_hook(url_info, url_record, verdict, reason, test_info)
-
-        raise Return((verdict, reason))
-
-    def _should_fetch_filters(self, url_info, url_record):
-        '''Return info about whether a URL should be fetched using filters.
-
-        Returns:
-            tuple: verdict, reason string, test info
-        '''
-        test_info = self._processor.instances.url_filter.test_info(
-            url_info, url_record
-        )
-
-        try:
-            is_redirect = self._web_client_session.redirect_tracker\
-                .is_redirect()
-        except AttributeError:
-            is_redirect = False
-
-        if test_info['verdict']:
-            verdict = True
-            reason = 'filters'
-
-        elif (self._processor.fetch_params.strong_redirects
-              and is_redirect
-              and len(test_info['failed']) == 1
-              and 'SpanHostsFilter' in test_info['map']
-              and not test_info['map']['SpanHostsFilter']):
-            verdict = True
-            reason = 'redirect'
-
-        else:
-            _logger.debug(__(
-                'Rejecting {url} due to filters: '
-                'Passed={passed}. Failed={failed}.',
-                url=url_info.url,
-                passed=test_info['passed'],
-                failed=test_info['failed']
-            ))
-
-            verdict = False
-            reason = 'filters'
-
-        return verdict, reason, test_info
-
-    def _should_fetch_hook(self, url_info, url_record, verdict, reason, test_info):
-        '''Should fetch scripting hook.'''
-        try:
-            verdict = self._processor.call_hook(
-                'should_fetch', url_info, url_record, verdict, reason,
-                test_info,
-            )
-            reason = 'callback_hook'
-        except HookDisconnected:
-            pass
-
-        return verdict, reason
+        request_factory = functools.partial(
+            self._new_initial_request, with_body=False)
+        result = yield From(
+            self._fetch_rule.check_initial_web_request(
+                url_info, url_record, request_factory))
+        raise Return(result)
 
     def _add_post_data(self, request):
         '''Add data to the payload.'''
@@ -473,22 +419,7 @@ class WebProcessorSession(object):
 
         return True
 
-    @classmethod
-    def parse_url(cls, url, encoding='utf-8'):
-        '''Parse and return a URLInfo.
-
-        This function logs a warning if the URL cannot be parsed and returns
-        None.
-        '''
-        try:
-            url_info = URLInfo.parse(url, encoding=encoding)
-            # FIXME: workaround detection of bad URL unsplit. See issue #132.
-            URLInfo.parse(url_info.url, encoding=encoding)
-        except ValueError as error:
-            _logger.warning(__(_('Discarding malformed URL ‘{url}’: {error}.'),
-                               url=url, error=error))
-        else:
-            return url_info
+    parse_url = staticmethod(wpull.url.parse_url_or_log)
 
     def _handle_no_document(self, response):
         '''Callback for when no useful document is received.'''
@@ -553,7 +484,7 @@ class WebProcessorSession(object):
             num_inline_urls += new_inline
             num_linked_urls += new_linked
 
-        _logger.debug(__('Found URLs: inline={0} linked={1}',
+        _logger.debug(__('Candidate URLs: inline={0} linked={1}',
                          num_inline_urls, num_linked_urls
                          ))
 
@@ -600,22 +531,9 @@ class WebProcessorSession(object):
                 if self._should_fetch_reason(url_info, url_record)[0]:
                     linked_url_infos.add(url_info)
 
-        added_inline_url_infos = self._url_item.add_inline_url_infos(
-            inline_url_infos)
-        added_linked_url_infos = self._url_item.add_linked_url_infos(
+        self._url_item.add_inline_url_infos(inline_url_infos)
+        self._url_item.add_linked_url_infos(
             linked_url_infos, link_type=link_type)
-
-        for url_info in added_inline_url_infos:
-            try:
-                self._processor.call_hook('queued_url', url_info)
-            except HookDisconnected:
-                pass
-
-        for url_info in added_linked_url_infos:
-            try:
-                self._processor.call_hook('queued_url', url_info)
-            except HookDisconnected:
-                pass
 
         return len(inline_url_infos), len(linked_url_infos)
 

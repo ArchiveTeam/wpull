@@ -1,77 +1,13 @@
 # encoding=utf-8
 '''Python and Lua scripting supprt.'''
-import itertools
 import logging
-import sys
 
 from wpull.backport.logging import BraceMessage as __
-from wpull.database import Status
-import wpull.string
+from wpull.item import Status
+from wpull.url import parse_url_or_log
 
 
 _logger = logging.getLogger(__name__)
-
-
-def load_lua():
-    '''Load the Lua module.
-
-    .. seealso:: http://stackoverflow.com/a/8403467/1524507
-    '''
-    import DLFCN
-    sys.setdlopenflags(DLFCN.RTLD_NOW | DLFCN.RTLD_GLOBAL)
-    import lua
-    return lua
-
-
-try:
-    lua = load_lua()
-except ImportError:
-    lua = None
-
-
-def to_lua_type(instance):
-    '''Convert instance to appropriate Python types for Lua.'''
-    return to_lua_table(to_lua_string(to_lua_number(instance)))
-
-
-def to_lua_string(instance):
-    '''If Lua, convert to bytes.'''
-    if sys.version_info[0] == 2:
-        return wpull.string.to_bytes(instance)
-    else:
-        return instance
-
-
-def to_lua_number(instance):
-    '''If Lua and Python 2, convert to long.'''
-    if sys.version_info[0] == 2:
-        if instance is True or instance is False:
-            return instance
-        elif isinstance(instance, int):
-            return long(instance)
-        elif isinstance(instance, list):
-            return list([to_lua_number(item) for item in instance])
-        elif isinstance(instance, tuple):
-            return tuple([to_lua_number(item) for item in instance])
-        elif isinstance(instance, dict):
-            return dict(
-                [(to_lua_number(key), to_lua_number(value))
-                    for key, value in instance.items()])
-        return instance
-    else:
-        return instance
-
-
-def to_lua_table(instance):
-    '''If Lua and instance is ``dict``, convert to Lua table.'''
-    if isinstance(instance, dict):
-        table = lua.eval('{}')
-
-        for key, value in instance.items():
-            table[to_lua_table(key)] = to_lua_table(value)
-
-        return table
-    return instance
 
 
 class HookDisconnected(Exception):
@@ -117,6 +53,10 @@ class HookableMixin(object):
         else:
             raise HookDisconnected('No callback is connected.')
 
+    def is_hook_connected(self, name):
+        '''Return whether the hook is connected.'''
+        return bool(self.callback_hooks[name])
+
 
 class HookStop(Exception):
     '''Stop the engine.'''
@@ -147,44 +87,6 @@ class LegacyCallbacks(object):
        scripts; the arugment signature will be adjusted automatically.
     '''
 
-    @staticmethod
-    def handle_response1(url_info, http_info):
-        '''Return an action to handle the response.
-
-        Args:
-            url_info (dict): A mapping containing the same information in
-                :class:`.url.URLInfo`.
-            http_info (dict): A mapping containing the same information
-                in :class:`.http.request.Response`.
-
-        .. deprecated:: Scripting-API-2
-
-        Returns:
-            str: A value from :class:`Actions`. The default is
-            :attr:`Actions.NORMAL`.
-        '''
-        return Actions.NORMAL
-
-    @staticmethod
-    def handle_error1(url_info, error_info):
-        '''Return an action to handle the error.
-
-        Args:
-            url_info (dict): A mapping containing the same information in
-                :class:`.url.URLInfo`.
-            http_info (dict): A mapping containing the keys:
-
-                * ``error``: The name of the exception (for example,
-                  ``ProtocolError``)
-
-        .. deprecated:: Scripting-API-2
-
-        Returns:
-            str: A value from :class:`Actions`. The default is
-            :attr:`Actions.NORMAL`.
-        '''
-        return Actions.NORMAL
-
 
 class Callbacks(LegacyCallbacks):
     '''Callback hooking instance.
@@ -195,10 +97,10 @@ class Callbacks(LegacyCallbacks):
             Default: 2.
 
     '''
-    AVAILABLE_VERSIONS = to_lua_number((1, 2,))
+    AVAILABLE_VERSIONS = (2,)
 
     def __init__(self):
-        self._version = to_lua_number(2)
+        self._version = 2
 
     @property
     def version(self):
@@ -206,7 +108,7 @@ class Callbacks(LegacyCallbacks):
 
     @version.setter
     def version(self, num):
-        assert num in self.AVAILABLE_VERSIONS
+        assert num in self.AVAILABLE_VERSIONS, 'Unknown ver {}'.format(num)
 
         self._version = num
 
@@ -303,17 +205,6 @@ class Callbacks(LegacyCallbacks):
         '''
         return Actions.NORMAL
 
-    original_handle_response = handle_response
-
-    def call_handle_response(self, url_info, record_info, http_info):
-        '''Call the correct :meth:`handle_response`.'''
-
-        if self.version >= 2 \
-           or self.original_handle_response == self.handle_response:
-            return self.handle_response(url_info, record_info, http_info)
-        else:
-            return self.handle_response(url_info, http_info)
-
     @staticmethod
     def handle_error(url_info, record_info, error_info):
         '''Return an action to handle the error.
@@ -336,17 +227,6 @@ class Callbacks(LegacyCallbacks):
             :attr:`Actions.NORMAL`.
         '''
         return Actions.NORMAL
-
-    original_handle_error = handle_error
-
-    def call_handle_error(self, url_info, record_info, error_info):
-        '''Call the correct :meth:`handle_error`.'''
-
-        if self.version >= 2 \
-           or self.original_handle_error == self.handle_error:
-            return self.handle_error(url_info, record_info, error_info)
-        else:
-            return self.handle_error(url_info, error_info)
 
     @staticmethod
     def get_urls(filename, url_info, document_info):
@@ -431,55 +311,17 @@ class HookEnvironment(object):
         actions (:class:`Actions`): The Actions instance.
         callbacks (:class:`Callbacks`): The Callback instance.
     '''
-    def __init__(self, factory, is_lua=False):
+    def __init__(self, factory):
         self.factory = factory
-        self.is_lua = is_lua
         self.actions = Actions()
         self.callbacks = Callbacks()
-
-    def to_script_native_type(self, instance):
-        '''Convert the instance recursively to native script types.
-
-        If the script is Lua, call :func:`to_lua_type`. Otherwise,
-        returns instance unchanged.
-
-        Returns:
-            instance
-        '''
-        if self.is_lua:
-            return to_lua_type(instance)
-        return instance
-
-    def get_from_native_dict(self, instance, key, default=None):
-        '''Try to get from the mapping a value.
-
-        This method will try to determine whether a Lua table or
-        ``dict`` is given.
-        '''
-        try:
-            instance.attribute_should_not_exist
-        except AttributeError:
-            return instance.get(key, default)
-        else:
-            # Check if key exists in Lua table
-            value_1 = instance[self.to_script_native_type(key)]
-
-            if value_1 is not None:
-                return value_1
-
-            value_2 = getattr(instance, self.to_script_native_type(key))
-
-            if value_1 is None and value_2 is None:
-                return default
-            else:
-                return value_1
 
     def connect_hooks(self):
         '''Connect callbacks to hooks.'''
 
         self.factory['Resolver'].connect_hook('resolve_dns', self._resolve_dns)
         self.factory['Engine'].connect_hook('engine_run', self._engine_run)
-        self.factory['Engine'].connect_hook(
+        self.factory['URLTable'].connect_hook(
             'dequeued_url',
             self._dequeued_url)
         self.factory['Application'].connect_hook(
@@ -489,10 +331,10 @@ class HookEnvironment(object):
             'finishing_statistics', self._finishing_statistics
         )
         self.factory['WebProcessor'].connect_hook('wait_time', self._wait_time)
-        self.factory['WebProcessor'].connect_hook(
+        self.factory['URLTable'].connect_hook(
             'queued_url',
             self._queued_url)
-        self.factory['WebProcessor'].connect_hook(
+        self.factory['FetchRule'].connect_hook(
             'should_fetch',
             self._should_fetch)
         self.factory['WebProcessor'].connect_hook(
@@ -506,7 +348,7 @@ class HookEnvironment(object):
             self._scrape_document)
 
     def _resolve_dns(self, host, port):
-        answer = self.callbacks.resolve_dns(to_lua_type(host))
+        answer = self.callbacks.resolve_dns(host)
 
         _logger.debug(__('Resolve hook returned {0}', answer))
 
@@ -519,47 +361,40 @@ class HookEnvironment(object):
         self.callbacks.engine_run()
 
     def _exit_status(self, exit_status):
-        return self.callbacks.exit_status(
-            self.to_script_native_type(exit_status))
+        return self.callbacks.exit_status(exit_status)
 
     def _finishing_statistics(self, start_time, stop_time, files, size):
         self.callbacks.finishing_statistics(
-            to_lua_type(start_time),
-            to_lua_type(stop_time),
-            to_lua_type(files),
-            to_lua_type(size)
+            start_time,
+            stop_time,
+            files,
+            size
         )
 
     def _wait_time(self, seconds):
-        if self.is_lua:
-            seconds = to_lua_type(seconds)
         return self.callbacks.wait_time(seconds)
 
     def _queued_url(self, url_info):
-        url_info_dict = self.to_script_native_type(url_info.to_dict())
+        url_info_dict = url_info.to_dict()
 
         self.callbacks.queued_url(url_info_dict)
 
     def _dequeued_url(self, url_info, url_record):
-        url_info_dict = self.to_script_native_type(url_info.to_dict())
-
+        url_info_dict = url_info.to_dict()
         record_info_dict = url_record.to_dict()
-        record_info_dict = self.to_script_native_type(record_info_dict)
 
         self.callbacks.dequeued_url(url_info_dict, record_info_dict)
 
     def _should_fetch(self, url_info, url_record, verdict, reason_slug,
                       test_info):
-        url_info_dict = self.to_script_native_type(url_info.to_dict())
+        url_info_dict = url_info.to_dict()
 
         record_info_dict = url_record.to_dict()
-        record_info_dict = self.to_script_native_type(record_info_dict)
 
         reasons = {
             'filters': test_info['map'],
             'reason': reason_slug,
         }
-        reasons = self.to_script_native_type(reasons)
 
         verdict = self.callbacks.accept_url(
             url_info_dict, record_info_dict, verdict, reasons)
@@ -569,14 +404,11 @@ class HookEnvironment(object):
         return verdict
 
     def _handle_response(self, request, response, url_item):
-        url_info_dict = self.to_script_native_type(
-            request.url_info.to_dict()
-        )
-        url_record_dict = self.to_script_native_type(
-            url_item.url_record.to_dict()
-        )
-        response_info_dict = self.to_script_native_type(response.to_dict())
-        action = self.callbacks.call_handle_response(
+        url_info_dict = request.url_info.to_dict()
+        url_record_dict = url_item.url_record.to_dict()
+
+        response_info_dict = response.to_dict()
+        action = self.callbacks.handle_response(
             url_info_dict, url_record_dict, response_info_dict
         )
 
@@ -595,16 +427,12 @@ class HookEnvironment(object):
             raise NotImplementedError()
 
     def _handle_error(self, request, url_item, error):
-        url_info_dict = self.to_script_native_type(
-            request.url_info.to_dict()
-        )
-        url_record_dict = self.to_script_native_type(
-            url_item.url_record.to_dict()
-        )
-        error_info_dict = self.to_script_native_type({
+        url_info_dict = request.url_info.to_dict()
+        url_record_dict = url_item.url_record.to_dict()
+        error_info_dict = {
             'error': error.__class__.__name__,
-        })
-        action = self.callbacks.call_handle_error(
+        }
+        action = self.callbacks.handle_error(
             url_info_dict, url_record_dict, error_info_dict
         )
 
@@ -623,10 +451,9 @@ class HookEnvironment(object):
             raise NotImplementedError()
 
     def _scrape_document(self, request, response, url_item):
-        to_native = self.to_script_native_type
-        url_info_dict = to_native(request.url_info.to_dict())
-        document_info_dict = to_native(response.body.to_dict())
-        filename = to_native(response.body.name)
+        url_info_dict = request.url_info.to_dict()
+        document_info_dict = response.body.to_dict()
+        filename = response.body.name
 
         new_url_dicts = self.callbacks.get_urls(
             filename, url_info_dict, document_info_dict)
@@ -636,35 +463,20 @@ class HookEnvironment(object):
         if not new_url_dicts:
             return
 
-        if to_native(1) in new_url_dicts:
-            # Lua doesn't have sequences
-            for i in itertools.count(1):
-                new_url_dict = new_url_dicts[to_native(i)]
-
-                _logger.debug(__('Got lua new url info {0}', new_url_dict))
-
-                if new_url_dict is None:
-                    break
-
-                self._add_hooked_url(url_item, new_url_dict)
-        else:
-            for new_url_dict in new_url_dicts:
-                self._add_hooked_url(url_item, new_url_dict)
+        for new_url_dict in new_url_dicts:
+            self._add_hooked_url(url_item, new_url_dict)
 
     def _add_hooked_url(self, url_item, new_url_dict):
         '''Process the ``dict`` from the script and add the URLs.'''
-        to_native = self.to_script_native_type
-        url = new_url_dict[to_native('url')]
-        link_type = self.get_from_native_dict(new_url_dict, 'link_type')
-        inline = self.get_from_native_dict(new_url_dict, 'inline')
-        post_data = self.get_from_native_dict(new_url_dict, 'post_data')
-        replace = self.get_from_native_dict(new_url_dict, 'replace')
+        url = new_url_dict['url']
+        link_type = new_url_dict.get('link_type')
+        inline = new_url_dict.get('inline')
+        post_data = new_url_dict.get('post_data')
+        replace = new_url_dict.get('replace')
 
         assert url
 
-        # FIXME: resolve circular imports
-        from wpull.processor.web import WebProcessorSession
-        url_info = WebProcessorSession.parse_url(url)
+        url_info = parse_url_or_log(url)
 
         if not url_info:
             return
@@ -672,12 +484,9 @@ class HookEnvironment(object):
         kwargs = dict(link_type=link_type, post_data=post_data)
 
         if replace:
-            url_item.url_table.remove([url])
+            url_item.url_table.remove_one(url)
 
         if inline:
-            added_url_infos = url_item.add_inline_url_infos([url_info], **kwargs)
+            url_item.add_inline_url_infos([url_info], **kwargs)
         else:
-            added_url_infos = url_item.add_linked_url_infos([url_info], **kwargs)
-
-        for url_info in added_url_infos:
-            self._queued_url(url_info)
+            url_item.add_linked_url_infos([url_info], **kwargs)

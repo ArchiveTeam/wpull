@@ -49,7 +49,8 @@ class Resolver(HookableMixin):
                  timeout=None, rotate=False):
         super().__init__()
         assert family in (socket.AF_INET, socket.AF_INET6, self.PREFER_IPv4,
-                          self.PREFER_IPv6)
+                          self.PREFER_IPv6), \
+            'Unknown family {}.'.format(family)
 
         if cache_enabled:
             self._cache = self.global_cache
@@ -95,8 +96,8 @@ class Resolver(HookableMixin):
 
         if not results:
             raise DNSNotFound(
-                "DNS resolution for '{0}' did not return any results."
-                .format(wpull.string.coerce_str_to_ascii(host))
+                "DNS resolution for {0} did not return any results."
+                .format(repr(host))
             )
 
         _logger.debug(__('Resolved addresses: {0}.', results))
@@ -109,7 +110,9 @@ class Resolver(HookableMixin):
         family, address = result
         _logger.debug(__('Selected {0} as address.', address))
 
-        assert '.' in address[0] or ':' in address[0]
+        assert '.' in address[0] or ':' in address[0], \
+            ('Resolve did not return numerical address. Got {}.'
+             .format(address[0]))
 
         raise Return((family, address))
 

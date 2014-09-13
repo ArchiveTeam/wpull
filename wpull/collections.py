@@ -4,6 +4,7 @@ from collections import OrderedDict
 import collections
 import copy
 import itertools
+import functools
 
 
 class OrderedDefaultDict(OrderedDict):
@@ -234,3 +235,27 @@ class LinkedList(object):
         self.map = {}
         self.head = None
         self.tail = None
+
+
+class FrozenDict(collections.Mapping, collections.Hashable):
+    '''Immutable mapping wrapper.'''
+    __slots__ = ('orig_dict', 'hash_cache',)
+
+    def __init__(self, orig_dict):
+        self.orig_dict = orig_dict
+        self.hash_cache = hash(tuple(sorted(self.orig_dict.items())))
+
+    def __len__(self):
+        return len(self.orig_dict)
+
+    def __iter__(self):
+        return iter(self.orig_dict)
+
+    def __getitem__(self, key):
+        return self.orig_dict[key]
+
+    def __hash__(self):
+        return self.hash_cache
+
+
+EmptyFrozenDict = functools.partial(FrozenDict, {})

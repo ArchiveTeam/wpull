@@ -16,6 +16,7 @@ wpull Package
 
 .. toctree::
 
+    api/_luahook
     api/app
     api/bandwidth
     api/body
@@ -26,10 +27,26 @@ wpull Package
     api/converter
     api/cookie
     api/database
+    api/database.base
+    api/database.sqlmodel
+    api/database.sqltable
+    api/database.wrap
     api/debug
     api/decompression
     api/dns
     api/document
+    api/document.base
+    api/document.css
+    api/document.html
+    api/document.htmlparse
+    api/document.htmlparse.base
+    api/document.htmlparse.element
+    api/document.htmlparse.html5lib_
+    api/document.htmlparse.lxml_
+    api/document.javascript
+    api/document.sitemap
+    api/document.util
+    api/document.xml
     api/engine
     api/errors
     api/factory
@@ -37,6 +54,7 @@ wpull Package
     api/http
     api/http.chunked
     api/http.client
+    api/http.proxy
     api/http.redirect
     api/http.request
     api/http.robots
@@ -51,11 +69,19 @@ wpull Package
     api/processor
     api/processor.base
     api/processor.phantomjs
+    api/processor.rule
     api/processor.web
     api/proxy
     api/recorder
+    api/regexstream
     api/robotstxt
     api/scraper
+    api/scraper.base
+    api/scraper.css
+    api/scraper.html
+    api/scraper.javascript
+    api/scraper.sitemap
+    api/scraper.util
     api/stats
     api/string
     api/url
