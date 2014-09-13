@@ -21,7 +21,8 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.connection import Connection, ConnectionPool, SSLConnection
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
-from wpull.database.sqltable import URLTable
+from wpull.database.sqltable import URLTable as SQLURLTable
+from wpull.database.wrap import URLTableHookWrapper
 from wpull.debug import DebugConsoleHandler
 from wpull.dns import Resolver
 from wpull.engine import Engine
@@ -37,6 +38,7 @@ from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSClient
 from wpull.processor.phantomjs import PhantomJSController
+from wpull.processor.rule import FetchRule
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
     WebProcessorInstances
 from wpull.proxy import HTTPProxyServer
@@ -63,7 +65,6 @@ from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
                           IgnoreFileWriter, TimestampingFileWriter,
                           AntiClobberFileWriter)
 import wpull.version
-from wpull.processor.rule import FetchRule
 
 
 _logger = logging.getLogger(__name__)
@@ -117,7 +118,8 @@ class Builder(object):
             'SitemapScraper': SitemapScraper,
             'Statistics': Statistics,
             'URLInfo': URLInfo,
-            'URLTable': URLTable,
+            'URLTable': URLTableHookWrapper,
+            'URLTableImplementation': SQLURLTable,
             'Waiter': LinearWaiter,
             'WARCRecorder': WARCRecorder,
             'WebClient': WebClient,
@@ -178,6 +180,8 @@ class Builder(object):
         self._install_script_hooks()
         self._warn_unsafe_options()
         self._warn_silly_options()
+
+        url_table.add_many([url_info.url for url_info in self._url_infos])
 
         return self._factory['Application']
 
@@ -558,10 +562,11 @@ class Builder(object):
         '''Create the URL table.
 
         Returns:
-            URLTable: An instance of :class:`.database.BaseURLTable`.
+            URLTable: An instance of :class:`.database.base.BaseURLTable`.
         '''
-        url_table = self._factory.new('URLTable', path=self._args.database)
-        url_table.add_many([url_info.url for url_info in self._url_infos])
+        url_table_impl = self._factory.new(
+            'URLTableImplementation', path=self._args.database)
+        url_table = self._factory.new('URLTable', url_table_impl)
         return url_table
 
     def _build_recorder(self):

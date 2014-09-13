@@ -188,7 +188,7 @@ class URLItem(object):
         '''
         inline_urls = tuple([info.url for info in url_infos])
         _logger.debug(__('Adding inline URLs {0}', inline_urls))
-        added_urls = self._url_table.add_many(
+        self._url_table.add_many(
             inline_urls,
             inline=True,
             level=self._url_record.level + 1,
@@ -196,12 +196,6 @@ class URLItem(object):
             top_url=self._url_record.top_url or self._url_record.url,
             post_data=post_data,
         )
-        added_url_infos = list()
-        for url_info in url_infos:
-            if url_info.url in added_urls:
-                added_url_infos.append(url_info)
-                added_urls.remove(url_info.url)
-        return added_url_infos
 
     def add_linked_url_infos(self, url_infos, link_type=None,
                              post_data=None):
@@ -215,7 +209,7 @@ class URLItem(object):
         '''
         linked_urls = tuple([info.url for info in url_infos])
         _logger.debug(__('Adding linked URLs {0}', linked_urls))
-        added_urls = self._url_table.add_many(
+        self._url_table.add_many(
             linked_urls,
             level=self._url_record.level + 1,
             referrer=self._url_record.url,
@@ -223,12 +217,6 @@ class URLItem(object):
             link_type=link_type,
             post_data=post_data,
         )
-        added_url_infos = list()
-        for url_info in url_infos:
-            if url_info.url in added_urls:
-                added_url_infos.append(url_info)
-                added_urls.remove(url_info.url)
-        return added_url_infos
 
     def child_url_record(self, url_info, inline=False,
                          link_type=None, post_data=None):

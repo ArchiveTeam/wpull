@@ -241,7 +241,7 @@ class Engine(BaseEngine, HookableMixin):
         self._num_worker_busy = 0
 
         self._set_concurrent(concurrent)
-        self.register_hook('engine_run', 'dequeued_url')
+        self.register_hook('engine_run')
 
     @property
     def concurrent(self):
@@ -339,13 +339,6 @@ class Engine(BaseEngine, HookableMixin):
 
         _logger.debug(__('Begin session for {0} {1}.',
                          url_record, url_item.url_info))
-
-        # The URL supplied to the program is not considered part of the queue.
-        if url_record.level > 0:
-            try:
-                self.call_hook('dequeued_url', url_info, url_record)
-            except HookDisconnected:
-                pass
 
         yield From(self._processor.process(url_item))
 

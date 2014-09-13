@@ -30,6 +30,7 @@ wpull Package
     api/database.base
     api/database.sqlmodel
     api/database.sqltable
+    api/database.wrap
     api/debug
     api/decompression
     api/dns

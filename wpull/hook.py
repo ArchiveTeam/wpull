@@ -53,6 +53,10 @@ class HookableMixin(object):
         else:
             raise HookDisconnected('No callback is connected.')
 
+    def is_hook_connected(self, name):
+        '''Return whether the hook is connected.'''
+        return bool(self.callback_hooks[name])
+
 
 class HookStop(Exception):
     '''Stop the engine.'''
@@ -317,7 +321,7 @@ class HookEnvironment(object):
 
         self.factory['Resolver'].connect_hook('resolve_dns', self._resolve_dns)
         self.factory['Engine'].connect_hook('engine_run', self._engine_run)
-        self.factory['Engine'].connect_hook(
+        self.factory['URLTable'].connect_hook(
             'dequeued_url',
             self._dequeued_url)
         self.factory['Application'].connect_hook(
@@ -327,7 +331,7 @@ class HookEnvironment(object):
             'finishing_statistics', self._finishing_statistics
         )
         self.factory['WebProcessor'].connect_hook('wait_time', self._wait_time)
-        self.factory['WebProcessor'].connect_hook(
+        self.factory['URLTable'].connect_hook(
             'queued_url',
             self._queued_url)
         self.factory['FetchRule'].connect_hook(
@@ -483,9 +487,6 @@ class HookEnvironment(object):
             url_item.url_table.remove_one(url)
 
         if inline:
-            added_url_infos = url_item.add_inline_url_infos([url_info], **kwargs)
+            url_item.add_inline_url_infos([url_info], **kwargs)
         else:
-            added_url_infos = url_item.add_linked_url_infos([url_info], **kwargs)
-
-        for url_info in added_url_infos:
-            self._queued_url(url_info)
+            url_item.add_linked_url_infos([url_info], **kwargs)
