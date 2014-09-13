@@ -13,7 +13,7 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.database.base import NotFound
 from wpull.hook import HookableMixin, HookDisconnected
 from wpull.item import Status, URLItem
-from wpull.url import URLInfo
+from wpull.url import parse_url_or_log
 
 
 _logger = logging.getLogger(__name__)
@@ -316,13 +316,9 @@ class Engine(BaseEngine, HookableMixin):
         '''
         assert url_record
 
-        try:
-            url_info = URLInfo.parse(url_record.url)
-        except ValueError as error:
-            _logger.warning(__(_(
-                'Unable to process malformed URL ‘{url}’: {error}.'),
-                url=url_record.url, error=error
-                ))
+        url_info = parse_url_or_log(url_record.url)
+
+        if not url_info:
             url_item = URLItem(self._url_table, None, url_record)
             url_item.skip()
             return

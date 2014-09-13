@@ -18,8 +18,6 @@ from wpull.document.html import HTMLReader
 from wpull.errors import NetworkError, ProtocolError, ServerError, \
     ConnectionRefused, DNSNotFound
 from wpull.hook import HookableMixin, HookDisconnected
-from wpull.http.request import Response
-from wpull.http.web import LoopType
 from wpull.item import Status, LinkType
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSRPCTimedOut
@@ -29,11 +27,10 @@ from wpull.scraper.base import DemuxDocumentScraper
 from wpull.scraper.css import CSSScraper
 from wpull.scraper.html import HTMLScraper
 from wpull.stats import Statistics
-from wpull.url import URLInfo
-from wpull.urlfilter import DemuxURLFilter
 from wpull.waiter import LinearWaiter
 from wpull.writer import NullWriter
 import wpull.string
+import wpull.url
 
 
 _logger = logging.getLogger(__name__)
@@ -422,20 +419,7 @@ class WebProcessorSession(object):
 
         return True
 
-    @classmethod
-    def parse_url(cls, url, encoding='utf-8'):
-        '''Parse and return a URLInfo.
-
-        This function logs a warning if the URL cannot be parsed and returns
-        None.
-        '''
-        try:
-            url_info = URLInfo.parse(url, encoding=encoding)
-        except ValueError as error:
-            _logger.warning(__(_('Discarding malformed URL ‘{url}’: {error}.'),
-                               url=url, error=error))
-        else:
-            return url_info
+    parse_url = staticmethod(wpull.url.parse_url_or_log)
 
     def _handle_no_document(self, response):
         '''Callback for when no useful document is received.'''

@@ -4,6 +4,7 @@ import logging
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.item import Status
+from wpull.url import parse_url_or_log
 
 
 _logger = logging.getLogger(__name__)
@@ -471,9 +472,7 @@ class HookEnvironment(object):
 
         assert url
 
-        # FIXME: resolve circular imports
-        from wpull.processor.web import WebProcessorSession
-        url_info = WebProcessorSession.parse_url(url)
+        url_info = parse_url_or_log(url)
 
         if not url_info:
             return
