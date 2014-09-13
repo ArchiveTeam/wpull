@@ -1,6 +1,7 @@
 # encoding=utf-8
 
 
+import time
 import unittest
 
 from wpull.database.sqltable import SQLiteURLTable
@@ -83,3 +84,18 @@ class TestDatabase(unittest.TestCase):
         self.assertFalse(
             url_table.get_revisit_id('http://example.com/asdf', 'digest123')
         )
+
+    @unittest.skip('travis ci is slow')
+    def test_performance(self):
+        url_table = SQLiteURLTable(':memory:')
+
+        urls = ['http://example.com/{}'.format(i) for i in range(1000)]
+
+        time_start = time.time()
+        url_table.add_many(urls, level=0, status=Status.todo)
+        time_end = time.time()
+
+        time_diff = time_end - time_start
+
+        print(time_diff)
+        self.assertGreaterEqual(0.1, time_diff)

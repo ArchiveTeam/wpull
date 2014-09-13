@@ -6,7 +6,8 @@ import logging
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.pool import SingletonThreadPool
-from sqlalchemy.sql.expression import insert, update, select, and_, delete
+from sqlalchemy.sql.expression import insert, update, select, and_, delete, \
+    bindparam
 from sqlalchemy.sql.functions import func
 import sqlalchemy.event
 
@@ -60,8 +61,13 @@ class BaseSQLURLTable(BaseURLTable):
             'Expected a list-like. Got {}'.format(new_urls)
         referrer = kwargs.pop('referrer', None)
         top_url = kwargs.pop('top_url', None)
+
+        new_urls = tuple(new_urls)
+
+        if not new_urls:
+            return ()
+
         url_strings = list(new_urls)
-        added_urls = list()
 
         if referrer:
             url_strings.append(referrer)
@@ -70,34 +76,45 @@ class BaseSQLURLTable(BaseURLTable):
             url_strings.append(top_url)
 
         with self._session() as session:
-            for url in url_strings:
-                query = insert(URLString).prefix_with('OR IGNORE')\
-                    .values({'url': url})
-                session.execute(query)
+            query = insert(URLString).prefix_with('OR IGNORE')
+            session.execute(query, [{'url': url} for url in url_strings])
 
-            last_primary_key = session.query(func.max(URL.id)).scalar()
+            bind_values = dict(status=Status.todo)
+            bind_values.update(**kwargs)
+
+            bind_values['url_str_id'] = select([URLString.id])\
+                .where(URLString.url == bindparam('url'))
+
+            if referrer:
+                bind_values['referrer_id'] = select([URLString.id])\
+                    .where(URLString.url == bindparam('referrer'))
+            if top_url:
+                bind_values['top_url_str_id'] = select([URLString.id])\
+                    .where(URLString.url == bindparam('top_url'))
+
+            query = insert(URL).prefix_with('OR IGNORE').values(bind_values)
+
+            all_row_values = []
 
             for url in new_urls:
-                values = {}
-                values = dict(status=Status.todo)
-                values.update(**kwargs)
-
-                values['url_str_id'] = select([URLString.id])\
-                    .where(URLString.url == url)
+                row_values = {'url': url}
 
                 if referrer:
-                    values['referrer_id'] = select([URLString.id])\
-                        .where(URLString.url == referrer)
+                    row_values['referrer'] = referrer
                 if top_url:
-                    values['top_url_str_id'] = select([URLString.id])\
-                        .where(URLString.url == top_url)
+                    row_values['top_url'] = top_url
 
-                query = insert(URL).prefix_with('OR IGNORE').values(values)
-                result = session.execute(query)
+                all_row_values.append(row_values)
 
-                if result.inserted_primary_key[0] != last_primary_key:
-                    last_primary_key = result.inserted_primary_key[0]
-                    added_urls.append(url)
+            last_primary_key = session.query(func.max(URL.id)).scalar() or 0
+
+            session.execute(query, all_row_values)
+
+            query = select([URLString.url]).where(
+                and_(URL.id > last_primary_key,
+                     URL.url_str_id == URLString.id)
+                )
+            added_urls = [row[0] for row in session.execute(query)]
 
         return added_urls
 
