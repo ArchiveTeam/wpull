@@ -12,6 +12,7 @@ What's New
 * Added ``--link-extractors`` option.
 * Fixed JavaScript scraper to not accept URLs with backslashes.
 * Fixed CSS scraper to not accept URLs longer than 500 characters.
+* Fixed ValueError crash in Cache when two URLs are added sequentially at the same time due to bad LinkedList key comparison.
 
 * API:
 
