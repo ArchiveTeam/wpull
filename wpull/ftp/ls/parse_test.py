@@ -10,6 +10,7 @@ UNIX_LS = '''-rw-r--r--   1 root     other        531 Jan 29 03:26 README
 dr-xr-xr-x   2 root     other        512 Apr  8  1994 etc
 dr-xr-xr-x   2 root     512 Apr  8  1994 etc
 lrwxrwxrwx   1 root     other          7 Jan 25 00:17 bin -> usr/bin
+dr-xr-xr-x   2 root  other 512 Apr  8  2004 blah
 '''
 
 MSDOS_LS = '''04-27-00  09:09PM       <DIR>          licensed
@@ -37,6 +38,8 @@ class TestParse(unittest.TestCase):
                           date_factory(1994, 4, 8)),
                 FileEntry('bin', 'other', 7,
                           date_factory(current_year, 1, 25, 0, 17)),
+                FileEntry('blah', 'dir', 512,
+                          date_factory(2004, 4, 8)),
             ],
             results
         )

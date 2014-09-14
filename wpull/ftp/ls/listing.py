@@ -18,19 +18,23 @@ Attributes:
 
 
 class LineParser(object):
+    '''Parse individual lines in a listing.'''
     def __init__(self):
         self.type = None
         self.date_format = None
         self.is_day_period = None
 
     def guess_type(self, sample_lines):
+        '''Guess the type of listing from a sample of lines.'''
         self.type = guess_listing_type(sample_lines)
         return self.type
 
     def set_datetime_format(self, datetime_format):
+        '''Set the datetime format.'''
         self.date_format, self.is_day_period = datetime_format
 
     def parse(self, lines):
+        '''Parse the lines.'''
         if self.type == 'msdos':
             return self.parse_msdos(lines)
         elif self.type == 'unix':
@@ -41,16 +45,19 @@ class LineParser(object):
             raise ValueError('Unsupported listing type.')
 
     def parse_datetime(self, text):
+        '''Parse datetime from line of text.'''
         return parse_datetime(text, date_format=self.date_format,
                               is_day_period=self.is_day_period)
 
     def parse_nlst(self, lines):
+        '''Parse lines from a NLST format.'''
         entries = []
         for line in lines:
             entries.append(FileEntry(line, None, None, None))
         return entries
 
     def parse_msdos(self, lines):
+        '''Parse lines from a MS-DOS format.'''
         entries = []
         for line in lines:
             fields = line.split(None, 4)
@@ -77,6 +84,7 @@ class LineParser(object):
         return entries
 
     def parse_unix(self, lines):
+        '''Parse listings from a Unix ls command format.'''
         # This method uses some Filezilla parsing algorithms
         entries = []
 
@@ -109,7 +117,14 @@ class LineParser(object):
             # before it as the file size.
             # We look for the position of the time and use the text
             # after it as the filename
-            datetime_obj, start_index, end_index = self.parse_datetime(line)
+
+            while line:
+                try:
+                    datetime_obj, start_index, end_index = self.parse_datetime(line)
+                except ValueError:
+                    line = line[4:]
+                else:
+                    break
 
             file_size = int(line[:start_index].rstrip().rpartition(' ')[-1])
 
@@ -162,5 +177,6 @@ NUM_GROUPER_TABLE = str.maketrans('', '', ' ,')
 
 
 def parse_int(text):
+    '''Parse a integer containing potential grouping characters.'''
     text = text.translate(NUM_GROUPER_TABLE)
     return int(text)
