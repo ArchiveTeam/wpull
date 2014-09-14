@@ -139,8 +139,7 @@ class ListingResponse(Response):
     '''FTP response for a file listing.
 
     Attributes:
-        files (list): See :func:`.ftp.util.parse_machine_listing` for the
-            format of the list.
+        files (list): A list of :class:`.ftp.ls.listing.FileEntry`
     '''
     def __init__(self):
         super().__init__()

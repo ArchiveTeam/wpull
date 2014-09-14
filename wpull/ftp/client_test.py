@@ -44,3 +44,19 @@ class TestClient(FTPTestCase):
                 self.assertEqual(550, error.reply_code)
             else:
                 self.fail()
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_fetch_listing(self):
+        client = Client()
+        file = io.BytesIO()
+        with client.session() as session:
+            response = yield From(
+                session.fetch_file_listing(
+                    Request(self.get_url('/')), file)
+            )
+
+        print(response.body.content())
+        self.assertEqual(3, len(response.files))
+        self.assertEqual('example1', response.files[0].name)
+        self.assertEqual('example2', response.files[1].name)
+        self.assertEqual('example.txt', response.files[2].name)

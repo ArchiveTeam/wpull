@@ -1,10 +1,13 @@
 '''FTP client.'''
+import io
+
 from trollius import From, Return
 import trollius
 
 from wpull.abstract.client import BaseClient, BaseSession
 from wpull.body import Body
 from wpull.ftp.command import Commander
+from wpull.ftp.ls.parse import ListingParser
 from wpull.ftp.request import Response, Command, ListingResponse
 from wpull.ftp.stream import ControlStream
 from wpull.ftp.util import FTPServerError
@@ -107,7 +110,15 @@ class Session(BaseSession):
         else:
             response.body = file
 
-        yield From(self._get_machine_listing(request, response))
+        try:
+            yield From(self._get_machine_listing(request, response))
+        except FTPServerError as error:
+            response.body.seek(0)
+            response.body.truncate()
+            if error.reply_code in (500, 502):
+                yield From(self._get_list_listing(request, response))
+            else:
+                raise
 
         response.body.seek(0)
 
@@ -155,6 +166,30 @@ class Session(BaseSession):
             response.body.read().decode('latin-1'),
             convert=True, strict=False
             )
+
+        response.files = listings
+
+    @trollius.coroutine
+    def _get_list_listing(self, request, response):
+        '''Request a LIST listing.
+
+        Coroutine.
+        '''
+        yield From(self._fetch_with_command(
+            Command('LIST', request.url_info.path), response.body
+        ))
+
+        response.body.seek(0)
+
+        file = io.TextIOWrapper(response.body, encoding='latin-1')
+
+        listing_parser = ListingParser(file=file)
+        listing_parser.run_heuristics()
+
+        listings = listing_parser.parse()
+
+        # We don't want the file to be closed when exiting this function
+        file.detach()
 
         response.files = listings
 
