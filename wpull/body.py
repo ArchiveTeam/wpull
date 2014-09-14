@@ -83,6 +83,9 @@ class Body(object):
             'content_size': size,
         }
 
+    def __iter__(self):
+        return iter(self.file)
+
 
 def new_temp_file(directory=None, hint=''):
     '''Return a new temporary file.'''
