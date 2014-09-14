@@ -25,12 +25,17 @@ class JavaScriptScraper(JavaScriptReader, BaseTextStreamScraper):
 
     def iter_text(self, file, encoding=None):
         for text, match in super().iter_text(file, encoding):
-            if match and is_likely_link(text) and \
-                    not is_unlikely_link(text):
+            if match:
                 try:
-                    yield (json.loads('"{0}"'.format(text)), match)
+                    new_text = json.loads('"{0}"'.format(text))
                 except ValueError:
                     yield (text, match)
+                else:
+                    if is_likely_link(new_text) and \
+                            not is_unlikely_link(new_text):
+                        yield (new_text, match)
+                    else:
+                        yield (text, None)
             else:
                 yield (text, None)
 

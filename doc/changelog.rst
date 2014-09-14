@@ -10,6 +10,7 @@ What's New
 * Support for PyPy 2.3.1 running with Python 3.2 implementation.
 * Consistent URL parsing among various Python versions.
 * Added ``--link-extractors`` option.
+* Fixed JavaScript scraper to not accept URLs with backslashes.
 
 * API:
 
