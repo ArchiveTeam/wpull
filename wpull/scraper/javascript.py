@@ -9,7 +9,7 @@ from wpull.document.javascript import JavaScriptReader
 from wpull.document.util import detect_response_encoding
 from wpull.scraper.base import BaseTextStreamScraper
 from wpull.scraper.util import is_likely_inline, is_likely_link, \
-    is_unlikely_link
+    is_unlikely_link, urljoin_safe
 import wpull.util
 
 
@@ -23,21 +23,31 @@ class JavaScriptScraper(JavaScriptReader, BaseTextStreamScraper):
         super().__init__()
         self._encoding_override = encoding_override
 
-    def iter_text(self, file, encoding=None):
-        for text, match in super().iter_text(file, encoding):
-            if match:
+    def iter_processed_text(self, file, encoding=None, base_url=None):
+        for text, is_link in self.iter_text(file, encoding):
+            if is_link:
                 try:
                     new_text = json.loads('"{0}"'.format(text))
                 except ValueError:
-                    yield (text, match)
+                    yield (text, False)
+                    continue
+
+                if is_unlikely_link(new_text) or not is_likely_link(new_text):
+                    yield (text, False)
+                    continue
+
+                if base_url:
+                    new_link = urljoin_safe(base_url, new_text,
+                                            allow_fragments=False)
                 else:
-                    if is_likely_link(new_text) and \
-                            not is_unlikely_link(new_text):
-                        yield (new_text, match)
-                    else:
-                        yield (text, None)
+                    new_link = new_text
+
+                if new_link:
+                    yield (new_link, True)
+                else:
+                    yield (text, False)
             else:
-                yield (text, None)
+                yield (text, False)
 
     def scrape(self, request, response):
         if not self.is_supported(request=request, response=response):
