@@ -20,6 +20,17 @@ class CSSScraper(CSSReader, BaseTextStreamScraper):
         super().__init__()
         self._encoding_override = encoding_override
 
+    def iter_processed_text(self, file, encoding=None, base_url=None):
+        links = super().iter_processed_text(
+            file, encoding=encoding, base_url=base_url)
+
+        for text, is_link in links:
+            if is_link and len(text) < 500:
+                yield (text, is_link)
+            elif not is_link:
+                yield (text, False)
+
+
     def scrape(self, request, response):
         if not self.is_supported(request=request, response=response):
             return

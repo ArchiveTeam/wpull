@@ -21,7 +21,7 @@ class TestCSS(unittest.TestCase):
         @import url('landscape.css') screen and (orientation:landscape);
         @import url(cool.css);
         @import warm.css;
-        '''
+        ''' + '@import url("' + ('a' * 1000) + '");'
 
         urls = set(CSSScraper().scrape_links(text))
 

@@ -11,8 +11,8 @@ import wpull.util
 
 class CSSReader(BaseDocumentDetector, BaseTextStreamReader):
     '''Cascading Stylesheet Document Reader.'''
-    URL_PATTERN = r'''url\(\s*['"]?(.*?)['"]?\s*\)'''
-    IMPORT_URL_PATTERN = r'''@import\s*(?:url\()?['"]?([^\s'")]+).*?;'''
+    URL_PATTERN = r'''url\(\s*(['"]?)(.{1,500}?)(?:\1)\s*\)'''
+    IMPORT_URL_PATTERN = r'''@import\s*(?:url\()?['"]?([^\s'")]{1,500}).*?;'''
     URL_REGEX = re.compile(r'{}|{}'.format(URL_PATTERN, IMPORT_URL_PATTERN))
     BUFFER_SIZE = 1048576
     STREAM_REWIND = 4096

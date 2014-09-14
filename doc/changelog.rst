@@ -11,6 +11,7 @@ What's New
 * Consistent URL parsing among various Python versions.
 * Added ``--link-extractors`` option.
 * Fixed JavaScript scraper to not accept URLs with backslashes.
+* Fixed CSS scraper to not accept URLs longer than 500 characters.
 
 * API:
 
