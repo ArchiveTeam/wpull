@@ -28,6 +28,7 @@ The following are optional:
   <https://github.com/bastibe/lunatic-python>`_ for Lua support
 * `PhantomJS <http://phantomjs.org/>`_ for capturing interactive
   JavaScript pages
+* `Manhole <https://pypi.python.org/pypi/manhole>`_ for a REPL debugging socket
 
 For installing Wpull, it is recommended to use `pip installer
 <http://www.pip-installer.org/>`_.

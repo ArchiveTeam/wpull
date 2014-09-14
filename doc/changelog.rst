@@ -3,6 +3,9 @@ What's New
 ==========
 
 * Fixed ``--warc-move`` option which had no effect.
+* Fixed JavaScript scraper to not accept URLs with backslashes.
+* Fixed CSS scraper to not accept URLs longer than 500 characters.
+* Fixed ValueError crash in Cache when two URLs are added sequentially at the same time due to bad LinkedList key comparison.
 * Support for HTTP/HTTPS proxies but no HTTPS tunnelling support. Wpull will refuse to start without the insecure override option. Note that if authentication and WARC file is enabled, the username and password is recorded into the WARC file.
 * Improved database performance.
 * Added ``--ignore-fatal-errors`` option.
@@ -10,9 +13,7 @@ What's New
 * Support for PyPy 2.3.1 running with Python 3.2 implementation.
 * Consistent URL parsing among various Python versions.
 * Added ``--link-extractors`` option.
-* Fixed JavaScript scraper to not accept URLs with backslashes.
-* Fixed CSS scraper to not accept URLs longer than 500 characters.
-* Fixed ValueError crash in Cache when two URLs are added sequentially at the same time due to bad LinkedList key comparison.
+* Added ``--debug-manhole`` option.
 
 * API:
 

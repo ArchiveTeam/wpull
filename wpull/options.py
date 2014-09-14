@@ -246,6 +246,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             help=_('run a web debug console at given port number')
         )
         group.add_argument(
+            '--debug-manhole',
+            action='store_true',
+            help=_('install Manhole debugging socket')
+        )
+        group.add_argument(
             '--ignore-fatal-errors',
             action='store_true',
             help=_('ignore all internal fatal exception errors')
