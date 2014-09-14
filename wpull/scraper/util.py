@@ -76,7 +76,7 @@ def urljoin_safe(base_url, url, allow_fragments=True):
         )
     except ValueError as error:
         _logger.warning(__(
-            _('Discarding malformed URL ‘{url}’: {error}.'),
+            _('Unable to parse URL ‘{url}’: {error}.'),
             url=url, error=error
         ))
 
