@@ -1,7 +1,7 @@
 import time
 import unittest
 
-from wpull.cache import FIFOCache, LRUCache
+from wpull.cache import FIFOCache, LRUCache, CacheItem
 
 
 class TestCache(unittest.TestCase):
@@ -93,3 +93,11 @@ class TestCache(unittest.TestCase):
         time.sleep(0.2)
 
         self.assertNotIn('a', cache)
+
+    def test_total_ordering_equals(self):
+        item1 = CacheItem('a', 1, time_to_live=10, access_time=12)
+        item2 = CacheItem('b', 1, time_to_live=10, access_time=12)
+        item3 = CacheItem('a', 1, time_to_live=11, access_time=12)
+
+        self.assertNotEqual(item1, item2)
+        self.assertNotEqual(item1, item3)

@@ -144,10 +144,13 @@ class CacheItem(object):
         return self.access_time + self.time_to_live
 
     def __lt__(self, other):
-        return self.expire_time < other.expire_time
+        if self.expire_time < other.expire_time:
+            return True
+        else:
+            return id(self.key) < id(other.key)
 
     def __eq__(self, other):
-        return self.expire_time == other.expire_time
+        return self.expire_time == other.expire_time and self.key == other.key
 
     def __repr__(self):
         return (
