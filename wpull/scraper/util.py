@@ -102,6 +102,28 @@ MIMETYPES = frozenset(
 ALPHANUMERIC_CHARS = frozenset(string.ascii_letters + string.digits)
 NUMERIC_CHARS = frozenset(string.digits)
 COMMON_TLD = frozenset(['com', 'org', 'net', 'int', 'edu', 'gov', 'mil'])
+HTML_TAGS = frozenset([
+    "a", "abbr", "acronym", "address",
+    "applet", "area", "article", "aside", "audio", "b",
+    "base", "basefont", "bdi", "bdo", "big", "blockquote",
+    "body", "br", "button", "canvas", "caption", "center",
+    "cite", "code", "col", "colgroup", "command",
+    "datalist", "dd", "del", "details", "dfn", "dir",
+    "div", "dl", "dt", "em", "embed", "fieldset",
+    "figcaption", "figure", "font", "footer", "form",
+    "frame", "frameset", "head", "header", "hgroup", "h1",
+    "h2", "h3", "h4", "h5", "h6", "hr", "html", "i",
+    "iframe", "img", "input", "ins", "kbd", "keygen",
+    "label", "legend", "li", "link", "map", "mark", "menu",
+    "meta", "meter", "nav", "noframes", "noscript",
+    "object", "ol", "optgroup", "option", "output", "p",
+    "param", "pre", "progress", "q", "rp", "rt", "ruby",
+    "s", "samp", "script", "section", "select", "small",
+    "source", "span", "strike", "strong", "style", "sub",
+    "summary", "sup", "table", "tbody", "td", "textarea",
+    "tfoot", "th", "thead", "time", "title", "tr", "track",
+    "tt", "u", "ul", "var", "video", "wbr"
+    ])
 
 
 # These "likely link" functions are based from
@@ -166,13 +188,13 @@ def is_unlikely_link(text):
     if text[:1] in ',;+:' or text[-1:] in '.,;+:':
         return True
 
+    # Check for unusual characters
+    if re.search(r'''[\\$()'"[\]{}|<>`]''', text):
+        return True
+
     if text[:1] == '.' \
        and not text.startswith('./') \
        and not text.startswith('../'):
-        return True
-
-    # Check for unusual characters
-    if re.search(r'''[$()'"[\]{}|]''', text):
         return True
 
     if text in ('/', '//'):
@@ -183,4 +205,8 @@ def is_unlikely_link(text):
 
     # Forbid strings like mimetypes
     if text in MIMETYPES:
+        return True
+
+    tag_1, dummy, tag_2 = text.partition('.')
+    if tag_1 in HTML_TAGS and tag_2 != 'html':
         return True
