@@ -85,6 +85,11 @@ Dev
    :target: https://travis-ci.org/chfoo/wpull
    :alt: Travis CI build status
 
+.. image:: https://coveralls.io/repos/chfoo/wpull/badge.png
+   :target: https://coveralls.io/r/chfoo/wpull
+   :alt: Coveralls report
+
+
 Contributions and feedback are greatly appreciated. 
 
 

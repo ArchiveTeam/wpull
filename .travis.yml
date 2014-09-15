@@ -20,8 +20,13 @@ install:
   - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' ]]; then
       pip install git+https://github.com/bastibe/lunatic-python.git@f3f68d2c8638c6f423912264aeb750f5f7eb14ee#egg=lunatic-python;
     fi
+  - pip install coverage python-coveralls
 
 
 # command to run tests
 script:
-  - nosetests
+  - nosetests --with-coverage --cover-package=wpull --cover-branches
+
+
+after_success:
+  - coveralls
