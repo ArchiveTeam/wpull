@@ -5,7 +5,8 @@ import io
 import unittest
 import zlib
 
-from wpull.decompression import DeflateDecompressor, GzipDecompressor
+from wpull.decompression import DeflateDecompressor, GzipDecompressor, \
+    gzip_uncompress
 
 
 class TestDecompression(unittest.TestCase):
@@ -66,3 +67,12 @@ class TestDecompression(unittest.TestCase):
         data += decompressor.flush()
 
         self.assertEqual(b'LAMMA JUMP', data)
+
+    def test_gzip_uncompress(self):
+        self.assertEqual(
+            b'DRAGON',
+            gzip_uncompress(gzip.compress(b'DRAGON'))
+            )
+
+        # Check for no crash:
+        gzip_uncompress(gzip.compress(b'DRAGON')[:1], truncated=True)
