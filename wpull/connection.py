@@ -518,7 +518,10 @@ class Connection(object):
                     error.errno, os.strerror(error.errno)) from error
 
             # XXX: This quality case brought to you by OpenSSL and Python.
-            elif 'certificate' in str(error).lower():
+            # Example: _ssl.SSLError: [Errno 1] error:14094418:SSL
+            #          routines:SSL3_READ_BYTES:tlsv1 alert unknown ca
+            error_string = str(error).lower()
+            if 'certificate' in error_string or 'unknown ca' in error_string:
                 raise SSLVerficationError(
                     '{name} certificate error: {error}'
                     .format(name=name, error=error)) from error
