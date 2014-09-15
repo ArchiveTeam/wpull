@@ -25,8 +25,14 @@ install:
 
 # command to run tests
 script:
-  - nosetests --with-coverage --cover-package=wpull --cover-branches
+  - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' ]]; then
+      nosetests --with-coverage --cover-package=wpull --cover-branches;
+    else
+      nosetests;
+    fi
 
 
 after_success:
-  - coveralls
+  - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' ]]; then
+      coveralls;
+    fi
