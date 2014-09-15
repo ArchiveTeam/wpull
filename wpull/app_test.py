@@ -415,6 +415,7 @@ class TestApp(GoodAppTestCase):
             '--python-script', filename,
             '--page-requisites',
             '--reject-regex', '/post/',
+            '--wait', '12',
         ])
         builder = Builder(args)
 
@@ -429,11 +430,10 @@ class TestApp(GoodAppTestCase):
 
         stats = builder.factory['Statistics']
 
-        if IS_PYPY:
-            # Account for JIT warm-up period
-            self.assertGreater(10.0, stats.duration)
-        else:
-            self.assertGreater(1.0, stats.duration)
+        self.assertEqual(2, stats.files)
+
+        # duration should be virtually 0 but account for slowness on travis ci
+        self.assertGreater(10.0, stats.duration)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_python_script_stop(self):
@@ -465,6 +465,7 @@ class TestApp(GoodAppTestCase):
             '--lua-script', filename,
             '--page-requisites',
             '--reject-regex', '/post/',
+            '--wait', '12',
         ])
         builder = Builder(args)
 
@@ -478,7 +479,11 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(2, engine.concurrent)
 
         stats = builder.factory['Statistics']
-        self.assertGreater(1.0, stats.duration)
+
+        self.assertEqual(2, stats.files)
+
+        # duration should be virtually 0 but account for slowness on travis ci
+        self.assertGreater(10.0, stats.duration)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_iri_handling(self):
