@@ -39,9 +39,7 @@ def detect_response_encoding(response, is_html=False, peek=131072):
     Returns:
         ``str``, ``None``: The codec name.
     '''
-    encoding = wpull.http.util.parse_charset(
-        response.fields.get('content-type', '')
-    )
+    encoding = get_heading_encoding(response)
 
     encoding = wpull.string.detect_encoding(
         wpull.util.peek_file(response.body, peek), encoding=encoding, is_html=is_html
