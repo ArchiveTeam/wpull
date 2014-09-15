@@ -2,14 +2,15 @@
 '''Network connections.'''
 import contextlib
 import errno
+import functools
 import logging
 import os
 import socket
 import ssl
 
 from tornado.netutil import SSLCertificateError
-import tornado.netutil
 from trollius import From, Return
+import tornado.netutil
 import trollius
 
 from wpull.backport.logging import BraceMessage as __
@@ -98,47 +99,60 @@ class HostPool(object):
         ready (Queue): Connections not in use.
         busy (set): Connections in use.
     '''
-    def __init__(self):
-        self.ready = trollius.Queue()
+    def __init__(self, max_connections=6):
+        assert max_connections > 0, \
+            'num must be positive. got {}'.format(max_connections)
+
+        self.max_connections = max_connections
+        self.ready = set()
         self.busy = set()
+        self._ready_event = trollius.Event()
 
     def empty(self):
         '''Return whether the pool is empty.'''
-        return self.ready.empty() and not self.busy
+        return not self.ready and not self.busy
 
     def clean(self, force=False):
         '''Clean closed connections.'''
-        connected = []
-        while True:
-            try:
-                connection = self.ready.get_nowait()
-            except trollius.QueueEmpty:
-                break
-            if not connection.closed() and not force:
-                connected.append(connection)
-            elif force:
+        for connection in tuple(self.ready):
+            if force or connection.closed():
                 connection.close()
-
-        while connected:
-            connection = connected.pop()
-            self.ready.put_nowait(connection)
+                self.ready.remove(connection)
 
     def close(self):
         '''Close all connections.'''
-        while True:
-            try:
-                connection = self.ready.get_nowait()
-            except trollius.QueueEmpty:
-                break
-            else:
-                connection.close()
+        for connection in self.ready:
+            connection.close()
 
         for connection in self.busy:
             connection.close()
 
     def count(self):
         '''Return total number of connections.'''
-        return self.ready.qsize() + len(self.busy)
+        return len(self.ready) + len(self.busy)
+
+    @trollius.coroutine
+    def check_out(self, connection_factory):
+        while True:
+            if self.ready:
+                connection = self.ready.pop()
+                break
+            elif len(self.busy) < self.max_connections:
+                connection = connection_factory()
+                break
+            else:
+                # We should be using a Condition but check_in
+                # must be synchronous
+                yield From(self._ready_event.wait())
+                self._ready_event.clear()
+
+        self.busy.add(connection)
+        raise Return(connection)
+
+    def check_in(self, connection):
+        self.busy.remove(connection)
+        self.ready.add(connection)
+        self._ready_event.set()
 
 
 class ConnectionPool(object):
@@ -185,25 +199,23 @@ class ConnectionPool(object):
         else:
             host_pool = self._pool[key]
 
-        if host_pool.ready.empty() \
-                and len(host_pool.busy) < self._max_host_count:
-            if ssl:
-                connection = self._ssl_connection_factory(address, host)
-            else:
-                connection = self._connection_factory(address, host)
+        if ssl:
+            connection_factory = functools.partial(
+                self._ssl_connection_factory, address, host)
         else:
-            connection = yield From(host_pool.ready.get())
+            connection_factory = functools.partial(
+                self._connection_factory, address, host)
 
-        host_pool.busy.add(connection)
+        connection = yield From(host_pool.check_out(connection_factory))
 
-        # XXX: there is a race condition between host_pool.ready and
-        # host_pool.busy since there is no guarantee that Queue.get()
-        # returns immediately. shrugs.
-        # FIXME: write better synchronization
-        # assert host_pool.count() <= self._max_host_count
+        # XXX: Verify this assert is always true
+        # assert host_pool.count() <= host_pool.max_connections
+        # assert key in self._pool
+        # assert self._pool[key] == host_pool
 
         if key not in self._pool:
-            # Pool may have been deleted during a clean
+            # XXX: Pool may have been deleted during a clean which shouldn't
+            # happen
             self._pool[key] = host_pool
 
         raise Return(connection)
@@ -213,8 +225,7 @@ class ConnectionPool(object):
         key = (connection.hostname, connection.port, connection.ssl)
         host_pool = self._pool[key]
 
-        host_pool.busy.remove(connection)
-        host_pool.ready.put_nowait(connection)
+        host_pool.check_in(connection)
 
         if self.count() > self._max_count:
             self.clean(force=True)
