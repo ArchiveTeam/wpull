@@ -6,6 +6,7 @@ What's New
 * Fixed JavaScript scraper to not accept URLs with backslashes.
 * Fixed CSS scraper to not accept URLs longer than 500 characters.
 * Fixed ValueError crash in Cache when two URLs are added sequentially at the same time due to bad LinkedList key comparison.
+* Fixed crash formatting text when sizes reach terabytes.
 * Support for HTTP/HTTPS proxies but no HTTPS tunnelling support. Wpull will refuse to start without the insecure override option. Note that if authentication and WARC file is enabled, the username and password is recorded into the WARC file.
 * Improved database performance.
 * Added ``--ignore-fatal-errors`` option.
