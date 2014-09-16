@@ -2,6 +2,40 @@
 What's New
 ==========
 
+
+0.1001 (2014-09-16)
+===================
+
+* Fixed ``--warc-move`` option which had no effect.
+* Fixed JavaScript scraper to not accept URLs with backslashes.
+* Fixed CSS scraper to not accept URLs longer than 500 characters.
+* Fixed ValueError crash in Cache when two URLs are added sequentially at the same time due to bad LinkedList key comparison.
+* Fixed crash formatting text when sizes reach terabytes.
+* Fixed hang which may occur with lots of connection across many hostnames.
+* Support for HTTP/HTTPS proxies but no HTTPS tunnelling support. Wpull will refuse to start without the insecure override option. Note that if authentication and WARC file is enabled, the username and password is recorded into the WARC file.
+* Improved database performance.
+* Added ``--ignore-fatal-errors`` option.
+* Added ``--http-parser`` option. You can now use html5lib as the HTML parser.
+* Support for PyPy 2.3.1 running with Python 3.2 implementation.
+* Consistent URL parsing among various Python versions.
+* Added ``--link-extractors`` option.
+* Added ``--debug-manhole`` option.
+
+* API:
+
+  * ``document`` and ``scraper`` were put into their own packages.
+  * HTML parsing was put into ``document.htmlparse`` package.
+  * ``url.URLInfo`` no longer supports normalizing URLs by percent decoding unreserved/safe characters.
+
+* Scripting:
+
+  * Dropped support for Scripting API version 1.
+
+* Database schema:
+
+  * Column ``url_encoding`` is removed from ``urls`` table.
+
+
 0.1000 (2014-09-02)
 ===================
 

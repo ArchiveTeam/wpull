@@ -8,6 +8,7 @@ import ssl
 import sys
 
 from wpull.backport.logging import BraceMessage as __
+from wpull.util import IS_PYPY
 import wpull.string
 import wpull.version
 
@@ -182,6 +183,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         )
         self._add_startup_args()
         self._add_log_and_input_args()
+        self._add_proxy_args()
         self._add_download_args()
         self._add_directories_args()
         self._add_http_args()
@@ -242,6 +244,16 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='PORT',
             type=int,
             help=_('run a web debug console at given port number')
+        )
+        group.add_argument(
+            '--debug-manhole',
+            action='store_true',
+            help=_('install Manhole debugging socket')
+        )
+        group.add_argument(
+            '--ignore-fatal-errors',
+            action='store_true',
+            help=_('ignore all internal fatal exception errors')
         )
 
     def _add_log_and_input_args(self):
@@ -327,6 +339,39 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             type=argparse.FileType('rt'),
 #             help=_('read configuration from FILE'),
 #         )
+
+    def _add_proxy_args(self):
+        group = self.add_argument_group(_('proxy'))
+        group.add_argument(
+            '--http-proxy',
+            default=os.environ.get('http_proxy'),
+            help=_('HTTP proxy for HTTP requests')
+        )
+        group.add_argument(
+            '--https-proxy',
+            default=os.environ.get('https_proxy'),
+            help=_('HTTP proxy for HTTPS requests')
+        )
+        group.add_argument(
+            '--proxy-user',
+            metavar='USER',
+            help=_('username for proxy "basic" authentication')
+        )
+        group.add_argument(
+            '--proxy-password',
+            metavar='PASS',
+            help=_('password for proxy "basic" authentication')
+        )
+        group.add_argument(
+            '--no-proxy',
+            action='store_true',
+            help=_('disable proxy support'),
+        )
+        group.add_argument(
+            '--no-secure-proxy-tunnel',
+            action='store_true',
+            help=_('disable use of encryption when using proxy')
+        )
 
     def _add_download_args(self):
         group = self.add_argument_group('download')
@@ -453,11 +498,6 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('randomly perturb the time between requests'),
         )
-#         self.add_argument(
-#             '--no-proxy',
-#             action='store_true',
-#             help=_('disable proxy support'),
-#         )
         group.add_argument(
             '-Q',
             '--quota',
@@ -650,14 +690,6 @@ class AppArgumentParser(argparse.ArgumentParser):
             help=_('follow only up to NUMBER document redirects'),
             default=20,
         )
-#         self.add_argument(
-#             '--proxy-user',
-#             metavar='USER'
-#         )
-#         self.add_argument(
-#             '--proxy-password',
-#             metavar='PASS'
-#         )
         group.add_argument(
             '--referer',
             metavar='URL',
@@ -749,6 +781,19 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--http-compression',
             action='store_true',
             help=_('request servers to use HTTP compression'),
+        )
+        group.add_argument(
+            '--html-parser',
+            choices=['html5lib'] if IS_PYPY else ['libxml2-lxml', 'html5lib'],
+            default='html5lib'if IS_PYPY else 'libxml2-lxml',
+            help=_('select HTML parsing library and strategy')
+        )
+        group.add_argument(
+            '--link-extractors',
+            choices=CommaChoiceListArgs(['html', 'css', 'javascript']),
+            type=self.comma_choice_list,
+            default=['html', 'css', 'javascript'],
+            help=_('specify which link extractors to use')
         )
 
     def _add_ssl_args(self):
@@ -1174,6 +1219,15 @@ class AppArgumentParser(argparse.ArgumentParser):
 
         if not args.verbosity:
             args.verbosity = logging.INFO
+
+        if (args.http_proxy or args.https_proxy) and not \
+                (args.no_secure_proxy_tunnel):
+            self.error(_('secure connections with proxy not supported. '
+                         'Override with --no-secure-proxy-tunnel.'))
+
+        if (args.proxy_user or args.proxy_password) and not \
+                (args.proxy_user and args.proxy_password):
+            self.error(_('both username and password must be supplied'))
 
     def _post_warc_args(self, args):
         option_names = ('clobber_method', 'timestamping', 'continue_download')

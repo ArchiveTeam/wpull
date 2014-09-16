@@ -464,7 +464,7 @@ def url_to_filename(url, index='index.html', alt_char=False):
     Returns:
         str
     '''
-    assert isinstance(url, str)
+    assert isinstance(url, str), 'Expect str. Got {}.'.format(type(url))
     url_split_result = urllib.parse.urlsplit(url)
 
     filename = url_split_result.path.split('/')[-1]
@@ -504,7 +504,7 @@ def url_to_dir_parts(url, include_protocol=False, include_hostname=False,
     Returns:
         list
     '''
-    assert isinstance(url, str)
+    assert isinstance(url, str), 'Expect str. Got {}.'.format(type(url))
     url_split_result = urllib.parse.urlsplit(url)
 
     parts = []
@@ -548,7 +548,8 @@ class PercentEncoder(collections.defaultdict):
         self.ascii = ascii_
 
     def __missing__(self, char):
-        assert isinstance(char, bytes)
+        assert isinstance(char, bytes), \
+            'Expect bytes. Got {}.'.format(type(char))
 
         char_num = ord(char)
 
@@ -594,7 +595,8 @@ def safe_filename(filename, os_type='unix', no_control=True, ascii_only=True,
     Returns:
         str
     '''
-    assert isinstance(filename, str)
+    assert isinstance(filename, str), \
+        'Expect str. Got {}.'.format(type(filename))
 
     if filename in ('.', os.curdir):
         new_filename = '%2E'

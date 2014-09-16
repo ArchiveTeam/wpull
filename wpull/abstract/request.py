@@ -1,0 +1,52 @@
+'''Request object abstractions'''
+import abc
+
+from wpull.url import URLInfo
+
+
+class CommonMixin(object):
+    '''Serialize and unserialize methods.'''
+    @abc.abstractmethod
+    def to_dict(self):
+        '''Convert to a dict suitable for JSON.'''
+
+    @abc.abstractmethod
+    def to_bytes(self):
+        '''Serialize to HTTP bytes.'''
+
+    @abc.abstractmethod
+    def parse(self, data):
+        '''Parse from HTTP bytes.'''
+
+
+class URLPropertyMixin(object):
+    '''Provide URL as a property.
+
+    Attributes:
+        url (str): The complete URL string.
+        url_info (:class:`.url.URLInfo`): The URLInfo of the `url` attribute.
+
+    Setting :attr:`url` or :attr:`url_info` will update the other
+        respectively.
+    '''
+    def __init__(self):
+        self._url = None
+        self._url_info = None
+
+    @property
+    def url(self):
+        return self._url
+
+    @url.setter
+    def url(self, url_str):
+        self._url = url_str
+        self._url_info = URLInfo.parse(url_str)
+
+    @property
+    def url_info(self):
+        return self._url_info
+
+    @url_info.setter
+    def url_info(self, url_info):
+        self._url_info = url_info
+        self._url = url_info.url

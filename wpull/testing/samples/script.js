@@ -16,3 +16,8 @@ link = {
 };
 var size = "4.0";
 var mimetype = 'image/png';
+link = "horse dolphin";
+link = "cat[]monkey";
+link = "fish$dog"
+link = "rabbit\\ferre\t"
+link = '\u9'

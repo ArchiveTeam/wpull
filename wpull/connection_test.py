@@ -8,7 +8,7 @@ from trollius import From
 import trollius
 
 from wpull.connection import Connection, ConnectionPool, HostPool
-from wpull.errors import NetworkError, NetworkTimedOut
+from wpull.errors import NetworkError, NetworkTimedOut, SSLVerficationError
 import wpull.testing.async
 from wpull.testing.badapp import BadAppTestCase
 
@@ -91,11 +91,42 @@ class TestConnection(BadAppTestCase):
                 raise socket.error(123, 'Mock error')
             else:
                 raise ConnectionError(123, 'Mock error')
-            raise ssl.SSLError(123, 'Mock error')
 
         try:
             yield From(connection.run_network_operation(mock_func()))
         except NetworkError:
+            pass
+        else:
+            self.fail()
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_mock_request_certificate_error(self):
+        connection = Connection(
+            ('127.0.0.1', self.get_http_port()), 'localhost')
+
+        @trollius.coroutine
+        def mock_func():
+            raise ssl.SSLError(1, 'I has a Certificate Error!')
+
+        try:
+            yield From(connection.run_network_operation(mock_func()))
+        except SSLVerficationError:
+            pass
+        else:
+            self.fail()
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_mock_request_unknown_ca_error(self):
+        connection = Connection(
+            ('127.0.0.1', self.get_http_port()), 'localhost')
+
+        @trollius.coroutine
+        def mock_func():
+            raise ssl.SSLError(1, 'Uh oh! Unknown CA!')
+
+        try:
+            yield From(connection.run_network_operation(mock_func()))
+        except SSLVerficationError:
             pass
         else:
             self.fail()

@@ -5,7 +5,7 @@ import itertools
 import unittest
 
 from wpull.string import to_bytes, to_str, detect_encoding, printable_bytes, \
-    normalize_codec_name
+    normalize_codec_name, format_size
 
 
 class TestString(unittest.TestCase):
@@ -110,3 +110,13 @@ class TestString(unittest.TestCase):
         self.assertFalse(normalize_codec_name('\x00'))
         self.assertFalse(normalize_codec_name('wolf-howl'))
         self.assertFalse(normalize_codec_name('dragon-flatulence'))
+
+    def test_format_size(self):
+        # Check for no crash
+        nums = itertools.chain(
+            (-93334, -1, 0, 1, 100, 1023, 1024, 1025,),
+            [10 ** expo for expo in range(1, 16)]
+            )
+
+        for num in nums:
+            format_size(num)

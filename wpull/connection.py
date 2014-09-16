@@ -2,14 +2,15 @@
 '''Network connections.'''
 import contextlib
 import errno
+import functools
 import logging
 import os
 import socket
 import ssl
 
 from tornado.netutil import SSLCertificateError
-import tornado.netutil
 from trollius import From, Return
+import tornado.netutil
 import trollius
 
 from wpull.backport.logging import BraceMessage as __
@@ -98,47 +99,60 @@ class HostPool(object):
         ready (Queue): Connections not in use.
         busy (set): Connections in use.
     '''
-    def __init__(self):
-        self.ready = trollius.Queue()
+    def __init__(self, max_connections=6):
+        assert max_connections > 0, \
+            'num must be positive. got {}'.format(max_connections)
+
+        self.max_connections = max_connections
+        self.ready = set()
         self.busy = set()
+        self._ready_event = trollius.Event()
 
     def empty(self):
         '''Return whether the pool is empty.'''
-        return self.ready.empty() and not self.busy
+        return not self.ready and not self.busy
 
     def clean(self, force=False):
         '''Clean closed connections.'''
-        connected = []
-        while True:
-            try:
-                connection = self.ready.get_nowait()
-            except trollius.QueueEmpty:
-                break
-            if not connection.closed() and not force:
-                connected.append(connection)
-            elif force:
+        for connection in tuple(self.ready):
+            if force or connection.closed():
                 connection.close()
-
-        while connected:
-            connection = connected.pop()
-            self.ready.put_nowait(connection)
+                self.ready.remove(connection)
 
     def close(self):
         '''Close all connections.'''
-        while True:
-            try:
-                connection = self.ready.get_nowait()
-            except trollius.QueueEmpty:
-                break
-            else:
-                connection.close()
+        for connection in self.ready:
+            connection.close()
 
         for connection in self.busy:
             connection.close()
 
     def count(self):
         '''Return total number of connections.'''
-        return self.ready.qsize() + len(self.busy)
+        return len(self.ready) + len(self.busy)
+
+    @trollius.coroutine
+    def check_out(self, connection_factory):
+        while True:
+            if self.ready:
+                connection = self.ready.pop()
+                break
+            elif len(self.busy) < self.max_connections:
+                connection = connection_factory()
+                break
+            else:
+                # We should be using a Condition but check_in
+                # must be synchronous
+                yield From(self._ready_event.wait())
+                self._ready_event.clear()
+
+        self.busy.add(connection)
+        raise Return(connection)
+
+    def check_in(self, connection):
+        self.busy.remove(connection)
+        self.ready.add(connection)
+        self._ready_event.set()
 
 
 class ConnectionPool(object):
@@ -171,7 +185,12 @@ class ConnectionPool(object):
 
     @trollius.coroutine
     def check_out(self, host, port, ssl=False):
-        '''Return an available connection.'''
+        '''Return an available connection.
+
+        Coroutine.
+        '''
+        assert isinstance(port, int), 'Expect int. Got {}'.format(type(port))
+
         family, address = yield From(self._resolver.resolve(host, port))
         key = (host, port, ssl)
 
@@ -180,25 +199,23 @@ class ConnectionPool(object):
         else:
             host_pool = self._pool[key]
 
-        if host_pool.ready.empty() \
-                and len(host_pool.busy) < self._max_host_count:
-            if ssl:
-                connection = self._ssl_connection_factory(address, host)
-            else:
-                connection = self._connection_factory(address, host)
+        if ssl:
+            connection_factory = functools.partial(
+                self._ssl_connection_factory, address, host)
         else:
-            connection = yield From(host_pool.ready.get())
+            connection_factory = functools.partial(
+                self._connection_factory, address, host)
 
-        host_pool.busy.add(connection)
+        connection = yield From(host_pool.check_out(connection_factory))
 
-        # XXX: there is a race condition between host_pool.ready and
-        # host_pool.busy since there is no guarantee that Queue.get()
-        # returns immediately. shrugs.
-        # FIXME: write better synchronization
-        # assert host_pool.count() <= self._max_host_count
+        # XXX: Verify this assert is always true
+        # assert host_pool.count() <= host_pool.max_connections
+        # assert key in self._pool
+        # assert self._pool[key] == host_pool
 
         if key not in self._pool:
-            # Pool may have been deleted during a clean
+            # XXX: Pool may have been deleted during a clean which shouldn't
+            # happen
             self._pool[key] = host_pool
 
         raise Return(connection)
@@ -208,8 +225,7 @@ class ConnectionPool(object):
         key = (connection.hostname, connection.port, connection.ssl)
         host_pool = self._pool[key]
 
-        host_pool.busy.remove(connection)
-        host_pool.ready.put_nowait(connection)
+        host_pool.check_in(connection)
 
         if self.count() > self._max_count:
             self.clean(force=True)
@@ -301,11 +317,14 @@ class Connection(object):
         host (str): Host name.
         port (int): Port number.
         ssl (bool): Whether connection is SSL.
+        tunneled (bool): Whether the connection has been tunneled with the
+            ``CONNECT`` request.
     '''
     def __init__(self, address, hostname=None, timeout=None,
                  connect_timeout=None, bind_host=None):
-        assert len(address) == 2
-        assert '.' in address[0] or ':' in address[0]
+        assert len(address) == 2, 'Expect str & port. Got {}.'.format(address)
+        assert '.' in address[0] or ':' in address[0], \
+            'Expect numerical address. Got {}.'.format(address[0])
 
         self._address = address
         self._hostname = hostname or address[0]
@@ -316,6 +335,7 @@ class Connection(object):
         self.writer = None
         self._close_timer = None
         self._state = ConnectionState.ready
+        self._tunneled = False
 
         # TODO: implement bandwidth limiting
         self.bandwidth_limiter = None
@@ -339,6 +359,17 @@ class Connection(object):
     @property
     def ssl(self):
         return False
+
+    @property
+    def tunneled(self):
+        if self.closed():
+            self._tunneled = False
+
+        return self._tunneled
+
+    @tunneled.setter
+    def tunneled(self, value):
+        self._tunneled = value
 
     def closed(self):
         '''Return whether the connection is closed.'''
@@ -406,7 +437,8 @@ class Connection(object):
     @trollius.coroutine
     def write(self, data, drain=True):
         '''Write data.'''
-        assert self._state == ConnectionState.created
+        assert self._state == ConnectionState.created, \
+            'Expect conn created. Got {}.'.format(self._state)
 
         self.writer.write(data)
 
@@ -421,7 +453,8 @@ class Connection(object):
     @trollius.coroutine
     def read(self, amount=-1):
         '''Read data.'''
-        assert self._state == ConnectionState.created
+        assert self._state == ConnectionState.created, \
+            'Expect conn created. Got {}.'.format(self._state)
 
         data = yield From(
             self.run_network_operation(
@@ -435,7 +468,8 @@ class Connection(object):
     @trollius.coroutine
     def readline(self):
         '''Read a line of data.'''
-        assert self._state == ConnectionState.created
+        assert self._state == ConnectionState.created, \
+            'Expect conn created. Got {}.'.format(self._state)
 
         with self._close_timer.with_timeout():
             data = yield From(
@@ -495,7 +529,10 @@ class Connection(object):
                     error.errno, os.strerror(error.errno)) from error
 
             # XXX: This quality case brought to you by OpenSSL and Python.
-            elif 'certificate' in str(error).lower():
+            # Example: _ssl.SSLError: [Errno 1] error:14094418:SSL
+            #          routines:SSL3_READ_BYTES:tlsv1 alert unknown ca
+            error_string = str(error).lower()
+            if 'certificate' in error_string or 'unknown ca' in error_string:
                 raise SSLVerficationError(
                     '{name} certificate error: {error}'
                     .format(name=name, error=error)) from error
@@ -551,7 +588,8 @@ class SSLConnection(Connection):
         verify_mode = self._ssl_context.verify_mode
 
         assert verify_mode in (ssl.CERT_NONE, ssl.CERT_REQUIRED,
-                               ssl.CERT_OPTIONAL)
+                               ssl.CERT_OPTIONAL), \
+            'Unknown verify mode {}'.format(verify_mode)
 
         if verify_mode == ssl.CERT_NONE:
             return

@@ -1,19 +1,19 @@
 # encoding=utf-8
+from http import cookiejar
+from tempfile import TemporaryDirectory
 import contextlib
 import gzip
 import hashlib
-from http import cookiejar
 import logging
 import os
 import socket
 import sys
-from tempfile import TemporaryDirectory
 import tempfile
 import unittest
 
 from tornado.testing import AsyncHTTPSTestCase
-import tornado.testing
 from trollius import From, Return
+import tornado.testing
 import trollius
 
 from wpull.builder import Builder
@@ -21,10 +21,11 @@ from wpull.dns import Resolver
 from wpull.errors import ExitStatus
 from wpull.options import AppArgumentParser
 from wpull.testing.async import AsyncTestCase
-import wpull.testing.async
 from wpull.testing.badapp import BadAppTestCase
 from wpull.testing.goodapp import GoodAppTestCase
 from wpull.url import URLInfo
+from wpull.util import IS_PYPY
+import wpull.testing.async
 
 
 DEFAULT_TIMEOUT = 30
@@ -185,6 +186,8 @@ class TestApp(GoodAppTestCase):
             '--remote-encoding', 'latin1',
             '--http-compression',
             '--bind-address', '127.0.0.1',
+            '--html-parser', 'html5lib',
+            '--link-extractors', 'html',
         ])
         with cd_tempdir():
             builder = Builder(args)
@@ -402,32 +405,6 @@ class TestApp(GoodAppTestCase):
                 self.assertTrue(False)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_app_python_script(self):
-        arg_parser = AppArgumentParser()
-        filename = os.path.join(os.path.dirname(__file__),
-                                'testing', 'py_hook_script.py')
-        args = arg_parser.parse_args([
-            self.get_url('/'),
-            'localhost:1',
-            '--python-script', filename,
-            '--page-requisites',
-            '--reject-regex', '/post/',
-        ])
-        builder = Builder(args)
-
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
-
-        self.assertEqual(42, exit_code)
-
-        engine = builder.factory['Engine']
-        self.assertEqual(2, engine.concurrent)
-
-        stats = builder.factory['Statistics']
-        self.assertGreater(1.0, stats.duration)
-
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_python_script_api_2(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
@@ -438,6 +415,7 @@ class TestApp(GoodAppTestCase):
             '--python-script', filename,
             '--page-requisites',
             '--reject-regex', '/post/',
+            '--wait', '12',
         ])
         builder = Builder(args)
 
@@ -451,7 +429,11 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(2, engine.concurrent)
 
         stats = builder.factory['Statistics']
-        self.assertGreater(1.0, stats.duration)
+
+        self.assertEqual(2, stats.files)
+
+        # duration should be virtually 0 but account for slowness on travis ci
+        self.assertGreater(10.0, stats.duration)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_python_script_stop(self):
@@ -471,34 +453,7 @@ class TestApp(GoodAppTestCase):
 
     @unittest.skipIf(sys.version_info[0:2] == (3, 2),
                      'lua module not working in this python version')
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_app_lua_script(self):
-        arg_parser = AppArgumentParser()
-        filename = os.path.join(os.path.dirname(__file__),
-                                'testing', 'lua_hook_script.lua')
-        args = arg_parser.parse_args([
-            self.get_url('/'),
-            'localhost:1',
-            '--lua-script', filename,
-            '--page-requisites',
-            '--reject-regex', '/post/',
-        ])
-        builder = Builder(args)
-
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
-
-        self.assertEqual(42, exit_code)
-
-        engine = builder.factory['Engine']
-        self.assertEqual(2, engine.concurrent)
-
-        stats = builder.factory['Statistics']
-        self.assertGreater(1.0, stats.duration)
-
-    @unittest.skipIf(sys.version_info[0:2] == (3, 2),
-                     'lua module not working in this python version')
+    @unittest.skipIf(IS_PYPY, 'Not supported under PyPy')
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_lua_script_api_2(self):
         arg_parser = AppArgumentParser()
@@ -510,6 +465,7 @@ class TestApp(GoodAppTestCase):
             '--lua-script', filename,
             '--page-requisites',
             '--reject-regex', '/post/',
+            '--wait', '12',
         ])
         builder = Builder(args)
 
@@ -523,7 +479,11 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(2, engine.concurrent)
 
         stats = builder.factory['Statistics']
-        self.assertGreater(1.0, stats.duration)
+
+        self.assertEqual(2, stats.files)
+
+        # duration should be virtually 0 but account for slowness on travis ci
+        self.assertGreater(10.0, stats.duration)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_iri_handling(self):
@@ -538,7 +498,8 @@ class TestApp(GoodAppTestCase):
             app = builder.build()
             exit_code = yield From(app.run())
 
-            urls = list(iter(builder.factory['URLTable']))
+            urls = tuple(url_record.url for url_record in
+                         builder.factory['URLTable'].get_all())
             self.assertIn(
                 self.get_url('/%E6%96%87%E5%AD%97%E5%8C%96%E3%81%91'),
                 urls
@@ -1064,7 +1025,8 @@ class TestAppBad(BadAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    # XXX: slow on pypy
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT * 4)
     def test_bad_utf8(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([

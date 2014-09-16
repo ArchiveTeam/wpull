@@ -130,7 +130,7 @@ def format_size(num, format_str='{num:.1f} {unit}'):
 
         num /= 1024.0
 
-    return format_str.format(num, unit='TiB')
+    return format_str.format(num=num, unit='TiB')
 
 
 ALL_BYTES = bytes(bytearray(range(256)))

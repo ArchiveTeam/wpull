@@ -1,27 +1,12 @@
 # encoding=utf-8
 '''HTTP conversation objects.'''
-import abc
+import copy
 import re
 
+from wpull.abstract.request import CommonMixin, URLPropertyMixin
 from wpull.errors import ProtocolError
 from wpull.namevalue import NameValueRecord
 import wpull.string
-from wpull.url import URLInfo
-import copy
-
-
-class CommonMixin(object):
-    @abc.abstractmethod
-    def to_dict(self):
-        '''Convert to a dict suitable for JSON.'''
-
-    @abc.abstractmethod
-    def to_bytes(self):
-        '''Serialize to HTTP bytes.'''
-
-    @abc.abstractmethod
-    def parse(self, data):
-        '''Parse from HTTP bytes.'''
 
 
 class RawRequest(CommonMixin):
@@ -105,44 +90,19 @@ class RawRequest(CommonMixin):
         return copy.deepcopy(self)
 
 
-class Request(RawRequest):
+class Request(RawRequest, URLPropertyMixin):
     '''Represents a higher level of HTTP request.
 
     Attributes:
-        url (str): The complete URL string.
-        url_info (:class:`.url.URLInfo`): The URLInfo of the `url` attribute.
         address (tuple): An address tuple suitable for :func:`socket.connect`.
-
-    Setting :attr:`url` or :attr:`url_info` will update the other
-        respectively.
     '''
     def __init__(self, url=None, method='GET', version='HTTP/1.1'):
         super().__init__(method=method, resource_path=url, version=version)
 
-        self._url = None
-        self._url_info = None
         self.address = None
 
         if url:
             self.url = url
-
-    @property
-    def url(self):
-        return self._url
-
-    @url.setter
-    def url(self, url_str):
-        self._url = url_str
-        self._url_info = URLInfo.parse(url_str)
-
-    @property
-    def url_info(self):
-        return self._url_info
-
-    @url_info.setter
-    def url_info(self, url_info):
-        self._url_info = url_info
-        self._url = url_info.url
 
     def to_dict(self):
         dict_obj = super().to_dict()
@@ -172,6 +132,8 @@ class Request(RawRequest):
                 self.resource_path = '{0}?{1}'.format(url_info.path, url_info.query)
             else:
                 self.resource_path = url_info.path
+        else:
+            self.resource_path = url_info.url
 
     def parse(self, data):
         super().parse(data)
@@ -202,7 +164,8 @@ class Response(CommonMixin):
     '''
     def __init__(self, status_code=None, reason=None, version='HTTP/1.1', request=None):
         if status_code is not None:
-            assert isinstance(status_code, int)
+            assert isinstance(status_code, int), \
+                'Expect int, got {}'.format(type(status_code))
             assert reason is not None
 
         self.status_code = status_code

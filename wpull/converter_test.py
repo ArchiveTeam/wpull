@@ -1,12 +1,22 @@
 # encoding=utf-8
-import os.path
 from tempfile import TemporaryDirectory
+import os.path
 import unittest
 
 from wpull.app_test import cd_tempdir
 from wpull.converter import CSSConverter, HTMLConverter
-from wpull.database import URLTable, Status
+from wpull.database.sqltable import URLTable
+from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
+from wpull.item import Status
+from wpull.scraper.css import CSSScraper
+from wpull.scraper.html import ElementWalker
+from wpull.util import IS_PYPY
 
+
+if not IS_PYPY:
+    from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser
+else:
+    LxmlHTMLParser = type(NotImplemented)
 
 CSS_TEXT = '''
 body {
@@ -56,7 +66,10 @@ XHTML_TEXT = '''
 '''
 
 
-class TestConverter(unittest.TestCase):
+class Mixin(object):
+    def get_html_parser(self):
+        raise NotImplementedError()
+
     def test_css_converter(self):
         with cd_tempdir() as temp_dir:
             url_table = URLTable()
@@ -64,19 +77,19 @@ class TestConverter(unittest.TestCase):
             image_filename = os.path.join(temp_dir, 'image.png')
             new_css_filename = os.path.join(temp_dir, 'styles.css-new')
 
-            url_table.add([
+            url_table.add_many([
                 'http://example.com/styles.css',
                 'http://example.com/image.png',
                 'http://example.com/cat.jpg',
                 'http://example.com/cat.jpg',
             ])
-            url_table.update(
+            url_table.update_one(
                 'http://example.com/styles.css',
                 status=Status.done,
                 link_type='css',
                 filename=os.path.relpath(css_filename, temp_dir)
             )
-            url_table.update(
+            url_table.update_one(
                 'http://example.com/image.png',
                 status=Status.done,
                 filename=os.path.relpath(image_filename, temp_dir)
@@ -109,7 +122,7 @@ class TestConverter(unittest.TestCase):
             tubes_filename = os.path.join(temp_dir, 'tubes.html')
             ferret_filename = os.path.join(temp_dir, 'ferret.jpg')
 
-            url_table.add([
+            url_table.add_many([
                 'http://example.com/styles.css',
                 'http://example.com/image.png',
                 'http://example.com/cat.jpg',
@@ -117,22 +130,22 @@ class TestConverter(unittest.TestCase):
                 'http://example.com/ferret.jpg',
                 'http://example.com/tubes.html',
             ])
-            url_table.update(
+            url_table.update_one(
                 'http://example.com/styles.css',
                 status=Status.done,
                 link_type='css'
             )
-            url_table.update(
+            url_table.update_one(
                 'http://example.com/image.png',
                 status=Status.done,
                 filename=os.path.relpath(image_filename, temp_dir)
             )
-            url_table.update(
+            url_table.update_one(
                 'http://example.com/tubes.html',
                 status=Status.done,
                 filename=os.path.relpath(tubes_filename, temp_dir)
             )
-            url_table.update(
+            url_table.update_one(
                 'http://example.com/ferret.jpg',
                 status=Status.done,
                 filename=os.path.relpath(ferret_filename, temp_dir)
@@ -148,7 +161,9 @@ class TestConverter(unittest.TestCase):
                 with open(filename, 'wb'):
                     pass
 
-            converter = HTMLConverter(url_table)
+            element_walker = ElementWalker(css_scraper=CSSScraper())
+            converter = HTMLConverter(
+                self.get_html_parser(), element_walker, url_table)
 
             converter.convert(
                 html_filename, new_html_filename,
@@ -175,7 +190,7 @@ class TestConverter(unittest.TestCase):
             tubes_filename = os.path.join(temp_dir, 'tubes.html')
             ferret_filename = os.path.join(temp_dir, 'ferret.jpg')
 
-            url_table.add([
+            url_table.add_many([
                 'http://example.com/styles.css',
                 'http://example.com/image.png',
                 'http://example.com/cat.jpg',
@@ -183,22 +198,22 @@ class TestConverter(unittest.TestCase):
                 'http://example.com/ferret.jpg',
                 'http://example.com/tubes.html',
             ])
-            url_table.update(
+            url_table.update_one(
                 'http://example.com/styles.css',
                 status=Status.done,
                 link_type='css'
             )
-            url_table.update(
+            url_table.update_one(
                 'http://example.com/image.png',
                 status=Status.done,
                 filename=os.path.relpath(image_filename, temp_dir)
             )
-            url_table.update(
+            url_table.update_one(
                 'http://example.com/tubes.html',
                 status=Status.done,
                 filename=os.path.relpath(tubes_filename, temp_dir)
             )
-            url_table.update(
+            url_table.update_one(
                 'http://example.com/ferret.jpg',
                 status=Status.done,
                 filename=os.path.relpath(ferret_filename, temp_dir)
@@ -214,7 +229,9 @@ class TestConverter(unittest.TestCase):
                 with open(filename, 'wb'):
                     pass
 
-            converter = HTMLConverter(url_table)
+            element_walker = ElementWalker(css_scraper=CSSScraper())
+            converter = HTMLConverter(
+                self.get_html_parser(), element_walker, url_table)
 
             converter.convert(
                 html_filename, new_html_filename,
@@ -232,3 +249,14 @@ class TestConverter(unittest.TestCase):
             self.assertIn("url('ferret.jpg')", converted_text)
             self.assertIn("hello world!!", converted_text)
             self.assertIn("<hr/>", converted_text)
+
+
+@unittest.skipIf(IS_PYPY, 'Not supported under PyPy')
+class TestLxmlConverter(unittest.TestCase, Mixin):
+    def get_html_parser(self):
+        return LxmlHTMLParser()
+
+
+class TestHTML5LibConverter(unittest.TestCase, Mixin):
+    def get_html_parser(self):
+        return HTML5LibHTMLParser()

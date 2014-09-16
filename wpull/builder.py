@@ -1,10 +1,10 @@
 # encoding=utf-8
 '''Application support.'''
+from http.cookiejar import CookieJar
 import atexit
 import codecs
 import functools
 import gettext
-from http.cookiejar import CookieJar
 import itertools
 import logging
 import os.path
@@ -21,21 +21,24 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.connection import Connection, ConnectionPool, SSLConnection
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
-from wpull.database import URLTable
+from wpull.database.sqltable import URLTable as SQLURLTable
+from wpull.database.wrap import URLTableHookWrapper
 from wpull.debug import DebugConsoleHandler
 from wpull.dns import Resolver
 from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment
 from wpull.http.client import Client as HTTPClient
-from wpull.http.stream import Stream as HTTPStream
+from wpull.http.proxy import ProxyAdapter
 from wpull.http.redirect import RedirectTracker
 from wpull.http.request import Request
 from wpull.http.robots import RobotsTxtChecker
+from wpull.http.stream import Stream as HTTPStream
 from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSClient
 from wpull.processor.phantomjs import PhantomJSController
+from wpull.processor.rule import FetchRule
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
     WebProcessorInstances
 from wpull.proxy import HTTPProxyServer
@@ -43,8 +46,11 @@ from wpull.recorder import (WARCRecorder, DemuxRecorder,
                             PrintServerResponseRecorder, ProgressRecorder,
                             OutputDocumentRecorder, WARCRecorderParams)
 from wpull.robotstxt import RobotsTxtPool
-from wpull.scraper import (HTMLScraper, CSSScraper, DemuxDocumentScraper,
-                           SitemapScraper, JavaScriptScraper)
+from wpull.scraper.base import DemuxDocumentScraper
+from wpull.scraper.css import CSSScraper
+from wpull.scraper.html import HTMLScraper, ElementWalker
+from wpull.scraper.javascript import JavaScriptScraper
+from wpull.scraper.sitemap import SitemapScraper
 from wpull.stats import Statistics
 from wpull.url import URLInfo
 from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, HTTPFilter,
@@ -53,15 +59,14 @@ from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, HTTPFilter,
                              SpanHostsFilter, RegexFilter, DirectoryFilter,
                              BackwardFilenameFilter, ParentFilter)
 from wpull.util import ASCIIStreamWriter
-import wpull.version
 from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
                           IgnoreFileWriter, TimestampingFileWriter,
                           AntiClobberFileWriter)
+import wpull.version
 
 
-# Module lua is imported later on demand.
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
 
@@ -72,7 +77,8 @@ class Builder(object):
     Args:
         args: Options from :class:`argparse.ArgumentParser`
     '''
-    UNSAFE_OPTIONS = frozenset(['save_headers', 'no_iri', 'output_document'])
+    UNSAFE_OPTIONS = frozenset(['save_headers', 'no_iri', 'output_document',
+                                'ignore_fatal_errors'])
 
     def __init__(self, args):
         self.default_user_agent = 'Wpull/{0} (gzip)'.format(
@@ -91,7 +97,10 @@ class Builder(object):
             'DemuxRecorder': DemuxRecorder,
             'DemuxURLFilter': DemuxURLFilter,
             'Engine': Engine,
+            'ElementWalker': ElementWalker,
+            'FetchRule': FetchRule,
             'HTTPProxyServer': HTTPProxyServer,
+            'HTMLParser': NotImplemented,
             'HTMLScraper': HTMLScraper,
             'JavaScriptScraper': JavaScriptScraper,
             'OutputDocumentRecorder': OutputDocumentRecorder,
@@ -99,6 +108,7 @@ class Builder(object):
             'PhantomJSClient': PhantomJSClient,
             'PhantomJSController': PhantomJSController,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
+            'ProxyAdapter': ProxyAdapter,
             'ProgressRecorder': ProgressRecorder,
             'RedirectTracker': RedirectTracker,
             'Request': Request,
@@ -108,7 +118,8 @@ class Builder(object):
             'SitemapScraper': SitemapScraper,
             'Statistics': Statistics,
             'URLInfo': URLInfo,
-            'URLTable': URLTable,
+            'URLTable': URLTableHookWrapper,
+            'URLTableImplementation': SQLURLTable,
             'Waiter': LinearWaiter,
             'WARCRecorder': WARCRecorder,
             'WebClient': WebClient,
@@ -116,7 +127,7 @@ class Builder(object):
             'WebProcessorFetchParams': WebProcessorFetchParams,
             'WebProcessorInstances': WebProcessorInstances,
         })
-        self._url_infos = tuple(self._build_input_urls())
+        self._url_infos = None
         self._ca_certs_file = None
         self._file_log_handler = None
         self._console_log_handler = None
@@ -138,12 +149,14 @@ class Builder(object):
         '''
         self._factory.new('Application', self)
 
+        self._build_html_parser()
         self._setup_logging()
         self._setup_console_logger()
         self._setup_file_logger()
         self._setup_debug_console()
-        self._warn_unsafe_options()
-        self._warn_silly_options()
+
+        self._build_demux_document_scraper()
+        self._url_infos = tuple(self._build_input_urls())
 
         statistics = self._factory.new('Statistics')
         statistics.quota = self._args.quota
@@ -158,12 +171,17 @@ class Builder(object):
             processor,
             statistics,
             concurrent=self._args.concurrent,
+            ignore_exceptions=self._args.ignore_fatal_errors
         )
 
         self._setup_file_logger_close(self.factory['Application'])
         self._setup_console_logger_close(self.factory['Application'])
 
         self._install_script_hooks()
+        self._warn_unsafe_options()
+        self._warn_silly_options()
+
+        url_table.add_many([url_info.url for url_info in self._url_infos])
 
         return self._factory['Application']
 
@@ -221,6 +239,9 @@ class Builder(object):
                 'Wpull needs the root logger level set to {0}.'
                 .format(min_level)
             )
+
+        if current_level <= logging.INFO:
+            logging.captureWarnings(True)
 
     def _setup_console_logger(self):
         '''Set up the console logger.
@@ -317,16 +338,18 @@ class Builder(object):
         _logger.info(__(_('Using Lua hook script {filename}.'),
                         filename=filename))
 
-        lua = wpull.hook.load_lua()
-        hook_environment = HookEnvironment(self._factory, is_lua=True)
+        hook_environment = HookEnvironment(self._factory)
 
         hook_environment.connect_hooks()
 
-        lua_globals = lua.globals()
-        lua_globals.wpull_hook = hook_environment
+        adapter_filename = os.path.join(
+            os.path.dirname(__file__), '_luahook.py')
 
-        with open(filename, 'rb') as in_file:
-            lua.execute(in_file.read())
+        with open(adapter_filename, 'rb') as in_file:
+            code = compile(in_file.read(), filename, 'exec')
+            context = {'wpull_hook': hook_environment}
+            exec(code, context, context)
+            context['install'](filename)
 
     def _setup_debug_console(self):
         if self._args.debug_console_port is None:
@@ -409,7 +432,7 @@ class Builder(object):
 
     def _read_input_file_as_html(self):
         '''Read input file as HTML and return the links.'''
-        scrape_info = HTMLScraper.scrape_file(
+        scrape_info = self._factory['HTMLScraper'].scrape_file(
             self._args.input_file,
             encoding=self._args.local_encoding or 'utf-8'
         )
@@ -474,46 +497,76 @@ class Builder(object):
 
         return filters
 
+    def _build_demux_document_scraper(self):
+        '''Create demux document scraper.'''
+        self._factory.new(
+            'DemuxDocumentScraper', self._build_document_scrapers())
+
     def _build_document_scrapers(self):
         '''Create the document scrapers.
 
         Returns:
             A list of document scrapers
         '''
+        html_parser = self._factory['HTMLParser']
+        element_walker = self._factory.new('ElementWalker')
+
         scrapers = [
             self._factory.new(
                 'HTMLScraper',
+                html_parser,
+                element_walker,
                 followed_tags=self._args.follow_tags,
                 ignored_tags=self._args.ignore_tags,
                 only_relative=self._args.relative,
                 robots=self._args.robots,
                 encoding_override=self._args.remote_encoding,
             ),
-            self._factory.new(
+        ]
+
+        if 'css' in self._args.link_extractors:
+            css_scraper = self._factory.new(
                 'CSSScraper',
                 encoding_override=self._args.remote_encoding,
-            ),
-            self._factory.new(
+            )
+            scrapers.append(css_scraper)
+            element_walker.css_scraper = css_scraper
+
+        if 'javascript' in self._args.link_extractors:
+            javascript_scraper = self._factory.new(
                 'JavaScriptScraper',
                 encoding_override=self._args.remote_encoding,
-            ),
-        ]
+            )
+            scrapers.append(javascript_scraper)
+            element_walker.javascript_scraper = javascript_scraper
 
         if self._args.sitemaps:
             scrapers.append(self._factory.new(
-                'SitemapScraper', encoding_override=self._args.remote_encoding,
+                'SitemapScraper', html_parser,
+                encoding_override=self._args.remote_encoding,
             ))
 
         return scrapers
+
+    def _build_html_parser(self):
+        '''Build HTML parser.'''
+        if self._args.html_parser == 'html5lib':
+            from wpull.document.htmlparse.html5lib_ import HTMLParser
+        else:
+            from wpull.document.htmlparse.lxml_ import HTMLParser
+
+        self._factory.class_map['HTMLParser'] = HTMLParser
+        self._factory.new('HTMLParser')
 
     def _build_url_table(self):
         '''Create the URL table.
 
         Returns:
-            URLTable: An instance of :class:`.database.BaseURLTable`.
+            URLTable: An instance of :class:`.database.base.BaseURLTable`.
         '''
-        url_table = self._factory.new('URLTable', path=self._args.database)
-        url_table.add([url_info.url for url_info in self._url_infos])
+        url_table_impl = self._factory.new(
+            'URLTableImplementation', path=self._args.database)
+        url_table = self._factory.new('URLTable', url_table_impl)
         return url_table
 
     def _build_recorder(self):
@@ -559,6 +612,7 @@ class Builder(object):
                         digests=args.warc_digests,
                         cdx=args.warc_cdx,
                         max_size=args.warc_max_size,
+                        move_to=args.warc_move,
                         url_table=url_table,
                         software_string=software_string,
                     ),
@@ -567,7 +621,8 @@ class Builder(object):
         if args.server_response:
             recorders.append(self._factory.new('PrintServerResponseRecorder'))
 
-        assert args.verbosity
+        assert args.verbosity, \
+            'Expect logging level. Got {}.'.format(args.verbosity)
 
         if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARNING):
             stream = self._new_encoded_stream(sys.stderr)
@@ -645,14 +700,16 @@ class Builder(object):
         args = self._args
         url_filter = self._factory.new('DemuxURLFilter',
                                        self._build_url_filters())
-        document_scraper = self._factory.new('DemuxDocumentScraper',
-                                             self._build_document_scrapers())
+        document_scraper = self._factory['DemuxDocumentScraper']
         file_writer = self._build_file_writer()
         post_data = self._get_post_data()
         converter = self._build_document_converter()
         web_client = self._build_web_client()
         phantomjs_controller = self._build_phantomjs_controller()
         robots_txt_checker = self._build_robots_txt_checker()
+        fetch_rule = self._factory.new(
+            'FetchRule',
+            url_filter=url_filter, robots_txt_checker=robots_txt_checker)
 
         waiter = self._factory.new('Waiter',
                                    wait=args.wait,
@@ -661,14 +718,13 @@ class Builder(object):
 
         web_processor_instances = self._factory.new(
             'WebProcessorInstances',
-            url_filter=url_filter,
+            fetch_rule=fetch_rule,
             document_scraper=document_scraper,
             file_writer=file_writer,
             waiter=waiter,
             statistics=self._factory['Statistics'],
             converter=converter,
             phantomjs_controller=phantomjs_controller,
-            robots_txt_checker=robots_txt_checker,
         )
 
         web_processor_fetch_params = self._factory.new(
@@ -857,10 +913,39 @@ class Builder(object):
             ignore_length=self._args.ignore_length,
             keep_alive=self._args.http_keep_alive)
 
+        proxy_adapter = self._build_proxy_adapter()
+
         return self._factory.new('HTTPClient',
                                  connection_pool=self._build_connection_pool(),
                                  recorder=recorder,
-                                 stream_factory=stream_factory)
+                                 stream_factory=stream_factory,
+                                 proxy_adapter=proxy_adapter)
+
+    def _build_proxy_adapter(self):
+        if self._args.no_proxy:
+            return
+
+        if self._args.https_proxy:
+            http_proxy = self._args.http_proxy.split(':', 1)
+            ssl_ = True
+        elif self._args.http_proxy:
+            http_proxy = self._args.http_proxy.split(':', 1)
+            ssl_ = False
+        else:
+            return
+
+        http_proxy[1] = int(http_proxy[1])
+
+        use_connect = not self._args.no_secure_proxy_tunnel
+
+        if self._args.proxy_user:
+            authentication = (self._args.proxy_user, self._args.proxy_password)
+        else:
+            authentication = None
+
+        return self._factory.new(
+            'ProxyAdapter', http_proxy, ssl=ssl_, use_connect=use_connect,
+            authentication=authentication)
 
     def _build_web_client(self):
         '''Build Web Client.'''
@@ -919,6 +1004,8 @@ class Builder(object):
 
         converter = self._factory.new(
             'BatchDocumentConverter',
+            self._factory['HTMLParser'],
+            self._factory['ElementWalker'],
             self._factory['URLTable'],
             backup=self._args.backup_converted
         )
@@ -1097,6 +1184,17 @@ class Builder(object):
                   'but the recursive option is not on.')
             )
 
+        if self._args.warc_file and \
+                (self._args.http_proxy or self._args.https_proxy):
+            _logger.warning(_('WARC specifications do not handle proxies.'))
+
+        if self._args.no_secure_proxy_tunnel:
+            _logger.warning(_('HTTPS without encryption is enabled.'))
+
+        if self._args.proxy_password and self._args.warc_file:
+            _logger.warning(
+                _('Your proxy password is recorded in the WARC file.'))
+
     def _warn_unsafe_options(self):
         '''Print warnings about any enabled hazardous options.
 
@@ -1105,6 +1203,7 @@ class Builder(object):
         * ``--save-headers``
         * ``--no-iri``
         * ``--output-document``
+        * ``--ignore-fatal-errors`
         '''
         enabled_options = []
 

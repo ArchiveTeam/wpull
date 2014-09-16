@@ -1,15 +1,15 @@
 # encoding=utf-8
 '''Basic HTTP Client.'''
-import contextlib
+import functools
 import gettext
 import logging
 
 from trollius import From, Return
 import trollius
 
+from wpull.abstract.client import BaseClient, BaseSession
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
-from wpull.connection import ConnectionPool
 from wpull.http.stream import Stream
 
 
@@ -17,75 +17,26 @@ _ = gettext.gettext
 _logger = logging.getLogger(__name__)
 
 
-class Client(object):
+class Client(BaseClient):
     '''Stateless HTTP/1.1 client.
 
-    Args:
-        connection_pool (:class:`.connection.ConnectionPool`): Connection pool.
-        recorder (:class:`.recorder.BaseRecorder`): Recorder.
-        stream_factory: A function that returns a new
-            :class:`.http.stream.Stream`.
+    The session object is :class:`Session`.
     '''
-    def __init__(self, connection_pool=None, recorder=None,
-                 stream_factory=Stream):
-        if connection_pool is not None:
-            self._connection_pool = connection_pool
-        else:
-            self._connection_pool = ConnectionPool()
-
-        self._recorder = recorder
+    def __init__(self, stream_factory=Stream, **kwargs):
+        super().__init__(**kwargs)
         self._stream_factory = stream_factory
 
-    @contextlib.contextmanager
-    def session(self):
-        '''Return a new session.
-
-        Returns:
-            Session.
-
-        Context manager: This function is meant be used with the ``with``
-        statement.
-        '''
-        if self._recorder:
-            with self._recorder.session() as recorder_session:
-                session = Session(self._connection_pool,
-                                  recorder_session,
-                                  self._stream_factory)
-                try:
-                    yield session
-                except Exception:
-                    session.close()
-                    raise
-                finally:
-                    session.clean()
-        else:
-            session = Session(self._connection_pool,
-                              None,
-                              self._stream_factory)
-            try:
-                yield session
-            except Exception:
-                session.close()
-                raise
-            finally:
-                session.clean()
-
-    def close(self):
-        '''Close the connection pool and recorders.'''
-        _logger.debug('Client closing.')
-        self._connection_pool.close()
-
-        if self._recorder:
-            self._recorder.close()
+    def _session_class(self):
+        return functools.partial(Session, stream_factory=self._stream_factory)
 
 
-class Session(object):
+class Session(BaseSession):
     '''HTTP request and response session.'''
-    def __init__(self, connection_pool, recorder_session, stream_factory):
-        self._connection_pool = connection_pool
-        self._recorder_session = recorder_session
-        self._stream_factory = stream_factory
+    def __init__(self, stream_factory=None, **kwargs):
+        super().__init__(**kwargs)
 
+        assert stream_factory
+        self._stream_factory = stream_factory
         self._connection = None
         self._stream = None
         self._request = None
@@ -105,18 +56,14 @@ class Session(object):
 
         Coroutine.
         '''
+        assert not self._connection
         _logger.debug(__('Client fetch request {0}.', request))
 
-        self._request = request
+        connection = yield From(self._check_out_connection(request))
 
-        request.prepare_for_send()
+        if self._proxy_adapter:
+            self._proxy_adapter.add_auth_header(request)
 
-        host = request.url_info.hostname
-        port = request.url_info.port
-        ssl = request.url_info.scheme == 'https'
-
-        self._connection = connection = yield From(self._connection_pool
-                                                   .check_out(host, port, ssl))
         self._stream = stream = self._stream_factory(connection)
         request.address = connection.address
 
@@ -125,7 +72,9 @@ class Session(object):
         if self._recorder_session:
             self._recorder_session.pre_request(request)
 
-        yield From(stream.write_request(request))
+        full_url = bool(self._proxy_adapter)
+
+        yield From(stream.write_request(request, full_url=full_url))
 
         if request.body:
             assert 'Content-Length' in request.fields

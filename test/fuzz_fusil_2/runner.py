@@ -72,7 +72,7 @@ class Fuzzer(Application):
             r'WARNING Invalid content length: invalid literal for int'
         )
         stdout_watcher.ignoreRegex(
-            r'WARNING Discarding malformed URL '
+            r'WARNING Unable to parse URL '
         )
         stdout_watcher.ignoreRegex(
             r'WARNING Failed to read document at '
