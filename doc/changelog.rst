@@ -2,6 +2,8 @@
 What's New
 ==========
 
+* Fixed URLs with IPv6 addresses not including brackets when using them in host strings.
+
 
 0.1001 (2014-09-16)
 ===================

@@ -340,10 +340,15 @@ class URLInfo(object):
         assert '[' not in self.hostname
         assert ']' not in self.hostname
 
-        if default_port != self.port:
-            return '{}:{}'.format(self.hostname, self.port)
+        if self.is_ipv6():
+            hostname = '[{}]'.format(self.hostname)
         else:
-            return self.hostname
+            hostname = self.hostname
+
+        if default_port != self.port:
+            return '{}:{}'.format(hostname, self.port)
+        else:
+            return hostname
 
     def __repr__(self):
         return '<URLInfo at 0x{:x} url={} raw={}>'.format(
