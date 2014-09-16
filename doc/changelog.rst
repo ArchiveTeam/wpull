@@ -2,6 +2,10 @@
 What's New
 ==========
 
+
+0.1001 (2014-09-16)
+===================
+
 * Fixed ``--warc-move`` option which had no effect.
 * Fixed JavaScript scraper to not accept URLs with backslashes.
 * Fixed CSS scraper to not accept URLs longer than 500 characters.
