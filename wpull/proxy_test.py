@@ -2,14 +2,14 @@
 import logging
 import unittest
 
+from trollius import From, Return
 import tornado.httpclient
 import tornado.testing
-from trollius import From, Return
 import trollius
 
 from wpull.http.client import Client
 from wpull.proxy import HTTPProxyServer
-from wpull.recorder import DebugPrintRecorder
+from wpull.recorder.printing import DebugPrintRecorder
 import wpull.testing.badapp
 import wpull.testing.goodapp
 

@@ -42,9 +42,11 @@ from wpull.processor.rule import FetchRule
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
     WebProcessorInstances
 from wpull.proxy import HTTPProxyServer
-from wpull.recorder import (WARCRecorder, DemuxRecorder,
-                            PrintServerResponseRecorder, ProgressRecorder,
-                            OutputDocumentRecorder, WARCRecorderParams)
+from wpull.recorder.demux import DemuxRecorder
+from wpull.recorder.document import OutputDocumentRecorder
+from wpull.recorder.printing import PrintServerResponseRecorder
+from wpull.recorder.progress import ProgressRecorder
+from wpull.recorder.warc import WARCRecorder, WARCRecorderParams
 from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper.base import DemuxDocumentScraper
 from wpull.scraper.css import CSSScraper

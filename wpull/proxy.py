@@ -2,12 +2,12 @@
 '''Proxy Tools'''
 import logging
 
-import trollius
 from trollius import From, Return
+import trollius
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.http.request import Request
-from wpull.recorder import ProgressRecorder
+from wpull.recorder.progress import ProgressRecorder
 
 
 _logger = logging.getLogger(__name__)
