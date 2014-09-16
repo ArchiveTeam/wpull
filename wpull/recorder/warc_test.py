@@ -1,94 +1,19 @@
-# encoding=utf-8
-from tempfile import TemporaryDirectory
-import contextlib
 import logging
 import os.path
-import unittest
 
 from wpull.body import Body
 from wpull.database.sqltable import URLTable
 from wpull.http.request import Request, Response
-from wpull.recorder import WARCRecorder, WARCRecorderParams, BaseRecorder, \
-    BaseRecorderSession, DemuxRecorder
+from wpull.recorder.base_test import BaseRecorderTest
+from wpull.recorder.warc import WARCRecorder, WARCRecorderParams
 from wpull.warc import WARCRecord
 import wpull.util
-import wpull.version
 
 
 _logger = logging.getLogger(__name__)
 
 
-class MockRecorderError(Exception):
-    pass
-
-
-class MockRecorder(BaseRecorder):
-    def __init__(self, broken=False):
-        self.broken = broken
-        self.session_obj = None
-
-    @contextlib.contextmanager
-    def session(self):
-        if self.broken:
-            self.session_obj = MockBrokenRecorderSession()
-        else:
-            self.session_obj = MockRecorderSession()
-        try:
-            yield self.session_obj
-        finally:
-            self.session_obj.close()
-
-
-class MockBrokenRecorderSession(BaseRecorderSession):
-    def __init__(self):
-        self.closed = False
-
-    def pre_request(self, request):
-        raise MockRecorderError()
-
-    def close(self):
-        self.closed = True
-
-
-class MockRecorderSession(BaseRecorderSession):
-    def __init__(self):
-        self.ok = False
-        self.closed = False
-
-    def pre_request(self, request):
-        self.ok = True
-
-    def close(self):
-        self.closed = True
-
-
-class RecorderTest(unittest.TestCase):
-    def setUp(self):
-        unittest.TestCase.setUp(self)
-        self.original_dir = os.getcwd()
-        self.temp_dir = TemporaryDirectory()
-        os.chdir(self.temp_dir.name)
-
-    def tearDown(self):
-        self.temp_dir.cleanup()
-        os.chdir(self.original_dir)
-        unittest.TestCase.tearDown(self)
-
-    def test_demux_recorder(self):
-        broken_recorder = MockRecorder(broken=True)
-        good_recorder = MockRecorder(broken=False)
-        demux_recorder = DemuxRecorder([broken_recorder, good_recorder])
-
-        try:
-            with demux_recorder.session() as session:
-                session.pre_request(None)
-        except MockRecorderError:
-            pass
-
-        self.assertTrue(broken_recorder.session_obj.closed)
-        self.assertTrue(good_recorder.session_obj.closed)
-        self.assertFalse(good_recorder.session_obj.ok)
-
+class TestWARC(BaseRecorderTest):
     def test_warc_recorder(self):
         file_prefix = 'asdf'
         warc_filename = 'asdf.warc'
