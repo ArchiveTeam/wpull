@@ -87,6 +87,12 @@ wpull Package
     api/processor.web
     api/proxy
     api/recorder
+    api/recorder.base
+    api/recorder.demux
+    api/recorder.document
+    api/recorder.printing
+    api/recorder.progress
+    api/recorder.warc
     api/regexstream
     api/robotstxt
     api/scraper
