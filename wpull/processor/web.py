@@ -67,7 +67,6 @@ WebProcessorInstances = namedlist.namedtuple(
         ('file_writer', NullWriter()),
         ('waiter', LinearWaiter()),
         ('statistics', Statistics()),
-        ('converter', None),
         ('phantomjs_controller', None),
     ]
 )
@@ -80,8 +79,6 @@ Args:
     file_writer (:class`.writer.BaseWriter`): The file writer.
     waiter (:class:`.waiter.Waiter`): The Waiter.
     statistics (:class:`.stats.Statistics`): The Statistics.
-    converter (:class:`.converter.BatchDocumentConverter`): The document
-        converter.
     phantomjs_controller (:class:`PhantomJSController`): The PhantomJS
         controller.
 '''
@@ -149,11 +146,8 @@ class WebProcessor(BaseProcessor, HookableMixin):
             session.close()
 
     def close(self):
-        '''Close the client and invoke document converter.'''
+        '''Close the web client.'''
         self._web_client.close()
-
-        if self._instances.converter:
-            self._instances.converter.convert_all()
 
 
 class WebProcessorSession(object):

@@ -175,6 +175,7 @@ class Builder(object):
             concurrent=self._args.concurrent,
             ignore_exceptions=self._args.ignore_fatal_errors
         )
+        self._build_document_converter()
 
         self._setup_file_logger_close(self.factory['Application'])
         self._setup_console_logger_close(self.factory['Application'])
@@ -705,7 +706,6 @@ class Builder(object):
         document_scraper = self._factory['DemuxDocumentScraper']
         file_writer = self._build_file_writer()
         post_data = self._get_post_data()
-        converter = self._build_document_converter()
         web_client = self._build_web_client()
         phantomjs_controller = self._build_phantomjs_controller()
         robots_txt_checker = self._build_robots_txt_checker()
@@ -725,7 +725,6 @@ class Builder(object):
             file_writer=file_writer,
             waiter=waiter,
             statistics=self._factory['Statistics'],
-            converter=converter,
             phantomjs_controller=phantomjs_controller,
         )
 

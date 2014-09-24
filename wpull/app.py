@@ -135,6 +135,7 @@ class Application(HookableMixin):
             pass
 
         self._print_stats()
+        self._convert_documents()
         self.stop_observer.notify()
         self._close()
 
@@ -216,6 +217,13 @@ class Application(HookableMixin):
         _logger.info(_('A SSL certificate could not be verified.'))
         _logger.info(_('To ignore and proceed insecurely, '
                        'use ‘--no-check-certificate’.'))
+
+    def _convert_documents(self):
+        converter = self._builder.factory.instance_map.get(
+            'BatchDocumentConverter')
+
+        if converter:
+            converter.convert_all()
 
     def _close(self):
         '''Perform clean up actions.'''
