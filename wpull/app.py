@@ -12,7 +12,7 @@ import trollius
 from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ServerError, ExitStatus, ProtocolError, \
     SSLVerficationError, DNSNotFound, ConnectionRefused, NetworkError
-from wpull.hook import HookableMixin, HookDisconnected
+from wpull.hook import HookableMixin, HookDisconnected, HookStop
 import wpull.string
 
 
@@ -104,13 +104,8 @@ class Application(HookableMixin):
                 _logger.exception('Fatal exception.')
                 self._update_exit_code_from_error(error)
 
-                _logger.critical(_(
-                    'Sorry, Wpull unexpectedly crashed. '
-                    'Please report this problem to the authors at Wpull\'s '
-                    'issue tracker so it may be fixed. '
-                    'If you know how to program, maybe help us fix it? '
-                    'Thank you for helping us help you help us all.'
-                ))
+                if not isinstance(error, HookStop):
+                    self._print_crash_message()
 
         self._compute_exit_code_from_stats()
 
@@ -217,6 +212,15 @@ class Application(HookableMixin):
         _logger.info(_('A SSL certificate could not be verified.'))
         _logger.info(_('To ignore and proceed insecurely, '
                        'use ‘--no-check-certificate’.'))
+
+    def _print_crash_message(self):
+        _logger.critical(_(
+            'Sorry, Wpull unexpectedly crashed. '
+            'Please report this problem to the authors at Wpull\'s '
+            'issue tracker so it may be fixed. '
+            'If you know how to program, maybe help us fix it? '
+            'Thank you for helping us help you help us all.'
+        ))
 
     def _convert_documents(self):
         converter = self._builder.factory.instance_map.get(
