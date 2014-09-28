@@ -154,3 +154,7 @@ class ResultRule(object):
     def __init__(self, retry_connrefused=False, retry_dns_error=False):
         self.retry_connrefused = retry_connrefused
         self.retry_dns_error = retry_dns_error
+
+    # TODO: handle pre-response with continue, abort, etc
+    # TODO: move file writer here?
+    # TODO: move waiter here
