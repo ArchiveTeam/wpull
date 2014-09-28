@@ -1,10 +1,10 @@
 # encoding=utf-8
 '''Application support.'''
-from http.cookiejar import CookieJar
 import atexit
 import codecs
 import functools
 import gettext
+from http.cookiejar import CookieJar
 import itertools
 import logging
 import os.path
@@ -38,7 +38,7 @@ from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSClient
 from wpull.processor.phantomjs import PhantomJSController
-from wpull.processor.rule import FetchRule
+from wpull.processor.rule import FetchRule, ResultRule
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
     WebProcessorInstances
 from wpull.proxy import HTTPProxyServer
@@ -61,12 +61,12 @@ from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, HTTPFilter,
                              SpanHostsFilter, RegexFilter, DirectoryFilter,
                              BackwardFilenameFilter, ParentFilter)
 from wpull.util import ASCIIStreamWriter
+import wpull.version
 from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
                           IgnoreFileWriter, TimestampingFileWriter,
                           AntiClobberFileWriter)
-import wpull.version
 
 
 _logger = logging.getLogger(__name__)
@@ -115,6 +115,7 @@ class Builder(object):
             'RedirectTracker': RedirectTracker,
             'Request': Request,
             'Resolver': Resolver,
+            'ResultRule': ResultRule,
             'RobotsTxtChecker': RobotsTxtChecker,
             'RobotsTxtPool': RobotsTxtPool,
             'SitemapScraper': SitemapScraper,
@@ -712,6 +713,11 @@ class Builder(object):
         fetch_rule = self._factory.new(
             'FetchRule',
             url_filter=url_filter, robots_txt_checker=robots_txt_checker)
+        result_rule = self._factory.new(
+            'ResultRule',
+            retry_connrefused=args.retry_connrefused,
+            retry_dns_error=args.retry_dns_error,
+        )
 
         waiter = self._factory.new('Waiter',
                                    wait=args.wait,
@@ -721,6 +727,7 @@ class Builder(object):
         web_processor_instances = self._factory.new(
             'WebProcessorInstances',
             fetch_rule=fetch_rule,
+            result_rule=result_rule,
             document_scraper=document_scraper,
             file_writer=file_writer,
             waiter=waiter,
@@ -730,8 +737,6 @@ class Builder(object):
 
         web_processor_fetch_params = self._factory.new(
             'WebProcessorFetchParams',
-            retry_connrefused=args.retry_connrefused,
-            retry_dns_error=args.retry_dns_error,
             post_data=post_data,
             strong_redirects=args.strong_redirects,
             content_on_error=args.content_on_error,

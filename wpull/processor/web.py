@@ -22,7 +22,7 @@ from wpull.item import Status, LinkType
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSRPCTimedOut
 from wpull.processor.base import BaseProcessor
-from wpull.processor.rule import FetchRule
+from wpull.processor.rule import FetchRule, ResultRule
 from wpull.scraper.base import DemuxDocumentScraper
 from wpull.scraper.css import CSSScraper
 from wpull.scraper.html import HTMLScraper
@@ -39,8 +39,6 @@ _ = gettext.gettext
 WebProcessorFetchParams = namedlist.namedtuple(
     'WebProcessorFetchParamsType',
     [
-        ('retry_connrefused', False),
-        ('retry_dns_error', False),
         ('post_data', None),
         ('strong_redirects', True),
         ('content_on_error', False),
@@ -49,10 +47,6 @@ WebProcessorFetchParams = namedlist.namedtuple(
 '''WebProcessorFetchParams
 
 Args:
-    retry_connrefused: If True, don't consider a connection refused error
-        to be a permanent error.
-    retry_dns_error: If True, don't consider a DNS resolution error to be
-        permanent error.
     post_data (str): If provided, all requests will be POSTed with the
         given `post_data`. `post_data` must be in percent-encoded
         query format ("application/x-www-form-urlencoded").
@@ -63,6 +57,7 @@ WebProcessorInstances = namedlist.namedtuple(
     'WebProcessorInstancesType',
     [
         ('fetch_rule', FetchRule()),
+        ('result_rule', ResultRule()),
         ('document_scraper', DemuxDocumentScraper([])),
         ('file_writer', NullWriter()),
         ('waiter', LinearWaiter()),
@@ -74,6 +69,7 @@ WebProcessorInstances = namedlist.namedtuple(
 
 Args:
     fetch_url ( :class:`.processor.rule.FetchRule`): The fetch rule.
+    result_url ( :class:`.processor.rule.ResultRule`): The result rule.
     document_scraper (:class:`.scaper.DemuxDocumentScraper`): The document
         scraper.
     file_writer (:class`.writer.BaseWriter`): The file writer.
@@ -176,6 +172,7 @@ class WebProcessorSession(object):
         self._temp_files = set()
 
         self._fetch_rule = processor.instances.fetch_rule
+        self._result_rule = processor.instances.result_rule
         self._strong_redirects = self._processor.fetch_params.strong_redirects
 
     def _new_initial_request(self, with_body=True):
@@ -448,10 +445,10 @@ class WebProcessorSession(object):
                 return callback_result
 
         if isinstance(error, ConnectionRefused) \
-           and not self._processor.fetch_params.retry_connrefused:
+           and not self._result_rule.retry_connrefused:
             self._url_item.set_status(Status.skipped)
         elif (isinstance(error, DNSNotFound)
-              and not self._processor.fetch_params.retry_dns_error):
+              and not self._result_rule.retry_dns_error):
             self._url_item.set_status(Status.skipped)
         else:
             self._url_item.set_status(Status.error)
