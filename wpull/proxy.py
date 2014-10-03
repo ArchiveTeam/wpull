@@ -25,9 +25,10 @@ class HTTPProxyServer(object):
         rewrite (bool): If True, strip off URLs ending with
             ``/WPULLHTTPS`` and replaces the scheme with HTTPS.
     '''
-    def __init__(self, http_client, rewrite=False):
+    def __init__(self, http_client, rewrite=False, cookie_jar=None):
         self._http_client = http_client
         self._rewrite = rewrite
+        self._cookie_jar = cookie_jar
 
     @trollius.coroutine
     def __call__(self, reader, writer):
@@ -78,6 +79,9 @@ class HTTPProxyServer(object):
             writer.close()
             return
 
+        if self._cookie_jar:
+            self._cookie_jar.add_cookie_header(request)
+
         if self._rewrite and request.url.endswith('/WPULLHTTPS'):
             request.url = request.url[:-11].replace('http://', 'https://', 1)
 
@@ -88,6 +92,9 @@ class HTTPProxyServer(object):
                 request.body = reader
 
             response = yield From(session.fetch(request))
+
+            if self._cookie_jar:
+                self._cookie_jar.extract_cookies(response, request)
 
             writer.write(response.to_bytes())
             yield From(writer.drain())

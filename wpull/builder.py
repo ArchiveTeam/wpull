@@ -1027,6 +1027,7 @@ class Builder(object):
             'HTTPProxyServer',
             self.factory['HTTPClient'],
             rewrite=True,
+            cookie_jar=self.factory.get('CookieJarWrapper'),
         )
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
 
