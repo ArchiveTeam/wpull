@@ -93,7 +93,12 @@ class TestPhantomJS(wpull.testing.async.AsyncTestCase):
         with remote_client.remote() as remote:
             self.assertIn(remote, remote_client.remotes_busy)
 
-            yield From(remote.eval('phantom.exit(1)'))
+            try:
+                yield From(remote.eval('phantom.exit(1)'))
+            except PhantomJSRPCTimedOut:
+                # It probably quit before it could reply
+                pass
+
             yield From(trollius.sleep(0.1))
 
             test_remote = remote
@@ -119,7 +124,12 @@ class TestPhantomJS(wpull.testing.async.AsyncTestCase):
             test_remote = remote
 
         yield From(trollius.sleep(0.1))
-        yield From(test_remote.eval('phantom.exit(1)'))
+
+        try:
+            yield From(test_remote.eval('phantom.exit(1)'))
+        except PhantomJSRPCTimedOut:
+            # It probably quit before it could reply
+            pass
 
         with remote_client.remote() as remote:
             self.assertIn(remote, remote_client.remotes_busy)
