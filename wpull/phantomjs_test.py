@@ -79,6 +79,51 @@ class TestPhantomJS(wpull.testing.async.AsyncTestCase):
         self.assertNotIn(test_remote, remote_client.remotes_busy)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_client_with_remote_crash(self):
+        http_client = Client()
+        proxy_server = HTTPProxyServer(http_client)
+        proxy_socket, proxy_host = tornado.testing.bind_unused_port()
+
+        yield From(trollius.start_server(proxy_server, sock=proxy_socket))
+
+        remote_client = PhantomJSClient('localhost:{0}'.format(proxy_host))
+
+        with remote_client.remote() as remote:
+            self.assertIn(remote, remote_client.remotes_busy)
+
+            yield From(remote.eval('phantom.exit(1)'))
+            yield From(trollius.sleep(0.1))
+
+            test_remote = remote
+
+        self.assertNotIn(test_remote, remote_client.remotes_ready)
+        self.assertNotIn(test_remote, remote_client.remotes_busy)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_client_with_remote_crash_later(self):
+        http_client = Client()
+        proxy_server = HTTPProxyServer(http_client)
+        proxy_socket, proxy_host = tornado.testing.bind_unused_port()
+
+        yield From(trollius.start_server(proxy_server, sock=proxy_socket))
+
+        remote_client = PhantomJSClient('localhost:{0}'.format(proxy_host))
+
+        with remote_client.remote() as remote:
+            self.assertIn(remote, remote_client.remotes_busy)
+
+            test_remote = remote
+
+        yield From(trollius.sleep(0.1))
+        yield From(test_remote.eval('phantom.exit(1)'))
+
+        with remote_client.remote() as remote:
+            self.assertIn(remote, remote_client.remotes_busy)
+
+        self.assertNotIn(test_remote, remote_client.remotes_ready)
+        self.assertNotIn(test_remote, remote_client.remotes_busy)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_timeouts(self):
         remote = PhantomJSRemote()
 

@@ -3,6 +3,7 @@ What's New
 ==========
 
 * Fixed URLs with IPv6 addresses not including brackets when using them in host strings.
+* Fixed AssertionError crash where PhantomJS crashed.
 
 
 0.1001 (2014-09-16)
