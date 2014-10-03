@@ -468,6 +468,18 @@ class PhantomJSClient(object):
             else:
                 remote.close()
 
+    def close(self):
+        '''Close all remotes.'''
+        for remote in self._remotes_busy:
+            remote.close()
+
+        self._remotes_busy.clear()
+
+        for remote in self._remotes_ready:
+            remote.close()
+
+        self._remotes_ready.clear()
+
 
 class ResourceCounter(object):
     '''Resource counter.

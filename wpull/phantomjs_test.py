@@ -78,6 +78,8 @@ class TestPhantomJS(wpull.testing.async.AsyncTestCase):
         self.assertIn(test_remote, remote_client.remotes_ready)
         self.assertNotIn(test_remote, remote_client.remotes_busy)
 
+        remote_client.close()
+
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_client_with_remote_crash(self):
         http_client = Client()
@@ -98,6 +100,8 @@ class TestPhantomJS(wpull.testing.async.AsyncTestCase):
 
         self.assertNotIn(test_remote, remote_client.remotes_ready)
         self.assertNotIn(test_remote, remote_client.remotes_busy)
+
+        remote_client.close()
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_client_with_remote_crash_later(self):
@@ -122,6 +126,8 @@ class TestPhantomJS(wpull.testing.async.AsyncTestCase):
 
         self.assertNotIn(test_remote, remote_client.remotes_ready)
         self.assertNotIn(test_remote, remote_client.remotes_busy)
+
+        remote_client.close()
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_timeouts(self):
