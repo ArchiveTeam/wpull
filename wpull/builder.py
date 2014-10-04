@@ -101,7 +101,7 @@ class Builder(object):
             'DemuxDocumentScraper': DemuxDocumentScraper,
             'DemuxRecorder': DemuxRecorder,
             'DemuxURLFilter': DemuxURLFilter,
-            'FTPProcesssor': FTPProcessor,
+            'FTPProcessor': FTPProcessor,
             'Engine': Engine,
             'ElementWalker': ElementWalker,
             'FetchRule': FetchRule,
@@ -776,7 +776,7 @@ class Builder(object):
         return self._factory.new(
             'FTPClient',
             connection_pool=self._factory['ConnectionPool'],
-            recorder=self._factory['Recorder'],
+            recorder=self._factory['DemuxRecorder'],
             proxy_adapter=self._factory.instance_map.get('ProxyAdapter')
             )
 
