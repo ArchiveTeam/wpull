@@ -3,11 +3,11 @@
 import unittest
 
 from wpull.url import URLInfo
-from wpull.urlfilter import (HTTPFilter, HTTPSOnlyFilter, BackwardDomainFilter,
+from wpull.urlfilter import (SchemeFilter, HTTPSOnlyFilter, BackwardDomainFilter,
                              HostnameFilter, RecursiveFilter, LevelFilter,
                              TriesFilter, ParentFilter, SpanHostsFilter,
                              RegexFilter, DirectoryFilter,
-                             BackwardFilenameFilter)
+                             BackwardFilenameFilter, FollowFTPFilter)
 
 
 class MockURLTableRecord(object):
@@ -25,16 +25,20 @@ class MockURLTableRecord(object):
 
 
 class TestURLFilter(unittest.TestCase):
-    def test_http_filter(self):
+    def test_scheme_filter(self):
         mock_record = MockURLTableRecord()
 
-        url_filter = HTTPFilter()
+        url_filter = SchemeFilter()
         self.assertTrue(url_filter.test(
             URLInfo.parse('http://example.net'),
             mock_record
         ))
         self.assertTrue(url_filter.test(
             URLInfo.parse('https://example.net'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('ftp://example.net'),
             mock_record
         ))
         self.assertFalse(url_filter.test(
@@ -64,6 +68,86 @@ class TestURLFilter(unittest.TestCase):
         ))
         self.assertFalse(url_filter.test(
             URLInfo.parse("javascript:alert('hello!')"),
+            mock_record
+        ))
+
+    def test_follow_ftp_filter(self):
+        mock_record = MockURLTableRecord()
+        mock_record.referrer = 'http://wolf.farts'
+
+        url_filter = FollowFTPFilter()
+
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://wolf.farts/1'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('https://wolf.farts/1'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('mailto:wolf@wolf.farts'),
+            mock_record
+        ))
+        self.assertFalse(url_filter.test(
+            URLInfo.parse('ftp://wolf.farts/'),
+            mock_record
+        ))
+
+        url_filter = FollowFTPFilter(follow=True)
+
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://wolf.farts/1'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('https://wolf.farts/1'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('mailto:wolf@wolf.farts'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('ftp://wolf.farts/'),
+            mock_record
+        ))
+
+        mock_record.referrer = 'ftp://wolf.farts'
+
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://wolf.farts/1'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('https://wolf.farts/1'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('mailto:wolf@wolf.farts'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('ftp://wolf.farts/'),
+            mock_record
+        ))
+
+        url_filter = FollowFTPFilter(follow=True)
+
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://wolf.farts/1'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('https://wolf.farts/1'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('mailto:wolf@wolf.farts'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('ftp://wolf.farts/'),
             mock_record
         ))
 

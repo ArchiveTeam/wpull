@@ -25,12 +25,12 @@ def accept_url(url_info, record_info, verdict, reasons):
 
     if 'mailto:' in url_info['url']:
         assert not verdict
-        assert not reasons['filters']['HTTPFilter']
+        assert not reasons['filters']['SchemeFilter']
     else:
         assert url_info['path'] in ('/robots.txt', '/', '/post/',
                                     '/%95%B6%8E%9A%89%BB%82%AF/',
                                     '/static/style.css')
-        assert reasons['filters']['HTTPFilter']
+        assert reasons['filters']['SchemeFilter']
 
     assert record_info['url']
 
