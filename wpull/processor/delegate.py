@@ -15,8 +15,8 @@ _ = gettext.gettext
 
 class DelegateProcessor(BaseProcessor):
     '''Delegate to Web or FTP processor.'''
-    def __init__(self, http_processor, ftp_processor):
-        self.http_processor = http_processor
+    def __init__(self, web_processor, ftp_processor):
+        self.web_processor = web_processor
         self.ftp_processor = ftp_processor
 
     @trollius.coroutine
@@ -24,7 +24,7 @@ class DelegateProcessor(BaseProcessor):
         scheme = url_item.url_info.scheme
 
         if scheme in ('http', 'https'):
-            raise Return((yield From(self.http_processor.process(url_item))))
+            raise Return((yield From(self.web_processor.process(url_item))))
         elif scheme == 'ftp':
             raise Return((yield From(self.ftp_processor.process(url_item))))
         else:
@@ -34,5 +34,5 @@ class DelegateProcessor(BaseProcessor):
             ))
 
     def close(self):
-        self.http_processor.close()
+        self.web_processor.close()
         self.ftp_processor.close()
