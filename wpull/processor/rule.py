@@ -3,7 +3,9 @@ import random
 
 from trollius import From, Return
 import trollius
-from wpull.hook import HookableMixin, HookDisconnected
+from wpull.hook import HookableMixin, HookDisconnected, Actions, HookStop
+from wpull.item import Status
+from wpull.errors import DNSNotFound, ServerError
 
 
 class FetchRule(HookableMixin):
@@ -142,7 +144,7 @@ class FetchRule(HookableMixin):
         return verdict, reason
 
 
-class ResultRule(object):
+class ResultRule(HookableMixin):
     '''Decide on the results of a fetch.
 
     Args:
@@ -151,10 +153,142 @@ class ResultRule(object):
         retry_dns_error: If True, don't consider a DNS resolution error to be
             permanent error.
     '''
-    def __init__(self, retry_connrefused=False, retry_dns_error=False):
+    def __init__(self, retry_connrefused=False, retry_dns_error=False,
+                 waiter=None, statistics=None):
+        super().__init__()
         self.retry_connrefused = retry_connrefused
         self.retry_dns_error = retry_dns_error
+        self._waiter = waiter
+        self._statistics = statistics
 
-    # TODO: handle pre-response with continue, abort, etc
-    # TODO: move file writer here?
-    # TODO: move waiter here
+        self.register_hook(
+            'wait_time', 'handle_response', 'handle_pre_response',
+            'handle_error')
+
+    def handle_pre_response(self, request, response, url_item):
+        # TODO: add pre response hook
+        return Actions.NORMAL
+
+    def handle_document(self, request, response, url_item, filename):
+        '''Process a successful document response.
+
+        Returns:
+            str: A value from :class:`.hook.Actions`.
+        '''
+        self._waiter.reset()
+        self._statistics.increment(response.body.size())
+
+        action = self.handle_response(request, response, url_item)
+
+        if action == Actions.NORMAL:
+            url_item.set_status(Status.done, filename=filename)
+
+        return action
+
+    def handle_no_document(self, request, response, url_item):
+        '''Callback for successful responses containing no useful document.
+
+        Returns:
+            str: A value from :class:`.hook.Actions`.
+        '''
+        self._waiter.reset()
+
+        action = self.handle_response(request, response, url_item)
+
+        if action == Actions.NORMAL:
+            url_item.set_status(Status.skipped)
+
+        return action
+
+    def handle_intermediate_response(self, request, response, url_item):
+        '''Callback for successful intermediate responses.
+
+        Returns:
+            str: A value from :class:`.hook.Actions`.
+        '''
+        self._waiter.reset()
+        return Actions.NORMAL
+
+    def handle_document_error(self, request, response, url_item):
+        '''Callback for when the document only describes an server error.
+
+        Returns:
+            str: A value from :class:`.hook.Actions`.
+        '''
+        self._waiter.increment()
+
+        self._statistics.errors[ServerError] += 1
+
+        action = self.handle_response(request, response, url_item)
+
+        if action == Actions.NORMAL:
+            url_item.set_status(Status.error)
+
+        return action
+
+    def handle_response(self, request, response, url_item):
+        '''Generic handler for a response.
+
+        Returns:
+            str: A value from :class:`.hook.Actions`.
+        '''
+        action = self.consult_response_hook(
+            request, response, url_item.url_record)
+
+        if action == Actions.RETRY:
+            url_item.set_status(Status.error)
+        elif action == Actions.FINISH:
+            url_item.set_status(Status.done)
+        elif action == Actions.STOP:
+            raise HookStop('Script requested immediate stop.')
+
+        return action
+
+    def handle_error(self, request, error, url_item):
+        '''Process an error.
+
+        Returns:
+            str: A value from :class:`.hook.Actions`.
+        '''
+        self._statistics.errors[type(error)] += 1
+        self._waiter.increment()
+
+        action = self.consult_error_hook(request, url_item.url_record, error)
+
+        if action == Actions.RETRY:
+            url_item.set_status(Status.error)
+        elif action == Actions.FINISH:
+            url_item.set_status(Status.done)
+        elif action == Actions.STOP:
+            raise HookStop('Script requested immediate stop.')
+        elif isinstance(error, ConnectionRefusedError) and \
+                not self.retry_connrefused:
+            url_item.set_status(Status.skipped)
+        elif isinstance(error, DNSNotFound) and \
+                not self.retry_dns_error:
+            url_item.set_status(Status.skipped)
+        else:
+            url_item.set_status(Status.error)
+
+        return action
+
+    def get_wait_time(self):
+        seconds = self._waiter.get()
+        try:
+            return self.call_hook('wait_time', seconds)
+        except HookDisconnected:
+            return seconds
+
+    def consult_response_hook(self, request, response, url_record):
+        try:
+            return self.call_hook(
+                'handle_response', request, response, url_record
+            )
+        except HookDisconnected:
+            return Actions.NORMAL
+
+    def consult_error_hook(self, request, url_record, error):
+        try:
+            return self.call_hook('handle_error', request, url_record, error)
+        except HookDisconnected:
+            return Actions.NORMAL

@@ -330,17 +330,17 @@ class HookEnvironment(object):
         self.factory['Application'].connect_hook(
             'finishing_statistics', self._finishing_statistics
         )
-        self.factory['WebProcessor'].connect_hook('wait_time', self._wait_time)
+        self.factory['ResultRule'].connect_hook('wait_time', self._wait_time)
         self.factory['URLTable'].connect_hook(
             'queued_url',
             self._queued_url)
         self.factory['FetchRule'].connect_hook(
             'should_fetch',
             self._should_fetch)
-        self.factory['WebProcessor'].connect_hook(
+        self.factory['ResultRule'].connect_hook(
             'handle_response',
             self._handle_response)
-        self.factory['WebProcessor'].connect_hook(
+        self.factory['ResultRule'].connect_hook(
             'handle_error',
             self._handle_error)
         self.factory['WebProcessor'].connect_hook(
@@ -403,9 +403,9 @@ class HookEnvironment(object):
 
         return verdict
 
-    def _handle_response(self, request, response, url_item):
+    def _handle_response(self, request, response, url_record):
         url_info_dict = request.url_info.to_dict()
-        url_record_dict = url_item.url_record.to_dict()
+        url_record_dict = url_record.to_dict()
 
         response_info_dict = response.to_dict()
         action = self.callbacks.handle_response(
@@ -414,21 +414,11 @@ class HookEnvironment(object):
 
         _logger.debug(__('Hooked response returned {0}', action))
 
-        if action == Actions.NORMAL:
-            return 'normal'
-        elif action == Actions.RETRY:
-            return False
-        elif action == Actions.FINISH:
-            url_item.set_status(Status.done)
-            return True
-        elif action == Actions.STOP:
-            raise HookStop()
-        else:
-            raise NotImplementedError()
+        return action
 
-    def _handle_error(self, request, url_item, error):
+    def _handle_error(self, request, url_record, error):
         url_info_dict = request.url_info.to_dict()
-        url_record_dict = url_item.url_record.to_dict()
+        url_record_dict = url_record.to_dict()
         error_info_dict = {
             'error': error.__class__.__name__,
         }
@@ -438,17 +428,7 @@ class HookEnvironment(object):
 
         _logger.debug(__('Hooked error returned {0}', action))
 
-        if action == Actions.NORMAL:
-            return 'normal'
-        elif action == Actions.RETRY:
-            return False
-        elif action == Actions.FINISH:
-            url_item.set_status(Status.done)
-            return True
-        elif action == Actions.STOP:
-            raise HookStop('Script requested immediate stop.')
-        else:
-            raise NotImplementedError()
+        return action
 
     def _scrape_document(self, request, response, url_item):
         url_info_dict = request.url_info.to_dict()

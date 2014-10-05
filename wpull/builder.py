@@ -725,16 +725,19 @@ class Builder(object):
         fetch_rule = self._factory.new(
             'FetchRule',
             url_filter=url_filter, robots_txt_checker=robots_txt_checker)
-        result_rule = self._factory.new(
-            'ResultRule',
-            retry_connrefused=args.retry_connrefused,
-            retry_dns_error=args.retry_dns_error,
-        )
 
         waiter = self._factory.new('Waiter',
                                    wait=args.wait,
                                    random_wait=args.random_wait,
                                    max_wait=args.waitretry)
+
+        result_rule = self._factory.new(
+            'ResultRule',
+            retry_connrefused=args.retry_connrefused,
+            retry_dns_error=args.retry_dns_error,
+            waiter=waiter,
+            statistics=self._factory['Statistics'],
+        )
 
         web_processor_instances = self._factory.new(
             'WebProcessorInstances',

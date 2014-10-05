@@ -10,6 +10,8 @@ class FTPProcessor(BaseProcessor):
 
     @trollius.coroutine
     def process(self, url_item):
+        url_item.skip()  # TODO: implement FTP
+
         with self._ftp_client.session() as session:
             # TODO: things
             pass
