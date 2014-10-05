@@ -2,6 +2,7 @@
 from wpull.database.base import BaseURLTable
 from wpull.hook import HookableMixin, HookDisconnected
 from wpull.url import parse_url_or_log
+from wpull.item import Status
 
 
 class URLTableHookWrapper(BaseURLTable, HookableMixin):
@@ -57,8 +58,15 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
 
         return url_record
 
-    def check_in(self, *args, **kwargs):
-        return self.url_table.check_in(*args, **kwargs)
+    def check_in(self, url, new_status, *args, **kwargs):
+        if new_status == Status.error and self.is_hook_connected('queued_url'):
+            self._queue_counter += 1
+            url_info = parse_url_or_log(url)
+
+            if url_info:
+                self.call_hook('queued_url', url_info)
+
+        return self.url_table.check_in(url, new_status, *args, **kwargs)
 
     def update_one(self, *args, **kwargs):
         return self.url_table.update_one(*args, **kwargs)

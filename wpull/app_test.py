@@ -411,11 +411,12 @@ class TestApp(GoodAppTestCase):
                                 'testing', 'py_hook_script2.py')
         args = arg_parser.parse_args([
             self.get_url('/'),
-            'localhost:1',
+            'localhost:1/wolf',
             '--python-script', filename,
             '--page-requisites',
             '--reject-regex', '/post/',
             '--wait', '12',
+            '--retry-connrefused', '--tries', '1'
         ])
         builder = Builder(args)
 
@@ -461,11 +462,12 @@ class TestApp(GoodAppTestCase):
                                 'testing', 'lua_hook_script2.lua')
         args = arg_parser.parse_args([
             self.get_url('/'),
-            'localhost:1',
+            'localhost:1/wolf',
             '--lua-script', filename,
             '--page-requisites',
             '--reject-regex', '/post/',
             '--wait', '12',
+            '--retry-connrefused', '--tries', '1'
         ])
         builder = Builder(args)
 
