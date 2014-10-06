@@ -32,6 +32,7 @@ PROJECT_PACKAGES = [
     'wpull.ftp.ls',
     'wpull.http',
     'wpull.processor',
+    'wpull.recorder.',
     'wpull.scraper',
     'wpull.testing',
     'wpull.thirdparty',
@@ -49,6 +50,7 @@ setup_kwargs = dict(
     package_data={'': [
         'cert/ca-bundle.pem',
         'testing/*/*.css',
+        'testing/*/*.htm',
         'testing/*/*.html',
         'testing/*/*.txt',
         'testing/*/*.lua',
@@ -57,6 +59,7 @@ setup_kwargs = dict(
         'testing/*/*.png',
         'testing/*/*.xml',
         'testing/*.lua',
+        'testing/*.pem',
         '*.js',
     ]},
     classifiers=[
