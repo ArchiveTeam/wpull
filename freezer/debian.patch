@@ -1,0 +1,12 @@
+diff --git a/setup.py b/setup.py
+--- a/setup.py
++++ b/setup.py
+@@ -78,7 +78,7 @@
+         extraArgs = ext.extra_link_args or []
+         if sys.platform != "win32":
+             vars = distutils.sysconfig.get_config_vars()
+-            if not vars.get("Py_ENABLE_SHARED", 0):
++            if True or not vars.get("Py_ENABLE_SHARED", 0):
+                 libraryDirs.append(vars["LIBPL"])
+                 libraries.append("python%s.%s" % sys.version_info[:2])
+                 if vars["LINKFORSHARED"] and sys.platform != "darwin":
