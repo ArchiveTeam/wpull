@@ -5,7 +5,7 @@ from trollius import From, Return
 import trollius
 from wpull.hook import HookableMixin, HookDisconnected, Actions, HookStop
 from wpull.item import Status
-from wpull.errors import DNSNotFound, ServerError
+from wpull.errors import DNSNotFound, ServerError, ConnectionRefused
 
 
 class FetchRule(HookableMixin):
@@ -261,7 +261,7 @@ class ResultRule(HookableMixin):
             url_item.set_status(Status.done)
         elif action == Actions.STOP:
             raise HookStop('Script requested immediate stop.')
-        elif isinstance(error, ConnectionRefusedError) and \
+        elif isinstance(error, ConnectionRefused) and \
                 not self.retry_connrefused:
             url_item.set_status(Status.skipped)
         elif isinstance(error, DNSNotFound) and \
