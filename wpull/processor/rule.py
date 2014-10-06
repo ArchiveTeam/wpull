@@ -176,11 +176,11 @@ class ResultRule(HookableMixin):
             str: A value from :class:`.hook.Actions`.
         '''
         self._waiter.reset()
-        self._statistics.increment(response.body.size())
 
         action = self.handle_response(request, response, url_item)
 
         if action == Actions.NORMAL:
+            self._statistics.increment(response.body.size())
             url_item.set_status(Status.done, filename=filename)
 
         return action
