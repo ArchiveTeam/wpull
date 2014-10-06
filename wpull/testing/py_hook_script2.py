@@ -29,7 +29,7 @@ def accept_url(url_info, record_info, verdict, reasons):
     else:
         assert url_info['path'] in ('/robots.txt', '/', '/post/',
                                     '/%95%B6%8E%9A%89%BB%82%AF/',
-                                    '/static/style.css')
+                                    '/static/style.css', '/wolf')
         assert reasons['filters']['SchemeFilter']
 
     assert record_info['url']

@@ -6,6 +6,10 @@ What's New
 * Fixed AssertionError crash where PhantomJS crashed.
 * Cookies are now synchronized and shared with PhantomJS.
 
+* Scripting:
+
+  * Fixed mismatched `queued_url` and `dequeued_url` causing negative values in a counter. Issue was caused by requeued items in "error" status.
+
 
 0.1001 (2014-09-16)
 ===================
