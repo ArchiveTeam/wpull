@@ -106,7 +106,8 @@ if os.environ.get('USE_CX_FREEZE'):
                 'sqlalchemy.dialects.sqlite',
             ],
             'zip_includes': [
-                os.path.join(wpull_package_src_dir, 'cert', 'ca-bundle.pem'),
+                (os.path.join(wpull_package_src_dir, 'cert', 'ca-bundle.pem'),
+                 'wpull/cert/ca-bundle.pem'),
             ],
             'include_files': [
                 (

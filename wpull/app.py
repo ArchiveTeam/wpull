@@ -4,6 +4,7 @@ from collections import OrderedDict
 import datetime
 import gettext
 import logging
+import platform
 import signal
 
 from trollius import From, Return
@@ -59,6 +60,11 @@ class Application(HookableMixin):
 
     def setup_signal_handlers(self):
         '''Setup Ctrl+C and SIGTERM handlers.'''
+        if platform.system() == 'Windows':
+            _logger.warning(_(
+                'Graceful stopping with Unix signals is not supported '
+                'on this OS.'
+            ))
 
         status = {'graceful_called': False}
 
