@@ -136,6 +136,10 @@ def get_package_data(filename, mode='rb'):
             if part.endswith('.zip'):
                 zip_path = os.sep.join(parts[:index + 1])
                 member_path = os.sep.join(parts[index + 1:])
+                break
+
+        if platform.system() == 'Windows':
+            member_path = member_path.replace('\\', '/')
 
         with zipfile.ZipFile(zip_path) as zip_file:
             return zip_file.read(member_path)
