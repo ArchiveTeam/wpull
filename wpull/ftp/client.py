@@ -82,11 +82,12 @@ class Session(BaseSession):
         else:
             response.body = file
 
-        yield From(self._fetch_with_command(
+        reply = yield From(self._fetch_with_command(
             Command('RETR', request.url_info.path), response.body
         ))
 
         response.body.seek(0)
+        response.reply = reply
 
         raise Return(response)
 
@@ -111,16 +112,17 @@ class Session(BaseSession):
             response.body = file
 
         try:
-            yield From(self._get_machine_listing(request, response))
+            reply = yield From(self._get_machine_listing(request, response))
         except FTPServerError as error:
             response.body.seek(0)
             response.body.truncate()
             if error.reply_code in (500, 502):
-                yield From(self._get_list_listing(request, response))
+                reply = yield From(self._get_list_listing(request, response))
             else:
                 raise
 
         response.body.seek(0)
+        response.reply = reply
 
         raise Return(response)
 
@@ -140,11 +142,12 @@ class Session(BaseSession):
             raise Return(data_connection)
 
         try:
-            yield From(self._commander.get_file(
+            reply = yield From(self._commander.get_file(
                 command,
                 file,
                 connection_factory
             ))
+            raise Return(reply)
         finally:
             if data_connection:
                 data_connection.close()
@@ -156,7 +159,7 @@ class Session(BaseSession):
 
         Coroutine.
         '''
-        yield From(self._fetch_with_command(
+        reply = yield From(self._fetch_with_command(
             Command('MLSD', request.url_info.path), response.body
         ))
 
@@ -169,13 +172,15 @@ class Session(BaseSession):
 
         response.files = listings
 
+        raise Return(reply)
+
     @trollius.coroutine
     def _get_list_listing(self, request, response):
         '''Request a LIST listing.
 
         Coroutine.
         '''
-        yield From(self._fetch_with_command(
+        reply = yield From(self._fetch_with_command(
             Command('LIST', request.url_info.path), response.body
         ))
 
@@ -192,6 +197,8 @@ class Session(BaseSession):
         file.detach()
 
         response.files = listings
+
+        raise Return(reply)
 
     def clean(self):
         if self._connection:

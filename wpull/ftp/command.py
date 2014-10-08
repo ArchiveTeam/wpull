@@ -124,7 +124,8 @@ class Commander(object):
         if stream_callback:
             stream_callback(data_stream)
 
-        yield From(self.read_stream(command, file, data_stream))
+        reply = yield From(self.read_stream(command, file, data_stream))
+        raise Return(reply)
 
     @trollius.coroutine
     def read_stream(self, command, file, data_stream):
@@ -153,3 +154,5 @@ class Commander(object):
         )
 
         data_stream.close()
+
+        raise Return(reply)

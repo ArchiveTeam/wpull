@@ -129,10 +129,19 @@ class Response(object):
     Attributes:
         request (:class:`Request`): The corresponding request.
         body (:class:`.body.Body`): The file.
+        reply (:class:`Reply`): The latest Reply.
     '''
     def __init__(self):
         self.request = None
         self.body = None
+        self.reply = None
+
+    def to_dict(self):
+        return {
+            'request': self.request.to_dict(),
+            'body': self.body.to_dict(),
+            'reply': self.body.to_dict(),
+        }
 
 
 class ListingResponse(Response):
@@ -144,3 +153,8 @@ class ListingResponse(Response):
     def __init__(self):
         super().__init__()
         self.files = []
+
+    def to_dict(self):
+        dict_obj = super().to_dict()
+        dict_obj['files'] = self.files
+        return dict_obj
