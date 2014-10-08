@@ -15,13 +15,12 @@ import trollius
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
 from wpull.document.html import HTMLReader
-from wpull.errors import NetworkError, ProtocolError, ServerError, \
-    ConnectionRefused, DNSNotFound
+from wpull.errors import NetworkError, ProtocolError
 from wpull.hook import HookableMixin, HookDisconnected, Actions
-from wpull.item import Status, LinkType
+from wpull.item import LinkType
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSRPCTimedOut
-from wpull.processor.base import BaseProcessor
+from wpull.processor.base import BaseProcessor, BaseProcessorSession
 from wpull.processor.rule import FetchRule, ResultRule
 from wpull.scraper.base import DemuxDocumentScraper
 from wpull.scraper.css import CSSScraper
@@ -89,8 +88,7 @@ class WebProcessor(BaseProcessor, HookableMixin):
         fetch_params: An instance of :class:`WebProcessorFetchParams`.
         instances: An instance of :class:`WebProcessorInstances`.
 
-    .. seealso:: :class:`WebProcessorSession`,
-        :class:`WebProcessorWithRobotsTxtSession`
+    .. seealso:: :class:`WebProcessorSession`
     '''
     DOCUMENT_STATUS_CODES = (200, 206, 304,)
     '''Default status codes considered successfully fetching a document.'''
@@ -142,7 +140,7 @@ class WebProcessor(BaseProcessor, HookableMixin):
         self._web_client.close()
 
 
-class WebProcessorSession(object):
+class WebProcessorSession(BaseProcessorSession):
     '''Fetches an HTTP document.
 
     This Processor Session will handle document redirects within the same
@@ -201,6 +199,10 @@ class WebProcessorSession(object):
 
     @trollius.coroutine
     def process(self):
+        '''Process.
+
+        Coroutine.
+        '''
         verdict = (yield From(self._should_fetch_reason_with_robots(
             self._next_url_info, self._url_item.url_record)))[0]
 
@@ -223,7 +225,10 @@ class WebProcessorSession(object):
 
     @trollius.coroutine
     def _process_loop(self):
-        '''Fetch URL including redirects.'''
+        '''Fetch URL including redirects.
+
+        Coroutine.
+        '''
         while not self._web_client_session.done():
             verdict = self._should_fetch_reason(
                 self._next_url_info, self._url_item.url_record)[0]
@@ -275,10 +280,7 @@ class WebProcessorSession(object):
                 self._web_client_session.fetch(callback=response_callback)
             )
         except (NetworkError, ProtocolError) as error:
-            _logger.error(__(
-                _('Fetching ‘{url}’ encountered an error: {error}'),
-                url=request.url, error=error
-            ))
+            self._log_error(request, error)
 
             action = self._result_rule.handle_error(
                 request, error, self._url_item)
@@ -288,16 +290,7 @@ class WebProcessorSession(object):
 
             raise Return(True)
         else:
-            _logger.info(__(
-                _('Fetched ‘{url}’: {status_code} {reason}. '
-                    'Length: {content_length} [{content_type}].'),
-                url=request.url,
-                status_code=response.status_code,
-                reason=response.reason,
-                content_length=response.fields.get('Content-Length'),
-                content_type=response.fields.get('Content-Type'),
-            ))
-
+            self._log_response(request, response)
             action = self._handle_response(request, response)
 
             yield From(self._process_phantomjs(request, response))
@@ -379,6 +372,18 @@ class WebProcessorSession(object):
         with wpull.util.reset_file_offset(request.body):
             request.body.write(data)
 
+    def _log_response(self, request, response):
+        '''Log response.'''
+        _logger.info(__(
+            _('Fetched ‘{url}’: {status_code} {reason}. '
+                'Length: {content_length} [{content_type}].'),
+            url=request.url,
+            status_code=response.status_code,
+            reason=response.reason,
+            content_length=response.fields.get('Content-Length'),
+            content_type=response.fields.get('Content-Type'),
+        ))
+
     def _handle_response(self, request, response):
         '''Process the response.
 
@@ -388,6 +393,8 @@ class WebProcessorSession(object):
         self._url_item.set_value(status_code=response.status_code)
 
         if self._web_client_session.redirect_tracker.is_redirect():
+            self._file_writer_session.discard_document(response)
+
             return self._result_rule.handle_intermediate_response(
                 request, response, self._url_item
             )
@@ -401,10 +408,14 @@ class WebProcessorSession(object):
                 request, response, self._url_item, filename
             )
         elif response.status_code in self._no_document_codes:
+            self._file_writer_session.discard_document(response)
+
             return self._result_rule.handle_no_document(
                 request, response, self._url_item
             )
         else:
+            self._file_writer_session.discard_document(response)
+
             return self._result_rule.handle_document_error(
                 request, response, self._url_item
             )
