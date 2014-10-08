@@ -26,6 +26,7 @@ from wpull.testing.goodapp import GoodAppTestCase
 from wpull.url import URLInfo
 from wpull.util import IS_PYPY
 import wpull.testing.async
+from wpull.testing.ftp import FTPTestCase
 
 
 DEFAULT_TIMEOUT = 30
@@ -1046,6 +1047,23 @@ class TestAppBad(BadAppTestCase):
 
         self.assertEqual(0, exit_code)
         self.assertEqual(4, builder.factory['Statistics'].files)
+
+
+class TestAppFTP(FTPTestCase):
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_basic(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+        ])
+        builder = Builder(args)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
 
 
 @trollius.coroutine

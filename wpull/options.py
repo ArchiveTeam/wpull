@@ -876,7 +876,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         )
 
     def _add_ftp_args(self):
-        pass
+        group = self.add_argument_group('FTP')
 #         self.add_argument(
 #             '--ftp-user',
 #             metavar='USER'
@@ -885,10 +885,13 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--ftp-password',
 #             metavar='PASS'
 #         )
-#         self.add_argument(
-#             '--no-remove-listing',
-#             action='store_true',
-#         )
+        group.add_argument(
+            '--no-remove-listing',
+            action='store_false',
+            default=True,
+            dest='remove_listing',
+            help=_('keep directory file listings')
+        )
 #         self.add_argument(
 #             '--no-glob',
 #             action='store_true',

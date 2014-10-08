@@ -39,7 +39,8 @@ from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSClient
 from wpull.processor.delegate import DelegateProcessor
-from wpull.processor.ftp import FTPProcessor
+from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
+    FTPProcessorInstances
 from wpull.processor.phantomjs import PhantomJSController
 from wpull.processor.rule import FetchRule, ResultRule
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
@@ -105,7 +106,10 @@ class Builder(object):
             'Engine': Engine,
             'ElementWalker': ElementWalker,
             'FetchRule': FetchRule,
+            'FileWriter': NullWriter,
             'FTPClient': FTPClient,
+            'FTPProcessorFetchParams': FTPProcessorFetchParams,
+            'FTPProcessorInstances': FTPProcessorInstances,
             'HTTPProxyServer': HTTPProxyServer,
             'HTMLParser': NotImplemented,
             'HTMLScraper': HTMLScraper,
@@ -769,9 +773,24 @@ class Builder(object):
         '''Build FTPProcessor.'''
         ftp_client = self._build_ftp_client()
 
+        fetch_params = self._factory.new(
+            'FTPProcessorFetchParams',
+            remove_listing=self._args.remove_listing
+        )
+
+        instances = self._factory.new(
+            'FTPProcessorInstances',
+            fetch_rule=self._factory['FetchRule'],
+            result_rule=self._factory['ResultRule'],
+            file_writer=self._factory['FileWriter'],
+        )
+
         return self._factory.new(
             'FTPProcessor',
-            ftp_client
+            ftp_client,
+            self._args.directory_prefix,
+            fetch_params,
+            instances
         )
 
     def _build_ftp_client(self):
@@ -792,7 +811,7 @@ class Builder(object):
         args = self._args
 
         if args.delete_after or args.output_document:
-            return NullWriter()
+            return self._factory.new('FileWriter')  # is a NullWriter
 
         use_dir = (len(args.urls) != 1 or args.page_requisites
                    or args.recursive)
@@ -839,7 +858,10 @@ class Builder(object):
         else:
             file_class = AntiClobberFileWriter
 
-        return file_class(
+        self._factory.class_map['FileWriter'] = file_class
+
+        return self._factory.new(
+            'FileWriter',
             path_namer,
             file_continuing=args.continue_download,
             headers_included=args.save_headers,
