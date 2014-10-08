@@ -113,9 +113,9 @@ class TestUnicodeDammit(unittest.TestCase):
             dammit.unicode_markup, """<foo>''""</foo>""")
 
     def test_detect_utf8(self):
-        utf8 = b"\xc3\xa9"
+        utf8 = b"\xc3\xa9\xc3\xa9"
         dammit = UnicodeDammit(utf8)
-        self.assertEqual(dammit.unicode_markup, '\xe9')
+        self.assertEqual(dammit.unicode_markup, '\xe9\xe9')
         self.assertEqual(dammit.original_encoding.lower(), 'utf-8')
 
     def test_convert_hebrew(self):
