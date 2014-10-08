@@ -143,6 +143,20 @@ class FetchRule(HookableMixin):
 
         return verdict, reason
 
+    def check_ftp_request(self, url_info, url_record):
+        '''Check URL filters and scripting hook.
+
+        Returns:
+            tuple: (bool, str)
+        '''
+        verdict, reason, test_info = self.consult_filters(
+            url_info, url_record)
+
+        verdict, reason = self.consult_hook(url_info, url_record, verdict,
+                                            reason, test_info)
+
+        return verdict, reason
+
 
 class ResultRule(HookableMixin):
     '''Decide on the results of a fetch.
