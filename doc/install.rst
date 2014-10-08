@@ -70,6 +70,12 @@ Install Wpull from GitHub::
    as the path will install Wpull's develop branch.
 
 
+Pre-built Binaries
+==================
+
+Wpull has pre-built binaries located at https://launchpad.net/wpull/+download. These are unsupported and may not be update to date.
+
+
 Caveats
 =======
 

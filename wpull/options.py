@@ -80,7 +80,7 @@ class AppArgumentParser(argparse.ArgumentParser):
     def __init__(self, *args, real_exit=True, **kwargs):
         super().__init__(
             *args,
-            description=_('Wget-compatible web downloader.'),
+            description=_('Wget-compatible web downloader and crawler.'),
             formatter_class=AppHelpFormatter,
             **kwargs
         )

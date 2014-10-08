@@ -149,7 +149,11 @@ class BaseSQLURLTable(BaseURLTable):
             if increment_try_count:
                 values[URL.try_count] = URL.try_count + 1
 
-            query = update(URL).values(values).where(URL.url == url)
+            # TODO: rewrite as a join for clarity
+            subquery = select([URLString.id]).where(URLString.url == url)\
+                .limit(1)
+            query = update(URL).values(values)\
+                .where(URL.url_str_id == subquery)
 
             session.execute(query)
 
@@ -160,7 +164,11 @@ class BaseSQLURLTable(BaseURLTable):
             for key, value in kwargs.items():
                 values[getattr(URL, key)] = value
 
-            query = update(URL).values(values).where(URL.url == url)
+            # TODO: rewrite as a join for clarity
+            subquery = select([URLString.id]).where(URLString.url == url)\
+                .limit(1)
+            query = update(URL).values(values)\
+                .where(URL.url_str_id == subquery)
 
             session.execute(query)
 

@@ -4,6 +4,7 @@ What's New
 
 * Fixed URLs with IPv6 addresses not including brackets when using them in host strings.
 * Fixed AssertionError crash where PhantomJS crashed.
+* Fixed database slowness over time.
 * Cookies are now synchronized and shared with PhantomJS.
 
 * Scripting:

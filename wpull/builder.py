@@ -1193,12 +1193,24 @@ class Builder(object):
             certs.update(self._read_pem_file(pem_filename, from_package=True))
 
         if self._args.ca_directory:
-            for filename in os.listdir(self._args.ca_directory):
-                if os.path.isfile(filename):
-                    certs.update(self._read_pem_file(filename))
+            if os.path.isdir(self._args.ca_directory):
+                for filename in os.listdir(self._args.ca_directory):
+                    if os.path.isfile(filename):
+                        certs.update(self._read_pem_file(filename))
+            else:
+                _logger.warning(__(
+                    _('Certificate directory {path} does not exist.'),
+                    path=self._args.ca_directory
+                ))
 
         if self._args.ca_certificate:
-            certs.update(self._read_pem_file(self._args.ca_certificate))
+            if os.path.isfile(self._args.ca_certificate):
+                certs.update(self._read_pem_file(self._args.ca_certificate))
+            else:
+                _logger.warning(__(
+                    _('Certificate file {path} does not exist.'),
+                    path=self._args.ca_certificate
+                ))
 
         self._ca_certs_file = certs_filename = tempfile.mkstemp()[1]
 

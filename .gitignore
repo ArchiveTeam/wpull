@@ -58,3 +58,5 @@ doc/_build/
 MANIFEST
 py2src_noedit/
 test/fuzz_fusil/fusil*/
+freezer/packages
+freezer/cx_freeze
