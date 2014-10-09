@@ -80,7 +80,7 @@ class TestApp(GoodAppTestCase):
     def test_one_page(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([self.get_url('/')])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -117,7 +117,7 @@ class TestApp(GoodAppTestCase):
 
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([self.get_url('/big_payload')])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -140,7 +140,7 @@ class TestApp(GoodAppTestCase):
             '--page-requisites',
             '-4',
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -190,7 +190,7 @@ class TestApp(GoodAppTestCase):
             '--link-extractors', 'html',
         ])
         with cd_tempdir():
-            builder = Builder(args)
+            builder = Builder(args, unit_test=True)
             app = builder.build()
             exit_code = yield From(app.run())
 
@@ -219,7 +219,7 @@ class TestApp(GoodAppTestCase):
                 '--input-file', in_file.name
             ])
             with cd_tempdir():
-                builder = Builder(args)
+                builder = Builder(args, unit_test=True)
                 app = builder.build()
                 exit_code = yield From(app.run())
 
@@ -242,7 +242,7 @@ class TestApp(GoodAppTestCase):
                 '--force-html',
             ])
             with cd_tempdir():
-                builder = Builder(args)
+                builder = Builder(args, unit_test=True)
                 app = builder.build()
                 exit_code = yield From(app.run())
 
@@ -260,7 +260,7 @@ class TestApp(GoodAppTestCase):
             '--warc-max-size', '1k',
             '--warc-cdx'
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -286,7 +286,7 @@ class TestApp(GoodAppTestCase):
             '--no-robots',
             '--no-warc-digests',
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -312,7 +312,7 @@ class TestApp(GoodAppTestCase):
             '--no-robots',
             '--warc-cdx',
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -343,7 +343,7 @@ class TestApp(GoodAppTestCase):
                 '--warc-dedup', 'dedup.cdx',
             ])
 
-            builder = Builder(args)
+            builder = Builder(args, unit_test=True)
             app = builder.build()
             exit_code = yield From(app.run())
 
@@ -365,7 +365,7 @@ class TestApp(GoodAppTestCase):
             '--post-data', 'text=hi',
         ])
         with cd_tempdir():
-            builder = Builder(args)
+            builder = Builder(args, unit_test=True)
             app = builder.build()
             exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
@@ -418,7 +418,7 @@ class TestApp(GoodAppTestCase):
             '--wait', '12',
             '--retry-connrefused', '--tries', '1'
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -446,7 +446,7 @@ class TestApp(GoodAppTestCase):
             '--python-script', filename,
         ])
         with cd_tempdir():
-            builder = Builder(args)
+            builder = Builder(args, unit_test=True)
             app = builder.build()
             exit_code = yield From(app.run())
 
@@ -469,7 +469,7 @@ class TestApp(GoodAppTestCase):
             '--wait', '12',
             '--retry-connrefused', '--tries', '1'
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -496,7 +496,7 @@ class TestApp(GoodAppTestCase):
             '--database', 'temp-unittest.db'
         ])
         with cd_tempdir():
-            builder = Builder(args)
+            builder = Builder(args, unit_test=True)
             app = builder.build()
             exit_code = yield From(app.run())
 
@@ -526,7 +526,7 @@ class TestApp(GoodAppTestCase):
                 '--save-cookies', 'wpull_test_cookies.txt',
                 '--keep-session-cookies',
             ])
-            builder = Builder(args)
+            builder = Builder(args, unit_test=True)
 
             with cd_tempdir():
                 app = builder.build()
@@ -554,7 +554,7 @@ class TestApp(GoodAppTestCase):
                 self.get_http_port())),
             '--waitretry', '0'
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
         with cd_tempdir():
@@ -576,7 +576,7 @@ class TestApp(GoodAppTestCase):
             '--recursive',
             '--no-robots',
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
         with cd_tempdir():
@@ -599,7 +599,7 @@ class TestApp(GoodAppTestCase):
             '--no-robots',
             '--recursive',
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
         with cd_tempdir():
@@ -622,7 +622,7 @@ class TestApp(GoodAppTestCase):
             '--no-robots',
             '--page-requisites',
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
         with cd_tempdir():
@@ -644,7 +644,7 @@ class TestApp(GoodAppTestCase):
             '--no-strong-redirects',
             '--no-robots',
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
         with cd_tempdir():
@@ -663,7 +663,7 @@ class TestApp(GoodAppTestCase):
             self.get_url('/'),
             '--recursive',
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -684,7 +684,7 @@ class TestApp(GoodAppTestCase):
             self.get_url('/forbidden'),
             '--recursive',
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -703,7 +703,7 @@ class TestApp(GoodAppTestCase):
         ])
 
         with cd_tempdir():
-            builder = Builder(args)
+            builder = Builder(args, unit_test=True)
 
             app = builder.build()
             exit_code = yield From(app.run())
@@ -720,7 +720,7 @@ class TestApp(GoodAppTestCase):
         ])
 
         with cd_tempdir():
-            builder = Builder(args)
+            builder = Builder(args, unit_test=True)
 
             app = builder.build()
             exit_code = yield From(app.run())
@@ -749,7 +749,7 @@ class TestApp(GoodAppTestCase):
             '--header', 'accept-language: dragon',
             '--python-script', script_filename,
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -796,7 +796,7 @@ class TestApp(GoodAppTestCase):
             '--phantomjs-wait', '0.1',
             '--phantomjs-scroll', '20',
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -819,7 +819,7 @@ class TestApp(GoodAppTestCase):
         ])
 
         with cd_tempdir():
-            builder = Builder(args)
+            builder = Builder(args, unit_test=True)
 
             app = builder.build()
             exit_code = yield From(app.run())
@@ -851,7 +851,7 @@ class TestApp(GoodAppTestCase):
             opts = [string.encode('utf-32-le') for string in opts]
 
             args = arg_parser.parse_args(opts)
-            builder = Builder(args)
+            builder = Builder(args, unit_test=True)
 
             with cd_tempdir():
                 app = builder.build()
@@ -868,7 +868,7 @@ class TestApp(GoodAppTestCase):
             '--no-iri',
             '--no-robots'
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -887,7 +887,7 @@ class TestApp(GoodAppTestCase):
                 '--output-document', 'blah.dat'
             ])
 
-            builder = Builder(args)
+            builder = Builder(args, unit_test=True)
             app = builder.build()
             exit_code = yield From(app.run())
 
@@ -928,7 +928,7 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase):
             '--no-robots',
             '--no-check-certificate',
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -945,7 +945,7 @@ class TestAppBad(BadAppTestCase):
         args = arg_parser.parse_args([
             self.get_url('/bad_cookie'),
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -963,7 +963,7 @@ class TestAppBad(BadAppTestCase):
         args = arg_parser.parse_args([
             self.get_url('/long_cookie'),
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -983,7 +983,7 @@ class TestAppBad(BadAppTestCase):
             '--recursive',
             '--no-robots'
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -1001,7 +1001,7 @@ class TestAppBad(BadAppTestCase):
             '--no-robots',
             '--waitretry', '0.1',
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -1018,7 +1018,7 @@ class TestAppBad(BadAppTestCase):
             '--ignore-length',
             '--no-robots',
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -1038,7 +1038,7 @@ class TestAppBad(BadAppTestCase):
             self.get_url('/utf8_then_binary/doc.js'),
             '--no-robots',
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
