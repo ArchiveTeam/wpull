@@ -1065,6 +1065,35 @@ class TestAppFTP(FTPTestCase):
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_args(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            self.get_url('/no_exist'),
+            '-r',
+            '--no-remove-listing',
+            '--level', '1',
+            '--tries', '1',
+            '--wait', '0',
+            '--no-host-directories',
+        ])
+        builder = Builder(args)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+            self.assertEqual(8, exit_code)
+            self.assertEqual(4, builder.factory['Statistics'].files)
+
+            print(os.listdir())
+
+            self.assertTrue(os.path.exists('.listing'))
+            self.assertTrue(os.path.exists('example.txt'))
+            self.assertTrue(os.path.exists('example1/.listing'))
+            self.assertTrue(os.path.exists('example2/.listing'))
+
 
 @trollius.coroutine
 def tornado_future_adapter(future):

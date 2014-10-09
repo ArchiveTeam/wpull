@@ -41,10 +41,13 @@ class Commander(object):
 
         Coroutine.
         '''
+        # FIXME: implement some states so we don't need to close all the time
+        self._control_stream.close()
+
         if self._control_stream.closed():
             yield From(self._control_stream.reconnect())
-        else:
-            yield From(self._control_stream.write_command(Command('REIN')))
+#         else:
+#             yield From(self._control_stream.write_command(Command('REIN')))
 
         reply = yield From(self._control_stream.read_reply())
 

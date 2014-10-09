@@ -8,7 +8,7 @@ import trollius
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
-from wpull.errors import NetworkError, ProtocolError
+from wpull.errors import NetworkError, ProtocolError, ServerError
 from wpull.ftp.request import Request, ListingResponse, Response
 from wpull.processor.base import BaseProcessor, BaseProcessorSession
 from wpull.processor.rule import ResultRule, FetchRule
@@ -135,9 +135,9 @@ class FTPProcessorSession(BaseProcessorSession):
             return
 
         request = Request(self._url_item.url_info.url)  # TODO: dependency inject
-        body = Body(directory=self._processor.root_path, hint='ftp_resp')
+        self._file_writer_session.process_request(request)
 
-        yield From(self._fetch(request, body))
+        yield From(self._fetch(request))
 
         wait_time = self._result_rule.get_wait_time()
 
@@ -146,24 +146,39 @@ class FTPProcessorSession(BaseProcessorSession):
             yield From(trollius.sleep(wait_time))
 
     @trollius.coroutine
-    def _fetch(self, request, body):
+    def _fetch(self, request):
         '''Fetch the request
 
         Coroutine.
         '''
         _logger.info(_('Fetching ‘{url}’.').format(url=request.url))
 
+        response = None
+
+        def response_callback(dummy, callback_response):
+            nonlocal response
+            response = callback_response
+
+            self._file_writer_session.process_response(response)
+
+            if not response.body:
+                response.body = Body(directory=self._processor.root_path,
+                                     hint='resp_cb')
+
+            return response.body
+
         try:
             with self._processor.ftp_client.session() as session:
                 if not request.url_info.path.endswith('/'):
-                    response = yield From(session.fetch(request, body))
+                    response = yield From(session.fetch(request, callback=response_callback))
                 else:
-                    response = yield From(session.fetch_file_listing(request, body))
-        except (NetworkError, ProtocolError) as error:
+                    response = yield From(session.fetch_file_listing(request, callback=response_callback))
+        except (NetworkError, ProtocolError, ServerError) as error:
             self._log_error(request, error)
 
             action = self._result_rule.handle_error(
                 request, error, self._url_item)
+            _logger.debug(str(self._result_rule._statistics.errors))
 
             if response:
                 response.body.close()

@@ -264,7 +264,7 @@ class ResultRule(HookableMixin):
         Returns:
             str: A value from :class:`.hook.Actions`.
         '''
-        self._statistics.errors[type(error)] += 1
+        self._statistics.increment_error(error)
         self._waiter.increment()
 
         action = self.consult_error_hook(request, url_item.url_record, error)
