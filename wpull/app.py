@@ -65,6 +65,7 @@ class Application(HookableMixin):
                 'Graceful stopping with Unix signals is not supported '
                 'on this OS.'
             ))
+            return
 
         status = {'graceful_called': False}
 
