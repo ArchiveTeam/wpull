@@ -2,6 +2,9 @@
 What's New
 ==========
 
+0.1001.1 (2014-10-09)
+=====================
+
 * Fixed URLs with IPv6 addresses not including brackets when using them in host strings.
 * Fixed AssertionError crash where PhantomJS crashed.
 * Fixed database slowness over time.
