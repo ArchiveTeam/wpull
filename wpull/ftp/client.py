@@ -63,7 +63,7 @@ class Session(BaseSession):
         yield From(self._commander.login(username, password))
 
     @trollius.coroutine
-    def fetch(self, request, file):
+    def fetch(self, request, file=None, callback=None):
         '''Fetch a file.
 
         Returns:
@@ -76,6 +76,9 @@ class Session(BaseSession):
 
         response = Response()
         response.request = request
+
+        if callback:
+            file = callback(request, response)
 
         if not isinstance(file, Body):
             response.body = Body(file)
@@ -92,7 +95,7 @@ class Session(BaseSession):
         raise Return(response)
 
     @trollius.coroutine
-    def fetch_file_listing(self, request, file):
+    def fetch_file_listing(self, request, file=None, callback=None):
         '''Fetch a file listing.
 
         Returns:
@@ -105,6 +108,9 @@ class Session(BaseSession):
 
         response = ListingResponse()
         response.request = request
+
+        if callback:
+            file = callback(request, response)
 
         if not isinstance(file, Body):
             response.body = Body(file)
