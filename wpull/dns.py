@@ -23,7 +23,7 @@ class Resolver(HookableMixin):
 
     Args:
         cache_enabled (bool): If True, resolved addresses are cached.
-        family: IP address family specified in :module:`socket`. Typically
+        family: IP address family specified in :mod:`socket`. Typically
             values are
 
             * :data:`socket.AF_UNSPEC`: IPv4 and/or IPv6

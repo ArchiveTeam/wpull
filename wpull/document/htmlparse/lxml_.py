@@ -15,7 +15,7 @@ class HTMLParserTarget(object):
 
     Args:
         callback: A callback function. The function should accept one
-            argument from :module:`.document.htmlparse.element`.
+            argument from :mod:`.document.htmlparse.element`.
     '''
     # NOTE: If we ever support Python 2 again, byte strings may be
     # returned from lxml
@@ -135,7 +135,7 @@ class HTMLParser(BaseParser):
 
         Returns:
             iterator: Each item is an element from
-            :module:`.document.htmlparse.element`
+            :mod:`.document.htmlparse.element`
         '''
         if encoding:
             lxml_encoding = to_lxml_encoding(encoding) or 'latin1'

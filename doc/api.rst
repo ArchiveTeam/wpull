@@ -82,6 +82,8 @@ wpull Package
     api/phantomjs
     api/processor
     api/processor.base
+    api/processor.delegate
+    api/processor.ftp
     api/processor.phantomjs
     api/processor.rule
     api/processor.web

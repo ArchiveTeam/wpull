@@ -1223,7 +1223,7 @@ class Builder(object):
         * ``--save-headers``
         * ``--no-iri``
         * ``--output-document``
-        * ``--ignore-fatal-errors`
+        * ``--ignore-fatal-errors``
         '''
         enabled_options = []
 

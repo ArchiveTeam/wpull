@@ -54,8 +54,8 @@ class HTMLScraper(HTMLReader, BaseHTMLScraper):
     '''Scraper for HTML documents.
 
     Args:
-        html_parser (class:`.document.htmlparse.base.BaseParser):
-            An HTML parser such as the lxml or html5lib one.
+        html_parser (class:`.document.htmlparse.base.BaseParser`): An
+            HTML parser such as the lxml or html5lib one.
         element_walker (class:`ElementWalker`): HTML element walker.
         followed_tags: A list of tags that should be scraped
         ignored_tags: A list of tags that should not be scraped

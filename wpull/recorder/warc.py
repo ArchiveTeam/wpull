@@ -189,7 +189,7 @@ class WARCRecorder(BaseRecorder):
             self._start_new_warc_file()
 
     def _move_file_to_dest_dir(self, filename):
-        '''Move the file to the ``move_to` directory.'''
+        '''Move the file to the ``move_to`` directory.'''
         assert self._params.move_to
 
         if os.path.isdir(self._params.move_to):
