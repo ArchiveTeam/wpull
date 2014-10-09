@@ -6,6 +6,7 @@ import unittest
 
 from wpull.database.sqltable import SQLiteURLTable
 from wpull.item import Status
+from wpull.database.base import NotFound
 
 
 class TestDatabase(unittest.TestCase):
@@ -99,3 +100,36 @@ class TestDatabase(unittest.TestCase):
 
         print(time_diff)
         self.assertGreaterEqual(0.1, time_diff)
+
+    @unittest.skip('for debugging')
+    def test_large_table(self):
+        time_start = time.time()
+        url_table = SQLiteURLTable(':memory:')
+
+        for num in range(1000):
+            urls = []
+            for num_2 in range(100):
+                urls.append('http://example.com/{}{}'.format(num, num_2))
+
+            url_table.add_many(
+                urls, referrer='http://example.com', level=0,
+                top_url='http://example.net')
+
+        time_end = time.time()
+        time_diff = time_end - time_start
+
+        print(time_diff)
+
+        while True:
+            time_start = time.time()
+            try:
+                url_record = url_table.check_out(Status.todo)
+            except NotFound:
+                break
+
+            url_table.check_in(url_record.url, Status.done)
+
+            time_end = time.time()
+            time_diff = time_end - time_start
+
+            print(time_diff)

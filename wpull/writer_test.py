@@ -169,8 +169,8 @@ class TestWriterApp(GoodAppTestCase):
         args = arg_parser.parse_args([self.get_url('/static/my_file.txt')])
 
         with cd_tempdir() as temp_dir:
-            app = Builder(args).build()
-            exit_code = yield app.run()
+            app = Builder(args, unit_test=True).build()
+            exit_code = yield From(app.run())
 
             self.assertEqual(0, exit_code)
 
@@ -181,7 +181,7 @@ class TestWriterApp(GoodAppTestCase):
             with open(expected_filename, 'rb') as in_file:
                 self.assertIn(b'END', in_file.read())
 
-            app = Builder(args).build()
+            app = Builder(args, unit_test=True).build()
             exit_code = yield From(app.run())
 
             self.assertEqual(0, exit_code)
@@ -202,8 +202,8 @@ class TestWriterApp(GoodAppTestCase):
             with open(filename, 'wb') as out_file:
                 out_file.write(b'START')
 
-            app = Builder(args).build()
-            exit_code = yield app.run()
+            app = Builder(args, unit_test=True).build()
+            exit_code = yield From(app.run())
 
             self.assertEqual(0, exit_code)
 
@@ -229,9 +229,9 @@ class TestWriterApp(GoodAppTestCase):
 
             os.utime(filename, (631152000, 631152000))
 
-            builder = Builder(args)
+            builder = Builder(args, unit_test=True)
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
             self.assertEqual(0, exit_code)
 
@@ -254,9 +254,9 @@ class TestWriterApp(GoodAppTestCase):
 
             os.utime(filename, (636249600, 636249600))
 
-            builder = Builder(args)
+            builder = Builder(args, unit_test=True)
             app = builder.build()
-            exit_code = yield app.run()
+            exit_code = yield From(app.run())
 
             self.assertEqual(0, exit_code)
 
@@ -283,7 +283,7 @@ class TestWriterApp(GoodAppTestCase):
 
             os.utime(filename_orig, (631152000, 631152000))
 
-            builder = Builder(args)
+            builder = Builder(args, unit_test=True)
             app = builder.build()
             exit_code = yield From(app.run())
 
@@ -305,7 +305,7 @@ class TestWriterApp(GoodAppTestCase):
                 '--recursive',
                 '--no-host-directories',
             ])
-            app = Builder(args).build()
+            app = Builder(args, unit_test=True).build()
 
             os.mkdir('dir_or_file')
 
@@ -323,7 +323,7 @@ class TestWriterApp(GoodAppTestCase):
                 '--recursive',
                 '--no-host-directories',
             ])
-            app = Builder(args).build()
+            app = Builder(args, unit_test=True).build()
 
             with open('dir_or_file', 'wb'):
                 pass

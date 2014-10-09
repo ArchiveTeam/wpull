@@ -9,9 +9,9 @@ from wpull.connection import ConnectionPool, Connection
 from wpull.errors import NetworkError
 from wpull.http.client import Client
 from wpull.http.request import Request
-from wpull.recorder import BaseRecorder, BaseRecorderSession
-import wpull.testing.async
+from wpull.recorder.base import BaseRecorder, BaseRecorderSession
 from wpull.testing.badapp import BadAppTestCase
+import wpull.testing.async
 
 
 DEFAULT_TIMEOUT = 30

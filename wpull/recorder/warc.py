@@ -1,134 +1,24 @@
-# encoding=utf-8
-'''HTTP communication recorders.'''
-import abc
+from tempfile import NamedTemporaryFile
 import contextlib
-import datetime
 import gettext
 import gzip
-import http.client
 import io
-import itertools
 import logging
 import os.path
 import re
 import shutil
-import sys
-from tempfile import NamedTemporaryFile
-import tempfile
-import time
 
 import namedlist
 
 from wpull.backport.logging import BraceMessage as __
-from wpull.bandwidth import BandwidthMeter
 from wpull.namevalue import NameValueRecord
-import wpull.util
-import wpull.version
+from wpull.recorder.base import BaseRecorder, BaseRecorderSession
 from wpull.warc import WARCRecord
+import wpull.version
 
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
-
-
-class BaseRecorder(object, metaclass=abc.ABCMeta):
-    '''Base class for recorders.
-
-    Recorders are designed to be passed to a :class:`.http.client.Client`.
-    '''
-    @abc.abstractmethod
-    @contextlib.contextmanager
-    def session(self):
-        '''Return a new session.'''
-        pass
-
-    def close(self):
-        '''Perform any clean up actions.'''
-        pass
-
-
-class BaseRecorderSession(object, metaclass=abc.ABCMeta):
-    def pre_request(self, request):
-        '''Callback for when a request is about to be made.'''
-        pass
-
-    def request(self, request):
-        '''Callback for when a request has been made.'''
-        pass
-
-    def request_data(self, data):
-        '''Callback for the bytes that was sent.'''
-        pass
-
-    def pre_response(self, response):
-        '''Callback for when the response header has been received.'''
-        pass
-
-    def response(self, response):
-        '''Callback for when the response has been completely received.'''
-        pass
-
-    def response_data(self, data):
-        '''Callback for the bytes that was received.'''
-        pass
-
-
-class DemuxRecorder(BaseRecorder):
-    '''Put multiple recorders into one.'''
-    def __init__(self, recorders):
-        super().__init__()
-        self._recorders = recorders
-
-    @contextlib.contextmanager
-    def session(self):
-        dmux = DemuxRecorderSession(self._recorders)
-        with dmux:
-            yield dmux
-
-    def close(self):
-        for recorder in self._recorders:
-            recorder.close()
-
-
-class DemuxRecorderSession(BaseRecorderSession):
-    '''Demux recorder session.'''
-    def __init__(self, recorders):
-        super().__init__()
-        self._recorders = recorders
-        self._sessions = None
-        self._contexts = None
-
-    def __enter__(self):
-        self._contexts = [recorder.session() for recorder in self._recorders]
-        self._sessions = [context.__enter__() for context in self._contexts]
-
-    def pre_request(self, request):
-        for session in self._sessions:
-            session.pre_request(request)
-
-    def request(self, request):
-        for session in self._sessions:
-            session.request(request)
-
-    def request_data(self, data):
-        for session in self._sessions:
-            session.request_data(data)
-
-    def pre_response(self, response):
-        for session in self._sessions:
-            session.pre_response(response)
-
-    def response(self, response):
-        for session in self._sessions:
-            session.response(response)
-
-    def response_data(self, data):
-        for session in self._sessions:
-            session.response_data(data)
-
-    def __exit__(self, *args):
-        for context in self._contexts:
-            context.__exit__(*args)
 
 
 WARCRecorderParams = namedlist.namedtuple(
@@ -267,8 +157,8 @@ class WARCRecorder(BaseRecorder):
             dir=self._params.temp_dir,
             suffix='.log',
         )
-        self._log_handler = handler = logging.FileHandler(
-            self._log_record.block_file.name, encoding='utf-8')
+        self._log_handler = handler = logging.StreamHandler(
+            io.TextIOWrapper(self._log_record.block_file, encoding='utf-8'))
 
         logger.setLevel(logging.DEBUG)
         logger.debug('Wpull needs the root logger level set to DEBUG.')
@@ -299,7 +189,7 @@ class WARCRecorder(BaseRecorder):
             self._start_new_warc_file()
 
     def _move_file_to_dest_dir(self, filename):
-        '''Move the file to the ``move_to` directory.'''
+        '''Move the file to the ``move_to`` directory.'''
         assert self._params.move_to
 
         if os.path.isdir(self._params.move_to):
@@ -364,11 +254,9 @@ class WARCRecorder(BaseRecorder):
         '''Close the WARC file and clean up any logging handlers.'''
         if self._log_record:
             self._log_handler.flush()
-            self._log_handler.close()
 
             logger = logging.getLogger()
             logger.removeHandler(self._log_handler)
-            self._log_handler = None
 
             self._log_record.block_file.seek(0)
             self._log_record.set_common_fields('resource', 'text/plain')
@@ -386,6 +274,8 @@ class WARCRecorder(BaseRecorder):
             self.write_record(self._log_record)
 
             self._log_record.block_file.close()
+            self._log_handler.close()
+            self._log_handler = None
 
             if self._params.move_to is not None:
                 self._move_file_to_dest_dir(self._warc_filename)
@@ -586,314 +476,3 @@ class WARCRecorderSession(BaseRecorderSession):
             fields['WARC-Refers-To'] = ref_record_id
             fields['WARC-Profile'] = WARCRecord.SAME_PAYLOAD_DIGEST_URI
             fields['WARC-Truncated'] = 'length'
-
-
-class DebugPrintRecorder(BaseRecorder):
-    '''Debugging print recorder.'''
-    @contextlib.contextmanager
-    def session(self):
-        print('Session started')
-        try:
-            yield DebugPrintRecorderSession()
-        finally:
-            print('Session ended')
-
-
-class DebugPrintRecorderSession(BaseRecorderSession):
-    '''Debugging print recorder session.'''
-    def pre_request(self, request):
-        print(request)
-
-    def request(self, request):
-        print(request)
-
-    def request_data(self, data):
-        print(data)
-
-    def pre_response(self, response):
-        print(response)
-
-    def response(self, response):
-        print(response)
-
-    def response_data(self, data):
-        print(data)
-
-
-class PrintServerResponseRecorder(BaseRecorder):
-    '''Print the server HTTP response.'''
-    @contextlib.contextmanager
-    def session(self):
-        yield PrintServerResponseRecorderSession()
-
-
-class PrintServerResponseRecorderSession(BaseRecorderSession):
-    '''Print Server Response Recorder Session.'''
-    def response(self, response):
-        print(response.to_bytes().decode())
-
-
-class ProgressRecorder(BaseRecorder):
-    '''Print file download progress.'''
-    def __init__(self, bar_style=False, stream=sys.stderr):
-        self._bar_style = bar_style
-        self._stream = stream
-
-    @contextlib.contextmanager
-    def session(self):
-        if self._bar_style:
-            yield BarProgressRecorderSession(stream=self._stream)
-        else:
-            yield DotProgressRecorderSession(stream=self._stream)
-
-
-class BaseProgressRecorderSession(BaseRecorderSession):
-    '''Base Progress Recorder Session.'''
-    def __init__(self, stream=sys.stderr):
-        self._stream = stream
-        self._bytes_received = 0
-        self._content_length = None
-        self._response = None
-
-    def _print(self, *args):
-        string = ' '.join([str(arg) for arg in args])
-        print(string, end='', file=self._stream)
-
-    def _println(self, *args):
-        string = ' '.join([str(arg) for arg in args])
-        print(string, file=self._stream)
-
-    def _flush(self):
-        self._stream.flush()
-
-    def pre_request(self, request):
-        self._print(
-            _('Requesting {url}... ').format(url=request.url_info.url),
-        )
-        self._flush()
-
-    def pre_response(self, response):
-        self._println(response.status_code, response.reason)
-
-        content_length = response.fields.get('Content-Length')
-
-        if content_length:
-            try:
-                self._content_length = int(content_length)
-            except ValueError:
-                self._content_length = None
-
-        self._println(
-            _('Length: {content_length} [{content_type}]').format(
-                content_length=self._content_length,
-                content_type=response.fields.get('Content-Type')
-            ),
-        )
-
-        self._response = response
-
-    def response_data(self, data):
-        if not self._response:
-            return
-
-        self._bytes_received += len(data)
-
-    def response(self, response):
-        self._println()
-        self._println(
-            _('Bytes received: {bytes_received}').format(
-                bytes_received=self._bytes_received)
-        )
-
-
-class DotProgressRecorderSession(BaseProgressRecorderSession):
-    '''Dot Progress Recorder Session.
-
-    This session is responsible for printing dots every few seconds
-    when it receives data.
-    '''
-    def __init__(self, dot_interval=2.0, **kwargs):
-        super().__init__(**kwargs)
-        self._last_flush_time = 0
-        self._dot_interval = dot_interval
-
-    def response_data(self, data):
-        super().response_data(data)
-
-        if not self._response:
-            return
-
-        time_now = time.time()
-
-        if time_now - self._last_flush_time > self._dot_interval:
-            self._print_dots()
-            self._flush()
-
-            self._last_flush_time = time_now
-
-    def _print_dots(self):
-        self._print('.')
-
-
-class BarProgressRecorderSession(BaseProgressRecorderSession):
-    '''Bar Progress Recorder Session.
-
-    This session is responsible for displaying the ASCII bar
-    and stats.
-    '''
-    def __init__(self, update_interval=0.5, bar_width=25, **kwargs):
-        super().__init__(**kwargs)
-        self._last_flush_time = 0
-        self._update_interval = update_interval
-        self._bytes_continued = 0
-        self._total_size = None
-        self._bar_width = bar_width
-        self._throbber_index = 0
-        self._throbber_iter = itertools.cycle(
-            itertools.chain(
-                range(bar_width), reversed(range(1, bar_width - 1))
-            ))
-        self._bandwidth_meter = BandwidthMeter()
-        self._start_time = time.time()
-
-    def pre_response(self, response):
-        super().pre_response(response)
-
-        if response.status_code == http.client.PARTIAL_CONTENT:
-            match = re.search(
-                r'bytes +([0-9]+)-([0-9]+)/([0-9]+)',
-                response.fields.get('Content-Range', '')
-            )
-
-            if match:
-                self._bytes_continued = int(match.group(1))
-                self._total_size = int(match.group(3))
-        else:
-            self._total_size = self._content_length
-
-    def response_data(self, data):
-        super().response_data(data)
-
-        if not self._response:
-            return
-
-        self._bandwidth_meter.feed(len(data))
-
-        time_now = time.time()
-
-        if time_now - self._last_flush_time > self._update_interval:
-            self._print_status()
-            self._stream.flush()
-
-            self._last_flush_time = time_now
-
-    def response(self, response):
-        self._print_status()
-        self._stream.flush()
-        super().response(response)
-
-    def _print_status(self):
-        self._clear_line()
-
-        if self._total_size:
-            self._print_percent()
-            self._print(' ')
-            self._print_bar()
-        else:
-            self._print_throbber()
-
-        self._print(' ')
-        self._print_size_downloaded()
-        self._print(' ')
-        self._print_duration()
-        self._print(' ')
-        self._print_speed()
-        self._flush()
-
-    def _clear_line(self):
-        self._print('\x1b[1G')
-        self._print('\x1b[2K')
-
-    def _print_throbber(self):
-        self._print('[')
-
-        for position in range(self._bar_width):
-            self._print('O' if position == self._throbber_index else ' ')
-
-        self._print(']')
-
-        self._throbber_index = next(self._throbber_iter)
-
-    def _print_bar(self):
-        self._print('[')
-
-        for position in range(self._bar_width):
-            position_fraction = position / (self._bar_width - 1)
-            position_bytes = position_fraction * self._total_size
-
-            if position_bytes < self._bytes_continued:
-                self._print('+')
-            elif (position_bytes <=
-                  self._bytes_continued + self._bytes_received):
-                self._print('=')
-            else:
-                self._print(' ')
-
-        self._print(']')
-
-    def _print_size_downloaded(self):
-        self._print(wpull.string.format_size(self._bytes_received))
-
-    def _print_duration(self):
-        duration = int(time.time() - self._start_time)
-        self._print(datetime.timedelta(seconds=duration))
-
-    def _print_speed(self):
-        if self._bandwidth_meter.num_samples:
-            speed = self._bandwidth_meter.speed()
-            speed_str = _('{preformatted_file_size}/s').format(
-                preformatted_file_size=wpull.string.format_size(speed)
-            )
-        else:
-            speed_str = _('-- B/s')
-
-        self._print(speed_str)
-
-    def _print_percent(self):
-        fraction_done = ((self._bytes_continued + self._bytes_received) /
-                         self._total_size)
-
-        self._print('{fraction_done:.1%}'.format(fraction_done=fraction_done))
-
-
-class OutputDocumentRecorder(BaseRecorder):
-    '''Output documents as a stream.'''
-    def __init__(self, file, with_headers=False):
-        self._file = file
-        self._with_headers = with_headers
-
-    @contextlib.contextmanager
-    def session(self):
-        yield OutputDocumentRecorderSession(self._file, self._with_headers)
-
-    def close(self):
-        self._file.close()
-
-
-class OutputDocumentRecorderSession(BaseRecorderSession):
-    '''Output document recorder session.'''
-    def __init__(self, file, with_headers=False):
-        self._file = file
-        self._with_headers = with_headers
-        self._response = None
-
-    def pre_response(self, response):
-        self._response = response
-
-    def response_data(self, data):
-        if self._with_headers and not self._response:
-            self._file.write(data)
-
-        if self._response:
-            with wpull.util.reset_file_offset(self._response.body):
-                self._file.write(self._response.body.read(len(data)))

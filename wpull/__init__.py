@@ -1,1 +1,1 @@
-'''Wget-compatible web downloader.'''
+'''Wget-compatible web downloader and crawler.'''

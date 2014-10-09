@@ -12,13 +12,13 @@ Wpull requires the following:
 * `Trollius <https://pypi.python.org/pypi/trollius>`_
 * `lxml <https://pypi.python.org/pypi/lxml>`_
 
-   Or `html5lib <https://pypi.python.org/pypi/html5lib`_ for slower
-   but much better HTML parsing
+  * Or `html5lib <https://pypi.python.org/pypi/html5lib>`_ for slower
+    but much better HTML parsing
 
 * `chardet <https://pypi.python.org/pypi/chardet>`_
 
-   Or `cchardet <https://pypi.python.org/pypi/cchardet>`_ for faster
-   version of chardet
+  * Or `cchardet <https://pypi.python.org/pypi/cchardet>`_ for faster
+    version of chardet
 
 * `SQLAlchemy <https://pypi.python.org/pypi/SQLAlchemy>`_
 
@@ -68,6 +68,12 @@ Install Wpull from GitHub::
 
 .. Tip:: Using ``git+https://github.com/chfoo/wpull.git@develop#egg=wpull``
    as the path will install Wpull's develop branch.
+
+
+Pre-built Binaries
+==================
+
+Wpull has pre-built binaries located at https://launchpad.net/wpull/+download. These are unsupported and may not be update to date.
 
 
 Caveats

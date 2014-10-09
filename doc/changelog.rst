@@ -2,6 +2,18 @@
 What's New
 ==========
 
+0.1001.1 (2014-10-09)
+=====================
+
+* Fixed URLs with IPv6 addresses not including brackets when using them in host strings.
+* Fixed AssertionError crash where PhantomJS crashed.
+* Fixed database slowness over time.
+* Cookies are now synchronized and shared with PhantomJS.
+
+* Scripting:
+
+  * Fixed mismatched `queued_url` and `dequeued_url` causing negative values in a counter. Issue was caused by requeued items in "error" status.
+
 
 0.1001 (2014-09-16)
 ===================

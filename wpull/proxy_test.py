@@ -2,14 +2,16 @@
 import logging
 import unittest
 
+from trollius import From, Return
 import tornado.httpclient
 import tornado.testing
-from trollius import From, Return
 import trollius
 
+from wpull.cookie import RelaxedMozillaCookieJar, DeFactoCookiePolicy
 from wpull.http.client import Client
 from wpull.proxy import HTTPProxyServer
-from wpull.recorder import DebugPrintRecorder
+from wpull.recorder.printing import DebugPrintRecorder
+from wpull.wrapper import CookieJarWrapper
 import wpull.testing.badapp
 import wpull.testing.goodapp
 
@@ -31,8 +33,13 @@ class TestProxy(wpull.testing.goodapp.GoodAppTestCase):
     @unittest.skipIf(pycurl is None, "pycurl module not present")
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_basic(self):
+        cookie_jar = RelaxedMozillaCookieJar()
+        policy = DeFactoCookiePolicy(cookie_jar=cookie_jar)
+        cookie_jar.set_policy(policy)
+        cookie_jar_wrapper = CookieJarWrapper(cookie_jar)
+
         http_client = Client(recorder=DebugPrintRecorder())
-        proxy = HTTPProxyServer(http_client)
+        proxy = HTTPProxyServer(http_client, cookie_jar=cookie_jar_wrapper)
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
 
         yield From(trollius.start_server(proxy, sock=proxy_socket))
@@ -51,6 +58,9 @@ class TestProxy(wpull.testing.goodapp.GoodAppTestCase):
 
         self.assertEqual(200, response.code)
         self.assertIn(b'Hello!', response.body)
+        cookies = tuple(cookie_jar)
+        self.assertEqual('hi', cookies[0].name)
+        self.assertEqual('hello', cookies[0].value)
 
     # TODO: fix Travis CI to install pycurl
     @unittest.skipIf(pycurl is None, "pycurl module not present")

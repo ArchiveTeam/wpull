@@ -23,6 +23,7 @@ wpull_hook.callbacks.accept_url = function(url_info, record_info, verdict, reaso
     ['/post/'] = true,
     ['/%95%B6%8E%9A%89%BB%82%AF/'] = true,
     ['/static/style.css'] = true,
+    ['/wolf'] = true,
   }
 
   if string.match(url_info['url'], 'mailto:') then

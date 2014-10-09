@@ -140,3 +140,21 @@ class FetchRule(HookableMixin):
                                             reason, test_info)
 
         return verdict, reason
+
+
+class ResultRule(object):
+    '''Decide on the results of a fetch.
+
+    Args:
+        retry_connrefused: If True, don't consider a connection refused error
+            to be a permanent error.
+        retry_dns_error: If True, don't consider a DNS resolution error to be
+            permanent error.
+    '''
+    def __init__(self, retry_connrefused=False, retry_dns_error=False):
+        self.retry_connrefused = retry_connrefused
+        self.retry_dns_error = retry_dns_error
+
+    # TODO: handle pre-response with continue, abort, etc
+    # TODO: move file writer here?
+    # TODO: move waiter here

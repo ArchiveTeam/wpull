@@ -322,10 +322,22 @@ class TestURL(unittest.TestCase):
             ).url
         )
         self.assertEqual(
+            '[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080',
+            URLInfo.parse(
+                'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:8080/ipv6'
+            ).hostname_with_port
+        )
+        self.assertEqual(
             'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6',
             URLInfo.parse(
                 'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6'
             ).url
+        )
+        self.assertEqual(
+            '[2001:db8:85a3:8d3:1319:8a2e:370:7348]',
+            URLInfo.parse(
+                'http://[2001:db8:85a3:8d3:1319:8a2e:370:7348]/ipv6'
+            ).hostname_with_port
         )
 
     def test_url_info_trailing_dot(self):

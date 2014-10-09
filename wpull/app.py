@@ -4,6 +4,7 @@ from collections import OrderedDict
 import datetime
 import gettext
 import logging
+import platform
 import signal
 
 from trollius import From, Return
@@ -12,7 +13,7 @@ import trollius
 from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ServerError, ExitStatus, ProtocolError, \
     SSLVerficationError, DNSNotFound, ConnectionRefused, NetworkError
-from wpull.hook import HookableMixin, HookDisconnected
+from wpull.hook import HookableMixin, HookDisconnected, HookStop
 import wpull.string
 
 
@@ -59,6 +60,12 @@ class Application(HookableMixin):
 
     def setup_signal_handlers(self):
         '''Setup Ctrl+C and SIGTERM handlers.'''
+        if platform.system() == 'Windows':
+            _logger.warning(_(
+                'Graceful stopping with Unix signals is not supported '
+                'on this OS.'
+            ))
+            return
 
         status = {'graceful_called': False}
 
@@ -104,13 +111,8 @@ class Application(HookableMixin):
                 _logger.exception('Fatal exception.')
                 self._update_exit_code_from_error(error)
 
-                _logger.critical(_(
-                    'Sorry, Wpull unexpectedly crashed. '
-                    'Please report this problem to the authors at Wpull\'s '
-                    'issue tracker so it may be fixed. '
-                    'If you know how to program, maybe help us fix it? '
-                    'Thank you for helping us help you help us all.'
-                ))
+                if not isinstance(error, HookStop):
+                    self._print_crash_message()
 
         self._compute_exit_code_from_stats()
 
@@ -135,6 +137,7 @@ class Application(HookableMixin):
             pass
 
         self._print_stats()
+        self._convert_documents()
         self.stop_observer.notify()
         self._close()
 
@@ -216,6 +219,22 @@ class Application(HookableMixin):
         _logger.info(_('A SSL certificate could not be verified.'))
         _logger.info(_('To ignore and proceed insecurely, '
                        'use ‘--no-check-certificate’.'))
+
+    def _print_crash_message(self):
+        _logger.critical(_(
+            'Sorry, Wpull unexpectedly crashed. '
+            'Please report this problem to the authors at Wpull\'s '
+            'issue tracker so it may be fixed. '
+            'If you know how to program, maybe help us fix it? '
+            'Thank you for helping us help you help us all.'
+        ))
+
+    def _convert_documents(self):
+        converter = self._builder.factory.instance_map.get(
+            'BatchDocumentConverter')
+
+        if converter:
+            converter.convert_all()
 
     def _close(self):
         '''Perform clean up actions.'''

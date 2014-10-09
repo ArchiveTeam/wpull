@@ -314,6 +314,7 @@ class PhantomJSRemote(object):
             # This case occurs when using trollius.async() which causes
             # things to be out of order even though it appears that
             # the subprocess should have been set up already.
+            # FIXME: Maybe we should use a lock
             _logger.debug('Waiting for PhantomJS subprocess.')
             yield From(trollius.sleep(0.1))
 
@@ -415,27 +416,35 @@ class PhantomJSClient(object):
     @contextlib.contextmanager
     def remote(self):
         '''Return a PhantomJS Remote within a context manager.'''
-        if not self._remotes_ready:
-            extra_args = [
-                '--proxy={0}'.format(self._proxy_address)
-            ]
+        while True:
+            if not self._remotes_ready:
+                extra_args = [
+                    '--proxy={0}'.format(self._proxy_address)
+                ]
 
-            if self._extra_args:
-                extra_args.extend(self._extra_args)
+                if self._extra_args:
+                    extra_args.extend(self._extra_args)
 
-            _logger.debug(__(
-                'Creating new remote with proxy {0}',
-                self._proxy_address
-            ))
+                _logger.debug(__(
+                    'Creating new remote with proxy {0}',
+                    self._proxy_address
+                ))
 
-            remote = PhantomJSRemote(
-                self._exe_path,
-                extra_args=extra_args,
-                page_settings=self._page_settings,
-                default_headers=self._default_headers,
-            )
-        else:
-            remote = self._remotes_ready.pop()
+                remote = PhantomJSRemote(
+                    self._exe_path,
+                    extra_args=extra_args,
+                    page_settings=self._page_settings,
+                    default_headers=self._default_headers,
+                )
+                break
+            else:
+                remote = self._remotes_ready.pop()
+
+                # Check if phantomjs has crashed
+                if remote.return_code is None:
+                    break
+                else:
+                    remote.close()
 
         self._remotes_busy.add(remote)
 
@@ -447,12 +456,29 @@ class PhantomJSClient(object):
             remote.page_observer.clear()
             remote.resource_counter.reset()
 
+            self._remotes_busy.remove(remote)
+
             def put_back_remote():
+                # FIXME: catch exception
                 trollius.async(remote.call('resetPage'))
-                self._remotes_busy.remove(remote)
                 self._remotes_ready.add(remote)
 
-            trollius.get_event_loop().call_soon(put_back_remote)
+            if remote.return_code is None:
+                trollius.get_event_loop().call_soon(put_back_remote)
+            else:
+                remote.close()
+
+    def close(self):
+        '''Close all remotes.'''
+        for remote in self._remotes_busy:
+            remote.close()
+
+        self._remotes_busy.clear()
+
+        for remote in self._remotes_ready:
+            remote.close()
+
+        self._remotes_ready.clear()
 
 
 class ResourceCounter(object):

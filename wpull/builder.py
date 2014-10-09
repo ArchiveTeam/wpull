@@ -1,10 +1,10 @@
 # encoding=utf-8
 '''Application support.'''
-from http.cookiejar import CookieJar
 import atexit
 import codecs
 import functools
 import gettext
+from http.cookiejar import CookieJar
 import itertools
 import logging
 import os.path
@@ -38,13 +38,15 @@ from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSClient
 from wpull.processor.phantomjs import PhantomJSController
-from wpull.processor.rule import FetchRule
+from wpull.processor.rule import FetchRule, ResultRule
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
     WebProcessorInstances
 from wpull.proxy import HTTPProxyServer
-from wpull.recorder import (WARCRecorder, DemuxRecorder,
-                            PrintServerResponseRecorder, ProgressRecorder,
-                            OutputDocumentRecorder, WARCRecorderParams)
+from wpull.recorder.demux import DemuxRecorder
+from wpull.recorder.document import OutputDocumentRecorder
+from wpull.recorder.printing import PrintServerResponseRecorder
+from wpull.recorder.progress import ProgressRecorder
+from wpull.recorder.warc import WARCRecorder, WARCRecorderParams
 from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper.base import DemuxDocumentScraper
 from wpull.scraper.css import CSSScraper
@@ -59,12 +61,12 @@ from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, HTTPFilter,
                              SpanHostsFilter, RegexFilter, DirectoryFilter,
                              BackwardFilenameFilter, ParentFilter)
 from wpull.util import ASCIIStreamWriter
+import wpull.version
 from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
                           IgnoreFileWriter, TimestampingFileWriter,
                           AntiClobberFileWriter)
-import wpull.version
 
 
 _logger = logging.getLogger(__name__)
@@ -80,7 +82,7 @@ class Builder(object):
     UNSAFE_OPTIONS = frozenset(['save_headers', 'no_iri', 'output_document',
                                 'ignore_fatal_errors'])
 
-    def __init__(self, args):
+    def __init__(self, args, unit_test=False):
         self.default_user_agent = 'Wpull/{0} (gzip)'.format(
             wpull.version.__version__)
         self._args = args
@@ -113,6 +115,7 @@ class Builder(object):
             'RedirectTracker': RedirectTracker,
             'Request': Request,
             'Resolver': Resolver,
+            'ResultRule': ResultRule,
             'RobotsTxtChecker': RobotsTxtChecker,
             'RobotsTxtPool': RobotsTxtPool,
             'SitemapScraper': SitemapScraper,
@@ -131,6 +134,7 @@ class Builder(object):
         self._ca_certs_file = None
         self._file_log_handler = None
         self._console_log_handler = None
+        self._unit_test = unit_test
 
     @property
     def factory(self):
@@ -173,6 +177,7 @@ class Builder(object):
             concurrent=self._args.concurrent,
             ignore_exceptions=self._args.ignore_fatal_errors
         )
+        self._build_document_converter()
 
         self._setup_file_logger_close(self.factory['Application'])
         self._setup_console_logger_close(self.factory['Application'])
@@ -248,7 +253,7 @@ class Builder(object):
 
         A handler and with a formatter is added to the root logger.
         '''
-        stream = self._new_encoded_stream(sys.stderr)
+        stream = self._new_encoded_stream(self._get_stderr())
 
         logger = logging.getLogger()
         self._console_log_handler = handler = logging.StreamHandler(stream)
@@ -625,7 +630,7 @@ class Builder(object):
             'Expect logging level. Got {}.'.format(args.verbosity)
 
         if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARNING):
-            stream = self._new_encoded_stream(sys.stderr)
+            stream = self._new_encoded_stream(self._get_stderr())
 
             bar_style = args.progress == 'bar'
 
@@ -703,13 +708,17 @@ class Builder(object):
         document_scraper = self._factory['DemuxDocumentScraper']
         file_writer = self._build_file_writer()
         post_data = self._get_post_data()
-        converter = self._build_document_converter()
         web_client = self._build_web_client()
         phantomjs_controller = self._build_phantomjs_controller()
         robots_txt_checker = self._build_robots_txt_checker()
         fetch_rule = self._factory.new(
             'FetchRule',
             url_filter=url_filter, robots_txt_checker=robots_txt_checker)
+        result_rule = self._factory.new(
+            'ResultRule',
+            retry_connrefused=args.retry_connrefused,
+            retry_dns_error=args.retry_dns_error,
+        )
 
         waiter = self._factory.new('Waiter',
                                    wait=args.wait,
@@ -719,18 +728,16 @@ class Builder(object):
         web_processor_instances = self._factory.new(
             'WebProcessorInstances',
             fetch_rule=fetch_rule,
+            result_rule=result_rule,
             document_scraper=document_scraper,
             file_writer=file_writer,
             waiter=waiter,
             statistics=self._factory['Statistics'],
-            converter=converter,
             phantomjs_controller=phantomjs_controller,
         )
 
         web_processor_fetch_params = self._factory.new(
             'WebProcessorFetchParams',
-            retry_connrefused=args.retry_connrefused,
-            retry_dns_error=args.retry_dns_error,
             post_data=post_data,
             strong_redirects=args.strong_redirects,
             content_on_error=args.content_on_error,
@@ -1021,6 +1028,7 @@ class Builder(object):
             'HTTPProxyServer',
             self.factory['HTTPClient'],
             rewrite=True,
+            cookie_jar=self.factory.get('CookieJarWrapper'),
         )
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
 
@@ -1131,12 +1139,24 @@ class Builder(object):
             certs.update(self._read_pem_file(pem_filename, from_package=True))
 
         if self._args.ca_directory:
-            for filename in os.listdir(self._args.ca_directory):
-                if os.path.isfile(filename):
-                    certs.update(self._read_pem_file(filename))
+            if os.path.isdir(self._args.ca_directory):
+                for filename in os.listdir(self._args.ca_directory):
+                    if os.path.isfile(filename):
+                        certs.update(self._read_pem_file(filename))
+            else:
+                _logger.warning(__(
+                    _('Certificate directory {path} does not exist.'),
+                    path=self._args.ca_directory
+                ))
 
         if self._args.ca_certificate:
-            certs.update(self._read_pem_file(self._args.ca_certificate))
+            if os.path.isfile(self._args.ca_certificate):
+                certs.update(self._read_pem_file(self._args.ca_certificate))
+            else:
+                _logger.warning(__(
+                    _('Certificate file {path} does not exist.'),
+                    path=self._args.ca_certificate
+                ))
 
         self._ca_certs_file = certs_filename = tempfile.mkstemp()[1]
 
@@ -1203,7 +1223,7 @@ class Builder(object):
         * ``--save-headers``
         * ``--no-iri``
         * ``--output-document``
-        * ``--ignore-fatal-errors`
+        * ``--ignore-fatal-errors``
         '''
         enabled_options = []
 
@@ -1219,3 +1239,10 @@ class Builder(object):
             _logger.warning(
                 _('The use of unsafe options may lead to unexpected behavior '
                     'or file corruption.'))
+
+    def _get_stderr(self):
+        '''Return stderr or something else if under unit testing.'''
+        if self._unit_test:
+            return sys.stdout
+        else:
+            return sys.stderr

@@ -32,6 +32,7 @@ PROJECT_PACKAGES = [
     'wpull.ftp.ls',
     'wpull.http',
     'wpull.processor',
+    'wpull.recorder.',
     'wpull.scraper',
     'wpull.testing',
     'wpull.thirdparty',
@@ -49,6 +50,7 @@ setup_kwargs = dict(
     package_data={'': [
         'cert/ca-bundle.pem',
         'testing/*/*.css',
+        'testing/*/*.htm',
         'testing/*/*.html',
         'testing/*/*.txt',
         'testing/*/*.lua',
@@ -57,6 +59,7 @@ setup_kwargs = dict(
         'testing/*/*.png',
         'testing/*/*.xml',
         'testing/*.lua',
+        'testing/*.pem',
         '*.js',
     ]},
     classifiers=[
@@ -84,13 +87,14 @@ setup_kwargs['scripts'] = ['scripts/wpull', 'scripts/wpull3']
 if os.environ.get('USE_CX_FREEZE'):
     from cx_Freeze import setup, Executable
 
-    wpull_package_dir = PROJECT_PACKAGE_DIR['wpull']
+    wpull_package_dir = '.'
+    wpull_package_src_dir = './wpull/'
 
     sys.path.insert(0, os.path.dirname(wpull_package_dir))
 
     setup_kwargs['executables'] = [
         Executable(
-            os.path.join(wpull_package_dir, '__main__.py'),
+            os.path.join(wpull_package_src_dir, '__main__.py'),
             targetName='wpull-' + version,
             shortcutName='Wpull ' + version,
         )
@@ -102,11 +106,12 @@ if os.environ.get('USE_CX_FREEZE'):
                 'sqlalchemy.dialects.sqlite',
             ],
             'zip_includes': [
-                os.path.join(wpull_package_dir, 'cert', 'ca-bundle.pem'),
+                (os.path.join(wpull_package_src_dir, 'cert', 'ca-bundle.pem'),
+                 'wpull/cert/ca-bundle.pem'),
             ],
             'include_files': [
                 (
-                    os.path.join(wpull_package_dir, 'phantomjs.js'),
+                    os.path.join(wpull_package_src_dir, 'phantomjs.js'),
                     'phantomjs.js'
                 ),
             ]
