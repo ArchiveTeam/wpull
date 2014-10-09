@@ -157,8 +157,8 @@ class WARCRecorder(BaseRecorder):
             dir=self._params.temp_dir,
             suffix='.log',
         )
-        self._log_handler = handler = logging.FileHandler(
-            self._log_record.block_file.name, encoding='utf-8')
+        self._log_handler = handler = logging.StreamHandler(
+            io.TextIOWrapper(self._log_record.block_file, encoding='utf-8'))
 
         logger.setLevel(logging.DEBUG)
         logger.debug('Wpull needs the root logger level set to DEBUG.')
@@ -254,11 +254,9 @@ class WARCRecorder(BaseRecorder):
         '''Close the WARC file and clean up any logging handlers.'''
         if self._log_record:
             self._log_handler.flush()
-            self._log_handler.close()
 
             logger = logging.getLogger()
             logger.removeHandler(self._log_handler)
-            self._log_handler = None
 
             self._log_record.block_file.seek(0)
             self._log_record.set_common_fields('resource', 'text/plain')
@@ -276,6 +274,8 @@ class WARCRecorder(BaseRecorder):
             self.write_record(self._log_record)
 
             self._log_record.block_file.close()
+            self._log_handler.close()
+            self._log_handler = None
 
             if self._params.move_to is not None:
                 self._move_file_to_dest_dir(self._warc_filename)
