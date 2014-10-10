@@ -1,11 +1,16 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
+
 from distutils.version import StrictVersion
 import os.path
 import re
 import os
 import sys
+import platform
 
 
 def get_version():
@@ -92,10 +97,12 @@ if os.environ.get('USE_CX_FREEZE'):
 
     sys.path.insert(0, os.path.dirname(wpull_package_dir))
 
+    extension = '.exe' if platform.system() == 'Windows' else ''
+
     setup_kwargs['executables'] = [
         Executable(
             os.path.join(wpull_package_src_dir, '__main__.py'),
-            targetName='wpull-' + version,
+            targetName='wpull' + extension,
             shortcutName='Wpull ' + version,
         )
     ]

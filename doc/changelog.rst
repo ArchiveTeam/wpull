@@ -2,6 +2,9 @@
 What's New
 ==========
 
+* Fixed executable filename problem in setup.py for cx_Freeze builds.
+
+
 0.1001.1 (2014-10-09)
 =====================
 
@@ -12,7 +15,7 @@ What's New
 
 * Scripting:
 
-  * Fixed mismatched `queued_url` and `dequeued_url` causing negative values in a counter. Issue was caused by requeued items in "error" status.
+  * Fixed mismatched ``queued_url` and ``dequeued_url`` causing negative values in a counter. Issue was caused by requeued items in "error" status.
 
 
 0.1001 (2014-09-16)
