@@ -160,3 +160,25 @@ class TestRequest(unittest.TestCase):
 
         # Cheeck for no crash
         request.copy()
+
+    def test_to_dict(self):
+        request = Request('https://foofle.com')
+        request_dict = request.to_dict()
+
+        self.assertEqual('https://foofle.com', request_dict['url'])
+        self.assertEqual('https', request_dict['url_info']['scheme'])
+        self.assertEqual('GET', request_dict['method'])
+        self.assertEqual('http', request_dict['protocol'])
+
+        response = Response(status_code=200, reason='OK', request=request)
+        response_dict = response.to_dict()
+
+        self.assertEqual(
+            'https://foofle.com',
+            response_dict['request']['url']
+        )
+        self.assertEqual('http', response_dict['protocol'])
+        self.assertEqual(200, response_dict['status_code'])
+        self.assertEqual(200, response_dict['response_code'])
+        self.assertEqual('OK', response_dict['reason'])
+        self.assertEqual('OK', response_dict['response_message'])

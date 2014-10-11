@@ -1,12 +1,13 @@
 '''FTP conversation classes'''
 import re
 
-from wpull.abstract.request import CommonMixin, URLPropertyMixin
+from wpull.abstract.request import SerializableMixin, DictableMixin, \
+    URLPropertyMixin, ProtocolResponseMixin
 from wpull.errors import ProtocolError
 import wpull.ftp.util
 
 
-class Command(CommonMixin):
+class Command(SerializableMixin, DictableMixin):
     '''FTP request command.
 
     Encoding is Latin-1.
@@ -53,7 +54,7 @@ class Command(CommonMixin):
         }
 
 
-class Reply(CommonMixin):
+class Reply(SerializableMixin, DictableMixin):
     '''FTP reply.
 
     Encoding is always Latin-1.
@@ -118,12 +119,13 @@ class Request(URLPropertyMixin):
 
     def to_dict(self):
         return {
+            'protocol': 'ftp',
             'url': self.url,
             'url_info': self.url_info.to_dict() if self.url_info else None
         }
 
 
-class Response(object):
+class Response(DictableMixin, ProtocolResponseMixin):
     '''FTP response for a file.
 
     Attributes:
@@ -138,10 +140,19 @@ class Response(object):
 
     def to_dict(self):
         return {
+            'protocol': 'ftp',
             'request': self.request.to_dict(),
-            'body': self.body.to_dict(),
-            'reply': self.body.to_dict(),
+            'body': self.body.to_dict() if self.body else None,
+            'reply': self.reply.to_dict(),
+            'response_code': self.reply.code,
+            'response_message': self.reply.text,
         }
+
+    def response_code(self):
+        return self.reply.code
+
+    def response_message(self):
+        return self.reply.text
 
 
 class ListingResponse(Response):
