@@ -49,6 +49,18 @@ class Session(BaseSession):
         self._commander = Commander(self._control_stream)
         self._request = request
 
+        if self._recorder_session:
+            def control_data_callback(direction, data):
+                assert direction in ('command', 'reply'), \
+                    'Expect read/write. Got {}'.format(repr(direction))
+
+                if direction == 'reply':
+                    self._recorder_session.response_control_data(data)
+                else:
+                    self._recorder_session.request_control_data(data)
+
+            self._control_stream.data_observer.add(control_data_callback)
+
     @trollius.coroutine
     def _log_in(self):
         '''Connect and login.
@@ -148,11 +160,14 @@ class Session(BaseSession):
             raise Return(data_connection)
 
         try:
-            reply = yield From(self._commander.get_file(
-                command,
-                file,
+            data_stream = yield From(self._commander.setup_data_stream(
                 connection_factory
             ))
+
+            reply = yield From(self._commander.read_stream(
+                command, file, data_stream
+            ))
+
             raise Return(reply)
         finally:
             if data_connection:
