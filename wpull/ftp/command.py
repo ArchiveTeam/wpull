@@ -93,23 +93,23 @@ class Commander(object):
         raise Return(wpull.ftp.util.parse_address(reply.text))
 
     @trollius.coroutine
-    def get_file(self, command, file, connection_factory,
-                 stream_callback=None):
-        '''Send a command and write stream data to file.
+    def setup_data_stream(self, connection_factory,
+                          data_stream_factory=DataStream):
+        '''Create and setup a data stream.
 
         This function will set up passive and binary mode and handle
         connecting to the data connection.
 
         Args:
-            command (:class:`.ftp.request.Command`): A command that
-                sends data over the data connection.
-            file: A destination file object or a stream writer.
             connection_factory: A coroutine callback that returns
                 :class:`.connection.Connection`.
             stream_callback: A callback that will be provided an instance of
                 :class:`.ftp.stream.DataStream`.
 
         Coroutine.
+
+        Returns:
+            DataStream
         '''
         yield From(self._control_stream.write_command(Command('TYPE', 'I')))
         reply = yield From(self._control_stream.read_reply())
@@ -122,19 +122,25 @@ class Commander(object):
 
         yield From(connection.connect())
 
-        data_stream = DataStream(connection)
+        data_stream = data_stream_factory(connection)
 
-        if stream_callback:
-            stream_callback(data_stream)
-
-        reply = yield From(self.read_stream(command, file, data_stream))
-        raise Return(reply)
+        raise Return(data_stream)
 
     @trollius.coroutine
     def read_stream(self, command, file, data_stream):
         '''Read from the data stream.
 
+        Args:
+            command (:class:`.ftp.request.Command`): A command that
+                sends data over the data connection.
+            file: A destination file object or a stream writer.
+            data_stream (:class:`.ftp.stream.DataStream`): The stream of which
+                to read from.
+
         Coroutine.
+
+        Returns:
+            Reply: The final reply.
         '''
 
         yield From(self._control_stream.write_command(command))
