@@ -2,6 +2,7 @@
 What's New
 ==========
 
+* Fixed ValueError crash on HTTP redirects with bad IPv6 URLs.
 * Fixed executable filename problem in setup.py for cx_Freeze builds.
 
 
