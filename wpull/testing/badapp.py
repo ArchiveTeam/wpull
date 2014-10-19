@@ -76,6 +76,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             '/many_links': self.many_links,
             '/non_http_redirect': self.non_http_redirect,
             '/bad_redirect': self.bad_redirect,
+            '/bad_redirect_ipv6': self.bad_redirect_ipv6,
             '/utf8_then_binary': self.utf8_then_binary,
             '/false_gzip': self.false_gzip,
             '/status_line_only': self.status_line_only,
@@ -522,6 +523,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             'http://Yes, some websites do this - '
             'I have no idea why - Please do not ask - '
             'Perhaps a wolf programmed the site'
+        )
+        self.send_header('Content-Length', 0)
+        self.end_headers()
+        
+    def bad_redirect_ipv6(self):
+        self.send_response(303)
+        self.send_header(
+            'Location',
+            'http://]/'
         )
         self.send_header('Content-Length', 0)
         self.end_headers()

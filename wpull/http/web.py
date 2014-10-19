@@ -189,12 +189,12 @@ class WebSession(object):
         if self._redirect_tracker.exceeded():
             raise ProtocolError('Too many redirects.')
 
-        url = self._redirect_tracker.next_location()
-
-        if not url:
-            raise ProtocolError('Redirect location missing.')
-
         try:
+            url = self._redirect_tracker.next_location()
+
+            if not url:
+                raise ProtocolError('Redirect location missing.')
+
             if self._redirect_tracker.is_repeat():
                 _logger.debug('Got redirect is repeat.')
 
