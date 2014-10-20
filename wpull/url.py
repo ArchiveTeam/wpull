@@ -617,10 +617,8 @@ def query_to_map(text):
 
 def urljoin(base_url, url, allow_fragments=True):
     '''Join URLs like ``urllib.parse.urljoin`` but allow scheme-relative URL.'''
-    assert '://' in base_url, 'base_url {} not a absolute URL'.format(base_url)
-
     if url.startswith('//'):
-        scheme = base_url.partition('://')[0]
+        scheme = base_url.partition(':')[0]
         return urllib.parse.urljoin(
             base_url,
             '{0}:{1}'.format(scheme, url),
