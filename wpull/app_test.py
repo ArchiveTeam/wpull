@@ -694,6 +694,25 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, builder.factory['Statistics'].files)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_immediate_robots_error(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            'http://mordor.invalid:1',
+            self.get_url('/'),
+            '--recursive',
+            '--tries', '1',
+            '--timeout', '1',
+        ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(4, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_quota(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
