@@ -2,6 +2,9 @@
 What's New
 ==========
 
+0.1001.2 (2014-10-25)
+=====================
+
 * Fixed ValueError crash on HTTP redirects with bad IPv6 URLs.
 * Fixed AssertionError on link extraction with non-absolute URLs in "codebase" attribute.
 * Fixed premature exit during an error fetching robots.txt.
