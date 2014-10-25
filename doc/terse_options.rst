@@ -5,9 +5,10 @@ Brief Option Overview
 
   usage: __main__.py [-h] [-V] [--python-script FILE | --lua-script FILE]
                      [--database FILE] [--concurrent N]
-                     [--debug-console-port PORT] [--ignore-fatal-errors]
-                     [-o FILE | -a FILE] [-d | -q | -v | -nv] [--ascii-print]
-                     [-i FILE] [-F] [-B URL] [--http-proxy HTTP_PROXY]
+                     [--debug-console-port PORT] [--debug-manhole]
+                     [--ignore-fatal-errors] [-o FILE | -a FILE]
+                     [-d | -q | -v | -nv] [--ascii-print] [-i FILE] [-F]
+                     [-B URL] [--http-proxy HTTP_PROXY]
                      [--https-proxy HTTPS_PROXY] [--proxy-user USER]
                      [--proxy-password PASS] [--no-proxy]
                      [--no-secure-proxy-tunnel] [-t NUMBER]
@@ -56,7 +57,7 @@ Brief Option Overview
                      [--no-phantomjs-snapshot] [--no-phantomjs-smart-scroll]
                      [URL [URL ...]]
 
-  Wget-compatible web downloader.
+  Wget-compatible web downloader and crawler.
 
   positional arguments:
     URL                   the URL to be downloaded
@@ -73,6 +74,7 @@ Brief Option Overview
     --concurrent N        run at most N downloads at the same time (default: 1)
     --debug-console-port PORT
                           run a web debug console at given port number
+    --debug-manhole       install Manhole debugging socket
     --ignore-fatal-errors
                           ignore all internal fatal exception errors
 

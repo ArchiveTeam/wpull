@@ -519,6 +519,14 @@ class TestURL(unittest.TestCase):
             'http://example.com/style.css',
             urljoin('http://example.com/a/', './../style.css')
         )
+        self.assertEqual(
+            'sausage',
+            urljoin('mailto:hotdogbun', 'sausage')
+        )
+        self.assertEqual(
+            'mailto://sausage',
+            urljoin('mailto:hotdogbun', '//sausage')
+        )
 
     def test_flatten_path(self):
         self.assertEqual('/', flatten_path('/'))
