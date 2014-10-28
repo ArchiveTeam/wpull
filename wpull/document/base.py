@@ -147,6 +147,6 @@ class BaseHTMLReader(object, metaclass=abc.ABCMeta):
 
         Returns:
             iterator: Each item is an element from
-            :module:`.document.htmlparse.element`
+            :mod:`.document.htmlparse.element`
         '''
         pass

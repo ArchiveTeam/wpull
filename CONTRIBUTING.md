@@ -1,8 +1,25 @@
 Contributing
 ============
 
-Thank you for your interest in contributing! Before making a pull
-request, please review the following:
+Thank you for your interest in contributing!
+
+Issues
+------
+
+When reporting a bug, please include:
+
+1. What you want, what you expect, what happened.
+2. The command or website causes the problem
+3. Operating system
+4. Python version
+5. Wpull version
+6. A copy and paste of what Wpull prints out
+
+
+Pull requests
+-------------
+
+Before making a pull request, please review the following:
 
 1. Your branch is branched from the `master` branch or a release tag.
 2. You want to merge into the `develop` branch.

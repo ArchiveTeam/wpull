@@ -49,7 +49,7 @@ class Session(BaseSession):
         '''Fulfill a request.
 
         Args:
-            request (:class:`.http.request.Request): Request.
+            request (:class:`.http.request.Request`): Request.
 
         Returns:
             .http.request.Response

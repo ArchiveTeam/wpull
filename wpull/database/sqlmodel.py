@@ -90,3 +90,6 @@ class Visit(DBBase):
     url = Column(String, primary_key=True, nullable=False)
     warc_id = Column(String, nullable=False)
     payload_digest = Column(String, nullable=False)
+
+
+__all__ = ('DBBase', 'URL', 'URLString', 'Visit')

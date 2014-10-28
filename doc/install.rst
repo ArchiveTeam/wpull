@@ -12,13 +12,13 @@ Wpull requires the following:
 * `Trollius <https://pypi.python.org/pypi/trollius>`_
 * `lxml <https://pypi.python.org/pypi/lxml>`_
 
-   Or `html5lib <https://pypi.python.org/pypi/html5lib`_ for slower
-   but much better HTML parsing
+  * Or `html5lib <https://pypi.python.org/pypi/html5lib>`_ for slower
+    but much better HTML parsing
 
 * `chardet <https://pypi.python.org/pypi/chardet>`_
 
-   Or `cchardet <https://pypi.python.org/pypi/cchardet>`_ for faster
-   version of chardet
+  * Or `cchardet <https://pypi.python.org/pypi/cchardet>`_ for faster
+    version of chardet
 
 * `SQLAlchemy <https://pypi.python.org/pypi/SQLAlchemy>`_
 

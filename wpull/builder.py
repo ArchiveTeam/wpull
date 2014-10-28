@@ -86,7 +86,7 @@ class Builder(object):
     UNSAFE_OPTIONS = frozenset(['save_headers', 'no_iri', 'output_document',
                                 'ignore_fatal_errors'])
 
-    def __init__(self, args):
+    def __init__(self, args, unit_test=False):
         self.default_user_agent = 'Wpull/{0} (gzip)'.format(
             wpull.version.__version__)
         self._args = args
@@ -144,6 +144,7 @@ class Builder(object):
         self._ca_certs_file = None
         self._file_log_handler = None
         self._console_log_handler = None
+        self._unit_test = unit_test
 
     @property
     def factory(self):
@@ -262,7 +263,7 @@ class Builder(object):
 
         A handler and with a formatter is added to the root logger.
         '''
-        stream = self._new_encoded_stream(sys.stderr)
+        stream = self._new_encoded_stream(self._get_stderr())
 
         logger = logging.getLogger()
         self._console_log_handler = handler = logging.StreamHandler(stream)
@@ -639,7 +640,7 @@ class Builder(object):
             'Expect logging level. Got {}.'.format(args.verbosity)
 
         if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARNING):
-            stream = self._new_encoded_stream(sys.stderr)
+            stream = self._new_encoded_stream(self._get_stderr())
 
             bar_style = args.progress == 'bar'
 
@@ -1277,7 +1278,7 @@ class Builder(object):
         * ``--save-headers``
         * ``--no-iri``
         * ``--output-document``
-        * ``--ignore-fatal-errors`
+        * ``--ignore-fatal-errors``
         '''
         enabled_options = []
 
@@ -1293,3 +1294,10 @@ class Builder(object):
             _logger.warning(
                 _('The use of unsafe options may lead to unexpected behavior '
                     'or file corruption.'))
+
+    def _get_stderr(self):
+        '''Return stderr or something else if under unit testing.'''
+        if self._unit_test:
+            return sys.stdout
+        else:
+            return sys.stderr

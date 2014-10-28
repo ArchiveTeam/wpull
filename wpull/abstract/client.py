@@ -23,7 +23,7 @@ class BaseClient(object, metaclass=abc.ABCMeta):
             recorder (:class:`.recorder.BaseRecorder`): Recorder.
             stream_factory: A function that returns a new
                 :class:`.http.stream.Stream`.
-            proxy_adapter (:class:`.http.proxy.ProxyAdapter): Optional proxy.
+            proxy_adapter (:class:`.http.proxy.ProxyAdapter`): Optional proxy.
         '''
         if connection_pool is not None:
             self._connection_pool = connection_pool

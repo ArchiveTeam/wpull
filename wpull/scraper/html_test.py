@@ -81,6 +81,8 @@ class Mixin(object):
             'http://example.com/object/',  # returned by lxml
             'http://example.com/object/object_data.swf',
             'http://example.com/object/object_archive.dat',
+            'mailto:internet',
+            'object_not_url_codebase',
             'http://example.com/param_ref_value.php',
             'http://example.com/overlay_src.html',
             'http://example.com/script_variable.png',

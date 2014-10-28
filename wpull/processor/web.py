@@ -199,16 +199,28 @@ class WebProcessorSession(BaseProcessorSession):
 
     @trollius.coroutine
     def process(self):
-        '''Process.
+        try:
+            verdict = (yield From(self._should_fetch_reason_with_robots(
+                self._next_url_info, self._url_item.url_record)))[0]
+        except (NetworkError, ProtocolError) as error:
+            _logger.error(__(
+                _('Fetching robots.txt for ‘{url}’ '
+                  'encountered an error: {error}'),
+                url=self._next_url_info.url, error=error
+            ))
+            self._handle_error(error)
 
-        Coroutine.
-        '''
-        verdict = (yield From(self._should_fetch_reason_with_robots(
-            self._next_url_info, self._url_item.url_record)))[0]
+            wait_time = self._result_rule.get_wait_time()
 
-        if not verdict:
-            self._url_item.skip()
+            if wait_time:
+                _logger.debug('Sleeping {0}.'.format(wait_time))
+                yield From(trollius.sleep(wait_time))
+                
             return
+        else:
+            if not verdict:
+                self._url_item.skip()
+                return
 
         self._web_client_session = self._processor.web_client.session(
             self._new_initial_request()

@@ -72,3 +72,17 @@ class TestWebClientBadCase(BadAppTestCase):
                 return
             else:
                 self.fail()
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_bad_redirect_ipv6(self):
+        client = WebClient()
+        session = client.session(Request(self.get_url('/bad_redirect_ipv6')))
+
+        while not session.done():
+            try:
+                yield From(session.fetch())
+            except ProtocolError:
+                return
+            else:
+                self.fail()
+
