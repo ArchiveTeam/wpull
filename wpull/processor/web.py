@@ -241,13 +241,13 @@ class WebProcessorSession(BaseProcessorSession):
                 _logger.debug('Sleeping {0}.'.format(wait_time))
                 yield From(trollius.sleep(wait_time))
 
-            return False
+            raise Return(False)
         else:
             if not verdict:
                 self._url_item.skip()
-                return False
+                raise Return(False)
 
-        return True
+        raise Return(True)
 
     @trollius.coroutine
     def _process_loop(self):
