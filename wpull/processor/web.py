@@ -199,28 +199,10 @@ class WebProcessorSession(BaseProcessorSession):
 
     @trollius.coroutine
     def process(self):
-        try:
-            verdict = (yield From(self._should_fetch_reason_with_robots(
-                self._next_url_info, self._url_item.url_record)))[0]
-        except (NetworkError, ProtocolError) as error:
-            _logger.error(__(
-                _('Fetching robots.txt for ‘{url}’ '
-                  'encountered an error: {error}'),
-                url=self._next_url_info.url, error=error
-            ))
-            self._handle_error(error)
+        ok = yield From(self._process_robots())
 
-            wait_time = self._result_rule.get_wait_time()
-
-            if wait_time:
-                _logger.debug('Sleeping {0}.'.format(wait_time))
-                yield From(trollius.sleep(wait_time))
-                
+        if not ok:
             return
-        else:
-            if not verdict:
-                self._url_item.skip()
-                return
 
         self._web_client_session = self._processor.web_client.session(
             self._new_initial_request()
@@ -234,6 +216,38 @@ class WebProcessorSession(BaseProcessorSession):
         if not self._url_item.is_processed:
             _logger.debug('Was not processed. Skipping.')
             self._url_item.skip()
+
+    @trollius.coroutine
+    def _process_robots(self):
+        '''Process robots.txt.
+
+        Coroutine.
+        '''
+        try:
+            request = self._new_initial_request(with_body=False)
+            verdict = (yield From(self._should_fetch_reason_with_robots(
+                request, self._url_item.url_record)))[0]
+        except (NetworkError, ProtocolError) as error:
+            _logger.error(__(
+                _('Fetching robots.txt for ‘{url}’ '
+                  'encountered an error: {error}'),
+                url=self._next_url_info.url, error=error
+            ))
+            self._result_rule.handle_error(request, error, self._url_item)
+
+            wait_time = self._result_rule.get_wait_time()
+
+            if wait_time:
+                _logger.debug('Sleeping {0}.'.format(wait_time))
+                yield From(trollius.sleep(wait_time))
+
+            return False
+        else:
+            if not verdict:
+                self._url_item.skip()
+                return False
+
+        return True
 
     @trollius.coroutine
     def _process_loop(self):
@@ -350,17 +364,15 @@ class WebProcessorSession(BaseProcessorSession):
             url_info, url_record, is_redirect=is_redirect)
 
     @trollius.coroutine
-    def _should_fetch_reason_with_robots(self, url_info, url_record):
+    def _should_fetch_reason_with_robots(self, request, url_record):
         '''Return info whether the URL should be fetched including checking
         robots.txt.
 
         Coroutine.
         '''
-        request_factory = functools.partial(
-            self._new_initial_request, with_body=False)
         result = yield From(
-            self._fetch_rule.check_initial_web_request(
-                url_info, url_record, request_factory))
+            self._fetch_rule.check_initial_web_request(request, url_record)
+        )
         raise Return(result)
 
     def _add_post_data(self, request):

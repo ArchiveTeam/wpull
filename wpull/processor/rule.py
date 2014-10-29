@@ -105,7 +105,7 @@ class FetchRule(HookableMixin):
         return verdict, reason
 
     @trollius.coroutine
-    def check_initial_web_request(self, url_info, url_record, request_factory):
+    def check_initial_web_request(self, request, url_record):
         '''Check robots.txt, URL filters, and scripting hook.
 
         Returns:
@@ -113,18 +113,20 @@ class FetchRule(HookableMixin):
 
         Coroutine.
         '''
-        verdict, reason, test_info = self.consult_filters(url_info, url_record)
+        verdict, reason, test_info = self.consult_filters(
+            request.url_info, url_record
+        )
 
         if verdict and self._robots_txt_checker:
-            request = request_factory()
             can_fetch = yield From(self.consult_robots_txt(request))
 
             if not can_fetch:
                 verdict = False
                 reason = 'robotstxt'
 
-        verdict, reason = self.consult_hook(url_info, url_record, verdict,
-                                            reason, test_info)
+        verdict, reason = self.consult_hook(
+            request.url_info, url_record, verdict, reason, test_info
+        )
 
         raise Return((verdict, reason))
 
