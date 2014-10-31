@@ -240,6 +240,9 @@ class Response(SerializableMixin, DictableMixin, ProtocolResponseMixin):
             reason=self.reason
         )
 
+    def __str__(self):
+        return self.to_bytes().decode('utf-8', 'replace')
+
     def response_code(self):
         return self.status_code
 

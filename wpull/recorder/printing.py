@@ -35,6 +35,18 @@ class DebugPrintRecorderSession(BaseRecorderSession):
     def response_data(self, data):
         print(data)
 
+    def begin_control(self, request):
+        print(request)
+
+    def end_control(self, response):
+        print(response)
+
+    def request_control_data(self, data):
+        print(data)
+
+    def response_control_data(self, data):
+        print(data)
+
 
 class PrintServerResponseRecorder(BaseRecorder):
     '''Print the server HTTP response.'''
@@ -46,4 +58,4 @@ class PrintServerResponseRecorder(BaseRecorder):
 class PrintServerResponseRecorderSession(BaseRecorderSession):
     '''Print Server Response Recorder Session.'''
     def response(self, response):
-        print(response.to_bytes().decode())
+        print(str(response))

@@ -154,6 +154,9 @@ class Response(DictableMixin, ProtocolResponseMixin):
     def response_message(self):
         return self.reply.text
 
+    def __str__(self):
+        return '{} {}\n'.format(self.reply.code, self.reply.text)
+
 
 class ListingResponse(Response):
     '''FTP response for a file listing.
