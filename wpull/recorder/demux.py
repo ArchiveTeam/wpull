@@ -62,6 +62,22 @@ class DemuxRecorderSession(BaseRecorderSession):
         for session in self._sessions:
             session.response_data(data)
 
+    def begin_control(self, request):
+        for session in self._sessions:
+            session.begin_control(request)
+
+    def end_control(self, response):
+        for session in self._sessions:
+            session.end_control(response)
+
+    def request_control_data(self, data):
+        for session in self._sessions:
+            session.request_control_data(data)
+
+    def response_control_data(self, data):
+        for session in self._sessions:
+            session.response_control_data(data)
+
     def __exit__(self, *args):
         for context in self._contexts:
             context.__exit__(*args)

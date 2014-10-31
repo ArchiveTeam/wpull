@@ -34,14 +34,13 @@ class BaseRecorderSession(object, metaclass=abc.ABCMeta):
 
     For FTP:
 
-    1. request_control_data: Commands sent to the server.
-    2. response_controL_data: Reply received from the server.
-    3. pre_request: Data connection opened.
-    4. request_data (optional): Bytes of the file upload.
-    5. request (optional): File uploaded.
-    6. pre_response (optional): Beginning of file download.
-    7. response_data (optional): Bytes of the file download.
-    8. response: File downloaded. Data connection closed.
+    1. begin_control: Control connection opened.
+    2. request_control_data: Commands sent to the server.
+    3. response_controL_data: Reply received from the server.
+    4. pre_request/pre_response: Data connection opened.
+    5. request_data/response_data: Bytes of the file upload/download.
+    6. request/response: File uploaded/downloaded. Data connection closed.
+    7. end_control: Control connection closed.
     '''
 
     def pre_request(self, request):
@@ -62,8 +61,14 @@ class BaseRecorderSession(object, metaclass=abc.ABCMeta):
     def response_data(self, data):
         '''Callback for the in-band bytes that was received.'''
 
+    def begin_control(self, request):
+        '''Callback for beginning of a control session.'''
+
     def request_control_data(self, data):
         '''Callback for out-of-band bytes that was sent.'''
 
     def response_control_data(self, data):
         '''Callback for out-of-band bytes that was received.'''
+
+    def end_control(self, response):
+        '''Callback for ending of a control session.'''
