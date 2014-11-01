@@ -10,7 +10,7 @@ from wpull.ftp.command import Commander
 from wpull.ftp.ls.parse import ListingParser
 from wpull.ftp.request import Response, Command, ListingResponse
 from wpull.ftp.stream import ControlStream
-from wpull.ftp.util import FTPServerError
+from wpull.ftp.util import FTPServerError, ReplyCodes
 import wpull.ftp.util
 
 
@@ -83,26 +83,15 @@ class Session(BaseSession):
 
         Coroutine.
         '''
-        yield From(self._init_stream(request))
-        yield From(self._log_in())
-
         response = Response()
-        response.request = request
 
-        if callback:
-            file = callback(request, response)
-
-        if not isinstance(file, Body):
-            response.body = Body(file)
-        else:
-            response.body = file
+        yield From(self._prepare_fetch(request, response, file, callback))
 
         reply = yield From(self._fetch_with_command(
             Command('RETR', request.url_info.path), response.body
         ))
 
-        response.body.seek(0)
-        response.reply = reply
+        self._clean_up_fetch(response, reply)
 
         raise Return(response)
 
@@ -115,10 +104,37 @@ class Session(BaseSession):
 
         Coroutine.
         '''
+        response = ListingResponse()
+
+        yield From(self._prepare_fetch(request, response, file, callback))
+
+        try:
+            reply = yield From(self._get_machine_listing(request, response))
+        except FTPServerError as error:
+            response.body.seek(0)
+            response.body.truncate()
+            if error.reply_code in (ReplyCodes.syntax_error_command_unrecognized,
+                                    ReplyCodes.command_not_implemented):
+                reply = yield From(self._get_list_listing(request, response))
+            else:
+                raise
+
+        self._clean_up_fetch(response, reply)
+
+        raise Return(response)
+
+    @trollius.coroutine
+    def _prepare_fetch(self, request, response, file=None, callback=None):
+        '''Prepare for a fetch.
+
+        Coroutine.
+        '''
+        if self._recorder_session:
+            self._recorder_session.begin_control(request)
+
         yield From(self._init_stream(request))
         yield From(self._log_in())
 
-        response = ListingResponse()
         response.request = request
 
         if callback:
@@ -129,20 +145,19 @@ class Session(BaseSession):
         else:
             response.body = file
 
-        try:
-            reply = yield From(self._get_machine_listing(request, response))
-        except FTPServerError as error:
-            response.body.seek(0)
-            response.body.truncate()
-            if error.reply_code in (500, 502):
-                reply = yield From(self._get_list_listing(request, response))
-            else:
-                raise
+        if self._recorder_session:
+            self._recorder_session.pre_response(response)
 
+    def _clean_up_fetch(self, response, reply):
+        '''Clean up after a fetch.'''
         response.body.seek(0)
         response.reply = reply
 
-        raise Return(response)
+        if self._recorder_session:
+            self._recorder_session.response(response)
+
+        if self._recorder_session:
+            self._recorder_session.end_control(response)
 
     @trollius.coroutine
     def _fetch_with_command(self, command, file=None):
@@ -150,6 +165,7 @@ class Session(BaseSession):
 
         Coroutine.
         '''
+        # TODO: the recorder needs to fit inside here
         data_connection = None
 
         @trollius.coroutine
