@@ -3,7 +3,7 @@ import os.path
 
 from wpull.body import Body
 from wpull.database.sqltable import URLTable
-from wpull.http.request import Request, Response
+from wpull.http.request import Request as HTTPRequest, Response as HTTPResponse
 from wpull.recorder.base_test import BaseRecorderTest
 from wpull.recorder.warc import WARCRecorder, WARCRecorderParams
 from wpull.warc import WARCRecord
@@ -28,11 +28,11 @@ class TestWARC(BaseRecorderTest):
             ),
         )
 
-        request = Request('http://example.com/')
+        request = HTTPRequest('http://example.com/')
         request.prepare_for_send()
         request.address = ('0.0.0.0', 80)
         request.prepare_for_send()
-        response = Response(200, 'OK')
+        response = HTTPResponse(200, 'OK')
         response.body = Body()
 
         with wpull.util.reset_file_offset(response.body):
@@ -123,6 +123,68 @@ class TestWARC(BaseRecorderTest):
 
         self.assertIn(b'KITTEH DOGE', data)
 
+    def test_warc_recorder_ftp(self):
+        file_prefix = 'asdf'
+        warc_filename = 'asdf.warc'
+
+        warc_recorder = WARCRecorder(
+            file_prefix,
+            params=WARCRecorderParams(compress=False)
+        )
+
+        request = FTPRequest('ftp://example.com/example.txt')
+        request.address = ('0.0.0.0', 80)
+        response = FTPResponse(200, 'OK')
+        response.body = Body()
+
+        with wpull.util.reset_file_offset(response.body):
+            response.body.write(b'KITTEH DOGE')
+
+        with warc_recorder.session() as session:
+            session.begin_control(request)
+            session.request_control_data(b'GIMMEH example.txt')
+            session.response_control_data(b'200 OK, no need to yell.')
+            session.pre_response(response)
+            session.response_data(b'KITTEH DOGE')
+            session.response(response)
+            session.end_control(response)
+
+        warc_recorder.close()
+
+        with open(warc_filename, 'rb') as in_file:
+            warc_file_content = in_file.read()
+
+        self.assertTrue(warc_file_content.startswith(b'WARC/1.0'))
+        self.assertIn(b'WARC-Type: warcinfo\r\n', warc_file_content)
+        self.assertIn(b'Content-Type: application/warc-fields',
+                      warc_file_content)
+        self.assertIn(b'WARC-Date: ', warc_file_content)
+        self.assertIn(b'WARC-Record-ID: <urn:uuid:', warc_file_content)
+        self.assertIn(b'WARC-Block-Digest: sha1:', warc_file_content)
+        self.assertIn(b'WARC-Payload-Digest: sha1:', warc_file_content)
+        self.assertIn(b'WARC-Type: resource\r\n', warc_file_content)
+        self.assertIn(b'WARC-Target-URI: ftp://', warc_file_content)
+        self.assertIn(b'Content-Type: application/octet-stream',
+                      warc_file_content)
+        self.assertIn(b'WARC-Type: metadata', warc_file_content)
+        self.assertIn(b'WARC-Concurrent-To: <urn:uuid:', warc_file_content)
+        self.assertIn(b'Content-Type: text/x-ftp-control-conversation',
+                      warc_file_content)
+        self.assertIn(
+            'Wpull/{0}'.format(wpull.version.__version__).encode('utf-8'),
+            warc_file_content
+        )
+        self.assertIn(
+            'Python/{0}'.format(
+                wpull.util.python_version()).encode('utf-8'),
+            warc_file_content
+        )
+        self.assertIn(b'KITTEH DOGE', warc_file_content)
+        self.assertIn(b'* Opening control connection to', warc_file_content)
+        self.assertIn(b'* Closed control connection to', warc_file_content)
+        self.assertIn(b'> GIMMEH example.txt', warc_file_content)
+        self.assertIn(b'< 200 OK, no need to yell.', warc_file_content)
+
     def test_warc_recorder_max_size(self):
         file_prefix = 'asdf'
         cdx_filename = 'asdf.cdx'
@@ -136,9 +198,9 @@ class TestWARC(BaseRecorderTest):
             )
         )
 
-        request = Request('http://example.com/1')
+        request = HTTPRequest('http://example.com/1')
         request.address = ('0.0.0.0', 80)
-        response = Response(200, 'OK')
+        response = HTTPResponse(200, 'OK')
         response.body = Body()
 
         with wpull.util.reset_file_offset(response.body):
@@ -153,9 +215,9 @@ class TestWARC(BaseRecorderTest):
             session.response_data(response.body.content())
             session.response(response)
 
-        request = Request('http://example.com/2')
+        request = HTTPRequest('http://example.com/2')
         request.address = ('0.0.0.0', 80)
-        response = Response(200, 'OK')
+        response = HTTPResponse(200, 'OK')
         response.body = Body()
 
         with wpull.util.reset_file_offset(response.body):
@@ -220,9 +282,9 @@ class TestWARC(BaseRecorderTest):
             )
         )
 
-        request = Request('http://example.com/')
+        request = HTTPRequest('http://example.com/')
         request.address = ('0.0.0.0', 80)
-        response = Response(200, 'OK')
+        response = HTTPResponse(200, 'OK')
         response.body = Body()
 
         with wpull.util.reset_file_offset(response.body):
@@ -273,9 +335,9 @@ class TestWARC(BaseRecorderTest):
             )
         ])
 
-        request = Request('http://example.com/fennec')
+        request = HTTPRequest('http://example.com/fennec')
         request.address = ('0.0.0.0', 80)
-        response = Response(200, 'OK')
+        response = HTTPResponse(200, 'OK')
         response.body = Body()
         revisit_response_header_size = len(response.to_bytes())
 
@@ -291,9 +353,9 @@ class TestWARC(BaseRecorderTest):
             session.response_data(response.body.content())
             session.response(response)
 
-        request = Request('http://example.com/horse')
+        request = HTTPRequest('http://example.com/horse')
         request.address = ('0.0.0.0', 80)
-        response = Response(200, 'OKaaaaaaaaaaaaaaaaaaaaaaaaaa')
+        response = HTTPResponse(200, 'OKaaaaaaaaaaaaaaaaaaaaaaaaaa')
         response.body = Body()
 
         with wpull.util.reset_file_offset(response.body):
@@ -387,9 +449,9 @@ class TestWARC(BaseRecorderTest):
             ),
         )
 
-        request = Request('http://example.com/1')
+        request = HTTPRequest('http://example.com/1')
         request.address = ('0.0.0.0', 80)
-        response = Response(200, 'OK')
+        response = HTTPResponse(200, 'OK')
         response.body = Body()
 
         with wpull.util.reset_file_offset(response.body):
