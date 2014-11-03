@@ -229,19 +229,19 @@ class Response(SerializableMixin, DictableMixin, ProtocolResponseMixin):
                 )
 
         raise ProtocolError(
-            'Error parsing status line "{line}".'
-            .format(line=wpull.string.printable_bytes(data)
-                    .decode('ascii', 'replace'))
+            'Error parsing status line {line}".'.format(line=ascii(data))
         )
 
     def __repr__(self):
         return '<Response({version}, {code}, {reason})>'.format(
-            version=self.version, code=self.status_code,
-            reason=self.reason
+            version=ascii(self.version), code=self.status_code,
+            reason=ascii(self.reason)
         )
 
     def __str__(self):
-        return self.to_bytes().decode('utf-8', 'replace')
+        return wpull.string.printable_str(
+            self.to_bytes().decode('utf-8', 'replace'), keep_newlines=True
+        )
 
     def response_code(self):
         return self.status_code

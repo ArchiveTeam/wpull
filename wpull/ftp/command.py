@@ -30,7 +30,7 @@ class Commander(object):
             raise FTPServerError(
                 'Failed action {action}: {reply_code} {reply_text}'
                 .format(action=action, reply_code=reply.code,
-                        reply_text=wpull.string.coerce_str_to_ascii(reply.text)
+                        reply_text=ascii(reply.text)
                         ),
                 reply.code
                 )

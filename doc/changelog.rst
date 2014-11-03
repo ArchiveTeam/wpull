@@ -2,6 +2,9 @@
 What's New
 ==========
 
+* Fixed control characters printed without escaping.
+
+
 0.1001.2 (2014-10-25)
 =====================
 

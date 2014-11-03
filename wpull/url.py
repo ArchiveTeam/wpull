@@ -125,7 +125,7 @@ class URLInfo(object):
         scheme, sep, remaining = url.partition(':')
 
         if not scheme:
-            raise ValueError('URL missing scheme: {}'.format(url))
+            raise ValueError('URL missing scheme: {}'.format(ascii(url)))
 
         scheme = scheme.lower()
 

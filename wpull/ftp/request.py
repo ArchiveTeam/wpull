@@ -155,7 +155,10 @@ class Response(DictableMixin, ProtocolResponseMixin):
         return self.reply.text
 
     def __str__(self):
-        return '{} {}\n'.format(self.reply.code, self.reply.text)
+        return '{} {}\n'.format(
+            self.reply.code,
+            wpull.string.printable_str(self.reply.text, keep_newlines=True)
+        )
 
 
 class ListingResponse(Response):
