@@ -3,6 +3,7 @@ What's New
 ==========
 
 * Fixed control characters printed without escaping.
+* Fixed cookie size not limited correctly per domain name.
 
 
 0.1001.2 (2014-10-25)
