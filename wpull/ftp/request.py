@@ -1,12 +1,13 @@
 '''FTP conversation classes'''
 import re
 
-from wpull.abstract.request import CommonMixin, URLPropertyMixin
+from wpull.abstract.request import SerializableMixin, DictableMixin, \
+    URLPropertyMixin, ProtocolResponseMixin
 from wpull.errors import ProtocolError
 import wpull.ftp.util
 
 
-class Command(CommonMixin):
+class Command(SerializableMixin, DictableMixin):
     '''FTP request command.
 
     Encoding is Latin-1.
@@ -53,7 +54,7 @@ class Command(CommonMixin):
         }
 
 
-class Reply(CommonMixin):
+class Reply(SerializableMixin, DictableMixin):
     '''FTP reply.
 
     Encoding is always Latin-1.
@@ -118,21 +119,43 @@ class Request(URLPropertyMixin):
 
     def to_dict(self):
         return {
+            'protocol': 'ftp',
             'url': self.url,
             'url_info': self.url_info.to_dict() if self.url_info else None
         }
 
 
-class Response(object):
+class Response(DictableMixin, ProtocolResponseMixin):
     '''FTP response for a file.
 
     Attributes:
         request (:class:`Request`): The corresponding request.
         body (:class:`.body.Body`): The file.
+        reply (:class:`Reply`): The latest Reply.
     '''
     def __init__(self):
         self.request = None
         self.body = None
+        self.reply = None
+
+    def to_dict(self):
+        return {
+            'protocol': 'ftp',
+            'request': self.request.to_dict(),
+            'body': self.body.to_dict() if self.body else None,
+            'reply': self.reply.to_dict(),
+            'response_code': self.reply.code,
+            'response_message': self.reply.text,
+        }
+
+    def response_code(self):
+        return self.reply.code
+
+    def response_message(self):
+        return self.reply.text
+
+    def __str__(self):
+        return '{} {}\n'.format(self.reply.code, self.reply.text)
 
 
 class ListingResponse(Response):
@@ -144,3 +167,8 @@ class ListingResponse(Response):
     def __init__(self):
         super().__init__()
         self.files = []
+
+    def to_dict(self):
+        dict_obj = super().to_dict()
+        dict_obj['files'] = self.files
+        return dict_obj

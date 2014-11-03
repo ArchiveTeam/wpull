@@ -18,7 +18,10 @@ class DataStream(object):
 
     Attributes:
         data_observer (:class:`.observer.Observer`): The data observer.
-            The callback function should accept a single argument: bytes.
+            The callback function should accept two arguments:
+
+            1. str: The type of data. Can be ``read`` or ``write``.
+            2. bytes: The raw data.
 
     Args:
         connection (:class:`.connection.Connection`): Connection.
@@ -62,7 +65,7 @@ class DataStream(object):
                 if file_is_async:
                     yield From(file.drain())
 
-            self._data_observer.notify(data)
+            self._data_observer.notify('read', data)
 
     # TODO: def write_file()
 

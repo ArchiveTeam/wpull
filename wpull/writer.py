@@ -39,15 +39,14 @@ class BaseWriterSession(object, metaclass=abc.ABCMeta):
         '''Rewrite the request if needed.
 
         Args:
-            request: :class:`.http.request.Request`
+            request: :class:`.abstract.request.Request`
 
         This function is called by a Processor after it has created the
-        Request, but before submitting it to the Engine.
+        Request, but before submitting it to a Client.
 
         Returns:
             The original Request or a modified Request
         '''
-        pass
 
     @abc.abstractmethod
     def process_response(self, response):
@@ -56,7 +55,6 @@ class BaseWriterSession(object, metaclass=abc.ABCMeta):
         This function is called by a Processor before any response or error
         handling is done.
         '''
-        pass
 
     @abc.abstractmethod
     def save_document(self, response):
@@ -68,7 +66,6 @@ class BaseWriterSession(object, metaclass=abc.ABCMeta):
         Returns:
             str: The filename of the document.
         '''
-        pass
 
     @abc.abstractmethod
     def discard_document(self, response):
@@ -77,7 +74,6 @@ class BaseWriterSession(object, metaclass=abc.ABCMeta):
         This function is called by a Processor once the Processor deemed
         the document should be deleted (i.e., a "404 Not Found" response).
         '''
-        pass
 
     @abc.abstractmethod
     def extra_resource_path(self, suffix):
@@ -86,7 +82,6 @@ class BaseWriterSession(object, metaclass=abc.ABCMeta):
         Returns:
             str, None
         '''
-        pass
 
 
 class BaseFileWriter(BaseWriter):
@@ -234,12 +229,15 @@ class BaseFileWriterSession(BaseWriterSession):
         if not self._filename:
             return
 
-        code = response.status_code
-
-        if self._file_continuing:
-            self._process_file_continue_response(response)
-        elif 200 <= code <= 299 or 400 <= code:
+        if response.request.url_info.scheme == 'ftp':
             self.open_file(self._filename, response)
+        else:
+            code = response.status_code
+
+            if self._file_continuing:
+                self._process_file_continue_response(response)
+            elif 200 <= code <= 299 or 400 <= code:
+                self.open_file(self._filename, response)
 
     def _process_file_continue_response(self, response):
         '''Process a partial content response.'''
@@ -257,7 +255,8 @@ class BaseFileWriterSession(BaseWriterSession):
             if self._headers_included:
                 self.save_headers(self._filename, response)
 
-            if self._local_timestamping:
+            if self._local_timestamping and \
+                    response.request.url_info.scheme != 'ftp':
                 self.set_timestamp(self._filename, response)
 
             return self._filename
@@ -432,7 +431,11 @@ class PathNamer(BasePathNamer):
 
             parts.extend(dir_parts)
 
-        parts.append(url_to_filename(url, self._index, alt_char=alt_char))
+        parts.append(url_to_filename(
+            url,
+            '.listing' if url_info.scheme == 'ftp' else self._index,
+            alt_char=alt_char
+        ))
 
         parts = [
             safe_filename(

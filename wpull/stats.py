@@ -4,6 +4,7 @@ from collections import Counter
 import time
 
 from wpull.bandwidth import BandwidthMeter
+from wpull.errors import ERROR_PRIORITIES
 
 
 class Statistics(object):
@@ -69,3 +70,12 @@ class Statistics(object):
         '''Set the URLInfo as completed.'''
         if url_info in self.required_url_infos:
             self.required_url_infos.remove(url_info)
+
+    def increment_error(self, error):
+        '''Increment the error counter preferring base exceptions.'''
+        for error_class in ERROR_PRIORITIES:
+            if isinstance(error, error_class):
+                self.errors[error_class] += 1
+                return
+
+        self.errors[type(error)] += 1

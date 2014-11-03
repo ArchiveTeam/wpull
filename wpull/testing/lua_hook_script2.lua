@@ -27,11 +27,11 @@ wpull_hook.callbacks.accept_url = function(url_info, record_info, verdict, reaso
   }
 
   if string.match(url_info['url'], 'mailto:') then
-    assert(not reasons['filters']['HTTPFilter'])
+    assert(not reasons['filters']['SchemeFilter'])
     assert(not verdict)
   else
     assert(accepted_paths[url_info['path']])
-    assert(reasons['filters']['HTTPFilter'])
+    assert(reasons['filters']['SchemeFilter'])
   end
 
   assert(record_info['url'])

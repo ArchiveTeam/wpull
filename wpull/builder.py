@@ -1,10 +1,10 @@
 # encoding=utf-8
 '''Application support.'''
+from http.cookiejar import CookieJar
 import atexit
 import codecs
 import functools
 import gettext
-from http.cookiejar import CookieJar
 import itertools
 import logging
 import os.path
@@ -27,6 +27,7 @@ from wpull.debug import DebugConsoleHandler
 from wpull.dns import Resolver
 from wpull.engine import Engine
 from wpull.factory import Factory
+from wpull.ftp.client import Client as FTPClient
 from wpull.hook import HookEnvironment
 from wpull.http.client import Client as HTTPClient
 from wpull.http.proxy import ProxyAdapter
@@ -37,6 +38,9 @@ from wpull.http.stream import Stream as HTTPStream
 from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSClient
+from wpull.processor.delegate import DelegateProcessor
+from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
+    FTPProcessorInstances
 from wpull.processor.phantomjs import PhantomJSController
 from wpull.processor.rule import FetchRule, ResultRule
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
@@ -55,18 +59,18 @@ from wpull.scraper.javascript import JavaScriptScraper
 from wpull.scraper.sitemap import SitemapScraper
 from wpull.stats import Statistics
 from wpull.url import URLInfo
-from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, HTTPFilter,
+from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, SchemeFilter,
                              BackwardDomainFilter, HostnameFilter, TriesFilter,
                              RecursiveFilter, LevelFilter,
                              SpanHostsFilter, RegexFilter, DirectoryFilter,
                              BackwardFilenameFilter, ParentFilter)
 from wpull.util import ASCIIStreamWriter
-import wpull.version
 from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
                           IgnoreFileWriter, TimestampingFileWriter,
                           AntiClobberFileWriter)
+import wpull.version
 
 
 _logger = logging.getLogger(__name__)
@@ -98,9 +102,14 @@ class Builder(object):
             'DemuxDocumentScraper': DemuxDocumentScraper,
             'DemuxRecorder': DemuxRecorder,
             'DemuxURLFilter': DemuxURLFilter,
+            'FTPProcessor': FTPProcessor,
             'Engine': Engine,
             'ElementWalker': ElementWalker,
             'FetchRule': FetchRule,
+            'FileWriter': NullWriter,
+            'FTPClient': FTPClient,
+            'FTPProcessorFetchParams': FTPProcessorFetchParams,
+            'FTPProcessorInstances': FTPProcessorInstances,
             'HTTPProxyServer': HTTPProxyServer,
             'HTMLParser': NotImplemented,
             'HTMLScraper': HTMLScraper,
@@ -110,6 +119,7 @@ class Builder(object):
             'PhantomJSClient': PhantomJSClient,
             'PhantomJSController': PhantomJSController,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
+            'Processor': DelegateProcessor,
             'ProxyAdapter': ProxyAdapter,
             'ProgressRecorder': ProgressRecorder,
             'RedirectTracker': RedirectTracker,
@@ -456,7 +466,7 @@ class Builder(object):
         args = self._args
 
         filters = [
-            HTTPSOnlyFilter() if args.https_only else HTTPFilter(),
+            HTTPSOnlyFilter() if args.https_only else SchemeFilter(),
             RecursiveFilter(
                 enabled=args.recursive, page_requisites=args.page_requisites
             ),
@@ -702,6 +712,12 @@ class Builder(object):
         Returns:
             Processor: An instance of :class:`.processor.BaseProcessor`.
         '''
+        web_processor = self._build_web_processor()
+        ftp_processor = self._build_ftp_processor()
+        return self._factory.new('Processor', web_processor, ftp_processor)
+
+    def _build_web_processor(self):
+        '''Build WebProcessor.'''
         args = self._args
         url_filter = self._factory.new('DemuxURLFilter',
                                        self._build_url_filters())
@@ -714,16 +730,19 @@ class Builder(object):
         fetch_rule = self._factory.new(
             'FetchRule',
             url_filter=url_filter, robots_txt_checker=robots_txt_checker)
-        result_rule = self._factory.new(
-            'ResultRule',
-            retry_connrefused=args.retry_connrefused,
-            retry_dns_error=args.retry_dns_error,
-        )
 
         waiter = self._factory.new('Waiter',
                                    wait=args.wait,
                                    random_wait=args.random_wait,
                                    max_wait=args.waitretry)
+
+        result_rule = self._factory.new(
+            'ResultRule',
+            retry_connrefused=args.retry_connrefused,
+            retry_dns_error=args.retry_dns_error,
+            waiter=waiter,
+            statistics=self._factory['Statistics'],
+        )
 
         web_processor_instances = self._factory.new(
             'WebProcessorInstances',
@@ -751,6 +770,39 @@ class Builder(object):
 
         return processor
 
+    def _build_ftp_processor(self):
+        '''Build FTPProcessor.'''
+        ftp_client = self._build_ftp_client()
+
+        fetch_params = self._factory.new(
+            'FTPProcessorFetchParams',
+            remove_listing=self._args.remove_listing
+        )
+
+        instances = self._factory.new(
+            'FTPProcessorInstances',
+            fetch_rule=self._factory['FetchRule'],
+            result_rule=self._factory['ResultRule'],
+            file_writer=self._factory['FileWriter'],
+        )
+
+        return self._factory.new(
+            'FTPProcessor',
+            ftp_client,
+            self._args.directory_prefix,
+            fetch_params,
+            instances
+        )
+
+    def _build_ftp_client(self):
+        '''Build FTP client.'''
+        return self._factory.new(
+            'FTPClient',
+            connection_pool=self._factory['ConnectionPool'],
+            recorder=self._factory['DemuxRecorder'],
+            proxy_adapter=self._factory.instance_map.get('ProxyAdapter')
+            )
+
     def _build_file_writer(self):
         '''Create the File Writer.
 
@@ -760,7 +812,7 @@ class Builder(object):
         args = self._args
 
         if args.delete_after or args.output_document:
-            return NullWriter()
+            return self._factory.new('FileWriter')  # is a NullWriter
 
         use_dir = (len(args.urls) != 1 or args.page_requisites
                    or args.recursive)
@@ -807,7 +859,10 @@ class Builder(object):
         else:
             file_class = AntiClobberFileWriter
 
-        return file_class(
+        self._factory.class_map['FileWriter'] = file_class
+
+        return self._factory.new(
+            'FileWriter',
             path_namer,
             file_continuing=args.continue_download,
             headers_included=args.save_headers,

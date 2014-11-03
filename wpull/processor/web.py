@@ -15,13 +15,12 @@ import trollius
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
 from wpull.document.html import HTMLReader
-from wpull.errors import NetworkError, ProtocolError, ServerError, \
-    ConnectionRefused, DNSNotFound
-from wpull.hook import HookableMixin, HookDisconnected
-from wpull.item import Status, LinkType
+from wpull.errors import NetworkError, ProtocolError
+from wpull.hook import HookableMixin, HookDisconnected, Actions
+from wpull.item import LinkType
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSRPCTimedOut
-from wpull.processor.base import BaseProcessor
+from wpull.processor.base import BaseProcessor, BaseProcessorSession
 from wpull.processor.rule import FetchRule, ResultRule
 from wpull.scraper.base import DemuxDocumentScraper
 from wpull.scraper.css import CSSScraper
@@ -68,8 +67,8 @@ WebProcessorInstances = namedlist.namedtuple(
 '''WebProcessorInstances
 
 Args:
-    fetch_url ( :class:`.processor.rule.FetchRule`): The fetch rule.
-    result_url ( :class:`.processor.rule.ResultRule`): The result rule.
+    fetch_rule ( :class:`.processor.rule.FetchRule`): The fetch rule.
+    result_rule ( :class:`.processor.rule.ResultRule`): The result rule.
     document_scraper (:class:`.scaper.DemuxDocumentScraper`): The document
         scraper.
     file_writer (:class`.writer.BaseWriter`): The file writer.
@@ -89,8 +88,7 @@ class WebProcessor(BaseProcessor, HookableMixin):
         fetch_params: An instance of :class:`WebProcessorFetchParams`.
         instances: An instance of :class:`WebProcessorInstances`.
 
-    .. seealso:: :class:`WebProcessorSession`,
-        :class:`WebProcessorWithRobotsTxtSession`
+    .. seealso:: :class:`WebProcessorSession`
     '''
     DOCUMENT_STATUS_CODES = (200, 206, 304,)
     '''Default status codes considered successfully fetching a document.'''
@@ -107,11 +105,7 @@ class WebProcessor(BaseProcessor, HookableMixin):
         self._instances = instances
         self._session_class = WebProcessorSession
 
-        self.register_hook(
-            'scrape_document',
-            'handle_response', 'handle_error',
-            'wait_time',
-        )
+        self.register_hook('scrape_document')
 
     @property
     def web_client(self):
@@ -146,7 +140,7 @@ class WebProcessor(BaseProcessor, HookableMixin):
         self._web_client.close()
 
 
-class WebProcessorSession(object):
+class WebProcessorSession(BaseProcessorSession):
     '''Fetches an HTTP document.
 
     This Processor Session will handle document redirects within the same
@@ -205,33 +199,62 @@ class WebProcessorSession(object):
 
     @trollius.coroutine
     def process(self):
+        ok = yield From(self._process_robots())
+
+        if not ok:
+            return
+
+        self._web_client_session = self._processor.web_client.session(
+            self._new_initial_request()
+        )
+
+        yield From(self._process_loop())
+
+        if self._request and self._request.body:
+            self._request.body.close()
+
+        if not self._url_item.is_processed:
+            _logger.debug('Was not processed. Skipping.')
+            self._url_item.skip()
+
+    @trollius.coroutine
+    def _process_robots(self):
+        '''Process robots.txt.
+
+        Coroutine.
+        '''
         try:
+            request = self._new_initial_request(with_body=False)
             verdict = (yield From(self._should_fetch_reason_with_robots(
-                self._next_url_info, self._url_item.url_record)))[0]
+                request, self._url_item.url_record)))[0]
         except (NetworkError, ProtocolError) as error:
             _logger.error(__(
                 _('Fetching robots.txt for ‘{url}’ '
                   'encountered an error: {error}'),
                 url=self._next_url_info.url, error=error
             ))
-            self._handle_error(error)
+            self._result_rule.handle_error(request, error, self._url_item)
 
-            wait_time = self._get_wait_time()
+            wait_time = self._result_rule.get_wait_time()
 
             if wait_time:
                 _logger.debug('Sleeping {0}.'.format(wait_time))
                 yield From(trollius.sleep(wait_time))
-                
-            return
+
+            raise Return(False)
         else:
             if not verdict:
                 self._url_item.skip()
-                return
+                raise Return(False)
 
-        self._web_client_session = self._processor.web_client.session(
-            self._new_initial_request()
-        )
+        raise Return(True)
 
+    @trollius.coroutine
+    def _process_loop(self):
+        '''Fetch URL including redirects.
+
+        Coroutine.
+        '''
         while not self._web_client_session.done():
             verdict = self._should_fetch_reason(
                 self._next_url_info, self._url_item.url_record)[0]
@@ -240,62 +263,67 @@ class WebProcessorSession(object):
                 self._url_item.skip()
                 break
 
-            is_done = yield From(self._process_one())
+            self._request = self._web_client_session.next_request()
 
-            wait_time = self._get_wait_time()
+            exit_early = yield From(self._fetch_one(self._request))
+
+            wait_time = self._result_rule.get_wait_time()
 
             if wait_time:
                 _logger.debug('Sleeping {0}.'.format(wait_time))
                 yield From(trollius.sleep(wait_time))
 
-            if is_done:
+            if exit_early:
                 break
 
-        if self._request and self._request.body:
-            self._close_instance_body(self._request)
-
-        if not self._url_item.is_processed:
-            _logger.debug('Was not processed. Skipping.')
-            self._url_item.skip()
-
     @trollius.coroutine
-    def _process_one(self):
-        '''Process one of the loop iteration.'''
-        self._request = request = self._web_client_session.next_request()
+    def _fetch_one(self, request):
+        '''Process one of the loop iteration.
 
+        Coroutine.
+
+        Returns:
+            bool: If True, stop processing any future requests.
+        '''
         _logger.info(_('Fetching ‘{url}’.').format(url=request.url))
+
+        response = None
+
+        def response_callback(dummy, callback_response):
+            nonlocal response
+            response = callback_response
+
+            self._file_writer_session.process_response(response)
+
+            if not response.body:
+                response.body = Body(directory=self._processor.root_path,
+                                     hint='resp_cb')
+
+            return response.body
 
         try:
             response = yield From(
-                self._web_client_session.fetch(
-                    callback=self._response_callback)
+                self._web_client_session.fetch(callback=response_callback)
             )
         except (NetworkError, ProtocolError) as error:
-            _logger.error(__(
-                _('Fetching ‘{url}’ encountered an error: {error}'),
-                url=request.url, error=error
-            ))
+            self._log_error(request, error)
 
-            response = None
-            is_done = self._handle_error(error)
+            action = self._result_rule.handle_error(
+                request, error, self._url_item)
+
+            if response:
+                response.body.close()
+
+            raise Return(True)
         else:
-            _logger.info(__(
-                _('Fetched ‘{url}’: {status_code} {reason}. '
-                    'Length: {content_length} [{content_type}].'),
-                url=request.url,
-                status_code=response.status_code,
-                reason=response.reason,
-                content_length=response.fields.get('Content-Length'),
-                content_type=response.fields.get('Content-Type'),
-            ))
-
-            is_done = self._handle_response(response)
+            self._log_response(request, response)
+            action = self._handle_response(request, response)
 
             yield From(self._process_phantomjs(request, response))
 
-            self._close_instance_body(response)
+            response.body.close()
 
-        raise Return(is_done)
+            raise Return(action != Actions.NORMAL)
 
     def close(self):
         '''Close any temp files.'''
@@ -336,17 +364,15 @@ class WebProcessorSession(object):
             url_info, url_record, is_redirect=is_redirect)
 
     @trollius.coroutine
-    def _should_fetch_reason_with_robots(self, url_info, url_record):
+    def _should_fetch_reason_with_robots(self, request, url_record):
         '''Return info whether the URL should be fetched including checking
         robots.txt.
 
         Coroutine.
         '''
-        request_factory = functools.partial(
-            self._new_initial_request, with_body=False)
         result = yield From(
-            self._fetch_rule.check_initial_web_request(
-                url_info, url_record, request_factory))
+            self._fetch_rule.check_initial_web_request(request, url_record)
+        )
         raise Return(result)
 
     def _add_post_data(self, request):
@@ -370,111 +396,55 @@ class WebProcessorSession(object):
         with wpull.util.reset_file_offset(request.body):
             request.body.write(data)
 
-    def _response_callback(self, dummy, response):
-        '''Response callback.'''
-        if self._file_writer_session:
-            self._file_writer_session.process_response(response)
+    def _log_response(self, request, response):
+        '''Log response.'''
+        _logger.info(__(
+            _('Fetched ‘{url}’: {status_code} {reason}. '
+                'Length: {content_length} [{content_type}].'),
+            url=request.url,
+            status_code=response.status_code,
+            reason=response.reason,
+            content_length=response.fields.get('Content-Length'),
+            content_type=response.fields.get('Content-Type'),
+        ))
 
-        if not response.body:
-            response.body = Body(
-                wpull.body.new_temp_file(
-                    self._processor.root_path, hint='resp_cb'
-                ))
-            self._temp_files.add(response.body)
+    def _handle_response(self, request, response):
+        '''Process the response.
 
-        return response.body
-
-    def _handle_response(self, response):
-        '''Process the response.'''
+        Returns:
+            str: A value from :class:`.hook.Actions`.
+        '''
         self._url_item.set_value(status_code=response.status_code)
 
-        try:
-            callback_result = self._processor.call_hook(
-                'handle_response', self._request, response, self._url_item,
-            )
-        except HookDisconnected:
-            pass
-        else:
-            if isinstance(callback_result, bool):
-                return callback_result
-
         if self._web_client_session.redirect_tracker.is_redirect():
-            return self._handle_redirect(response)
+            self._file_writer_session.discard_document(response)
+
+            return self._result_rule.handle_intermediate_response(
+                request, response, self._url_item
+            )
         elif (response.status_code in self._document_codes
               or self._processor.fetch_params.content_on_error):
-            return self._handle_document(response)
+            filename = self._file_writer_session.save_document(response)
+
+            self._scrape_document(request, response)
+
+            return self._result_rule.handle_document(
+                request, response, self._url_item, filename
+            )
         elif response.status_code in self._no_document_codes:
-            return self._handle_no_document(response)
+            self._file_writer_session.discard_document(response)
+
+            return self._result_rule.handle_no_document(
+                request, response, self._url_item
+            )
         else:
-            return self._handle_document_error(response)
+            self._file_writer_session.discard_document(response)
 
-    def _handle_document(self, response):
-        '''Process a document response.'''
-        _logger.debug('Got a document.')
-
-        filename = self._file_writer_session.save_document(response)
-
-        if filename:
-            filename = os.path.relpath(filename, self._processor.root_path)
-
-        self._scrape_document(self._request, response)
-        self._processor.instances.waiter.reset()
-        self._processor.instances.statistics.increment(
-            response.body.size()
-        )
-        self._url_item.set_status(Status.done, filename=filename)
-
-        return True
+            return self._result_rule.handle_document_error(
+                request, response, self._url_item
+            )
 
     parse_url = staticmethod(wpull.url.parse_url_or_log)
-
-    def _handle_no_document(self, response):
-        '''Callback for when no useful document is received.'''
-        self._processor.instances.waiter.reset()
-        self._file_writer_session.discard_document(response)
-        self._url_item.set_status(Status.skipped)
-
-        return True
-
-    def _handle_document_error(self, response):
-        '''Callback for when the document only describes an server error.'''
-        self._processor.instances.waiter.increment()
-        self._file_writer_session.discard_document(response)
-        self._processor.instances.statistics.errors[ServerError] += 1
-        self._url_item.set_status(Status.error)
-
-        return True
-
-    def _handle_error(self, error):
-        '''Process an error.'''
-        self._processor.instances.statistics.errors[type(error)] += 1
-        self._processor.instances.waiter.increment()
-
-        try:
-            callback_result = self._processor.call_hook(
-                'handle_error', self._request, self._url_item, error
-            )
-        except HookDisconnected:
-            pass
-        else:
-            if isinstance(callback_result, bool):
-                return callback_result
-
-        if isinstance(error, ConnectionRefused) \
-           and not self._result_rule.retry_connrefused:
-            self._url_item.set_status(Status.skipped)
-        elif (isinstance(error, DNSNotFound)
-              and not self._result_rule.retry_dns_error):
-            self._url_item.set_status(Status.skipped)
-        else:
-            self._url_item.set_status(Status.error)
-
-        return True
-
-    def _handle_redirect(self, response):
-        '''Process a redirect.'''
-        self._processor.instances.waiter.reset()
-        return False
 
     def _scrape_document(self, request, response):
         '''Scrape the document for URLs.'''
@@ -552,14 +522,6 @@ class WebProcessorSession(object):
         '''
         if hasattr(instance, 'body'):
             instance.body.close()
-
-    def _get_wait_time(self):
-        '''Return the wait time.'''
-        seconds = self._processor.instances.waiter.get()
-        try:
-            return self._processor.call_hook('wait_time', seconds)
-        except HookDisconnected:
-            return seconds
 
     @trollius.coroutine
     def _process_phantomjs(self, request, response):
