@@ -50,7 +50,7 @@ FRAGMENT_ENCODE_SET = frozenset(b' "<>`')
 QUERY_VALUE_ENCODE_SET = QUERY_ENCODE_SET | frozenset(b'&+%')
 '''Encoding set for a query value.'''
 
-FORBIDDEN_HOSTNAME_CHARS = frozenset('#%/:?@[\\]')
+FORBIDDEN_HOSTNAME_CHARS = frozenset('#%/:?@[\\] ')
 '''Forbidden hostname characters.
 
 Does not include non-printing characters. Meant for ASCII.
