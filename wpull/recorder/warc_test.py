@@ -252,7 +252,8 @@ class TestWARC(BaseRecorderTest):
                 new_offset = os.path.getsize(warc_filename)
                 self.assertEqual(new_offset, original_offset)
             else:
-                self.fail()
+                # Should not reach here
+                self.fail()  # pragma: no cover
 
             _logger.debug('original offset {0}'.format(original_offset))
 

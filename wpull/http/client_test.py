@@ -91,7 +91,7 @@ class TestClient(BadAppTestCase):
         except NetworkError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_client_exception_recovery(self):
@@ -107,7 +107,7 @@ class TestClient(BadAppTestCase):
                 except NetworkError:
                     pass
                 else:
-                    self.fail()
+                    self.fail()  # pragma: no cover
 
         for dummy in range(7):
             with client.session() as session:

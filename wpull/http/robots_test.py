@@ -134,7 +134,7 @@ class TestRobots(wpull.testing.async.AsyncTestCase):
         except ServerError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test
     def test_fetch_allow_redirects(self):

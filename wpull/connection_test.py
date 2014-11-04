@@ -43,7 +43,7 @@ class TestConnection(BadAppTestCase):
         except NetworkError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_mock_connect_ssl_error(self):
@@ -59,7 +59,7 @@ class TestConnection(BadAppTestCase):
         except NetworkError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_mock_request_socket_error(self):
@@ -78,7 +78,7 @@ class TestConnection(BadAppTestCase):
         except NetworkError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_mock_request_ssl_error(self):
@@ -97,7 +97,7 @@ class TestConnection(BadAppTestCase):
         except NetworkError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_mock_request_certificate_error(self):
@@ -113,7 +113,7 @@ class TestConnection(BadAppTestCase):
         except SSLVerficationError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_mock_request_unknown_ca_error(self):
@@ -129,7 +129,7 @@ class TestConnection(BadAppTestCase):
         except SSLVerficationError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_pool_basic(self):
@@ -146,7 +146,7 @@ class TestConnection(BadAppTestCase):
         except trollius.TimeoutError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_pool_min(self):
@@ -235,7 +235,7 @@ class TestConnection(BadAppTestCase):
         except NetworkTimedOut:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_read_timeout(self):
@@ -267,7 +267,7 @@ class TestConnection(BadAppTestCase):
         except NetworkTimedOut:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_pool_check_in_clean_race_condition(self):

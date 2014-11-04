@@ -119,7 +119,7 @@ class TestEngine(AsyncTestCase):
         except MockEngineError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_engine_bad_url_record(self):
