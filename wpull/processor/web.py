@@ -1,7 +1,6 @@
 # encoding=utf8
 '''Web processing.'''
 import copy
-import functools
 import gettext
 import io
 import logging
@@ -19,7 +18,7 @@ from wpull.errors import NetworkError, ProtocolError
 from wpull.hook import HookableMixin, HookDisconnected, Actions
 from wpull.item import LinkType
 from wpull.namevalue import NameValueRecord
-from wpull.phantomjs import PhantomJSRPCTimedOut
+from wpull.driver.phantomjs import PhantomJSRPCTimedOut
 from wpull.processor.base import BaseProcessor, BaseProcessorSession
 from wpull.processor.rule import FetchRule, ResultRule
 from wpull.scraper.base import DemuxDocumentScraper

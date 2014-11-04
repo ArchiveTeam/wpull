@@ -65,7 +65,7 @@ setup_kwargs = dict(
         'testing/*/*.xml',
         'testing/*.lua',
         'testing/*.pem',
-        '*.js',
+        'driver/*.js',
     ]},
     classifiers=[
         'Development Status :: 4 - Beta',
