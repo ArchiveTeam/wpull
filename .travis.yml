@@ -4,6 +4,13 @@ python:
   - 3.3
   - pypy3
 
+
+# blacklist
+branches:
+  except:
+    - topic/rewrite_phantomjs
+
+
 before_install:
   - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' ]]; then 
       sudo apt-get install liblua5.2-dev;
