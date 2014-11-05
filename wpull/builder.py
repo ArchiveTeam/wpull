@@ -41,7 +41,7 @@ from wpull.driver.phantomjs import PhantomJSClient
 from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
     FTPProcessorInstances
-from wpull.processor.phantomjs import PhantomJSController
+from wpull.coprocessor.phantomjs import PhantomJSController
 from wpull.processor.rule import FetchRule, ResultRule
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
     WebProcessorInstances
