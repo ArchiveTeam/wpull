@@ -8,6 +8,7 @@ from wpull.recorder.base_test import BaseRecorderTest
 from wpull.recorder.warc import WARCRecorder, WARCRecorderParams
 from wpull.warc import WARCRecord
 import wpull.util
+from wpull.ftp.request import Request as FTPRequest, Response as FTPResponse, Reply as FTPReply
 
 
 _logger = logging.getLogger(__name__)
@@ -134,7 +135,8 @@ class TestWARC(BaseRecorderTest):
 
         request = FTPRequest('ftp://example.com/example.txt')
         request.address = ('0.0.0.0', 80)
-        response = FTPResponse(200, 'OK')
+        response = FTPResponse()
+        response.reply = FTPReply(200, 'OK')
         response.body = Body()
 
         with wpull.util.reset_file_offset(response.body):
@@ -161,7 +163,7 @@ class TestWARC(BaseRecorderTest):
         self.assertIn(b'WARC-Date: ', warc_file_content)
         self.assertIn(b'WARC-Record-ID: <urn:uuid:', warc_file_content)
         self.assertIn(b'WARC-Block-Digest: sha1:', warc_file_content)
-        self.assertIn(b'WARC-Payload-Digest: sha1:', warc_file_content)
+        self.assertNotIn(b'WARC-Payload-Digest: sha1:', warc_file_content)
         self.assertIn(b'WARC-Type: resource\r\n', warc_file_content)
         self.assertIn(b'WARC-Target-URI: ftp://', warc_file_content)
         self.assertIn(b'Content-Type: application/octet-stream',
@@ -305,7 +307,8 @@ class TestWARC(BaseRecorderTest):
                         yield b"where's my elephant?"
                     raise OSError('Oops')
 
-            session._request_record = BadRecord(session._request_record)
+            session._child_session._request_record = \
+                BadRecord(session._child_session._request_record)
             original_offset = os.path.getsize(warc_filename)
 
             try:

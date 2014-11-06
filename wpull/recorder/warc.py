@@ -7,6 +7,7 @@ import logging
 import os.path
 import re
 import shutil
+import textwrap
 
 import namedlist
 
@@ -169,7 +170,7 @@ class WARCRecorder(BaseRecorder):
 
     @contextlib.contextmanager
     def session(self):
-        recorder_session = WARCRecorderSession(
+        recorder_session = WARCRecorderSessionDelegate(
             self,
             temp_dir=self._params.temp_dir, url_table=self._params.url_table
         )
@@ -374,12 +375,77 @@ class WARCRecorder(BaseRecorder):
             return match.group(1)
 
 
-class WARCRecorderSession(BaseRecorderSession):
-    '''WARC Recorder Session.'''
+class BaseWARCRecorderSession(BaseRecorderSession):
+    '''Base WARC recorder session.'''
     def __init__(self, recorder, temp_dir=None, url_table=None):
         self._recorder = recorder
         self._temp_dir = temp_dir
         self._url_table = url_table
+
+    def _new_temp_file(self, hint='warcrecsess'):
+        '''Return new temp file.'''
+        return wpull.body.new_temp_file(
+            directory=self._temp_dir, hint=hint
+        )
+
+
+class WARCRecorderSessionDelegate(BaseWARCRecorderSession):
+    '''Delegate to either HTTP or FTP recorder session.'''
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._child_session = None
+
+    def close(self):
+        if self._child_session:
+            return self._child_session.close()
+
+    def pre_request(self, request):
+        if not self._child_session:
+            self._child_session = HTTPWARCRecorderSession(
+                self._recorder, temp_dir=self._temp_dir,
+                url_table=self._url_table
+            )
+
+        self._child_session.pre_request(request)
+
+    def request(self, request):
+        self._child_session.request(request)
+
+    def request_data(self, data):
+        self._child_session.request_data(data)
+
+    def pre_response(self, response):
+        self._child_session.pre_response(response)
+
+    def response(self, response):
+        self._child_session.response(response)
+
+    def response_data(self, data):
+        self._child_session.response_data(data)
+
+    def begin_control(self, request):
+        if not self._child_session:
+            self._child_session = FTPWARCRecorderSession(
+                self._recorder, temp_dir=self._temp_dir,
+                url_table=self._url_table
+            )
+
+        self._child_session.begin_control(request)
+
+    def request_control_data(self, data):
+        self._child_session.request_control_data(data)
+
+    def response_control_data(self, data):
+        self._child_session.response_control_data(data)
+
+    def end_control(self, response):
+        self._child_session.end_control(response)
+
+
+class HTTPWARCRecorderSession(BaseWARCRecorderSession):
+    '''HTTP WARC Recorder Session.'''
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._request = None
         self._request_record = None
         self._response_record = None
@@ -394,12 +460,6 @@ class WARCRecorderSession(BaseRecorderSession):
 
         if self._response_record and self._response_record.block_file:
             self._response_record.block_file.close()
-
-    def _new_temp_file(self, hint='warcrecsess'):
-        '''Return new temp file.'''
-        return wpull.body.new_temp_file(
-            directory=self._temp_dir, hint=hint
-        )
 
     def pre_request(self, request):
         self._request = request
@@ -476,3 +536,94 @@ class WARCRecorderSession(BaseRecorderSession):
             fields['WARC-Refers-To'] = ref_record_id
             fields['WARC-Profile'] = WARCRecord.SAME_PAYLOAD_DIGEST_URI
             fields['WARC-Truncated'] = 'length'
+
+
+class FTPWARCRecorderSession(BaseWARCRecorderSession):
+    '''FTP WARC Recorder Session.'''
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._request = None
+        self._control_record = None
+        self._response_record = None
+
+    def close(self):
+        if self._control_record and self._control_record.block_file:
+            self._control_record.block_file.close()
+
+        if self._response_record and self._response_record.block_file:
+            self._response_record.block_file.close()
+
+    def begin_control(self, request):
+        self._request = request
+        self._control_record = record = WARCRecord()
+
+        record.set_common_fields('metadata', 'text/x-ftp-control-conversation')
+        record.fields['WARC-Target-URI'] = request.url_info.url
+        record.fields['WARC-IP-Address'] = request.address[0]
+
+        record.block_file = self._new_temp_file('warcctrl')
+
+        hostname, port = self._request_hostname_port()
+
+        self._write_control_event(
+            'Opening control connection to {hostname}:{port}'
+            .format(hostname=hostname, port=port)
+        )
+
+    def end_control(self, response):
+        hostname, port = self._request_hostname_port()
+
+        self._write_control_event(
+            'Closed control connection to {hostname}:{port}'
+            .format(hostname=hostname, port=port)
+        )
+
+        self._control_record.block_file.seek(0)
+        self._recorder.set_length_and_maybe_checksums(self._control_record)
+        self._recorder.write_record(self._control_record)
+
+    def request_control_data(self, data):
+        text = textwrap.indent(
+            data.decode('latin-1'), '> ', predicate=lambda line: True
+        )
+        self._control_record.block_file.write(text.encode('latin-1'))
+        self._control_record.block_file.write(b'\n')
+
+    def response_control_data(self, data):
+        text = textwrap.indent(
+            data.decode('latin-1'), '< ', predicate=lambda line: True
+        )
+        self._control_record.block_file.write(text.encode('latin-1'))
+        self._control_record.block_file.write(b'\n')
+
+    def _write_control_event(self, text):
+        text = textwrap.indent(text, '* ', predicate=lambda line: True)
+        self._control_record.block_file.write(text.encode('latin-1'))
+        self._control_record.block_file.write(b'\n')
+
+    def _request_hostname_port(self):
+        hostname = self._request.address[0]
+
+        if ':' in hostname:
+            hostname = '[{}]'.format(hostname)
+
+        port = self._request.address[1]
+
+        return hostname, port
+
+    def pre_response(self, response):
+        self._response_record = record = WARCRecord()
+        record.set_common_fields('resource', 'application/octet-stream')
+        record.fields['WARC-Target-URI'] = self._request.url_info.url
+        record.fields['WARC-IP-Address'] = self._request.address[0]
+        record.fields['WARC-Concurrent-To'] = self._control_record.fields[
+            WARCRecord.WARC_RECORD_ID]
+        record.block_file = self._new_temp_file('warcresp')
+
+    def response_data(self, data):
+        self._response_record.block_file.write(data)
+
+    def response(self, response):
+        self._response_record.block_file.seek(0)
+        self._recorder.set_length_and_maybe_checksums(self._response_record)
+        self._recorder.write_record(self._response_record)

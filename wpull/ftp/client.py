@@ -129,10 +129,14 @@ class Session(BaseSession):
 
         Coroutine.
         '''
+
+        yield From(self._init_stream(request))
+
+        request.address = self._connection.address
+
         if self._recorder_session:
             self._recorder_session.begin_control(request)
 
-        yield From(self._init_stream(request))
         yield From(self._log_in())
 
         response.request = request
