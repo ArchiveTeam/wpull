@@ -587,19 +587,25 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
             data.decode('latin-1'), '> ', predicate=lambda line: True
         )
         self._control_record.block_file.write(text.encode('latin-1'))
-        self._control_record.block_file.write(b'\n')
+
+        if not data.endswith(b'\n'):
+            self._control_record.block_file.write(b'\n')
 
     def response_control_data(self, data):
         text = textwrap.indent(
             data.decode('latin-1'), '< ', predicate=lambda line: True
         )
         self._control_record.block_file.write(text.encode('latin-1'))
-        self._control_record.block_file.write(b'\n')
+
+        if not data.endswith(b'\n'):
+            self._control_record.block_file.write(b'\n')
 
     def _write_control_event(self, text):
         text = textwrap.indent(text, '* ', predicate=lambda line: True)
         self._control_record.block_file.write(text.encode('latin-1'))
-        self._control_record.block_file.write(b'\n')
+
+        if not text.endswith('\n'):
+            self._control_record.block_file.write(b'\n')
 
     def _request_hostname_port(self):
         hostname = self._request.address[0]
