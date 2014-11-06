@@ -33,23 +33,24 @@ class Session(BaseSession):
         self._control_stream = None
         self._commander = None
         self._request = None
+        self._response = None
 
-        # TODO: recorder
         # TODO: maybe keep track of sessions among connections to avoid
         # having to login over and over again
 
     @trollius.coroutine
-    def _init_stream(self, request):
+    def _init_stream(self):
         '''Create streams and commander.
 
         Coroutine.
         '''
         assert not self._connection
-        self._connection = yield From(self._connection_pool.check_out(
-            request.url_info.hostname, request.url_info.port))
+        self._connection = yield From(
+            self._connection_pool.check_out(
+                self._request.url_info.hostname, self._request.url_info.port
+            ))
         self._control_stream = ControlStream(self._connection)
         self._commander = Commander(self._control_stream)
-        self._request = request
 
         if self._recorder_session:
             def control_data_callback(direction, data):
@@ -93,7 +94,7 @@ class Session(BaseSession):
             Command('RETR', request.url_info.path), response.body
         ))
 
-        self._clean_up_fetch(response, reply)
+        self._clean_up_fetch(reply)
 
         raise Return(response)
 
@@ -112,19 +113,19 @@ class Session(BaseSession):
 
         try:
             try:
-                reply = yield From(self._get_machine_listing(request, response))
+                reply = yield From(self._get_machine_listing())
             except FTPServerError as error:
                 response.body.seek(0)
                 response.body.truncate()
                 if error.reply_code in (ReplyCodes.syntax_error_command_unrecognized,
                                         ReplyCodes.command_not_implemented):
-                    reply = yield From(self._get_list_listing(request, response))
+                    reply = yield From(self._get_list_listing())
                 else:
                     raise
         except ListingError as error:
             raise ProtocolError(*error.args) from error
 
-        self._clean_up_fetch(response, reply)
+        self._clean_up_fetch(reply)
 
         raise Return(response)
 
@@ -134,8 +135,10 @@ class Session(BaseSession):
 
         Coroutine.
         '''
+        self._request = request
+        self._response = response
 
-        yield From(self._init_stream(request))
+        yield From(self._init_stream())
 
         request.address = self._connection.address
 
@@ -144,29 +147,23 @@ class Session(BaseSession):
 
         yield From(self._log_in())
 
-        response.request = request
+        self._response.request = request
 
         if callback:
             file = callback(request, response)
 
         if not isinstance(file, Body):
-            response.body = Body(file)
+            self._response.body = Body(file)
         else:
-            response.body = file
+            self._response.body = file
 
-        if self._recorder_session:
-            self._recorder_session.pre_response(response)
-
-    def _clean_up_fetch(self, response, reply):
+    def _clean_up_fetch(self, reply):
         '''Clean up after a fetch.'''
-        response.body.seek(0)
-        response.reply = reply
+        self._response.body.seek(0)
+        self._response.reply = reply
 
         if self._recorder_session:
-            self._recorder_session.response(response)
-
-        if self._recorder_session:
-            self._recorder_session.end_control(response)
+            self._recorder_session.end_control(self._response)
 
     @trollius.coroutine
     def _fetch_with_command(self, command, file=None):
@@ -191,6 +188,9 @@ class Session(BaseSession):
             ))
 
             if self._recorder_session:
+                self._response.data_address = data_connection.address
+                self._recorder_session.pre_response(self._response)
+
                 def data_callback(action, data):
                     if action == 'read':
                         self._recorder_session.response_data(data)
@@ -200,6 +200,9 @@ class Session(BaseSession):
             reply = yield From(self._commander.read_stream(
                 command, file, data_stream
             ))
+
+            if self._recorder_session:
+                self._recorder_session.response(self._response)
 
             raise Return(reply)
         finally:
@@ -211,39 +214,39 @@ class Session(BaseSession):
                 self._connection_pool.check_in(data_connection)
 
     @trollius.coroutine
-    def _get_machine_listing(self, request, response):
+    def _get_machine_listing(self):
         '''Request a MLSD.
 
         Coroutine.
         '''
         reply = yield From(self._fetch_with_command(
-            Command('MLSD', request.url_info.path), response.body
+            Command('MLSD', self._request.url_info.path), self._response.body
         ))
 
-        response.body.seek(0)
+        self._response.body.seek(0)
 
         listings = wpull.ftp.util.parse_machine_listing(
-            response.body.read().decode('latin-1'),
+            self._response.body.read().decode('latin-1'),
             convert=True, strict=False
             )
 
-        response.files = listings
+        self._response.files = listings
 
         raise Return(reply)
 
     @trollius.coroutine
-    def _get_list_listing(self, request, response):
+    def _get_list_listing(self):
         '''Request a LIST listing.
 
         Coroutine.
         '''
         reply = yield From(self._fetch_with_command(
-            Command('LIST', request.url_info.path), response.body
+            Command('LIST', self._request.url_info.path), self._response.body
         ))
 
-        response.body.seek(0)
+        self._response.body.seek(0)
 
-        file = io.TextIOWrapper(response.body, encoding='latin-1')
+        file = io.TextIOWrapper(self._response.body, encoding='latin-1')
 
         listing_parser = ListingParser(file=file)
         listing_parser.run_heuristics()
@@ -253,7 +256,7 @@ class Session(BaseSession):
         # We don't want the file to be closed when exiting this function
         file.detach()
 
-        response.files = listings
+        self._response.files = listings
 
         raise Return(reply)
 

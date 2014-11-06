@@ -618,6 +618,12 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
         return hostname, port
 
     def pre_response(self, response):
+        hostname, port = response.data_address
+        self._write_control_event(
+            'Opened data connection to {hostname}:{port}'
+            .format(hostname=hostname, port=port)
+        )
+
         self._response_record = record = WARCRecord()
         record.set_common_fields('resource', 'application/octet-stream')
         record.fields['WARC-Target-URI'] = self._request.url_info.url
@@ -630,6 +636,12 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
         self._response_record.block_file.write(data)
 
     def response(self, response):
+        hostname, port = response.data_address
+        self._write_control_event(
+            'Closed data connection to {hostname}:{port}'
+            .format(hostname=hostname, port=port)
+        )
+
         self._response_record.block_file.seek(0)
         self._recorder.set_length_and_maybe_checksums(self._response_record)
         self._recorder.write_record(self._response_record)

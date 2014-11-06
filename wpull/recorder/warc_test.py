@@ -138,6 +138,7 @@ class TestWARC(BaseRecorderTest):
         response = FTPResponse()
         response.reply = FTPReply(200, 'OK')
         response.body = Body()
+        response.data_address = ('0.0.0.0', 12345)
 
         with wpull.util.reset_file_offset(response.body):
             response.body.write(b'KITTEH DOGE')
@@ -184,6 +185,8 @@ class TestWARC(BaseRecorderTest):
         self.assertIn(b'KITTEH DOGE', warc_file_content)
         self.assertIn(b'* Opening control connection to', warc_file_content)
         self.assertIn(b'* Closed control connection to', warc_file_content)
+        self.assertIn(b'* Opened data connection to ', warc_file_content)
+        self.assertIn(b'* Closed data connection to ', warc_file_content)
         self.assertIn(b'> GIMMEH example.txt', warc_file_content)
         self.assertIn(b'< 200 OK, no need to yell.', warc_file_content)
 

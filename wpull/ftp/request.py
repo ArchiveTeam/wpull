@@ -116,6 +116,8 @@ class Request(URLPropertyMixin):
     def __init__(self, url):
         super().__init__()
         self.url = url
+        self.address = None
+        self.data_address = None
 
     def to_dict(self):
         return {
@@ -137,6 +139,7 @@ class Response(DictableMixin, ProtocolResponseMixin):
         self.request = None
         self.body = None
         self.reply = None
+        self.data_address = None
 
     def to_dict(self):
         return {
