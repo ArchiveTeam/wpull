@@ -171,6 +171,7 @@ class Session(BaseSession):
         '''
         # TODO: the recorder needs to fit inside here
         data_connection = None
+        data_stream = None
 
         @trollius.coroutine
         def connection_factory(address):
@@ -184,12 +185,22 @@ class Session(BaseSession):
                 connection_factory
             ))
 
+            if self._recorder_session:
+                def data_callback(action, data):
+                    if action == 'read':
+                        self._recorder_session.response_data(data)
+
+                data_stream.data_observer.add(data_callback)
+
             reply = yield From(self._commander.read_stream(
                 command, file, data_stream
             ))
 
             raise Return(reply)
         finally:
+            if data_stream:
+                data_stream.data_observer.clear()
+
             if data_connection:
                 data_connection.close()
                 self._connection_pool.check_in(data_connection)
