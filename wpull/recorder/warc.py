@@ -7,7 +7,6 @@ import logging
 import os.path
 import re
 import shutil
-import textwrap
 
 import namedlist
 
@@ -16,6 +15,12 @@ from wpull.namevalue import NameValueRecord
 from wpull.recorder.base import BaseRecorder, BaseRecorderSession
 from wpull.warc import WARCRecord
 import wpull.version
+
+
+try:
+    from textwrap import indent as textwrap_indent
+except ImportError:
+    from wpull.backport.textwrap import indent as textwrap_indent
 
 
 _logger = logging.getLogger(__name__)
@@ -583,7 +588,7 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
         self._recorder.write_record(self._control_record)
 
     def request_control_data(self, data):
-        text = textwrap.indent(
+        text = textwrap_indent(
             data.decode('latin-1'), '> ', predicate=lambda line: True
         )
         self._control_record.block_file.write(text.encode('latin-1'))
@@ -592,7 +597,7 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
             self._control_record.block_file.write(b'\n')
 
     def response_control_data(self, data):
-        text = textwrap.indent(
+        text = textwrap_indent(
             data.decode('latin-1'), '< ', predicate=lambda line: True
         )
         self._control_record.block_file.write(text.encode('latin-1'))
@@ -601,7 +606,7 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
             self._control_record.block_file.write(b'\n')
 
     def _write_control_event(self, text):
-        text = textwrap.indent(text, '* ', predicate=lambda line: True)
+        text = textwrap_indent(text, '* ', predicate=lambda line: True)
         self._control_record.block_file.write(text.encode('latin-1'))
 
         if not text.endswith('\n'):
