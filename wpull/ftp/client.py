@@ -69,7 +69,7 @@ class Session(BaseSession):
         '''
         # TODO: grab defaults from options
         username = self._request.url_info.username or 'anonymous'
-        password = self._request.url_info.password or 'wpull'
+        password = self._request.url_info.password or '-wpull@'
 
         yield From(self._commander.reconnect())
         yield From(self._commander.login(username, password))
