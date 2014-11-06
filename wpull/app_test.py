@@ -1069,13 +1069,24 @@ class TestAppBad(BadAppTestCase):
 
 
 class TestAppFTP(FTPTestCase):
+    def setUp(self):
+        super().setUp()
+        self.original_loggers = list(logging.getLogger().handlers)
+
+    def tearDown(self):
+        FTPTestCase.tearDown(self)
+
+        for handler in list(logging.getLogger().handlers):
+            if handler not in self.original_loggers:
+                logging.getLogger().removeHandler(handler)
+
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_basic(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
             self.get_url('/'),
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
@@ -1098,7 +1109,7 @@ class TestAppFTP(FTPTestCase):
             '--no-host-directories',
             '--warc-file', 'mywarc'
         ])
-        builder = Builder(args)
+        builder = Builder(args, unit_test=True)
 
         with cd_tempdir():
             app = builder.build()
