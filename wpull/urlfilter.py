@@ -90,9 +90,12 @@ class FollowFTPFilter(BaseURLFilter):
         self._follow = follow
 
     def test(self, url_info, url_table_record):
-        if url_info.scheme == 'ftp' and \
-                url_table_record.referrer_info.scheme in ('http', 'https'):
-            return self._follow
+        if url_info.scheme == 'ftp':
+            if url_table_record.referrer and \
+                    url_table_record.referrer_info.scheme in ('http', 'https'):
+                return self._follow
+            else:
+                return True
         else:
             return True
 
