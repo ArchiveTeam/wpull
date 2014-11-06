@@ -39,17 +39,18 @@ Brief Option Overview
                      [--private-key-type TYPE={PEM}] [--ca-certificate FILE]
                      [--ca-directory DIR] [--no-use-internal-ca-certs]
                      [--random-file FILE] [--edg-file FILE]
-                     [--warc-file FILENAME] [--warc-append]
-                     [--warc-header STRING] [--warc-max-size NUMBER]
-                     [--warc-move DIRECTORY] [--warc-cdx] [--warc-dedup FILE]
-                     [--no-warc-compression] [--no-warc-digests]
-                     [--no-warc-keep-log] [--warc-tempdir DIRECTORY] [-r]
-                     [-l NUMBER] [--delete-after] [-k] [-K] [-p] [--sitemaps]
-                     [-A LIST] [-R LIST] [--accept-regex REGEX]
-                     [--reject-regex REGEX] [--regex-type TYPE={posix}]
-                     [-D LIST] [--exclude-domains LIST] [--hostnames LIST]
-                     [--exclude-hostnames LIST] [--follow-tags LIST]
-                     [--ignore-tags LIST]
+                     [--no-remove-listing] [--warc-file FILENAME]
+                     [--warc-append] [--warc-header STRING]
+                     [--warc-max-size NUMBER] [--warc-move DIRECTORY]
+                     [--warc-cdx] [--warc-dedup FILE] [--no-warc-compression]
+                     [--no-warc-digests] [--no-warc-keep-log]
+                     [--warc-tempdir DIRECTORY] [-r] [-l NUMBER]
+                     [--delete-after] [-k] [-K] [-p] [--sitemaps] [-A LIST]
+                     [-R LIST] [--accept-regex REGEX] [--reject-regex REGEX]
+                     [--regex-type TYPE={posix}] [-D LIST]
+                     [--exclude-domains LIST] [--hostnames LIST]
+                     [--exclude-hostnames LIST] [--follow-ftp]
+                     [--follow-tags LIST] [--ignore-tags LIST]
                      [-H | --span-hosts-allow LIST=<linked-pages,page-requisites>]
                      [-L] [-I LIST] [-X LIST] [-np] [--no-strong-redirects]
                      [--phantomjs] [--phantomjs-exe PATH]
@@ -217,6 +218,9 @@ Brief Option Overview
     --random-file FILE    use data from FILE to seed the SSL PRNG
     --edg-file FILE       connect to entropy gathering daemon using socket FILE
 
+  FTP:
+    --no-remove-listing   keep directory file listings
+
   WARC:
     --warc-file FILENAME  save WARC file to filename prefixed with FILENAME
     --warc-append         append instead of overwrite the output WARC file
@@ -263,6 +267,7 @@ Brief Option Overview
     --hostnames LIST      download only from LIST of hostnames
     --exclude-hostnames LIST
                           don’t download from LIST of hostnames
+    --follow-ftp          follow links to FTP sites
     --follow-tags LIST    follow only links contained in LIST of HTML tags
     --ignore-tags LIST    don’t follow links contained in LIST of HTML tags
     -H, --span-hosts      follow links and page requisites to other hostnames

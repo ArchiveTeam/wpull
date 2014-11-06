@@ -5,6 +5,7 @@ What's New
 * Fixed control characters printed without escaping.
 * Fixed cookie size not limited correctly per domain name.
 * Fixed URL parsing incorrectly allowing spaces in hostnames.
+* Added experimental FTP support.
 
 
 0.1001.2 (2014-10-25)
