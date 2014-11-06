@@ -231,6 +231,7 @@ class TestURL(unittest.TestCase):
         self.assertRaises(
             ValueError, URLInfo.parse,
             'http://ｆａｔ３２ｄｅｆｒａｇｍｅｎｔｅｒ.internets：８０/')
+        self.assertRaises(ValueError, URLInfo.parse, 'http:// /spaaaace')
 
     def test_url_info_path_folding(self):
         self.assertEqual(

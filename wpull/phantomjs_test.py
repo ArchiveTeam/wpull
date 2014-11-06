@@ -5,7 +5,7 @@ import trollius
 
 from wpull.http.client import Client
 from wpull.phantomjs import (PhantomJSRemote, PhantomJSClient,
-                             PhantomJSRPCTimedOut)
+                             PhantomJSRPCTimedOut, PhantomJSRPCError)
 from wpull.proxy import HTTPProxyServer
 import wpull.testing.async
 
@@ -98,6 +98,9 @@ class TestPhantomJS(wpull.testing.async.AsyncTestCase):
             except PhantomJSRPCTimedOut:
                 # It probably quit before it could reply
                 pass
+            except PhantomJSRPCError:
+                # PhantomJS 1.9.8+: Ignore 'undefined' error.
+                pass
 
             yield From(trollius.sleep(0.1))
 
@@ -130,6 +133,9 @@ class TestPhantomJS(wpull.testing.async.AsyncTestCase):
         except PhantomJSRPCTimedOut:
             # It probably quit before it could reply
             pass
+        except PhantomJSRPCError:
+            # PhantomJS 1.9.8+: Ignore 'undefined' error.
+            pass
 
         with remote_client.remote() as remote:
             self.assertIn(remote, remote_client.remotes_busy)
@@ -148,7 +154,7 @@ class TestPhantomJS(wpull.testing.async.AsyncTestCase):
         except PhantomJSRPCTimedOut:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
         @trollius.coroutine
         def mock_put_rpc_info(rpc_info):
@@ -162,21 +168,21 @@ class TestPhantomJS(wpull.testing.async.AsyncTestCase):
         except PhantomJSRPCTimedOut:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
         try:
             yield From(remote.set('blah', 123, timeout=0.1))
         except PhantomJSRPCTimedOut:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
         try:
             yield From(remote.call('blah', timeout=0.1))
         except PhantomJSRPCTimedOut:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_multiline(self):

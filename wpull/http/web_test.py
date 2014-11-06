@@ -71,7 +71,7 @@ class TestWebClientBadCase(BadAppTestCase):
             except ProtocolError:
                 return
             else:
-                self.fail()
+                self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_bad_redirect_ipv6(self):
@@ -84,5 +84,5 @@ class TestWebClientBadCase(BadAppTestCase):
             except ProtocolError:
                 return
             else:
-                self.fail()
+                self.fail()  # pragma: no cover
 

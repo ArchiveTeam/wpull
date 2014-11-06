@@ -43,7 +43,7 @@ class TestClient(FTPTestCase):
             except FTPServerError as error:
                 self.assertEqual(550, error.reply_code)
             else:
-                self.fail()
+                self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_fetch_listing(self):

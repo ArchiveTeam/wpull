@@ -403,9 +403,11 @@ class WebProcessorSession(BaseProcessorSession):
                 'Length: {content_length} [{content_type}].'),
             url=request.url,
             status_code=response.status_code,
-            reason=response.reason,
-            content_length=response.fields.get('Content-Length'),
-            content_type=response.fields.get('Content-Type'),
+            reason=wpull.string.printable_str(response.reason),
+            content_length=wpull.string.printable_str(
+                response.fields.get('Content-Length', _('none'))),
+            content_type=wpull.string.printable_str(
+                response.fields.get('Content-Type', _('none'))),
         ))
 
     def _handle_response(self, request, response):

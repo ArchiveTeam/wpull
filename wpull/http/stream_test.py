@@ -521,7 +521,7 @@ class TestSSLStream(SSLBadAppTestCase, StreamTestsMixin):
         except SSLVerficationError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_ssl_no_check(self):

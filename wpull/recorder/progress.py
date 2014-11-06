@@ -69,7 +69,8 @@ class BaseProgressRecorderSession(BaseRecorderSession):
 
     def pre_response(self, response):
         if hasattr(response, 'status_code'):
-            self._println(response.status_code, response.reason)
+            self._println(response.status_code,
+                          wpull.string.printable_str(response.reason))
         else:
             # TODO: abstract these things out
             self._println('...')
@@ -89,8 +90,10 @@ class BaseProgressRecorderSession(BaseRecorderSession):
 
         self._println(
             _('Length: {content_length} [{content_type}]').format(
-                content_length=self._content_length,
-                content_type=content_type
+                content_length=self._content_length or _('none'),
+                content_type=wpull.string.printable_str(
+                    content_type or _('none')
+                )
             ),
         )
 
