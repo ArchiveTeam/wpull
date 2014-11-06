@@ -1096,6 +1096,7 @@ class TestAppFTP(FTPTestCase):
             '--tries', '1',
             '--wait', '0',
             '--no-host-directories',
+            '--warc-file', 'mywarc'
         ])
         builder = Builder(args)
 
@@ -1103,7 +1104,7 @@ class TestAppFTP(FTPTestCase):
             app = builder.build()
             exit_code = yield From(app.run())
 
-            self.assertEqual(8, exit_code)
+            self.assertEqual(7, exit_code)
             self.assertEqual(4, builder.factory['Statistics'].files)
 
             print(os.listdir())
@@ -1112,6 +1113,15 @@ class TestAppFTP(FTPTestCase):
             self.assertTrue(os.path.exists('example.txt'))
             self.assertTrue(os.path.exists('example1/.listing'))
             self.assertTrue(os.path.exists('example2/.listing'))
+            self.assertTrue(os.path.exists('mywarc.warc.gz'))
+
+            with gzip.GzipFile('mywarc.warc.gz') as in_file:
+                data = in_file.read()
+
+                self.assertIn(b'FINISHED', data)
+                self.assertIn('The real treasure is in Smaug’s heart 💗.\n'
+                              .encode('utf-8'),
+                              data)
 
 
 @trollius.coroutine

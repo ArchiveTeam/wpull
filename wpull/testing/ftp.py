@@ -121,8 +121,16 @@ class FTPSession(object):
 
         if not self.data_writer:
             self.writer.write(b'227 Use PORT or PASV first\r\n')
+        elif 'junk' in self.arg:
+            self.writer.write(b'150 Begin listings\r\n')
+            self.data_writer.write(b'')
+            self.data_writer.close()
+            self.data_writer = None
+            self.writer.write(b'226 End listings\r\n')
+            self.data_server.close()
         else:
             self.writer.write(b'150 Begin listings\r\n')
+            self.data_writer.write(b'junk\r\n')
             self.data_writer.write(b'example1\r\n')
             self.data_writer.write(b'example2\r\n')
             self.data_writer.write(b'example.txt\r\n')
@@ -137,8 +145,16 @@ class FTPSession(object):
 
         if not self.data_writer:
             self.writer.write(b'227 Use PORT or PASV first\r\n')
+        elif 'junk' in self.arg:
+            self.writer.write(b'150 Begin listings\r\n')
+            self.data_writer.write(b'')
+            self.data_writer.close()
+            self.data_writer = None
+            self.writer.write(b'226 End listings\r\n')
+            self.data_server.close()
         else:
             self.writer.write(b'150 Begin listings\r\n')
+            self.data_writer.write(b'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 junk\r\n')
             self.data_writer.write(b'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example1\r\n')
             self.data_writer.write(b'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example2\r\n')
             self.data_writer.write(b'-rw-r--r-- 1 smaug smaug 42 Apr 01 00:00 example.txt\r\n')

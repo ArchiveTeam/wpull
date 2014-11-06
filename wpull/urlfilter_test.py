@@ -73,9 +73,26 @@ class TestURLFilter(unittest.TestCase):
 
     def test_follow_ftp_filter(self):
         mock_record = MockURLTableRecord()
-        mock_record.referrer = 'http://wolf.farts'
-
         url_filter = FollowFTPFilter()
+
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('http://wolf.farts/1'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('https://wolf.farts/1'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('mailto:wolf@wolf.farts'),
+            mock_record
+        ))
+        self.assertTrue(url_filter.test(
+            URLInfo.parse('ftp://wolf.farts/'),
+            mock_record
+        ))
+
+        mock_record.referrer = 'http://wolf.farts'
 
         self.assertTrue(url_filter.test(
             URLInfo.parse('http://wolf.farts/1'),
