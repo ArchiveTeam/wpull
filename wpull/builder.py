@@ -63,7 +63,8 @@ from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, SchemeFilter,
                              BackwardDomainFilter, HostnameFilter, TriesFilter,
                              RecursiveFilter, LevelFilter,
                              SpanHostsFilter, RegexFilter, DirectoryFilter,
-                             BackwardFilenameFilter, ParentFilter)
+                             BackwardFilenameFilter, ParentFilter,
+                             FollowFTPFilter)
 from wpull.util import ASCIIStreamWriter
 from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
@@ -476,6 +477,7 @@ class Builder(object):
                 page_requisites='page-requisites' in args.span_hosts_allow,
                 linked_pages='linked-pages' in args.span_hosts_allow,
             ),
+            FollowFTPFilter(follow=args.follow_ftp),
         ]
 
         if args.no_parent:

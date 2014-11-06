@@ -1089,11 +1089,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=self.comma_list,
             help=_('don’t download from LIST of hostnames')
         )
-#         self.add_argument(
-#             '--follow-ftp',
-#             action='store_true',
-#             help=_('follow links to FTP sites')
-#         )
+        group.add_argument(
+            '--follow-ftp',
+            action='store_true',
+            help=_('follow links to FTP sites')
+        )
         group.add_argument(
             '--follow-tags',
             metavar='LIST',
