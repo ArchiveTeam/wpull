@@ -223,12 +223,15 @@ class Session(BaseSession):
             Command('MLSD', self._request.url_info.path), self._response.body
         ))
 
-        self._response.body.seek(0)
+        if self._response.body.tell() == 0:
+            listings = ()
+        else:
+            self._response.body.seek(0)
 
-        listings = wpull.ftp.util.parse_machine_listing(
-            self._response.body.read().decode('latin-1'),
-            convert=True, strict=False
-            )
+            listings = wpull.ftp.util.parse_machine_listing(
+                self._response.body.read().decode('latin-1'),
+                convert=True, strict=False
+                )
 
         self._response.files = listings
 
@@ -244,17 +247,20 @@ class Session(BaseSession):
             Command('LIST', self._request.url_info.path), self._response.body
         ))
 
-        self._response.body.seek(0)
+        if self._response.body.tell() == 0:
+            listings = ()
+        else:
+            self._response.body.seek(0)
 
-        file = io.TextIOWrapper(self._response.body, encoding='latin-1')
+            file = io.TextIOWrapper(self._response.body, encoding='latin-1')
 
-        listing_parser = ListingParser(file=file)
-        listing_parser.run_heuristics()
+            listing_parser = ListingParser(file=file)
+            listing_parser.run_heuristics()
 
-        listings = listing_parser.parse()
+            listings = listing_parser.parse()
 
-        # We don't want the file to be closed when exiting this function
-        file.detach()
+            # We don't want the file to be closed when exiting this function
+            file.detach()
 
         self._response.files = listings
 
