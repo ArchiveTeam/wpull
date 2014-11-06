@@ -6,7 +6,9 @@ import trollius
 
 from wpull.abstract.client import BaseClient, BaseSession
 from wpull.body import Body
+from wpull.errors import ProtocolError
 from wpull.ftp.command import Commander
+from wpull.ftp.ls.listing import ListingError
 from wpull.ftp.ls.parse import ListingParser
 from wpull.ftp.request import Response, Command, ListingResponse
 from wpull.ftp.stream import ControlStream
@@ -109,15 +111,18 @@ class Session(BaseSession):
         yield From(self._prepare_fetch(request, response, file, callback))
 
         try:
-            reply = yield From(self._get_machine_listing(request, response))
-        except FTPServerError as error:
-            response.body.seek(0)
-            response.body.truncate()
-            if error.reply_code in (ReplyCodes.syntax_error_command_unrecognized,
-                                    ReplyCodes.command_not_implemented):
-                reply = yield From(self._get_list_listing(request, response))
-            else:
-                raise
+            try:
+                reply = yield From(self._get_machine_listing(request, response))
+            except FTPServerError as error:
+                response.body.seek(0)
+                response.body.truncate()
+                if error.reply_code in (ReplyCodes.syntax_error_command_unrecognized,
+                                        ReplyCodes.command_not_implemented):
+                    reply = yield From(self._get_list_listing(request, response))
+                else:
+                    raise
+        except ListingError as error:
+            raise ProtocolError(*error.args) from error
 
         self._clean_up_fetch(response, reply)
 
