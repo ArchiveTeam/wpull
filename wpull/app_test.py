@@ -1092,7 +1092,7 @@ class TestAppFTP(FTPTestCase):
             self.get_url('/no_exist'),
             '-r',
             '--no-remove-listing',
-            '--level', '1',
+            '--level', '1',  # TODO: handle symlink loops
             '--tries', '1',
             '--wait', '0',
             '--no-host-directories',
