@@ -7,6 +7,7 @@ import logging
 import subprocess
 import time
 import uuid
+import errno
 
 import trollius
 from trollius.coroutines import From, Return
@@ -194,7 +195,11 @@ class PhantomJSRemote(object):
         if self._subproc.returncode is not None:
             return
 
-        self._subproc.terminate()
+        try:
+            self._subproc.terminate()
+        except OSError as error:
+            if error.errno != errno.ESRCH:
+                raise
 
         for dummy in range(10):
             if self._subproc.returncode is not None:
@@ -202,7 +207,11 @@ class PhantomJSRemote(object):
 
             time.sleep(0.05)
 
-        self._subproc.kill()
+        try:
+            self._subproc.kill()
+        except OSError as error:
+            if error.errno != errno.ESRCH:
+                raise
 
     @trollius.coroutine
     def call(self, name, *args, timeout=10):
