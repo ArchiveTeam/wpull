@@ -141,7 +141,7 @@ class TestConnection(BadAppTestCase):
         try:
             yield From(trollius.wait_for(
                 pool.check_out('localhost', self.get_http_port()),
-                0
+                0.1
             ))
         except trollius.TimeoutError:
             pass

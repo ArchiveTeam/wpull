@@ -7,6 +7,10 @@ What's New
 * Fixed URL parsing incorrectly allowing spaces in hostnames.
 * Added experimental FTP support.
 
+* API:
+
+  * Fixed ``ConnectionPool`` ``max_host_count`` argument not used.
+
 
 0.1001.2 (2014-10-25)
 =====================

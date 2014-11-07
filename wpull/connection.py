@@ -195,7 +195,9 @@ class ConnectionPool(object):
         key = (host, port, ssl)
 
         if key not in self._pool:
-            host_pool = self._pool[key] = HostPool()
+            host_pool = self._pool[key] = HostPool(
+                max_connections=self._max_host_count
+            )
         else:
             host_pool = self._pool[key]
 
