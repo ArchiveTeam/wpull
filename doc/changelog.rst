@@ -7,6 +7,10 @@ What's New
 * Fixed URL parsing incorrectly allowing spaces in hostnames.
 * Added experimental FTP support.
 
+* Scripting:
+
+  * Added ``handle_pre_response`` callback hook.
+
 * API:
 
   * Fixed ``ConnectionPool`` ``max_host_count`` argument not used.

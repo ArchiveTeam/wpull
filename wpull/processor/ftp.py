@@ -10,6 +10,7 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
 from wpull.errors import NetworkError, ProtocolError, ServerError
 from wpull.ftp.request import Request, ListingResponse, Response
+from wpull.hook import Actions
 from wpull.processor.base import BaseProcessor, BaseProcessorSession
 from wpull.processor.rule import ResultRule, FetchRule
 from wpull.scraper.util import urljoin_safe
@@ -54,6 +55,10 @@ Args:
     result_rule ( :class:`.processor.rule.ResultRule`): The result rule.
     file_writer (:class`.writer.BaseWriter`): The file writer.
 '''
+
+
+class HookPreResponseBreak(ProtocolError):
+    '''Hook pre-response break.'''
 
 
 class FTPProcessor(BaseProcessor):
@@ -159,6 +164,13 @@ class FTPProcessorSession(BaseProcessorSession):
             nonlocal response
             response = callback_response
 
+            action = self._result_rule.handle_pre_response(
+                request, response, self._url_item
+            )
+
+            if action in (Actions.RETRY, Actions.FINISH):
+                raise HookPreResponseBreak()
+
             self._file_writer_session.process_response(response)
 
             if not response.body:
@@ -173,6 +185,11 @@ class FTPProcessorSession(BaseProcessorSession):
                     response = yield From(session.fetch(request, callback=response_callback))
                 else:
                     response = yield From(session.fetch_file_listing(request, callback=response_callback))
+
+        except HookPreResponseBreak:
+            if response:
+                response.body.close()
+
         except (NetworkError, ProtocolError, ServerError) as error:
             self._log_error(request, error)
 

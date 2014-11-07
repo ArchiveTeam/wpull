@@ -79,6 +79,10 @@ Args:
 '''
 
 
+class HookPreResponseBreak(ProtocolError):
+    '''Hook pre-response break.'''
+
+
 class WebProcessor(BaseProcessor, HookableMixin):
     '''HTTP processor.
 
@@ -293,6 +297,13 @@ class WebProcessorSession(BaseProcessorSession):
             nonlocal response
             response = callback_response
 
+            action = self._result_rule.handle_pre_response(
+                request, response, self._url_item
+            )
+
+            if action in (Actions.RETRY, Actions.FINISH):
+                raise HookPreResponseBreak()
+
             self._file_writer_session.process_response(response)
 
             if not response.body:
@@ -305,6 +316,9 @@ class WebProcessorSession(BaseProcessorSession):
             response = yield From(
                 self._web_client_session.fetch(callback=response_callback)
             )
+        except HookPreResponseBreak:
+            _logger.debug('Hook pre-response break.')
+            raise Return(True)
         except (NetworkError, ProtocolError) as error:
             self._log_error(request, error)
 

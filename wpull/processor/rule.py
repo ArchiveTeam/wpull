@@ -182,8 +182,17 @@ class ResultRule(HookableMixin):
             'handle_error')
 
     def handle_pre_response(self, request, response, url_item):
-        # TODO: add pre response hook
-        return Actions.NORMAL
+        action = self.consult_pre_response_hook(
+            request, response, url_item.url_record)
+
+        if action == Actions.RETRY:
+            url_item.set_status(Status.skipped)
+        elif action == Actions.FINISH:
+            url_item.set_status(Status.done)
+        elif action == Actions.STOP:
+            raise HookStop('Script requested immediate stop.')
+
+        return action
 
     def handle_document(self, request, response, url_item, filename):
         '''Process a successful document response.
@@ -294,6 +303,14 @@ class ResultRule(HookableMixin):
             return self.call_hook('wait_time', seconds)
         except HookDisconnected:
             return seconds
+
+    def consult_pre_response_hook(self, request, response, url_record):
+        try:
+            return self.call_hook(
+                'handle_pre_response', request, response, url_record
+            )
+        except HookDisconnected:
+            return Actions.NORMAL
 
     def consult_response_hook(self, request, response, url_record):
         try:

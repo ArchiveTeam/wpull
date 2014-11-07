@@ -126,6 +126,11 @@ class DirOrFileHandle(tornado.web.RequestHandler):
         self.write(b'OH-NO')
 
 
+class SomePageHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.write(b'Hello world!')
+
+
 class GoodApp(tornado.web.Application):
     def __init__(self):
         tornado.web.Application.__init__(self, [
@@ -142,6 +147,7 @@ class GoodApp(tornado.web.Application):
             (r'/big_payload', BigPayloadHandler),
             (r'/dir_or_file', DirOrFileHandle),
             (r'/dir_or_file/', DirOrFileHandle),
+            (r'/some_page', SomePageHandler),
         ],
             template_path=os.path.join(os.path.dirname(__file__),
                                        'templates'),

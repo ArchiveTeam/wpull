@@ -412,6 +412,7 @@ class TestApp(GoodAppTestCase):
                                 'testing', 'py_hook_script2.py')
         args = arg_parser.parse_args([
             self.get_url('/'),
+            self.get_url('/some_page'),
             'localhost:1/wolf',
             '--python-script', filename,
             '--page-requisites',
@@ -463,6 +464,7 @@ class TestApp(GoodAppTestCase):
                                 'testing', 'lua_hook_script2.lua')
         args = arg_parser.parse_args([
             self.get_url('/'),
+            self.get_url('/some_page'),
             'localhost:1/wolf',
             '--lua-script', filename,
             '--page-requisites',
