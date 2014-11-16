@@ -45,6 +45,7 @@ FTPProcessorInstances = namedlist.namedtuple(
     [
         ('fetch_rule', FetchRule()),
         ('result_rule', ResultRule()),
+        ('processing_rule', None),
         ('file_writer', NullWriter()),
     ]
 )
@@ -53,6 +54,7 @@ FTPProcessorInstances = namedlist.namedtuple(
 Args:
     fetch_rule ( :class:`.processor.rule.FetchRule`): The fetch rule.
     result_rule ( :class:`.processor.rule.ResultRule`): The result rule.
+    processing_rule ( :class:`.processor.rule.ProcessingRule`): The processing rule.
     file_writer (:class`.writer.BaseWriter`): The file writer.
 '''
 

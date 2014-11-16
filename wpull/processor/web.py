@@ -16,17 +16,12 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
 from wpull.document.html import HTMLReader
 from wpull.errors import NetworkError, ProtocolError
-from wpull.hook import HookableMixin, HookDisconnected, Actions
-from wpull.item import LinkType
+from wpull.hook import HookableMixin, Actions
 from wpull.namevalue import NameValueRecord
 from wpull.phantomjs import PhantomJSRPCTimedOut
 from wpull.processor.base import BaseProcessor, BaseProcessorSession
 from wpull.processor.rule import FetchRule, ResultRule
-from wpull.scraper.base import DemuxDocumentScraper
-from wpull.scraper.css import CSSScraper
-from wpull.scraper.html import HTMLScraper
 from wpull.stats import Statistics
-from wpull.waiter import LinearWaiter
 from wpull.writer import NullWriter
 import wpull.string
 import wpull.url
@@ -57,9 +52,8 @@ WebProcessorInstances = namedlist.namedtuple(
     [
         ('fetch_rule', FetchRule()),
         ('result_rule', ResultRule()),
-        ('document_scraper', DemuxDocumentScraper([])),
+        ('processing_rule', None),
         ('file_writer', NullWriter()),
-        ('waiter', LinearWaiter()),
         ('statistics', Statistics()),
         ('phantomjs_controller', None),
     ]
@@ -69,11 +63,8 @@ WebProcessorInstances = namedlist.namedtuple(
 Args:
     fetch_rule ( :class:`.processor.rule.FetchRule`): The fetch rule.
     result_rule ( :class:`.processor.rule.ResultRule`): The result rule.
-    document_scraper (:class:`.scaper.DemuxDocumentScraper`): The document
-        scraper.
+    processing_rule ( :class:`.processor.rule.ProcessingRule`): The processing rule.
     file_writer (:class`.writer.BaseWriter`): The file writer.
-    waiter (:class:`.waiter.Waiter`): The Waiter.
-    statistics (:class:`.stats.Statistics`): The Statistics.
     phantomjs_controller (:class:`PhantomJSController`): The PhantomJS
         controller.
 '''
@@ -108,8 +99,6 @@ class WebProcessor(BaseProcessor, HookableMixin):
         self._fetch_params = fetch_params
         self._instances = instances
         self._session_class = WebProcessorSession
-
-        self.register_hook('scrape_document')
 
     @property
     def web_client(self):
@@ -171,6 +160,7 @@ class WebProcessorSession(BaseProcessorSession):
 
         self._fetch_rule = processor.instances.fetch_rule
         self._result_rule = processor.instances.result_rule
+        self._processing_rule = processor.instances.processing_rule
         self._strong_redirects = self._processor.fetch_params.strong_redirects
 
     def _new_initial_request(self, with_body=True):
@@ -442,7 +432,9 @@ class WebProcessorSession(BaseProcessorSession):
               or self._processor.fetch_params.content_on_error):
             filename = self._file_writer_session.save_document(response)
 
-            self._scrape_document(request, response)
+            self._processing_rule.scrape_document(
+                request, response, self._url_item
+            )
 
             return self._result_rule.handle_document(
                 request, response, self._url_item, filename
@@ -459,76 +451,6 @@ class WebProcessorSession(BaseProcessorSession):
             return self._result_rule.handle_document_error(
                 request, response, self._url_item
             )
-
-    parse_url = staticmethod(wpull.url.parse_url_or_log)
-
-    def _scrape_document(self, request, response):
-        '''Scrape the document for URLs.'''
-        demux_info = self._processor.instances\
-            .document_scraper.scrape_info(request, response)
-
-        num_inline_urls = 0
-        num_linked_urls = 0
-
-        for scraper, scrape_info in demux_info.items():
-            new_inline, new_linked = self._process_scrape_info(
-                scraper, scrape_info
-            )
-            num_inline_urls += new_inline
-            num_linked_urls += new_linked
-
-        _logger.debug(__('Candidate URLs: inline={0} linked={1}',
-                         num_inline_urls, num_linked_urls
-                         ))
-
-        try:
-            self._processor.call_hook(
-                'scrape_document', request, response, self._url_item
-            )
-        except HookDisconnected:
-            pass
-
-    def _process_scrape_info(self, scraper, scrape_info):
-        '''Collect the URLs from the scrape info dict.'''
-        if not scrape_info:
-            return 0, 0
-
-        if isinstance(scraper, CSSScraper):
-            link_type = LinkType.css
-        elif isinstance(scraper, HTMLScraper):
-            link_type = LinkType.html
-        else:
-            link_type = None
-
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
-
-        inline_url_infos = set()
-        linked_url_infos = set()
-
-        for url in inline_urls:
-            url_info = self.parse_url(url)
-            if url_info:
-                url_record = self._url_item.child_url_record(
-                    url_info, inline=True
-                )
-                if self._should_fetch_reason(url_info, url_record)[0]:
-                    inline_url_infos.add(url_info)
-
-        for url in linked_urls:
-            url_info = self.parse_url(url)
-            if url_info:
-                url_record = self._url_item.child_url_record(
-                    url_info, link_type=link_type
-                )
-                if self._should_fetch_reason(url_info, url_record)[0]:
-                    linked_url_infos.add(url_info)
-
-        self._url_item.add_inline_url_infos(inline_url_infos)
-        self._url_item.add_linked_url_infos(
-            linked_url_infos, link_type=link_type)
-
-        return len(inline_url_infos), len(linked_url_infos)
 
     def _close_instance_body(self, instance):
         '''Close any files on instance.
@@ -585,7 +507,7 @@ class WebProcessorSession(BaseProcessorSession):
         if content is not None:
             mock_response = self._new_phantomjs_response(response, content)
 
-            self._scrape_document(request, mock_response)
+            self._processing_rule.scrape_document(request, mock_response, self._url_item)
 
             self._close_instance_body(mock_response)
 

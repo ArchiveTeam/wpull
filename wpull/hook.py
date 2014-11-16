@@ -364,7 +364,7 @@ class HookEnvironment(object):
         self.factory['ResultRule'].connect_hook(
             'handle_error',
             self._handle_error)
-        self.factory['WebProcessor'].connect_hook(
+        self.factory['ProcessingRule'].connect_hook(
             'scrape_document',
             self._scrape_document)
 

@@ -14,6 +14,7 @@ What's New
 * API:
 
   * Fixed ``ConnectionPool`` ``max_host_count`` argument not used.
+  * Moved document scraping concerns from ``WebProcessorSession`` to ``ProcessingRule``.
 
 
 0.1001.2 (2014-10-25)

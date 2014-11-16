@@ -42,7 +42,7 @@ from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
     FTPProcessorInstances
 from wpull.processor.phantomjs import PhantomJSController
-from wpull.processor.rule import FetchRule, ResultRule
+from wpull.processor.rule import FetchRule, ResultRule, ProcessingRule
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
     WebProcessorInstances
 from wpull.proxy import HTTPProxyServer
@@ -120,6 +120,7 @@ class Builder(object):
             'PhantomJSClient': PhantomJSClient,
             'PhantomJSController': PhantomJSController,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
+            'ProcessingRule': ProcessingRule,
             'Processor': DelegateProcessor,
             'ProxyAdapter': ProxyAdapter,
             'ProgressRecorder': ProgressRecorder,
@@ -746,13 +747,18 @@ class Builder(object):
             statistics=self._factory['Statistics'],
         )
 
+        processing_rule = self._factory.new(
+            'ProcessingRule',
+            fetch_rule,
+            document_scraper=document_scraper,
+        )
+
         web_processor_instances = self._factory.new(
             'WebProcessorInstances',
             fetch_rule=fetch_rule,
             result_rule=result_rule,
-            document_scraper=document_scraper,
+            processing_rule=processing_rule,
             file_writer=file_writer,
-            waiter=waiter,
             statistics=self._factory['Statistics'],
             phantomjs_controller=phantomjs_controller,
         )
@@ -785,6 +791,7 @@ class Builder(object):
             'FTPProcessorInstances',
             fetch_rule=self._factory['FetchRule'],
             result_rule=self._factory['ResultRule'],
+            processing_rule=self._factory['ProcessingRule'],
             file_writer=self._factory['FileWriter'],
         )
 
