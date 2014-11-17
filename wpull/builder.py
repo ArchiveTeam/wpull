@@ -403,7 +403,6 @@ class Builder(object):
 
             url_string_iter = itertools.chain(url_string_iter, urls)
 
-        sitemap_url_infos = set()
         base_url = self._args.base
 
         for url_string in url_string_iter:
@@ -416,23 +415,6 @@ class Builder(object):
                 url_string, default_scheme=default_scheme)
 
             _logger.debug(__('Parsed URL {0}', url_info))
-            yield url_info
-
-            if self._args.sitemaps:
-                sitemap_url_infos.update((
-                    URLInfo.parse(
-                        '{0}://{1}/robots.txt'.format(
-                            url_info.scheme,
-                            url_info.hostname_with_port)
-                    ),
-                    URLInfo.parse(
-                        '{0}://{1}/sitemap.xml'.format(
-                            url_info.scheme,
-                            url_info.hostname_with_port)
-                    )
-                ))
-
-        for url_info in sitemap_url_infos:
             yield url_info
 
     def _read_input_file_as_lines(self):
@@ -751,6 +733,7 @@ class Builder(object):
             'ProcessingRule',
             fetch_rule,
             document_scraper=document_scraper,
+            sitemaps=self._args.sitemaps,
         )
 
         web_processor_instances = self._factory.new(

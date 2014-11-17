@@ -354,15 +354,35 @@ class ProcessingRule(HookableMixin):
         document_scraper (:class:`.scaper.DemuxDocumentScraper`): The document
             scraper.
     '''
-    def __init__(self, fetch_rule, document_scraper=None):
+    def __init__(self, fetch_rule, document_scraper=None, sitemaps=False):
         super().__init__()
 
         self._fetch_rule = fetch_rule
         self._document_scraper = document_scraper
+        self._sitemaps = sitemaps
 
         self.register_hook('scrape_document')
 
     parse_url = staticmethod(wpull.url.parse_url_or_log)
+
+    def add_extra_urls(self, url_item):
+        '''Add additional URLs such as robots.txt, favicon.ico.'''
+
+        if url_item.url_record.level == 0 and self._sitemaps:
+            extra_url_infos = (
+                self.parse_url(
+                    '{0}://{1}/robots.txt'.format(
+                        url_item.url_info.scheme,
+                        url_item.url_info.hostname_with_port)
+                ),
+                self.parse_url(
+                    '{0}://{1}/sitemap.xml'.format(
+                        url_item.url_info.scheme,
+                        url_item.url_info.hostname_with_port)
+                )
+            )
+
+            url_item.add_linked_url_infos(extra_url_infos)
 
     def scrape_document(self, request, response, url_item):
         '''Process document for links.'''

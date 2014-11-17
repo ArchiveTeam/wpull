@@ -856,6 +856,32 @@ class TestApp(GoodAppTestCase):
         self.assertGreaterEqual(4, builder.factory['Statistics'].files)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_sitemaps_and_no_parent(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/dir_or_file/'),
+            '--no-robots',
+            '--sitemaps',
+            '--recursive',
+            '--no-parent',
+        ])
+
+        with cd_tempdir():
+            builder = Builder(args, unit_test=True)
+
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+            print(list(os.walk('.')))
+            self.assertFalse(os.path.exists(
+                'localhost:{0}/static/my_file.txt'.format(
+                    self.get_http_port())
+            ))
+
+        self.assertEqual(0, exit_code)
+        self.assertGreaterEqual(1, builder.factory['Statistics'].files)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_local_encoding(self):
         arg_parser = AppArgumentParser()
 

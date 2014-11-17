@@ -198,6 +198,8 @@ class WebProcessorSession(BaseProcessorSession):
         if not ok:
             return
 
+        self._processing_rule.add_extra_urls(self._url_item)
+
         self._web_client_session = self._processor.web_client.session(
             self._new_initial_request()
         )

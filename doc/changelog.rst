@@ -5,6 +5,7 @@ What's New
 * Fixed control characters printed without escaping.
 * Fixed cookie size not limited correctly per domain name.
 * Fixed URL parsing incorrectly allowing spaces in hostnames.
+* Fixed ``--sitemaps`` option not respecting ``--no-parent``.
 * Added experimental FTP support.
 
 * Scripting:
