@@ -462,6 +462,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             'Set-cookie',
             '\x00?#?+:%ff=hope you have cookies enabled!; expires=Dog'
         )
+        self.send_header('Set-cookie', 'COOKIES')
         self.send_header('Set-cookie', 'test=valid')
         self.send_header('Content-length', '0')
         self.end_headers()

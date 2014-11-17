@@ -25,7 +25,7 @@ class DeFactoCookiePolicy(DefaultCookiePolicy):
 
         new_cookie_length = (self.cookie_length(cookie.domain) +
                              len(cookie.path) + len(cookie.name) +
-                             len(cookie.value))
+                             len(cookie.value or ''))
 
         if new_cookie_length >= 4100:
             return False
@@ -65,7 +65,7 @@ class DeFactoCookiePolicy(DefaultCookiePolicy):
         for path in cookies[domain]:
             for name in cookies[domain][path]:
                 cookie = cookies[domain][path][name]
-                length += len(path) + len(name) + len(cookie.value)
+                length += len(path) + len(name) + len(cookie.value or '')
 
         return length
 
