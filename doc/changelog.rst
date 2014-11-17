@@ -7,6 +7,7 @@ What's New
 * Fixed URL parsing incorrectly allowing spaces in hostnames.
 * Fixed ``--sitemaps`` option not respecting ``--no-parent``.
 * Fixed "Content overrun" error on broken web servers. A warning is logged instead.
+* Fixed SSL verification error despite ``--no-check-certificate`` is specified.
 * Added experimental FTP support.
 * Switched default HTML parser to html5lib.
 

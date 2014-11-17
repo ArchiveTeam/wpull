@@ -723,6 +723,7 @@ class Builder(object):
 
         result_rule = self._factory.new(
             'ResultRule',
+            ssl_verification=args.check_certificate,
             retry_connrefused=args.retry_connrefused,
             retry_dns_error=args.retry_dns_error,
             waiter=waiter,

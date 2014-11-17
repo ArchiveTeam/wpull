@@ -8,7 +8,8 @@ import trollius
 from wpull.backport.logging import BraceMessage as __
 from wpull.hook import HookableMixin, HookDisconnected, Actions, HookStop
 from wpull.item import Status, LinkType
-from wpull.errors import DNSNotFound, ServerError, ConnectionRefused
+from wpull.errors import DNSNotFound, ServerError, ConnectionRefused, \
+    SSLVerficationError, ProtocolError
 from wpull.scraper.css import CSSScraper
 from wpull.scraper.html import HTMLScraper
 import wpull.url
@@ -175,16 +176,18 @@ class ResultRule(HookableMixin):
     '''Decide on the results of a fetch.
 
     Args:
-        retry_connrefused: If True, don't consider a connection refused error
-            to be a permanent error.
-        retry_dns_error: If True, don't consider a DNS resolution error to be
-            permanent error.
+        ssl_verification (bool): If True, don't ignore certificate errors.
+        retry_connrefused (bool): If True, don't consider a connection refused
+            error to be a permanent error.
+        retry_dns_error (bool): If True, don't consider a DNS resolution error
+            to be permanent error.
         waiter (:class:`.waiter.Waiter`): The Waiter.
         statistics (:class:`.stats.Statistics`): The Statistics.
     '''
-    def __init__(self, retry_connrefused=False, retry_dns_error=False,
-                 waiter=None, statistics=None):
+    def __init__(self, ssl_verification=False, retry_connrefused=False,
+                 retry_dns_error=False, waiter=None, statistics=None):
         super().__init__()
+        self._ssl_verification = ssl_verification
         self.retry_connrefused = retry_connrefused
         self.retry_dns_error = retry_dns_error
         self._waiter = waiter
@@ -290,7 +293,14 @@ class ResultRule(HookableMixin):
         Returns:
             str: A value from :class:`.hook.Actions`.
         '''
-        self._statistics.increment_error(error)
+        if not self._ssl_verification and \
+                isinstance(error, SSLVerficationError):
+            # Change it into a different error since the user doesn't care
+            # about verifying certificates
+            self._statistics.increment_error(ProtocolError())
+        else:
+            self._statistics.increment_error(error)
+
         self._waiter.increment()
 
         action = self.consult_error_hook(request, url_item.url_record, error)
@@ -301,6 +311,8 @@ class ResultRule(HookableMixin):
             url_item.set_status(Status.done)
         elif action == Actions.STOP:
             raise HookStop('Script requested immediate stop.')
+        elif self._ssl_verification and isinstance(error, SSLVerficationError):
+            raise
         elif isinstance(error, ConnectionRefused) and \
                 not self.retry_connrefused:
             url_item.set_status(Status.skipped)

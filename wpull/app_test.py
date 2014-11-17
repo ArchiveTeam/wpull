@@ -18,7 +18,8 @@ import trollius
 
 from wpull.builder import Builder
 from wpull.dns import Resolver
-from wpull.errors import ExitStatus
+from wpull.errors import ExitStatus, SSLVerficationError
+from wpull.http.web import WebSession
 from wpull.options import AppArgumentParser
 from wpull.testing.async import AsyncTestCase
 from wpull.testing.badapp import BadAppTestCase
@@ -967,6 +968,21 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase):
         ])
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_check_certificate(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--no-robots',
+        ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(5, exit_code)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_https_only(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -984,6 +1000,36 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase):
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
+
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_ssl_bad_certificate(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--no-robots',
+            '--no-check-certificate',
+            '--tries', '1'
+            ])
+        builder = Builder(args, unit_test=True)
+
+        class MockWebSession(WebSession):
+            @trollius.coroutine
+            def fetch(self, file=None, callback=None):
+                raise SSLVerficationError('A very bad certificate!')
+
+        class MockWebClient(builder.factory.class_map['WebClient']):
+            def session(self, request):
+                return MockWebSession(self, request)
+
+        with cd_tempdir():
+            builder.factory.class_map['WebClient'] = MockWebClient
+
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(7, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
 
 
 class TestAppBad(BadAppTestCase):

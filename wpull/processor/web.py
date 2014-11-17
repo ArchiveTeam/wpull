@@ -15,7 +15,8 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
 from wpull.coprocessor.phantomjs import WebProcessorSessionMixin
 from wpull.document.html import HTMLReader
-from wpull.errors import NetworkError, ProtocolError
+from wpull.errors import NetworkError, ProtocolError, ServerError, \
+    SSLVerficationError
 from wpull.hook import HookableMixin, Actions
 from wpull.namevalue import NameValueRecord
 from wpull.driver.phantomjs import PhantomJSRPCTimedOut
@@ -311,7 +312,7 @@ class WebProcessorSession(BaseProcessorSession, WebProcessorSessionMixin):
         except HookPreResponseBreak:
             _logger.debug('Hook pre-response break.')
             raise Return(True)
-        except (NetworkError, ProtocolError) as error:
+        except (NetworkError, ProtocolError, ServerError, SSLVerficationError) as error:
             self._log_error(request, error)
 
             action = self._result_rule.handle_error(

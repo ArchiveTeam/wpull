@@ -8,7 +8,8 @@ import trollius
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
-from wpull.errors import NetworkError, ProtocolError, ServerError
+from wpull.errors import NetworkError, ProtocolError, ServerError, \
+    SSLVerficationError
 from wpull.ftp.request import Request, ListingResponse, Response
 from wpull.hook import Actions
 from wpull.processor.base import BaseProcessor, BaseProcessorSession
@@ -192,7 +193,7 @@ class FTPProcessorSession(BaseProcessorSession):
             if response:
                 response.body.close()
 
-        except (NetworkError, ProtocolError, ServerError) as error:
+        except (NetworkError, ProtocolError, ServerError, SSLVerficationError) as error:
             self._log_error(request, error)
 
             action = self._result_rule.handle_error(
