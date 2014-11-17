@@ -39,6 +39,14 @@ class Application(HookableMixin):
     ])
     '''Mapping of error types to exit status.'''
 
+    EXPECTED_EXCEPTIONS = (
+        ServerError, ProtocolError,
+        SSLVerficationError, DNSNotFound,
+        ConnectionRefused, NetworkError,
+        HookStop, StopIteration, SystemExit, KeyboardInterrupt,
+    )
+    '''Exception classes that are not crashes.'''
+
     def __init__(self, builder):
         super().__init__()
         self._builder = builder
@@ -111,7 +119,7 @@ class Application(HookableMixin):
                 _logger.exception('Fatal exception.')
                 self._update_exit_code_from_error(error)
 
-                if not isinstance(error, HookStop):
+                if not isinstance(error, self.EXPECTED_EXCEPTIONS):
                     self._print_crash_message()
 
         self._compute_exit_code_from_stats()
