@@ -441,13 +441,12 @@ class StreamTestsMixin(object):
     def test_overrun(self):
         stream = self.new_stream()
         request = Request(self.get_url('/overrun'))
-        for dummy in range(3):
-            try:
-                yield From(self.fetch(stream, request))
-            except ProtocolError:
-                pass
 
-#         self.connection.close()
+        for dummy in range(3):
+            response, content = yield From(self.fetch(stream, request))
+
+            self.assertEqual(b'a' * 100, content)
+
         request = Request(self.get_url('/'))
         yield From(self.fetch(stream, request))
 

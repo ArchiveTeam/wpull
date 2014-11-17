@@ -283,6 +283,13 @@ class Stream(object):
                 break
 
             bytes_left -= len(data)
+
+            if bytes_left < 0:
+                data = data[:bytes_left]
+
+                _logger.warning(_('Content overrun.'))
+                self.close()
+
             self._data_observer.notify('response_body', data)
 
             content_data = self._decompress_data(data)
@@ -293,9 +300,7 @@ class Stream(object):
                 if file_is_async:
                     yield From(file.drain())
 
-        if bytes_left < 0:
-            raise ProtocolError('Content overrun.')
-        elif bytes_left:
+        if bytes_left > 0:
             raise NetworkError('Connection closed.')
 
         content_data = self._flush_decompressor()

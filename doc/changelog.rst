@@ -6,6 +6,7 @@ What's New
 * Fixed cookie size not limited correctly per domain name.
 * Fixed URL parsing incorrectly allowing spaces in hostnames.
 * Fixed ``--sitemaps`` option not respecting ``--no-parent``.
+* Fixed "Content overrun" error on broken web servers. A warning is logged instead.
 * Added experimental FTP support.
 
 * Scripting:
