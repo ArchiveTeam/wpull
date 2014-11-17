@@ -785,7 +785,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         group.add_argument(
             '--html-parser',
             choices=['html5lib'] if IS_PYPY else ['libxml2-lxml', 'html5lib'],
-            default='html5lib'if IS_PYPY else 'libxml2-lxml',
+            default='html5lib',
             help=_('select HTML parsing library and strategy')
         )
         group.add_argument(

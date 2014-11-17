@@ -8,6 +8,7 @@ What's New
 * Fixed ``--sitemaps`` option not respecting ``--no-parent``.
 * Fixed "Content overrun" error on broken web servers. A warning is logged instead.
 * Added experimental FTP support.
+* Switched default HTML parser to html5lib.
 
 * Scripting:
 
