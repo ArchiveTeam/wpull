@@ -37,12 +37,12 @@ from wpull.http.robots import RobotsTxtChecker
 from wpull.http.stream import Stream as HTTPStream
 from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
-from wpull.phantomjs import PhantomJSClient
+from wpull.driver.phantomjs import PhantomJSClient
 from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
     FTPProcessorInstances
-from wpull.processor.phantomjs import PhantomJSController
 from wpull.processor.rule import FetchRule, ResultRule, ProcessingRule
+from wpull.coprocessor.phantomjs import PhantomJSController
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
     WebProcessorInstances
 from wpull.proxy import HTTPProxyServer
@@ -594,7 +594,7 @@ class Builder(object):
 
             if args.phantomjs:
                 software_string += ' PhantomJS/{0}'.format(
-                    wpull.phantomjs.get_version(exe_path=args.phantomjs_exe)
+                    wpull.driver.phantomjs.get_version(exe_path=args.phantomjs_exe)
                 )
 
             url_table = self._factory['URLTable'] if args.warc_dedup else None

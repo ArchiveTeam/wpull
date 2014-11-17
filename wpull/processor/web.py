@@ -1,7 +1,6 @@
 # encoding=utf8
 '''Web processing.'''
 import copy
-import functools
 import gettext
 import io
 import logging
@@ -14,11 +13,12 @@ import trollius
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
+from wpull.coprocessor.phantomjs import WebProcessorSessionMixin
 from wpull.document.html import HTMLReader
 from wpull.errors import NetworkError, ProtocolError
 from wpull.hook import HookableMixin, Actions
 from wpull.namevalue import NameValueRecord
-from wpull.phantomjs import PhantomJSRPCTimedOut
+from wpull.driver.phantomjs import PhantomJSRPCTimedOut
 from wpull.processor.base import BaseProcessor, BaseProcessorSession
 from wpull.processor.rule import FetchRule, ResultRule
 from wpull.stats import Statistics
@@ -133,7 +133,7 @@ class WebProcessor(BaseProcessor, HookableMixin):
         self._web_client.close()
 
 
-class WebProcessorSession(BaseProcessorSession):
+class WebProcessorSession(BaseProcessorSession, WebProcessorSessionMixin):
     '''Fetches an HTTP document.
 
     This Processor Session will handle document redirects within the same
@@ -462,174 +462,3 @@ class WebProcessorSession(BaseProcessorSession):
         '''
         if hasattr(instance, 'body'):
             instance.body.close()
-
-    @trollius.coroutine
-    def _process_phantomjs(self, request, response):
-        '''Process PhantomJS.
-
-        Coroutine.
-        '''
-        if not self._processor.instances.phantomjs_controller:
-            return
-
-        if response.status_code != 200:
-            return
-
-        if not HTMLReader.is_supported(request=request, response=response):
-            return
-
-        _logger.debug('Starting PhantomJS processing.')
-
-        controller = self._processor.instances.phantomjs_controller
-
-        attempts = int(os.environ.get('WPULL_PHANTOMJS_TRIES', 5))
-        content = None
-
-        for dummy in range(attempts):
-            # FIXME: this is a quick hack for handling time outs. See #137.
-            try:
-                with controller.client.remote() as remote:
-                    self._hook_phantomjs_logging(remote)
-
-                    yield From(controller.apply_page_size(remote))
-                    yield From(remote.call('page.open', request.url_info.url))
-                    yield From(remote.wait_page_event('load_finished'))
-                    yield From(controller.control(remote))
-
-                    # FIXME: not sure where the logic should fit in
-                    if controller._snapshot:
-                        yield From(self._take_phantomjs_snapshot(controller, remote))
-
-                    content = yield From(remote.eval('page.content'))
-            except PhantomJSRPCTimedOut:
-                _logger.exception('PhantomJS timed out.')
-            else:
-                break
-
-        if content is not None:
-            mock_response = self._new_phantomjs_response(response, content)
-
-            self._processing_rule.scrape_document(request, mock_response, self._url_item)
-
-            self._close_instance_body(mock_response)
-
-            _logger.debug('Ended PhantomJS processing.')
-        else:
-            _logger.warning(__(
-                _('PhantomJS failed to fetch ‘{url}’. I am sorry.'),
-                url=request.url_info.url
-            ))
-
-    def _new_phantomjs_response(self, response, content):
-        '''Return a new mock Response with the content.'''
-        mock_response = copy.copy(response)
-
-        mock_response.body = Body(
-            wpull.body.new_temp_file(
-                self._processor.root_path, hint='phjs_resp'
-        ))
-        self._temp_files.add(mock_response.body)
-
-        mock_response.body.write(content.encode('utf-8'))
-        mock_response.body.seek(0)
-
-        mock_response.fields = NameValueRecord()
-
-        for name, value in response.fields.get_all():
-            mock_response.fields.add(name, value)
-
-        mock_response.fields['Content-Type'] = 'text/html; charset="utf-8"'
-
-        return mock_response
-
-    def _hook_phantomjs_logging(self, remote):
-        '''Set up logging from PhantomJS to Wpull.'''
-        def fetch_log(rpc_info):
-            _logger.info(__(
-                _('PhantomJS fetching ‘{url}’.'),
-                url=rpc_info['request_data']['url']
-            ))
-
-        def fetched_log(rpc_info):
-            if rpc_info['response']['stage'] != 'end':
-                return
-
-            response = rpc_info['response']
-
-            self._processor.instances.statistics.increment(
-                response.get('bodySize', 0)
-            )
-
-            url = response['url']
-
-            if url.endswith('/WPULLHTTPS'):
-                url = url[:-11].replace('http://', 'https://', 1)
-
-            _logger.info(__(
-                _('PhantomJS fetched ‘{url}’: {status_code} {reason}. '
-                    'Length: {content_length} [{content_type}].'),
-                url=url,
-                status_code=response['status'],
-                reason=response['statusText'],
-                content_length=response.get('bodySize'),
-                content_type=response.get('contentType'),
-            ))
-
-        def fetch_error_log(rpc_info):
-            resource_error = rpc_info['resource_error']
-
-            _logger.error(__(
-                _('PhantomJS fetching ‘{url}’ encountered an error: {error}'),
-                url=resource_error['url'],
-                error=resource_error['errorString']
-            ))
-
-        def handle_page_event(rpc_info):
-            name = rpc_info['event']
-
-            if name == 'resource_requested':
-                fetch_log(rpc_info)
-            elif name == 'resource_received':
-                fetched_log(rpc_info)
-            elif name == 'resource_error':
-                fetch_error_log(rpc_info)
-
-        remote.page_observer.add(handle_page_event)
-
-    @trollius.coroutine
-    def _take_phantomjs_snapshot(self, controller, remote):
-        '''Take HTML and PDF snapshot.
-
-        Coroutine.
-        '''
-        html_path = self._file_writer_session.extra_resource_path(
-            '.snapshot.html'
-        )
-        pdf_path = self._file_writer_session.extra_resource_path(
-            '.snapshot.pdf'
-        )
-
-        files_to_del = []
-
-        if not html_path:
-            temp_file = tempfile.NamedTemporaryFile(
-                dir=self._processor.root_path, delete=False, suffix='.html'
-            )
-            html_path = temp_file.name
-            files_to_del.append(html_path)
-            temp_file.close()
-
-        if not pdf_path:
-            temp_file = tempfile.NamedTemporaryFile(
-                dir=self._processor.root_path, delete=False, suffix='.pdf'
-            )
-            pdf_path = temp_file.name
-            files_to_del.append(pdf_path)
-            temp_file.close()
-
-        try:
-            yield From(controller.snapshot(remote, html_path, pdf_path))
-        finally:
-            for filename in files_to_del:
-                if os.path.exists(filename):
-                    os.remove(filename)

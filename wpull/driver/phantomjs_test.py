@@ -4,7 +4,7 @@ from trollius import From
 import trollius
 
 from wpull.http.client import Client
-from wpull.phantomjs import (PhantomJSRemote, PhantomJSClient,
+from wpull.driver.phantomjs import (PhantomJSRemote, PhantomJSClient,
                              PhantomJSRPCTimedOut, PhantomJSRPCError)
 from wpull.proxy import HTTPProxyServer
 import wpull.testing.async

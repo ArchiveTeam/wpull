@@ -83,7 +83,7 @@ class PhantomJSRemote(object):
 
     @trollius.coroutine
     def _create_subprocess(self):
-        script_path = wpull.util.get_package_filename('phantomjs.js')
+        script_path = wpull.util.get_package_filename('driver/phantomjs.js')
         args = [self._exe_path] + (self._extra_args or []) + [script_path]
 
         self._subproc = yield From(
