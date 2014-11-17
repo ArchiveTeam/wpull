@@ -9,7 +9,7 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.hook import HookableMixin, HookDisconnected, Actions, HookStop
 from wpull.item import Status, LinkType
 from wpull.errors import DNSNotFound, ServerError, ConnectionRefused, \
-    SSLVerficationError, ProtocolError
+    SSLVerificationError, ProtocolError
 from wpull.scraper.css import CSSScraper
 from wpull.scraper.html import HTMLScraper
 import wpull.url
@@ -294,7 +294,7 @@ class ResultRule(HookableMixin):
             str: A value from :class:`.hook.Actions`.
         '''
         if not self._ssl_verification and \
-                isinstance(error, SSLVerficationError):
+                isinstance(error, SSLVerificationError):
             # Change it into a different error since the user doesn't care
             # about verifying certificates
             self._statistics.increment_error(ProtocolError())
@@ -311,7 +311,7 @@ class ResultRule(HookableMixin):
             url_item.set_status(Status.done)
         elif action == Actions.STOP:
             raise HookStop('Script requested immediate stop.')
-        elif self._ssl_verification and isinstance(error, SSLVerficationError):
+        elif self._ssl_verification and isinstance(error, SSLVerificationError):
             raise
         elif isinstance(error, ConnectionRefused) and \
                 not self.retry_connrefused:

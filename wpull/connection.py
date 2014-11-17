@@ -15,7 +15,7 @@ import trollius
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.dns import Resolver
-from wpull.errors import NetworkError, ConnectionRefused, SSLVerficationError, \
+from wpull.errors import NetworkError, ConnectionRefused, SSLVerificationError, \
     NetworkTimedOut
 
 
@@ -515,10 +515,10 @@ class Connection(object):
             self.close()
             raise NetworkTimedOut(
                 '{name} timed out.'.format(name=name)) from error
-        except (tornado.netutil.SSLCertificateError, SSLVerficationError) \
+        except (tornado.netutil.SSLCertificateError, SSLVerificationError) \
                 as error:
             self.close()
-            raise SSLVerficationError(
+            raise SSLVerificationError(
                 '{name} certificate error: {error}'
                 .format(name=name, error=error)) from error
         except (socket.error, ssl.SSLError, OSError, IOError) as error:
@@ -535,7 +535,7 @@ class Connection(object):
             #          routines:SSL3_READ_BYTES:tlsv1 alert unknown ca
             error_string = str(error).lower()
             if 'certificate' in error_string or 'unknown ca' in error_string:
-                raise SSLVerficationError(
+                raise SSLVerificationError(
                     '{name} certificate error: {error}'
                     .format(name=name, error=error)) from error
 
@@ -599,9 +599,9 @@ class SSLConnection(Connection):
         cert = sock.getpeercert()
 
         if cert is None and verify_mode == ssl.CERT_REQUIRED:
-            raise SSLVerficationError('No SSL certificate given')
+            raise SSLVerificationError('No SSL certificate given')
 
         try:
             tornado.netutil.ssl_match_hostname(cert, self._hostname)
         except SSLCertificateError as error:
-            raise SSLVerficationError('Invalid SSL certificate') from error
+            raise SSLVerificationError('Invalid SSL certificate') from error

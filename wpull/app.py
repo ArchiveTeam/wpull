@@ -12,7 +12,7 @@ import trollius
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ServerError, ExitStatus, ProtocolError, \
-    SSLVerficationError, DNSNotFound, ConnectionRefused, NetworkError
+    SSLVerificationError, DNSNotFound, ConnectionRefused, NetworkError
 from wpull.hook import HookableMixin, HookDisconnected, HookStop
 import wpull.string
 
@@ -29,7 +29,7 @@ class Application(HookableMixin):
     ERROR_CODE_MAP = OrderedDict([
         (ServerError, ExitStatus.server_error),
         (ProtocolError, ExitStatus.protocol_error),
-        (SSLVerficationError, ExitStatus.ssl_verification_error),
+        (SSLVerificationError, ExitStatus.ssl_verification_error),
         (DNSNotFound, ExitStatus.network_failure),
         (ConnectionRefused, ExitStatus.network_failure),
         (NetworkError, ExitStatus.network_failure),
@@ -41,7 +41,7 @@ class Application(HookableMixin):
 
     EXPECTED_EXCEPTIONS = (
         ServerError, ProtocolError,
-        SSLVerficationError, DNSNotFound,
+        SSLVerificationError, DNSNotFound,
         ConnectionRefused, NetworkError,
         HookStop, StopIteration, SystemExit, KeyboardInterrupt,
     )

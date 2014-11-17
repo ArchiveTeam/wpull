@@ -13,7 +13,7 @@ import trollius
 
 from wpull.connection import Connection, SSLConnection
 from wpull.errors import NetworkError, ConnectionRefused, ProtocolError, \
-    NetworkTimedOut, SSLVerficationError
+    NetworkTimedOut, SSLVerificationError
 from wpull.http.request import Request
 from wpull.http.stream import Stream
 import wpull.testing.async
@@ -517,7 +517,7 @@ class TestSSLStream(SSLBadAppTestCase, StreamTestsMixin):
 
         try:
             yield From(self.fetch(stream, request))
-        except SSLVerficationError:
+        except SSLVerificationError:
             pass
         else:
             self.fail()  # pragma: no cover

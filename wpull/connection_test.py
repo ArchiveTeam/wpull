@@ -8,7 +8,7 @@ from trollius import From
 import trollius
 
 from wpull.connection import Connection, ConnectionPool, HostPool
-from wpull.errors import NetworkError, NetworkTimedOut, SSLVerficationError
+from wpull.errors import NetworkError, NetworkTimedOut, SSLVerificationError
 import wpull.testing.async
 from wpull.testing.badapp import BadAppTestCase
 
@@ -110,7 +110,7 @@ class TestConnection(BadAppTestCase):
 
         try:
             yield From(connection.run_network_operation(mock_func()))
-        except SSLVerficationError:
+        except SSLVerificationError:
             pass
         else:
             self.fail()  # pragma: no cover
@@ -126,7 +126,7 @@ class TestConnection(BadAppTestCase):
 
         try:
             yield From(connection.run_network_operation(mock_func()))
-        except SSLVerficationError:
+        except SSLVerificationError:
             pass
         else:
             self.fail()  # pragma: no cover

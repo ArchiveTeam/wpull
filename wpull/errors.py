@@ -12,9 +12,12 @@ class ProtocolError(ValueError):
     pass
 
 
-class SSLVerficationError(OSError):
+class SSLVerificationError(OSError):
     '''A problem occurred validating SSL certificates.'''
     pass
+
+
+SSLVerficationError = SSLVerificationError
 
 
 class NetworkError(OSError):
@@ -65,7 +68,7 @@ class ExitStatus(object):
 ERROR_PRIORITIES = (
     ServerError,
     ProtocolError,
-    SSLVerficationError,
+    SSLVerificationError,
     DNSNotFound,
     ConnectionRefused,
     NetworkError,

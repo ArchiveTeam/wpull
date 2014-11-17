@@ -18,7 +18,7 @@ import trollius
 
 from wpull.builder import Builder
 from wpull.dns import Resolver
-from wpull.errors import ExitStatus, SSLVerficationError
+from wpull.errors import ExitStatus, SSLVerificationError
 from wpull.http.web import WebSession
 from wpull.options import AppArgumentParser
 from wpull.testing.async import AsyncTestCase
@@ -1016,7 +1016,7 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase):
         class MockWebSession(WebSession):
             @trollius.coroutine
             def fetch(self, file=None, callback=None):
-                raise SSLVerficationError('A very bad certificate!')
+                raise SSLVerificationError('A very bad certificate!')
 
         class MockWebClient(builder.factory.class_map['WebClient']):
             def session(self, request):
