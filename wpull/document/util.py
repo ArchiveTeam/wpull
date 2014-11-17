@@ -5,6 +5,7 @@ import logging
 from wpull.backport.logging import BraceMessage as __
 import wpull.http.util
 import wpull.util
+import wpull.string
 
 
 _logger = logging.getLogger(__name__)
