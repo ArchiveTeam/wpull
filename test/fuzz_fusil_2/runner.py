@@ -53,6 +53,8 @@ class Fuzzer(Application):
                 '--tries', '2',
                 '--retry-connrefused',
                 '--database', 'wpull.db',
+                '--span-hosts-allow', 'page-requisites,linked-pages',
+                '--no-check-certificate',
             ],
             timeout=timeout
         )
@@ -76,6 +78,9 @@ class Fuzzer(Application):
         )
         stdout_watcher.ignoreRegex(
             r'WARNING Failed to read document at '
+        )
+        stdout_watcher.ignoreRegex(
+            r'WARNING Content overrun'
         )
         stdout_watcher.ignoreRegex(
             r'ERROR Fetching '
