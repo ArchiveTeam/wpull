@@ -232,6 +232,32 @@ class TestURL(unittest.TestCase):
             ValueError, URLInfo.parse,
             'http://ｆａｔ３２ｄｅｆｒａｇｍｅｎｔｅｒ.internets：８０/')
         self.assertRaises(ValueError, URLInfo.parse, 'http:// /spaaaace')
+        self.assertRaises(
+            ValueError, URLInfo.parse,
+            'http://a-long-long-time-ago-the-earth-was-ruled-by-dinosaurs-'
+            'they-were-big-so-not-a-lot-of-people-went-around-hassling-them-'
+            'actually-no-people-went-around-hassling-them-'
+            'because-there-weren-t-any-people-yet-'
+            'just-the-first-tiny-mammals-'
+            'basically-life-was-good-'
+            'lou-it-just-dont-get-no-better-than-this-'
+            'yeah-'
+            'then-something-happened-'
+            'a-giant-meteorite-struck-the-earth-'
+            'goodbye-dinosaurs-'
+            'but-what-if-the-dinosaurs-werent-all-destroyed-'
+            'what-if-the-impact-of-that-meteorite-created-a-parallel-dimension-'
+            'where-the-dinosaurs-continue-to-thrive-'
+            'and-evolved-into-intelligent-vicious-aggressive-beings-'
+            'just-like-us-'
+            'and-hey-what-if-they-found-their-way-back.movie'
+        )
+        self.assertRaises(
+            ValueError, URLInfo.parse, 'http://[...]/python.xml%22')
+        self.assertRaises(
+            ValueError, URLInfo.parse, 'http://[…]/python.xml%22')
+        self.assertRaises(
+            ValueError, URLInfo.parse, 'http://[.]/python.xml%22')
 
     def test_url_info_path_folding(self):
         self.assertEqual(

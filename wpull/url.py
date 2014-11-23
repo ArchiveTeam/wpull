@@ -265,6 +265,8 @@ class URLInfo(object):
             raise ValueError('Invalid IPv6 address: {}'
                              .format(ascii(hostname)))
 
+        hostname = normalize_hostname(hostname)
+
         return hostname
 
     @property

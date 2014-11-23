@@ -8,6 +8,7 @@ What's New
 * Fixed ``--sitemaps`` option not respecting ``--no-parent``.
 * Fixed "Content overrun" error on broken web servers. A warning is logged instead.
 * Fixed SSL verification error despite ``--no-check-certificate`` is specified.
+* Fixed crash on IPv6 URLs containing consecutive dots.
 * Added experimental FTP support.
 * Switched default HTML parser to html5lib.
 
