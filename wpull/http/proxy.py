@@ -62,7 +62,8 @@ class ProxyAdapter(object):
 
         Coroutine.
         '''
-        host, port = address
+        host = address[0]
+        port = address[1]
         request = RawRequest('CONNECT', '{0}:{1}'.format(host, port))
 
         yield From(stream.write_request(request))

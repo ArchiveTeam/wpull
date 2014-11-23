@@ -324,7 +324,7 @@ class Connection(object):
     '''
     def __init__(self, address, hostname=None, timeout=None,
                  connect_timeout=None, bind_host=None):
-        assert len(address) == 2, 'Expect str & port. Got {}.'.format(address)
+        assert len(address) >= 2, 'Expect str & port. Got {}.'.format(address)
         assert '.' in address[0] or ':' in address[0], \
             'Expect numerical address. Got {}.'.format(address[0])
 
@@ -389,7 +389,10 @@ class Connection(object):
         if self._state != ConnectionState.ready:
             raise Exception('Closed connection must be reset before reusing.')
 
-        host, port = self._address
+        # TODO: maybe we don't want to ignore flow-info and scope-id?
+        host = self._address[0]
+        port = self._address[1]
+
         connection_future = trollius.open_connection(
             host, port, **self._connection_kwargs()
         )

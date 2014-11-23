@@ -944,6 +944,23 @@ class TestApp(GoodAppTestCase):
 
         self.assertEqual(0, exit_code)
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_misc_urls(self):
+        arg_parser = AppArgumentParser()
+
+        with cd_tempdir():
+            args = arg_parser.parse_args([
+                'http://[0:0:0:0:0:ffff:a00:0]/',
+                '--tries', '1',
+                '--timeout', '0.5',
+            ])
+
+            builder = Builder(args, unit_test=True)
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(4, exit_code)
+
 
 class SimpleHandler(tornado.web.RequestHandler):
     def get(self):
