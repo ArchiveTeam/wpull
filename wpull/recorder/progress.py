@@ -62,8 +62,9 @@ class BaseProgressRecorderSession(BaseRecorderSession):
         self._stream.flush()
 
     def pre_request(self, request):
+        self._println()
         self._print(
-            _('Requesting {url}... ').format(url=request.url_info.url),
+            _('Fetch {url}... ').format(url=request.url_info.url),
         )
         self._flush()
 
@@ -89,7 +90,7 @@ class BaseProgressRecorderSession(BaseRecorderSession):
                 self._content_length = None
 
         self._println(
-            _('Length: {content_length} [{content_type}]').format(
+            _('  Length: {content_length} [{content_type}]').format(
                 content_length=self._content_length or _('none'),
                 content_type=wpull.string.printable_str(
                     content_type or _('none')
@@ -108,9 +109,10 @@ class BaseProgressRecorderSession(BaseRecorderSession):
     def response(self, response):
         self._println()
         self._println(
-            _('Bytes received: {bytes_received}').format(
+            _('  Bytes received: {bytes_received}').format(
                 bytes_received=self._bytes_received)
         )
+        self._println()
 
 
 class DotProgressRecorderSession(BaseProgressRecorderSession):
@@ -206,6 +208,8 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
     def _print_status(self):
         '''Print an entire status line including bar and stats.'''
         self._clear_line()
+
+        self._print('  ')
 
         if self._total_size:
             self._print_percent()
