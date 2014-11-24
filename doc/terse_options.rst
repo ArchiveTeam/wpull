@@ -192,7 +192,7 @@ Brief Option Overview
     --http-compression    request servers to use HTTP compression
     --html-parser {html5lib,libxml2-lxml}
                           select HTML parsing library and strategy (default:
-                          libxml2-lxml)
+                          html5lib)
     --link-extractors <css,html,javascript>
                           specify which link extractors to use (default:
                           ['html', 'css', 'javascript'])

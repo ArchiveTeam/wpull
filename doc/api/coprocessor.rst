@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`processor.phantomjs` Module
-=================================
+:mod:`coprocessor` Module
+=========================
 
-.. automodule:: wpull.processor.phantomjs
+.. automodule:: wpull.coprocessor
     :members:
     :show-inheritance:
     :private-members:
