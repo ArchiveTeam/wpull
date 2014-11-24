@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`phantomjs` Module
-=======================
+:mod:`driver` Module
+====================
 
-.. automodule:: wpull.phantomjs
+.. automodule:: wpull.driver
     :members:
     :show-inheritance:
     :private-members:

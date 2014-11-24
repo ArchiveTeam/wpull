@@ -785,7 +785,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         group.add_argument(
             '--html-parser',
             choices=['html5lib'] if IS_PYPY else ['libxml2-lxml', 'html5lib'],
-            default='html5lib'if IS_PYPY else 'libxml2-lxml',
+            default='html5lib',
             help=_('select HTML parsing library and strategy')
         )
         group.add_argument(
@@ -876,7 +876,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         )
 
     def _add_ftp_args(self):
-        pass
+        group = self.add_argument_group('FTP')
 #         self.add_argument(
 #             '--ftp-user',
 #             metavar='USER'
@@ -885,10 +885,13 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--ftp-password',
 #             metavar='PASS'
 #         )
-#         self.add_argument(
-#             '--no-remove-listing',
-#             action='store_true',
-#         )
+        group.add_argument(
+            '--no-remove-listing',
+            action='store_false',
+            default=True,
+            dest='remove_listing',
+            help=_('keep directory file listings')
+        )
 #         self.add_argument(
 #             '--no-glob',
 #             action='store_true',
@@ -1086,11 +1089,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=self.comma_list,
             help=_('don’t download from LIST of hostnames')
         )
-#         self.add_argument(
-#             '--follow-ftp',
-#             action='store_true',
-#             help=_('follow links to FTP sites')
-#         )
+        group.add_argument(
+            '--follow-ftp',
+            action='store_true',
+            help=_('follow links to FTP sites')
+        )
         group.add_argument(
             '--follow-tags',
             metavar='LIST',

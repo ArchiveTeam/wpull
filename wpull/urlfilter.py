@@ -69,16 +69,35 @@ class DemuxURLFilter(BaseURLFilter):
         return info
 
 
-class HTTPFilter(BaseURLFilter):
-    '''Allow URL if the URL is HTTP or HTTPS.'''
+class SchemeFilter(BaseURLFilter):
+    '''Allow URL if the URL is in list.'''
+    def __init__(self, allowed=('http', 'https', 'ftp')):
+        self._allowed = allowed
+
     def test(self, url_info, url_table_record):
-        return url_info.scheme in ('http', 'https')
+        return url_info.scheme in self._allowed
 
 
 class HTTPSOnlyFilter(BaseURLFilter):
     '''Allow URL if the URL is HTTPS.'''
     def test(self, url_info, url_table_record):
         return url_info.scheme == 'https'
+
+
+class FollowFTPFilter(BaseURLFilter):
+    '''Follow links to FTP URLs.'''
+    def __init__(self, follow=False):
+        self._follow = follow
+
+    def test(self, url_info, url_table_record):
+        if url_info.scheme == 'ftp':
+            if url_table_record.referrer and \
+                    url_table_record.referrer_info.scheme in ('http', 'https'):
+                return self._follow
+            else:
+                return True
+        else:
+            return True
 
 
 class BackwardDomainFilter(BaseURLFilter):

@@ -183,6 +183,9 @@ class Fuzzer(Application):
             r'WARNING Failed to read document at '
         )
         stdout_watcher.ignoreRegex(
+            r'WARNING Content overrun'
+        )
+        stdout_watcher.ignoreRegex(
             r'ERROR Fetching '
         )
         stdout_watcher.ignoreRegex(

@@ -12,9 +12,12 @@ class ProtocolError(ValueError):
     pass
 
 
-class SSLVerficationError(OSError):
+class SSLVerificationError(OSError):
     '''A problem occurred validating SSL certificates.'''
     pass
+
+
+SSLVerficationError = SSLVerificationError
 
 
 class NetworkError(OSError):
@@ -60,3 +63,17 @@ class ExitStatus(object):
     authentication_failure = 6
     protocol_error = 7
     server_error = 8
+
+
+ERROR_PRIORITIES = (
+    ServerError,
+    ProtocolError,
+    SSLVerificationError,
+    DNSNotFound,
+    ConnectionRefused,
+    NetworkError,
+    OSError,
+    IOError,
+    ValueError,
+)
+'''List of error classes by least severe to most severe.'''

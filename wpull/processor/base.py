@@ -1,8 +1,16 @@
 # encoding=utf-8
 '''Base classes for processors.'''
 import abc
+import gettext
+import logging
 
 import trollius
+
+from wpull.backport.logging import BraceMessage as __
+
+
+_logger = logging.getLogger(__name__)
+_ = gettext.gettext
 
 
 class BaseProcessor(object, metaclass=abc.ABCMeta):
@@ -30,3 +38,14 @@ class BaseProcessor(object, metaclass=abc.ABCMeta):
     def close(self):
         '''Run any clean up actions.'''
         pass
+
+
+class BaseProcessorSession(object, metaclass=abc.ABCMeta):
+    '''Base class for processor sessions.'''
+
+    def _log_error(self, request, error):
+        '''Log exceptions during a fetch.'''
+        _logger.error(__(
+            _('Fetching ‘{url}’ encountered an error: {error}'),
+            url=request.url, error=error
+        ))

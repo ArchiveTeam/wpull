@@ -13,7 +13,7 @@ import trollius
 
 from wpull.connection import Connection, SSLConnection
 from wpull.errors import NetworkError, ConnectionRefused, ProtocolError, \
-    NetworkTimedOut, SSLVerficationError
+    NetworkTimedOut, SSLVerificationError
 from wpull.http.request import Request
 from wpull.http.stream import Stream
 import wpull.testing.async
@@ -441,13 +441,12 @@ class StreamTestsMixin(object):
     def test_overrun(self):
         stream = self.new_stream()
         request = Request(self.get_url('/overrun'))
-        for dummy in range(3):
-            try:
-                yield From(self.fetch(stream, request))
-            except ProtocolError:
-                pass
 
-#         self.connection.close()
+        for dummy in range(3):
+            response, content = yield From(self.fetch(stream, request))
+
+            self.assertEqual(b'a' * 100, content)
+
         request = Request(self.get_url('/'))
         yield From(self.fetch(stream, request))
 
@@ -518,10 +517,10 @@ class TestSSLStream(SSLBadAppTestCase, StreamTestsMixin):
 
         try:
             yield From(self.fetch(stream, request))
-        except SSLVerficationError:
+        except SSLVerificationError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_ssl_no_check(self):

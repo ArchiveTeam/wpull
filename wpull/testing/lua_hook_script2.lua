@@ -24,14 +24,15 @@ wpull_hook.callbacks.accept_url = function(url_info, record_info, verdict, reaso
     ['/%95%B6%8E%9A%89%BB%82%AF/'] = true,
     ['/static/style.css'] = true,
     ['/wolf'] = true,
+    ['/some_page'] = true,
   }
 
   if string.match(url_info['url'], 'mailto:') then
-    assert(not reasons['filters']['HTTPFilter'])
+    assert(not reasons['filters']['SchemeFilter'])
     assert(not verdict)
   else
     assert(accepted_paths[url_info['path']])
-    assert(reasons['filters']['HTTPFilter'])
+    assert(reasons['filters']['SchemeFilter'])
   end
 
   assert(record_info['url'])
@@ -72,6 +73,14 @@ wpull_hook.callbacks.dequeued_url = function(url_info, record_info)
   counter = counter - 1
 
   assert(counter >= 0)
+end
+
+wpull_hook.callbacks.handle_pre_response = function(url_info, record_info, http_info)
+  if url_info['path'] == '/some_page' then
+    return wpull_hook.actions.FINISH
+  end
+
+  return wpull_hook.actions.NORMAL
 end
 
 wpull_hook.callbacks.handle_response = function(url_info, record_info, http_info)

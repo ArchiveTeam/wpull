@@ -2,7 +2,7 @@ import datetime
 import functools
 import unittest
 
-from wpull.ftp.ls.listing import FileEntry
+from wpull.ftp.ls.listing import FileEntry, UnknownListingError
 from wpull.ftp.ls.parse import ListingParser
 
 
@@ -16,6 +16,12 @@ dr-xr-xr-x   2 root  other 512 Apr  8  2004 blah
 MSDOS_LS = '''04-27-00  09:09PM       <DIR>          licensed
 07-18-00  10:16AM       <DIR>          pub
 04-14-00  03:47PM                  589 readme.htm
+'''
+
+NLST = '''dog.txt
+cat.txt
+bird.txt
+fish.txt
 '''
 
 
@@ -62,3 +68,24 @@ class TestParse(unittest.TestCase):
             ],
             results
         )
+
+    def test_parse_nlst(self):
+        parser = ListingParser(NLST)
+        parser.run_heuristics()
+        results = parser.parse()
+
+        self.assertEqual(
+            [
+                FileEntry('dog.txt', None, None, None),
+                FileEntry('cat.txt', None, None, None),
+                FileEntry('bird.txt', None, None, None),
+                FileEntry('fish.txt', None, None, None),
+            ],
+            results
+        )
+
+    def test_parse_junk(self):
+        parser = ListingParser(' aj  \x00     a304 jrf')
+        parser.run_heuristics()
+
+        self.assertRaises(UnknownListingError, parser.parse)

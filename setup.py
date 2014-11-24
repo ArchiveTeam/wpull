@@ -30,9 +30,11 @@ PROJECT_PACKAGES = [
     'wpull',
     'wpull.abstract',
     'wpull.backport',
+    'wpull.coprocessor',
     'wpull.database',
     'wpull.document',
     'wpull.document.htmlparse',
+    'wpull.driver',
     'wpull.ftp',
     'wpull.ftp.ls',
     'wpull.http',
@@ -65,7 +67,7 @@ setup_kwargs = dict(
         'testing/*/*.xml',
         'testing/*.lua',
         'testing/*.pem',
-        '*.js',
+        'driver/*.js',
     ]},
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -82,7 +84,7 @@ setup_kwargs = dict(
 )
 
 setup_kwargs['install_requires'] = [
-    'tornado', 'trollius', 'lxml', 'chardet', 'sqlalchemy',
+    'tornado', 'trollius', 'chardet', 'sqlalchemy',
     'namedlist', 'html5lib',
 ]
 

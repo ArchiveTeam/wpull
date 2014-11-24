@@ -10,10 +10,10 @@ Wpull requires the following:
 * `Python 3.2 or greater <http://python.org/download/>`_
 * `Tornado <https://pypi.python.org/pypi/tornado>`_
 * `Trollius <https://pypi.python.org/pypi/trollius>`_
-* `lxml <https://pypi.python.org/pypi/lxml>`_
+* `html5lib <https://pypi.python.org/pypi/html5lib>`_
 
-  * Or `html5lib <https://pypi.python.org/pypi/html5lib>`_ for slower
-    but much better HTML parsing
+  * Or `lxml <https://pypi.python.org/pypi/lxml>`_ for faster
+    but much worse HTML parsing
 
 * `chardet <https://pypi.python.org/pypi/chardet>`_
 

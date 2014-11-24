@@ -2,6 +2,33 @@
 What's New
 ==========
 
+0.1002 (2014-11-24)
+===================
+
+* Fixed control characters printed without escaping.
+* Fixed cookie size not limited correctly per domain name.
+* Fixed URL parsing incorrectly allowing spaces in hostnames.
+* Fixed ``--sitemaps`` option not respecting ``--no-parent``.
+* Fixed "Content overrun" error on broken web servers. A warning is logged instead.
+* Fixed SSL verification error despite ``--no-check-certificate`` is specified.
+* Fixed crash on IPv6 URLs containing consecutive dots.
+* Fixed crash attempting to connect to IPv6 addresses.
+* Consecutive slashes in URL paths are now flattened.
+* Fixed crash when fetching IPv6 robots.txt file.
+* Added experimental FTP support.
+* Switched default HTML parser to html5lib.
+
+* Scripting:
+
+  * Added ``handle_pre_response`` callback hook.
+
+* API:
+
+  * Fixed ``ConnectionPool`` ``max_host_count`` argument not used.
+  * Moved document scraping concerns from ``WebProcessorSession`` to ``ProcessingRule``.
+  * Renamed ``SSLVerficationError`` to ``SSLVerificationError``.
+
+
 0.1001.2 (2014-10-25)
 =====================
 

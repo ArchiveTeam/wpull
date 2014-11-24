@@ -12,7 +12,7 @@ import trollius
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ServerError, ExitStatus, ProtocolError, \
-    SSLVerficationError, DNSNotFound, ConnectionRefused, NetworkError
+    SSLVerificationError, DNSNotFound, ConnectionRefused, NetworkError
 from wpull.hook import HookableMixin, HookDisconnected, HookStop
 import wpull.string
 
@@ -29,7 +29,7 @@ class Application(HookableMixin):
     ERROR_CODE_MAP = OrderedDict([
         (ServerError, ExitStatus.server_error),
         (ProtocolError, ExitStatus.protocol_error),
-        (SSLVerficationError, ExitStatus.ssl_verification_error),
+        (SSLVerificationError, ExitStatus.ssl_verification_error),
         (DNSNotFound, ExitStatus.network_failure),
         (ConnectionRefused, ExitStatus.network_failure),
         (NetworkError, ExitStatus.network_failure),
@@ -38,6 +38,14 @@ class Application(HookableMixin):
         (ValueError, ExitStatus.parser_error),
     ])
     '''Mapping of error types to exit status.'''
+
+    EXPECTED_EXCEPTIONS = (
+        ServerError, ProtocolError,
+        SSLVerificationError, DNSNotFound,
+        ConnectionRefused, NetworkError,
+        HookStop, StopIteration, SystemExit, KeyboardInterrupt,
+    )
+    '''Exception classes that are not crashes.'''
 
     def __init__(self, builder):
         super().__init__()
@@ -111,7 +119,7 @@ class Application(HookableMixin):
                 _logger.exception('Fatal exception.')
                 self._update_exit_code_from_error(error)
 
-                if not isinstance(error, HookStop):
+                if not isinstance(error, self.EXPECTED_EXCEPTIONS):
                     self._print_crash_message()
 
         self._compute_exit_code_from_stats()

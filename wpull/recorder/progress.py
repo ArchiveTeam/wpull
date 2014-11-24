@@ -68,9 +68,19 @@ class BaseProgressRecorderSession(BaseRecorderSession):
         self._flush()
 
     def pre_response(self, response):
-        self._println(response.status_code, response.reason)
+        if hasattr(response, 'status_code'):
+            self._println(response.status_code,
+                          wpull.string.printable_str(response.reason))
+        else:
+            # TODO: abstract these things out
+            self._println('...')
 
-        content_length = response.fields.get('Content-Length')
+        if hasattr(response, 'fields'):
+            content_length = response.fields.get('Content-Length')
+            content_type = response.fields.get('Content-Type')
+        else:
+            content_length = None
+            content_type = None
 
         if content_length:
             try:
@@ -80,8 +90,10 @@ class BaseProgressRecorderSession(BaseRecorderSession):
 
         self._println(
             _('Length: {content_length} [{content_type}]').format(
-                content_length=self._content_length,
-                content_type=response.fields.get('Content-Type')
+                content_length=self._content_length or _('none'),
+                content_type=wpull.string.printable_str(
+                    content_type or _('none')
+                )
             ),
         )
 
@@ -154,6 +166,9 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
 
     def pre_response(self, response):
         super().pre_response(response)
+
+        if not hasattr(response, 'status_code'):
+            return
 
         if response.status_code == http.client.PARTIAL_CONTENT:
             match = re.search(

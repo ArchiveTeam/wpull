@@ -25,12 +25,13 @@ def accept_url(url_info, record_info, verdict, reasons):
 
     if 'mailto:' in url_info['url']:
         assert not verdict
-        assert not reasons['filters']['HTTPFilter']
+        assert not reasons['filters']['SchemeFilter']
     else:
         assert url_info['path'] in ('/robots.txt', '/', '/post/',
                                     '/%95%B6%8E%9A%89%BB%82%AF/',
-                                    '/static/style.css', '/wolf')
-        assert reasons['filters']['HTTPFilter']
+                                    '/static/style.css', '/wolf',
+                                    '/some_page',)
+        assert reasons['filters']['SchemeFilter']
 
     assert record_info['url']
 
@@ -70,6 +71,13 @@ def dequeued_url(url_info, record_info):
     counter -= 1
 
     assert counter >= 0
+
+
+def handle_pre_response(url_info, record_info, http_info):
+    if url_info['path'] == '/some_page':
+        return wpull_hook.actions.FINISH
+
+    return wpull_hook.actions.NORMAL
 
 
 def handle_response(url_info, record_info, http_info):
@@ -143,6 +151,7 @@ wpull_hook.callbacks.resolve_dns = resolve_dns
 wpull_hook.callbacks.accept_url = accept_url
 wpull_hook.callbacks.queued_url = queued_url
 wpull_hook.callbacks.dequeued_url = dequeued_url
+wpull_hook.callbacks.handle_pre_response = handle_pre_response
 wpull_hook.callbacks.handle_response = handle_response
 wpull_hook.callbacks.handle_error = handle_error
 wpull_hook.callbacks.get_urls = get_urls

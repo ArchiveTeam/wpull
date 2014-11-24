@@ -3,13 +3,14 @@
 import copy
 import re
 
-from wpull.abstract.request import CommonMixin, URLPropertyMixin
+from wpull.abstract.request import SerializableMixin, DictableMixin, \
+    URLPropertyMixin, ProtocolResponseMixin
 from wpull.errors import ProtocolError
 from wpull.namevalue import NameValueRecord
 import wpull.string
 
 
-class RawRequest(CommonMixin):
+class RawRequest(SerializableMixin, DictableMixin):
     '''Represents an HTTP request.
 
     Attributes:
@@ -34,6 +35,7 @@ class RawRequest(CommonMixin):
 
     def to_dict(self):
         return {
+            'protocol': 'http',
             'method': self.method,
             'version': self.version,
             'resource_path': self.resource_path,
@@ -147,7 +149,7 @@ class Request(RawRequest, URLPropertyMixin):
                 self.url = self.resource_path
 
 
-class Response(CommonMixin):
+class Response(SerializableMixin, DictableMixin, ProtocolResponseMixin):
     '''Represents the HTTP response.
 
     Attributes:
@@ -178,8 +180,11 @@ class Response(CommonMixin):
 
     def to_dict(self):
         return {
+            'protocol': 'http',
             'status_code': self.status_code,
             'reason': self.reason,
+            'response_code': self.status_code,
+            'response_message': self.reason,
             'version': self.version,
             'fields': list(self.fields.get_all()),
             'body': self.body.to_dict() if self.body else None,
@@ -224,13 +229,22 @@ class Response(CommonMixin):
                 )
 
         raise ProtocolError(
-            'Error parsing status line "{line}".'
-            .format(line=wpull.string.printable_bytes(data)
-                    .decode('ascii', 'replace'))
+            'Error parsing status line {line}".'.format(line=ascii(data))
         )
 
     def __repr__(self):
         return '<Response({version}, {code}, {reason})>'.format(
-            version=self.version, code=self.status_code,
-            reason=self.reason
+            version=ascii(self.version), code=self.status_code,
+            reason=ascii(self.reason)
         )
+
+    def __str__(self):
+        return wpull.string.printable_str(
+            self.to_bytes().decode('utf-8', 'replace'), keep_newlines=True
+        )
+
+    def response_code(self):
+        return self.status_code
+
+    def response_message(self):
+        return self.reason

@@ -112,6 +112,7 @@ def install(lua_script_path):
         accept_url = NotImplemented
         queued_url = NotImplemented
         dequeued_url = NotImplemented
+        handle_pre_response = NotImplemented
         handle_response = NotImplemented
         handle_error = NotImplemented
         get_urls = NotImplemented
@@ -155,6 +156,17 @@ def install(lua_script_path):
             if callbacks.dequeued_url is not NotImplemented:
                 callbacks.dequeued_url(
                     to_lua_type(url_info), to_lua_type(record_info))
+
+        @staticmethod
+        def handle_pre_response(url_info, record_info, http_info):
+            if callbacks.handle_pre_response is not NotImplemented:
+                return callbacks.handle_pre_response(
+                    to_lua_type(url_info),
+                    to_lua_type(record_info),
+                    to_lua_type(http_info)
+                    )
+            else:
+                return 'normal'
 
         @staticmethod
         def handle_response(url_info, record_info, http_info):
@@ -237,6 +249,7 @@ def install(lua_script_path):
     wpull_hook.callbacks.accept_url = HookEnvironmentAdapter.accept_url
     wpull_hook.callbacks.queued_url = HookEnvironmentAdapter.queued_url
     wpull_hook.callbacks.dequeued_url = HookEnvironmentAdapter.dequeued_url
+    wpull_hook.callbacks.handle_pre_response = HookEnvironmentAdapter.handle_pre_response
     wpull_hook.callbacks.handle_response = HookEnvironmentAdapter.handle_response
     wpull_hook.callbacks.handle_error = HookEnvironmentAdapter.handle_error
     wpull_hook.callbacks.get_urls = HookEnvironmentAdapter.get_urls

@@ -1,5 +1,5 @@
 import unittest
-from wpull.ftp.request import Reply, Command
+from wpull.ftp.request import Reply, Command, Request, Response
 
 
 class TestRequest(unittest.TestCase):
@@ -74,3 +74,22 @@ class TestRequest(unittest.TestCase):
 
         self.assertEqual('POKE', command.to_dict()['name'])
         self.assertEqual('', command.to_dict()['argument'])
+
+    def test_to_dict(self):
+        request = Request('ftp://foofle.com')
+        request_dict = request.to_dict()
+
+        self.assertEqual('ftp://foofle.com', request_dict['url'])
+        self.assertEqual('ftp', request_dict['protocol'])
+
+        response = Response()
+        response.request = request
+        response.reply = Reply(code=200, text='Success')
+        response_dict = response.to_dict()
+
+        self.assertEqual('ftp://foofle.com', response_dict['request']['url'])
+        self.assertEqual('ftp', response_dict['protocol'])
+        self.assertEqual(200, response_dict['reply']['code'])
+        self.assertEqual(200, response_dict['response_code'])
+        self.assertEqual('Success', response_dict['reply']['text'])
+        self.assertEqual('Success', response_dict['response_message'])

@@ -48,7 +48,7 @@ class TestDNS(wpull.testing.async.AsyncTestCase):
         except NetworkError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver_fail(self):
@@ -58,7 +58,7 @@ class TestDNS(wpull.testing.async.AsyncTestCase):
         except DNSNotFound:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     def test_sort_results(self):
         results = [

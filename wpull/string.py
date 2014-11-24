@@ -140,13 +140,42 @@ CONTROL_BYTES = bytes(bytearray(
 
 
 def printable_bytes(data):
-    '''Remove any bytes that is not printable ASCII.'''
+    '''Remove any bytes that is not printable ASCII.
+
+    This function is intended for sniffing content types such as UTF-16
+    encoded text.
+    '''
     return data.translate(ALL_BYTES, CONTROL_BYTES)
+
+
+def printable_str(text, keep_newlines=False):
+    '''Escape any control or non-ASCII characters from string.
+
+    This function is intended for use with strings from an untrusted
+    source such as writing to a console or writing to logs. It is
+    designed to prevent things like ANSI escape sequences from
+    showing.
+
+    Use :func:`repr` or :func:`ascii` instead for things such as
+    Exception messages.
+    '''
+    if isinstance(text, str):
+        new_text = ascii(text)[1:-1]
+    else:
+        new_text = ascii(text)
+
+    if keep_newlines:
+        new_text = new_text.replace('\\r', '\r').replace('\\n', '\n')
+
+    return new_text
 
 
 def coerce_str_to_ascii(string):
     '''Force the contents of the string to be ASCII.
 
     Anything not ASCII will be replaced with with a replacement character.
+
+    .. deprecated :: 0.1002
+       Use :func:`printable_str` instead.
     '''
     return string.encode('ascii', 'replace').decode('ascii')

@@ -23,9 +23,11 @@ class DeFactoCookiePolicy(DefaultCookiePolicy):
         if not DefaultCookiePolicy.set_ok(self, cookie, request):
             return False
 
-        cookie_string = '{}={}'.format(cookie.name, cookie.value)
+        new_cookie_length = (self.cookie_length(cookie.domain) +
+                             len(cookie.path) + len(cookie.name) +
+                             len(cookie.value or ''))
 
-        if len(cookie_string) > 4100:
+        if new_cookie_length >= 4100:
             return False
 
         if self.count_cookies(cookie.domain) >= 50:
@@ -35,7 +37,7 @@ class DeFactoCookiePolicy(DefaultCookiePolicy):
             except KeyError:
                 return False
 
-        if not wpull.util.is_ascii(cookie_string):
+        if not wpull.util.is_ascii(str(cookie)):
             return False
 
         return True
@@ -50,6 +52,22 @@ class DeFactoCookiePolicy(DefaultCookiePolicy):
             )
         else:
             return 0
+
+    def cookie_length(self, domain):
+        '''Return approximate length of all cookie key-values for a domain.'''
+        cookies = self.cookie_jar._cookies
+
+        if domain not in cookies:
+            return 0
+
+        length = 0
+
+        for path in cookies[domain]:
+            for name in cookies[domain][path]:
+                cookie = cookies[domain][path][name]
+                length += len(path) + len(name) + len(cookie.value or '')
+
+        return length
 
 
 class RelaxedMozillaCookieJar(MozillaCookieJar):

@@ -170,7 +170,6 @@ class Callbacks(LegacyCallbacks):
             url_info (dict): A mapping containing the same information in
                 :class:`.url.URLInfo`.
         '''
-        pass
 
     @staticmethod
     def dequeued_url(url_info, record_info):
@@ -182,10 +181,28 @@ class Callbacks(LegacyCallbacks):
             record_info (dict): A mapping containing the same information in
                 :class:`.item.URLRecord`.
         '''
-        pass
 
     @staticmethod
-    def handle_response(url_info, record_info, http_info):
+    def handle_pre_response(url_info, url_record, response_info):
+        '''Return an action to handle a response status before a download.
+
+        Args:
+            url_info (dict): A mapping containing the same information in
+                :class:`.url.URLInfo`.
+            record_info (dict): A mapping containing the same information in
+                :class:`.item.URLRecord`.
+            response_info (dict): A mapping containing the same information
+                in :class:`.http.request.Response` or
+                :class:`.ftp.request.Response`.
+
+        Returns:
+            str: A value from :class:`Actions`. The default is
+            :attr:`Actions.NORMAL`.
+        '''
+        return Actions.NORMAL
+
+    @staticmethod
+    def handle_response(url_info, record_info, response_info):
         '''Return an action to handle the response.
 
         Args:
@@ -196,8 +213,9 @@ class Callbacks(LegacyCallbacks):
 
                 .. versionadded:: Scripting-API-2
 
-            http_info (dict): A mapping containing the same information
-                in :class:`.http.request.Response`.
+            response_info (dict): A mapping containing the same information
+                in :class:`.http.request.Response` or
+                :class:`.ftp.request.Response`.
 
         Returns:
             str: A value from :class:`Actions`. The default is
@@ -217,7 +235,7 @@ class Callbacks(LegacyCallbacks):
 
                 .. versionadded:: Scripting-API-2
 
-            http_info (dict): A mapping containing the keys:
+            error_info (dict): A mapping containing the keys:
 
                 * ``error``: The name of the exception (for example,
                   ``ProtocolError``)
@@ -330,20 +348,23 @@ class HookEnvironment(object):
         self.factory['Application'].connect_hook(
             'finishing_statistics', self._finishing_statistics
         )
-        self.factory['WebProcessor'].connect_hook('wait_time', self._wait_time)
+        self.factory['ResultRule'].connect_hook('wait_time', self._wait_time)
         self.factory['URLTable'].connect_hook(
             'queued_url',
             self._queued_url)
         self.factory['FetchRule'].connect_hook(
             'should_fetch',
             self._should_fetch)
-        self.factory['WebProcessor'].connect_hook(
+        self.factory['ResultRule'].connect_hook(
+            'handle_pre_response',
+            self._handle_pre_response)
+        self.factory['ResultRule'].connect_hook(
             'handle_response',
             self._handle_response)
-        self.factory['WebProcessor'].connect_hook(
+        self.factory['ResultRule'].connect_hook(
             'handle_error',
             self._handle_error)
-        self.factory['WebProcessor'].connect_hook(
+        self.factory['ProcessingRule'].connect_hook(
             'scrape_document',
             self._scrape_document)
 
@@ -403,9 +424,22 @@ class HookEnvironment(object):
 
         return verdict
 
-    def _handle_response(self, request, response, url_item):
+    def _handle_pre_response(self, request, response, url_record):
         url_info_dict = request.url_info.to_dict()
-        url_record_dict = url_item.url_record.to_dict()
+        url_record_dict = url_record.to_dict()
+
+        response_info_dict = response.to_dict()
+        action = self.callbacks.handle_pre_response(
+            url_info_dict, url_record_dict, response_info_dict
+        )
+
+        _logger.debug(__('Hooked pre response returned {0}', action))
+
+        return action
+
+    def _handle_response(self, request, response, url_record):
+        url_info_dict = request.url_info.to_dict()
+        url_record_dict = url_record.to_dict()
 
         response_info_dict = response.to_dict()
         action = self.callbacks.handle_response(
@@ -414,21 +448,11 @@ class HookEnvironment(object):
 
         _logger.debug(__('Hooked response returned {0}', action))
 
-        if action == Actions.NORMAL:
-            return 'normal'
-        elif action == Actions.RETRY:
-            return False
-        elif action == Actions.FINISH:
-            url_item.set_status(Status.done)
-            return True
-        elif action == Actions.STOP:
-            raise HookStop()
-        else:
-            raise NotImplementedError()
+        return action
 
-    def _handle_error(self, request, url_item, error):
+    def _handle_error(self, request, url_record, error):
         url_info_dict = request.url_info.to_dict()
-        url_record_dict = url_item.url_record.to_dict()
+        url_record_dict = url_record.to_dict()
         error_info_dict = {
             'error': error.__class__.__name__,
         }
@@ -438,17 +462,7 @@ class HookEnvironment(object):
 
         _logger.debug(__('Hooked error returned {0}', action))
 
-        if action == Actions.NORMAL:
-            return 'normal'
-        elif action == Actions.RETRY:
-            return False
-        elif action == Actions.FINISH:
-            url_item.set_status(Status.done)
-            return True
-        elif action == Actions.STOP:
-            raise HookStop('Script requested immediate stop.')
-        else:
-            raise NotImplementedError()
+        return action
 
     def _scrape_document(self, request, response, url_item):
         url_info_dict = request.url_info.to_dict()

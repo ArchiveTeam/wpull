@@ -17,10 +17,13 @@ class Body(object):
         file (file): The file object.
 
     Args:
-        file (file): Use the given `file` as the file object.
+        file (file, optional): Use the given `file` as the file object.
+        directory (str): If `file` is not given, use directory for a new
+            temporary file.
+        hint (str): If `file` is not given, use `hint` as a filename infix.
     '''
-    def __init__(self, file=None):
-        self.file = file or new_temp_file(hint='lone_body')
+    def __init__(self, file=None, directory=None, hint='lone_body'):
+        self.file = file or new_temp_file(directory=directory, hint=hint)
         self._content_data = None
 
     def __getattr__(self, key):

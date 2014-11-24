@@ -18,7 +18,8 @@ import trollius
 
 from wpull.builder import Builder
 from wpull.dns import Resolver
-from wpull.errors import ExitStatus
+from wpull.errors import ExitStatus, SSLVerificationError
+from wpull.http.web import WebSession
 from wpull.options import AppArgumentParser
 from wpull.testing.async import AsyncTestCase
 from wpull.testing.badapp import BadAppTestCase
@@ -26,6 +27,7 @@ from wpull.testing.goodapp import GoodAppTestCase
 from wpull.url import URLInfo
 from wpull.util import IS_PYPY
 import wpull.testing.async
+from wpull.testing.ftp import FTPTestCase
 
 
 DEFAULT_TIMEOUT = 30
@@ -411,6 +413,7 @@ class TestApp(GoodAppTestCase):
                                 'testing', 'py_hook_script2.py')
         args = arg_parser.parse_args([
             self.get_url('/'),
+            self.get_url('/some_page'),
             'localhost:1/wolf',
             '--python-script', filename,
             '--page-requisites',
@@ -462,6 +465,7 @@ class TestApp(GoodAppTestCase):
                                 'testing', 'lua_hook_script2.lua')
         args = arg_parser.parse_args([
             self.get_url('/'),
+            self.get_url('/some_page'),
             'localhost:1/wolf',
             '--lua-script', filename,
             '--page-requisites',
@@ -853,6 +857,32 @@ class TestApp(GoodAppTestCase):
         self.assertGreaterEqual(4, builder.factory['Statistics'].files)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_sitemaps_and_no_parent(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/dir_or_file/'),
+            '--no-robots',
+            '--sitemaps',
+            '--recursive',
+            '--no-parent',
+        ])
+
+        with cd_tempdir():
+            builder = Builder(args, unit_test=True)
+
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+            print(list(os.walk('.')))
+            self.assertFalse(os.path.exists(
+                'localhost:{0}/static/my_file.txt'.format(
+                    self.get_http_port())
+            ))
+
+        self.assertEqual(0, exit_code)
+        self.assertGreaterEqual(1, builder.factory['Statistics'].files)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_local_encoding(self):
         arg_parser = AppArgumentParser()
 
@@ -914,6 +944,24 @@ class TestApp(GoodAppTestCase):
 
         self.assertEqual(0, exit_code)
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_misc_urls(self):
+        arg_parser = AppArgumentParser()
+
+        with cd_tempdir():
+            args = arg_parser.parse_args([
+                'http://[0:0:0:0:0:ffff:a00:0]/',
+                '--tries', '1',
+                '--timeout', '0.5',
+                '-r',
+            ])
+
+            builder = Builder(args, unit_test=True)
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(4, exit_code)
+
 
 class SimpleHandler(tornado.web.RequestHandler):
     def get(self):
@@ -938,6 +986,21 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase):
         ])
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_check_certificate(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--no-robots',
+        ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(5, exit_code)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_https_only(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -957,6 +1020,36 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase):
         self.assertEqual(1, builder.factory['Statistics'].files)
 
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_ssl_bad_certificate(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--no-robots',
+            '--no-check-certificate',
+            '--tries', '1'
+            ])
+        builder = Builder(args, unit_test=True)
+
+        class MockWebSession(WebSession):
+            @trollius.coroutine
+            def fetch(self, file=None, callback=None):
+                raise SSLVerificationError('A very bad certificate!')
+
+        class MockWebClient(builder.factory.class_map['WebClient']):
+            def session(self, request):
+                return MockWebSession(self, request)
+
+        with cd_tempdir():
+            builder.factory.class_map['WebClient'] = MockWebClient
+
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(7, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
+
+
 class TestAppBad(BadAppTestCase):
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_bad_cookie(self):
@@ -974,7 +1067,7 @@ class TestAppBad(BadAppTestCase):
 
         cookies = list(builder.factory['CookieJar'])
         _logger.debug('{0}'.format(cookies))
-        self.assertEqual(2, len(cookies))
+        self.assertEqual(3, len(cookies))
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_long_cookie(self):
@@ -1065,6 +1158,73 @@ class TestAppBad(BadAppTestCase):
 
         self.assertEqual(0, exit_code)
         self.assertEqual(4, builder.factory['Statistics'].files)
+
+
+class TestAppFTP(FTPTestCase):
+    def setUp(self):
+        super().setUp()
+        self.original_loggers = list(logging.getLogger().handlers)
+
+    def tearDown(self):
+        FTPTestCase.tearDown(self)
+
+        for handler in list(logging.getLogger().handlers):
+            if handler not in self.original_loggers:
+                logging.getLogger().removeHandler(handler)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_basic(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+        ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_args(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            self.get_url('/no_exist'),
+            '-r',
+            '--no-remove-listing',
+            '--level', '1',  # TODO: handle symlink loops
+            '--tries', '1',
+            '--wait', '0',
+            '--no-host-directories',
+            '--warc-file', 'mywarc'
+        ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+            self.assertEqual(7, exit_code)
+            self.assertEqual(4, builder.factory['Statistics'].files)
+
+            print(os.listdir())
+
+            self.assertTrue(os.path.exists('.listing'))
+            self.assertTrue(os.path.exists('example.txt'))
+            self.assertTrue(os.path.exists('example1/.listing'))
+            self.assertTrue(os.path.exists('example2/.listing'))
+            self.assertTrue(os.path.exists('mywarc.warc.gz'))
+
+            with gzip.GzipFile('mywarc.warc.gz') as in_file:
+                data = in_file.read()
+
+                self.assertIn(b'FINISHED', data)
+                self.assertIn('The real treasure is in Smaug’s heart 💗.\n'
+                              .encode('utf-8'),
+                              data)
 
 
 @trollius.coroutine

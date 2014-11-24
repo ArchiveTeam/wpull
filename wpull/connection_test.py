@@ -8,7 +8,7 @@ from trollius import From
 import trollius
 
 from wpull.connection import Connection, ConnectionPool, HostPool
-from wpull.errors import NetworkError, NetworkTimedOut, SSLVerficationError
+from wpull.errors import NetworkError, NetworkTimedOut, SSLVerificationError
 import wpull.testing.async
 from wpull.testing.badapp import BadAppTestCase
 
@@ -43,7 +43,7 @@ class TestConnection(BadAppTestCase):
         except NetworkError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_mock_connect_ssl_error(self):
@@ -59,7 +59,7 @@ class TestConnection(BadAppTestCase):
         except NetworkError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_mock_request_socket_error(self):
@@ -78,7 +78,7 @@ class TestConnection(BadAppTestCase):
         except NetworkError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_mock_request_ssl_error(self):
@@ -97,7 +97,7 @@ class TestConnection(BadAppTestCase):
         except NetworkError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_mock_request_certificate_error(self):
@@ -110,10 +110,10 @@ class TestConnection(BadAppTestCase):
 
         try:
             yield From(connection.run_network_operation(mock_func()))
-        except SSLVerficationError:
+        except SSLVerificationError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_mock_request_unknown_ca_error(self):
@@ -126,10 +126,10 @@ class TestConnection(BadAppTestCase):
 
         try:
             yield From(connection.run_network_operation(mock_func()))
-        except SSLVerficationError:
+        except SSLVerificationError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_pool_basic(self):
@@ -141,12 +141,12 @@ class TestConnection(BadAppTestCase):
         try:
             yield From(trollius.wait_for(
                 pool.check_out('localhost', self.get_http_port()),
-                0
+                0.1
             ))
         except trollius.TimeoutError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_pool_min(self):
@@ -235,7 +235,7 @@ class TestConnection(BadAppTestCase):
         except NetworkTimedOut:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_read_timeout(self):
@@ -267,7 +267,7 @@ class TestConnection(BadAppTestCase):
         except NetworkTimedOut:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_pool_check_in_clean_race_condition(self):

@@ -63,8 +63,8 @@ class RobotsTxtChecker(object):
         Coroutine.
         '''
         url_info = request.url_info
-        url = URLInfo.parse('{0}://{1}:{2}/robots.txt'.format(
-            url_info.scheme, url_info.hostname, url_info.port)).url
+        url = URLInfo.parse('{0}://{1}/robots.txt'.format(
+            url_info.scheme, url_info.hostname_with_port)).url
 
         if not file:
             file = wpull.body.new_temp_file(os.getcwd(), hint='robots')

@@ -15,7 +15,7 @@ import trollius
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.dns import Resolver
-from wpull.errors import NetworkError, ConnectionRefused, SSLVerficationError, \
+from wpull.errors import NetworkError, ConnectionRefused, SSLVerificationError, \
     NetworkTimedOut
 
 
@@ -195,7 +195,9 @@ class ConnectionPool(object):
         key = (host, port, ssl)
 
         if key not in self._pool:
-            host_pool = self._pool[key] = HostPool()
+            host_pool = self._pool[key] = HostPool(
+                max_connections=self._max_host_count
+            )
         else:
             host_pool = self._pool[key]
 
@@ -322,7 +324,7 @@ class Connection(object):
     '''
     def __init__(self, address, hostname=None, timeout=None,
                  connect_timeout=None, bind_host=None):
-        assert len(address) == 2, 'Expect str & port. Got {}.'.format(address)
+        assert len(address) >= 2, 'Expect str & port. Got {}.'.format(address)
         assert '.' in address[0] or ':' in address[0], \
             'Expect numerical address. Got {}.'.format(address[0])
 
@@ -387,7 +389,10 @@ class Connection(object):
         if self._state != ConnectionState.ready:
             raise Exception('Closed connection must be reset before reusing.')
 
-        host, port = self._address
+        # TODO: maybe we don't want to ignore flow-info and scope-id?
+        host = self._address[0]
+        port = self._address[1]
+
         connection_future = trollius.open_connection(
             host, port, **self._connection_kwargs()
         )
@@ -513,10 +518,10 @@ class Connection(object):
             self.close()
             raise NetworkTimedOut(
                 '{name} timed out.'.format(name=name)) from error
-        except (tornado.netutil.SSLCertificateError, SSLVerficationError) \
+        except (tornado.netutil.SSLCertificateError, SSLVerificationError) \
                 as error:
             self.close()
-            raise SSLVerficationError(
+            raise SSLVerificationError(
                 '{name} certificate error: {error}'
                 .format(name=name, error=error)) from error
         except (socket.error, ssl.SSLError, OSError, IOError) as error:
@@ -533,7 +538,7 @@ class Connection(object):
             #          routines:SSL3_READ_BYTES:tlsv1 alert unknown ca
             error_string = str(error).lower()
             if 'certificate' in error_string or 'unknown ca' in error_string:
-                raise SSLVerficationError(
+                raise SSLVerificationError(
                     '{name} certificate error: {error}'
                     .format(name=name, error=error)) from error
 
@@ -597,9 +602,9 @@ class SSLConnection(Connection):
         cert = sock.getpeercert()
 
         if cert is None and verify_mode == ssl.CERT_REQUIRED:
-            raise SSLVerficationError('No SSL certificate given')
+            raise SSLVerificationError('No SSL certificate given')
 
         try:
             tornado.netutil.ssl_match_hostname(cert, self._hostname)
         except SSLCertificateError as error:
-            raise SSLVerficationError('Invalid SSL certificate') from error
+            raise SSLVerificationError('Invalid SSL certificate') from error

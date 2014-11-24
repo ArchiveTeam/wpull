@@ -4,12 +4,14 @@ import abc
 from wpull.url import URLInfo
 
 
-class CommonMixin(object):
-    '''Serialize and unserialize methods.'''
+class DictableMixin(object):
     @abc.abstractmethod
     def to_dict(self):
         '''Convert to a dict suitable for JSON.'''
 
+
+class SerializableMixin(object):
+    '''Serialize and unserialize methods.'''
     @abc.abstractmethod
     def to_bytes(self):
         '''Serialize to HTTP bytes.'''
@@ -50,3 +52,15 @@ class URLPropertyMixin(object):
     def url_info(self, url_info):
         self._url_info = url_info
         self._url = url_info.url
+
+
+class ProtocolResponseMixin(object):
+    '''Protocol abstraction for response objects.'''
+
+    @abc.abstractmethod
+    def response_code(self):
+        '''Return the response code representative for the protocol.'''
+
+    @abc.abstractmethod
+    def response_message(self):
+        '''Return the response message representative for the protocol.'''

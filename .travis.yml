@@ -2,7 +2,15 @@ language: python
 python:
   - 3.2
   - 3.3
+  - 3.4
   - pypy3
+
+
+# blacklist
+branches:
+  except:
+    - topic/rewrite_phantomjs
+
 
 before_install:
   - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' ]]; then 
