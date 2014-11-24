@@ -953,6 +953,7 @@ class TestApp(GoodAppTestCase):
                 'http://[0:0:0:0:0:ffff:a00:0]/',
                 '--tries', '1',
                 '--timeout', '0.5',
+                '-r',
             ])
 
             builder = Builder(args, unit_test=True)

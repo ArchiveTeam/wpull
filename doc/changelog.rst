@@ -11,6 +11,7 @@ What's New
 * Fixed crash on IPv6 URLs containing consecutive dots.
 * Fixed crash attempting to connect to IPv6 addresses.
 * Consecutive slashes in URL paths are now flattened.
+* Fixed crash when fetching IPv6 robots.txt file.
 * Added experimental FTP support.
 * Switched default HTML parser to html5lib.
 
