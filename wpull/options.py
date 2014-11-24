@@ -430,7 +430,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         group.add_argument(
             '--progress',
             metavar='TYPE',
-            choices=['dot', 'bar'],
+            choices=['dot', 'bar', 'none'],
             default='bar',
             help=_('choose the type of progress indicator'),
         )

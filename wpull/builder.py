@@ -631,7 +631,7 @@ class Builder(object):
         assert args.verbosity, \
             'Expect logging level. Got {}.'.format(args.verbosity)
 
-        if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARNING):
+        if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARNING) and args.progress != 'none':
             stream = self._new_encoded_stream(self._get_stderr())
 
             bar_style = args.progress == 'bar'
