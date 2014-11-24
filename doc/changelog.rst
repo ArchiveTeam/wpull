@@ -2,6 +2,9 @@
 What's New
 ==========
 
+0.1002 (2014-11-24)
+===================
+
 * Fixed control characters printed without escaping.
 * Fixed cookie size not limited correctly per domain name.
 * Fixed URL parsing incorrectly allowing spaces in hostnames.
