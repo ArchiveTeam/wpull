@@ -35,6 +35,34 @@ class FTPSession(object):
         self.writer = writer
         self.data_reader = None
         self.data_writer = None
+        self.routes = {
+            '/':
+                ('dir',
+                 b'junk\nexample1\nexample2\nexample.txt\n',
+                 ('drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 junk\r\n'
+                  'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example1\r\n'
+                  'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example2\r\n'
+                  '-rw-r--r-- 1 smaug smaug 42 Apr 01 00:00 example.txt\r\n'
+                 ).encode('utf-8')),
+            '/example.txt':
+                ('file',
+                 'The real treasure is in Smaug’s heart 💗.\n'.encode('utf-8')),
+            '/empty':
+                ('dir', b'', b''),
+            '/example1':
+                ('dir', b'loopy', b'loopy'),
+            '/example1/loopy':
+                ('symlink', '/'),
+            '/example2':
+                ('dir', b'secrets.txt',
+                 ('02-09-2010  03:00PM                      13 trash.txt\r\n'
+                 ).encode('utf-8')),
+            '/example2/trash.txt':
+                ('file', b'hello dragon!'),
+        }
+        self.command = None
+        self.arg = None
+        self.path = '/'
 
     @trollius.coroutine
     def process(self):
@@ -59,6 +87,18 @@ class FTPSession(object):
             self.command = command.upper()
             self.arg = arg.rstrip()
 
+            path = self.arg.rstrip('/') or '/'
+
+            if not path.startswith('/'):
+                self.path = self.path.rstrip('/') + '/' + path
+            else:
+                self.path = path
+
+            info = self.routes.get(self.path)
+
+            if info and info[0] == 'symlink':
+                self.path = info[1]
+
             funcs = {
                 'USER': self._cmd_user,
                 'PASS': self._cmd_pass,
@@ -72,7 +112,8 @@ class FTPSession(object):
             }
             func = funcs.get(self.command)
 
-            _logger.debug('Command %s Arg %s', self.command, self.arg)
+            _logger.debug('Command %s Arg %s Path %s', self.command, self.arg,
+                          self.path)
 
             if not func:
                 self.writer.write(b'500 Unknown command\r\n')
@@ -121,11 +162,17 @@ class FTPSession(object):
 
         if not self.data_writer:
             self.writer.write(b'227 Use PORT or PASV first\r\n')
+            return
         else:
             self.writer.write(b'150 Begin listings\r\n')
-            self.data_writer.write(b'example1\r\n')
-            self.data_writer.write(b'example2\r\n')
-            self.data_writer.write(b'example.txt\r\n')
+
+            info = self.routes.get(self.path)
+
+            _logger.debug('Info: %s', info)
+
+            if info and info[0] == 'dir':
+                self.data_writer.write(info[1])
+
             self.data_writer.close()
             self.data_writer = None
             self.writer.write(b'226 End listings\r\n')
@@ -139,9 +186,14 @@ class FTPSession(object):
             self.writer.write(b'227 Use PORT or PASV first\r\n')
         else:
             self.writer.write(b'150 Begin listings\r\n')
-            self.data_writer.write(b'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example1\r\n')
-            self.data_writer.write(b'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example2\r\n')
-            self.data_writer.write(b'-rw-r--r-- 1 smaug smaug 42 Apr 01 00:00 example.txt\r\n')
+
+            info = self.routes.get(self.path)
+
+            _logger.debug('Info: %s', info)
+
+            if info and info[0] == 'dir':
+                self.data_writer.write(info[2])
+
             self.data_writer.close()
             self.data_writer = None
             self.writer.write(b'226 End listings\r\n')
@@ -151,13 +203,13 @@ class FTPSession(object):
     def _cmd_retr(self):
         yield From(self._wait_data_writer())
 
+        info = self.routes.get(self.path)
+
         if not self.data_writer:
             self.writer.write(b'227 Use PORT or PASV first\r\n')
-        elif self.arg.lstrip('/') == 'example.txt':
+        elif info and info[0] == 'file':
             self.writer.write(b'150 Begin data\r\n')
-            self.data_writer.write(
-                'The real treasure is in Smaug’s heart 💗.\n'
-                .encode('utf-8'))
+            self.data_writer.write(info[1])
             self.data_writer.close()
             self.data_writer = None
             self.writer.write(b'226 End data\r\n')

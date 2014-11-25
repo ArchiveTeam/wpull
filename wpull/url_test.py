@@ -232,6 +232,32 @@ class TestURL(unittest.TestCase):
             ValueError, URLInfo.parse,
             'http://ｆａｔ３２ｄｅｆｒａｇｍｅｎｔｅｒ.internets：８０/')
         self.assertRaises(ValueError, URLInfo.parse, 'http:// /spaaaace')
+        self.assertRaises(
+            ValueError, URLInfo.parse,
+            'http://a-long-long-time-ago-the-earth-was-ruled-by-dinosaurs-'
+            'they-were-big-so-not-a-lot-of-people-went-around-hassling-them-'
+            'actually-no-people-went-around-hassling-them-'
+            'because-there-weren-t-any-people-yet-'
+            'just-the-first-tiny-mammals-'
+            'basically-life-was-good-'
+            'lou-it-just-dont-get-no-better-than-this-'
+            'yeah-'
+            'then-something-happened-'
+            'a-giant-meteorite-struck-the-earth-'
+            'goodbye-dinosaurs-'
+            'but-what-if-the-dinosaurs-werent-all-destroyed-'
+            'what-if-the-impact-of-that-meteorite-created-a-parallel-dimension-'
+            'where-the-dinosaurs-continue-to-thrive-'
+            'and-evolved-into-intelligent-vicious-aggressive-beings-'
+            'just-like-us-'
+            'and-hey-what-if-they-found-their-way-back.movie'
+        )
+        self.assertRaises(
+            ValueError, URLInfo.parse, 'http://[...]/python.xml%22')
+        self.assertRaises(
+            ValueError, URLInfo.parse, 'http://[…]/python.xml%22')
+        self.assertRaises(
+            ValueError, URLInfo.parse, 'http://[.]/python.xml%22')
 
     def test_url_info_path_folding(self):
         self.assertEqual(
@@ -295,6 +321,10 @@ class TestURL(unittest.TestCase):
         self.assertEqual(
             'http://example.com/?@/',
             URLInfo.parse('http://:@example.com?@/').url
+        )
+        self.assertEqual(
+            'http://example.com/http:/example.com',
+            URLInfo.parse('http://:@example.com/http://example.com').url
         )
 
     def test_url_info_query(self):
@@ -489,6 +519,22 @@ class TestURL(unittest.TestCase):
             urljoin('https://example.com', '//example.net')
         )
         self.assertEqual(
+            'http://example.net',
+            urljoin('http://example.com/', '//example.net')
+        )
+        self.assertEqual(
+            'https://example.net',
+            urljoin('https://example.com/', '//example.net')
+        )
+        self.assertEqual(
+            'http://example.net/',
+            urljoin('http://example.com/', '//example.net/')
+        )
+        self.assertEqual(
+            'https://example.net/',
+            urljoin('https://example.com/', '//example.net/')
+        )
+        self.assertEqual(
             'https://example.com/asdf',
             urljoin('https://example.com/cookies', '/asdf')
         )
@@ -513,6 +559,14 @@ class TestURL(unittest.TestCase):
             urljoin('http://example.com', '//example.com/')
         )
         self.assertEqual(
+            'http://example.com/',
+            urljoin('http://example.com/', '//')
+        )
+        self.assertEqual(
+            'http://example.com/',
+            urljoin('http://example.com/', '///')
+        )
+        self.assertEqual(
             'http://example.com/a/style.css',
             urljoin('http://example.com/a/', './style.css')
         )
@@ -528,14 +582,33 @@ class TestURL(unittest.TestCase):
             'mailto://sausage',
             urljoin('mailto:hotdogbun', '//sausage')
         )
+        self.assertEqual(
+            'hotdogbun://sausage',
+            urljoin('hotdogbun', '//sausage')
+        )
 
     def test_flatten_path(self):
+        self.assertEqual('/', flatten_path(''))
+        self.assertEqual('//', flatten_path('//'))
+        self.assertEqual('///', flatten_path('///'))
+        self.assertEqual('/http://', flatten_path('/http://'))
+        self.assertEqual('/', flatten_path('//', flatten_slashes=True))
+        self.assertEqual('/', flatten_path('///', flatten_slashes=True))
+        self.assertEqual('/http:/', flatten_path('/http://',
+                                                 flatten_slashes=True))
+        self.assertEqual('/a', flatten_path('a'))
+        self.assertEqual('/a/', flatten_path('a/'))
         self.assertEqual('/', flatten_path('/'))
         self.assertEqual('/', flatten_path('/../../../'))
         self.assertEqual('/', flatten_path('/.././'))
         self.assertEqual('/a', flatten_path('/../a/../a'))
         self.assertEqual('/a/', flatten_path('/../a/../a/'))
         self.assertEqual('//a/a/', flatten_path('//a//../a/'))
+        self.assertEqual('/a//a///a', flatten_path('/a//a///a'))
+        self.assertEqual('/a/',
+                         flatten_path('//a//../a/', flatten_slashes=True))
+        self.assertEqual('/a/a/a',
+                         flatten_path('/a//a///a', flatten_slashes=True))
         self.assertEqual('/index.html', flatten_path('/./index.html'))
         self.assertEqual('/index.html', flatten_path('/../index.html'))
         self.assertEqual('/a/index.html', flatten_path('/a/./index.html'))
@@ -548,6 +621,15 @@ class TestURL(unittest.TestCase):
         self.assertEqual(
             '/dog/doc/index.html',
             flatten_path('/dog/../dog/./cat/../doc/././../doc/index.html')
+        )
+        self.assertEqual(
+            '/dog//doc//doc/index.html/',
+            flatten_path('/dog/../dog//./cat/../doc/.///./../doc/index.html/')
+        )
+        self.assertEqual(
+            '/dog/doc/index.html/',
+            flatten_path('/dog/../dog//./cat/../doc/.///./../doc/index.html/',
+                         flatten_slashes=True)
         )
 
     def test_parse_url_or_log(self):

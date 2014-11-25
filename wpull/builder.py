@@ -21,7 +21,7 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.connection import Connection, ConnectionPool, SSLConnection
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
-from wpull.database.sqltable import URLTable as SQLURLTable
+from wpull.database.sqltable import URLTable as SQLURLTable, GenericSQLURLTable
 from wpull.database.wrap import URLTableHookWrapper
 from wpull.debug import DebugConsoleHandler
 from wpull.dns import Resolver
@@ -41,8 +41,8 @@ from wpull.driver.phantomjs import PhantomJSClient
 from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
     FTPProcessorInstances
+from wpull.processor.rule import FetchRule, ResultRule, ProcessingRule
 from wpull.coprocessor.phantomjs import PhantomJSController
-from wpull.processor.rule import FetchRule, ResultRule
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
     WebProcessorInstances
 from wpull.proxy import HTTPProxyServer
@@ -63,7 +63,8 @@ from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, SchemeFilter,
                              BackwardDomainFilter, HostnameFilter, TriesFilter,
                              RecursiveFilter, LevelFilter,
                              SpanHostsFilter, RegexFilter, DirectoryFilter,
-                             BackwardFilenameFilter, ParentFilter)
+                             BackwardFilenameFilter, ParentFilter,
+                             FollowFTPFilter)
 from wpull.util import ASCIIStreamWriter
 from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
@@ -119,6 +120,7 @@ class Builder(object):
             'PhantomJSClient': PhantomJSClient,
             'PhantomJSController': PhantomJSController,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
+            'ProcessingRule': ProcessingRule,
             'Processor': DelegateProcessor,
             'ProxyAdapter': ProxyAdapter,
             'ProgressRecorder': ProgressRecorder,
@@ -401,7 +403,6 @@ class Builder(object):
 
             url_string_iter = itertools.chain(url_string_iter, urls)
 
-        sitemap_url_infos = set()
         base_url = self._args.base
 
         for url_string in url_string_iter:
@@ -414,23 +415,6 @@ class Builder(object):
                 url_string, default_scheme=default_scheme)
 
             _logger.debug(__('Parsed URL {0}', url_info))
-            yield url_info
-
-            if self._args.sitemaps:
-                sitemap_url_infos.update((
-                    URLInfo.parse(
-                        '{0}://{1}/robots.txt'.format(
-                            url_info.scheme,
-                            url_info.hostname_with_port)
-                    ),
-                    URLInfo.parse(
-                        '{0}://{1}/sitemap.xml'.format(
-                            url_info.scheme,
-                            url_info.hostname_with_port)
-                    )
-                ))
-
-        for url_info in sitemap_url_infos:
             yield url_info
 
     def _read_input_file_as_lines(self):
@@ -476,6 +460,7 @@ class Builder(object):
                 page_requisites='page-requisites' in args.span_hosts_allow,
                 linked_pages='linked-pages' in args.span_hosts_allow,
             ),
+            FollowFTPFilter(follow=args.follow_ftp),
         ]
 
         if args.no_parent:
@@ -579,8 +564,15 @@ class Builder(object):
         Returns:
             URLTable: An instance of :class:`.database.base.BaseURLTable`.
         '''
-        url_table_impl = self._factory.new(
-            'URLTableImplementation', path=self._args.database)
+        if self._args.database_uri:
+            self._factory.class_map[
+                'URLTableImplementation'] = GenericSQLURLTable
+            url_table_impl = self._factory.new(
+                'URLTableImplementation', self._args.database_uri)
+        else:
+            url_table_impl = self._factory.new(
+                'URLTableImplementation', path=self._args.database)
+
         url_table = self._factory.new('URLTable', url_table_impl)
         return url_table
 
@@ -639,7 +631,7 @@ class Builder(object):
         assert args.verbosity, \
             'Expect logging level. Got {}.'.format(args.verbosity)
 
-        if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARNING):
+        if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARNING) and args.progress != 'none':
             stream = self._new_encoded_stream(self._get_stderr())
 
             bar_style = args.progress == 'bar'
@@ -738,19 +730,26 @@ class Builder(object):
 
         result_rule = self._factory.new(
             'ResultRule',
+            ssl_verification=args.check_certificate,
             retry_connrefused=args.retry_connrefused,
             retry_dns_error=args.retry_dns_error,
             waiter=waiter,
             statistics=self._factory['Statistics'],
         )
 
+        processing_rule = self._factory.new(
+            'ProcessingRule',
+            fetch_rule,
+            document_scraper=document_scraper,
+            sitemaps=self._args.sitemaps,
+        )
+
         web_processor_instances = self._factory.new(
             'WebProcessorInstances',
             fetch_rule=fetch_rule,
             result_rule=result_rule,
-            document_scraper=document_scraper,
+            processing_rule=processing_rule,
             file_writer=file_writer,
-            waiter=waiter,
             statistics=self._factory['Statistics'],
             phantomjs_controller=phantomjs_controller,
         )
@@ -783,6 +782,7 @@ class Builder(object):
             'FTPProcessorInstances',
             fetch_rule=self._factory['FetchRule'],
             result_rule=self._factory['ResultRule'],
+            processing_rule=self._factory['ProcessingRule'],
             file_writer=self._factory['FileWriter'],
         )
 

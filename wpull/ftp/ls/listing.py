@@ -17,6 +17,14 @@ Attributes:
 '''
 
 
+class ListingError(ValueError):
+    '''Error during parsing a listing.'''
+
+
+class UnknownListingError(ListingError):
+    '''Failed to determine type of listing.'''
+
+
 class LineParser(object):
     '''Parse individual lines in a listing.'''
     def __init__(self):
@@ -42,7 +50,7 @@ class LineParser(object):
         elif self.type == 'nlst':
             return self.parse_nlst(lines)
         else:
-            raise ValueError('Unsupported listing type.')
+            raise UnknownListingError('Unsupported listing type.')
 
     def parse_datetime(self, text):
         '''Parse datetime from line of text.'''
@@ -109,7 +117,7 @@ class LineParser(object):
                         file_type = 'other'
                     break
             else:
-                raise ValueError('Failed to parse file type.')
+                raise ListingError('Failed to parse file type.')
 
             line = line[after_perm_index:]
 

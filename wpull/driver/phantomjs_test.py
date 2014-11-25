@@ -5,7 +5,7 @@ import trollius
 
 from wpull.http.client import Client
 from wpull.driver.phantomjs import (PhantomJSRemote, PhantomJSClient,
-                             PhantomJSRPCTimedOut)
+                             PhantomJSRPCTimedOut, PhantomJSRPCError)
 from wpull.proxy import HTTPProxyServer
 import wpull.testing.async
 
@@ -98,6 +98,9 @@ class TestPhantomJS(wpull.testing.async.AsyncTestCase):
             except PhantomJSRPCTimedOut:
                 # It probably quit before it could reply
                 pass
+            except PhantomJSRPCError:
+                # PhantomJS 1.9.8+: Ignore 'undefined' error.
+                pass
 
             yield From(trollius.sleep(0.1))
 
@@ -129,6 +132,9 @@ class TestPhantomJS(wpull.testing.async.AsyncTestCase):
             yield From(test_remote.eval('phantom.exit(1)'))
         except PhantomJSRPCTimedOut:
             # It probably quit before it could reply
+            pass
+        except PhantomJSRPCError:
+            # PhantomJS 1.9.8+: Ignore 'undefined' error.
             pass
 
         with remote_client.remote() as remote:

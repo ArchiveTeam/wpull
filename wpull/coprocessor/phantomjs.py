@@ -277,7 +277,7 @@ class WebProcessorSessionMixin(object):
         if content is not None:
             mock_response = self._new_phantomjs_response(response, content)
 
-            self._scrape_document(request, mock_response)
+            self._processing_rule.scrape_document(request, mock_response, self._url_item)
 
             self._close_instance_body(mock_response)
 

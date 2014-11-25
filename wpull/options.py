@@ -226,11 +226,17 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='FILE',
             help=_('load Lua hook script from FILE')
         )
-        group.add_argument(
+        database_group = group.add_mutually_exclusive_group()
+        database_group.add_argument(
             '--database',
             metavar='FILE',
             default=':memory:',
             help=_('save database tables into FILE instead of memory'),
+        )
+        database_group.add_argument(
+            '--database-uri',
+            metavar='URI',
+            help=_('save database tables at SQLAlchemy URI instead of memory'),
         )
         group.add_argument(
             '--concurrent',
@@ -424,7 +430,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         group.add_argument(
             '--progress',
             metavar='TYPE',
-            choices=['dot', 'bar'],
+            choices=['dot', 'bar', 'none'],
             default='bar',
             help=_('choose the type of progress indicator'),
         )
@@ -785,7 +791,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         group.add_argument(
             '--html-parser',
             choices=['html5lib'] if IS_PYPY else ['libxml2-lxml', 'html5lib'],
-            default='html5lib'if IS_PYPY else 'libxml2-lxml',
+            default='html5lib',
             help=_('select HTML parsing library and strategy')
         )
         group.add_argument(
@@ -1089,11 +1095,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=self.comma_list,
             help=_('don’t download from LIST of hostnames')
         )
-#         self.add_argument(
-#             '--follow-ftp',
-#             action='store_true',
-#             help=_('follow links to FTP sites')
-#         )
+        group.add_argument(
+            '--follow-ftp',
+            action='store_true',
+            help=_('follow links to FTP sites')
+        )
         group.add_argument(
             '--follow-tags',
             metavar='LIST',

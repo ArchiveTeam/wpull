@@ -56,7 +56,8 @@ class TestClient(FTPTestCase):
             )
 
         print(response.body.content())
-        self.assertEqual(3, len(response.files))
-        self.assertEqual('example1', response.files[0].name)
-        self.assertEqual('example2', response.files[1].name)
-        self.assertEqual('example.txt', response.files[2].name)
+        self.assertEqual(4, len(response.files))
+        self.assertEqual('junk', response.files[0].name)
+        self.assertEqual('example1', response.files[1].name)
+        self.assertEqual('example2', response.files[2].name)
+        self.assertEqual('example.txt', response.files[3].name)

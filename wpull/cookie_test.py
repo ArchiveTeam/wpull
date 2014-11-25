@@ -117,3 +117,22 @@ class TestCookie(unittest.TestCase):
         print(cookie_jar._cookies)
 
         self.assertFalse(cookie_jar._cookies.get('example.com'))
+
+    def test_empty_value(self):
+        cookie_jar = CookieJar()
+        policy = DeFactoCookiePolicy(cookie_jar=cookie_jar)
+        cookie_jar.set_policy(policy)
+
+        request = urllib.request.Request('http://example.com/')
+        response = FakeResponse(
+            [
+                'Set-Cookie: k'
+            ],
+            'http://example.com/'
+        )
+
+        cookie_jar.extract_cookies(response, request)
+
+        print(cookie_jar._cookies)
+
+        self.assertTrue(cookie_jar._cookies.get('example.com'))

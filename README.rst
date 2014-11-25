@@ -100,12 +100,8 @@ Copyright 2013-2014 by Christopher Foo. License GPL v3.
 
 This project contains third-party source code licensed under different terms:
 
-* backport
-* wpull.backport.argparse
-* wpull.backport.collections
-* wpull.backport.functools
-* wpull.backport.tempfile
-* wpull.backport.urlparse
+* wpull.backport.logging
+* wpull.backport.textwrap
 * wpull.thirdparty.robotexclusionrulesparser
 * wpull.thirdparty.dammit
 

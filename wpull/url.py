@@ -265,6 +265,8 @@ class URLInfo(object):
             raise ValueError('Invalid IPv6 address: {}'
                              .format(ascii(hostname)))
 
+        hostname = normalize_hostname(hostname)
+
         return hostname
 
     @property
@@ -414,7 +416,7 @@ def normalize_path(path, encoding='utf-8'):
     '''
     if not path.startswith('/'):
         path = '/' + path
-    path = percent_encode(flatten_path(path), encoding=encoding)
+    path = percent_encode(flatten_path(path, flatten_slashes=True), encoding=encoding)
     return uppercase_percent_encoding(path)
 
 
@@ -617,19 +619,20 @@ def query_to_map(text):
 
 def urljoin(base_url, url, allow_fragments=True):
     '''Join URLs like ``urllib.parse.urljoin`` but allow scheme-relative URL.'''
-    if url.startswith('//'):
+    if url.startswith('//') and len(url) > 2:
         scheme = base_url.partition(':')[0]
-        return urllib.parse.urljoin(
-            base_url,
-            '{0}:{1}'.format(scheme, url),
-            allow_fragments=allow_fragments
-        )
-    else:
-        return urllib.parse.urljoin(
-            base_url, url, allow_fragments=allow_fragments)
+        if scheme:
+            return urllib.parse.urljoin(
+                base_url,
+                '{0}:{1}'.format(scheme, url),
+                allow_fragments=allow_fragments
+            )
+
+    return urllib.parse.urljoin(
+        base_url, url, allow_fragments=allow_fragments)
 
 
-def flatten_path(path, strip_slashes=False):
+def flatten_path(path, flatten_slashes=False):
     '''Flatten an absolute URL path by removing the dot segments.
 
     :func:`urllib.parse.urljoin` has some support for removing dot segments,
@@ -637,20 +640,32 @@ def flatten_path(path, strip_slashes=False):
 
     Arguments:
         path (str): The URL path.
-        strip_slashes (bool): If True, the leading and trailing slashes are
-            removed.
+        flatten_slashes (bool): If True, consecutive slashes are removed.
+
+    The path returned will always have a leading slash.
     '''
     # Based on posixpath.normpath
-    parts = path.split('/')
 
+    if not path or path == '/':
+        return '/'
+
+    if path[0] == '/':
+        path = path[1:]
+
+    parts = path.split('/')
     new_parts = collections.deque()
 
     for part in parts:
-        if part == '.' or (strip_slashes and not part):
+        if part == '.' or (flatten_slashes and not part):
             continue
         elif part != '..':
             new_parts.append(part)
-        elif len(new_parts) > 1:
+        elif new_parts:
             new_parts.pop()
+
+    if flatten_slashes and path.endswith('/'):
+        new_parts.append('')
+
+    new_parts.appendleft('')
 
     return '/'.join(new_parts)
