@@ -1,5 +1,6 @@
 '''Resource tracking.'''
 import abc
+import time
 
 
 class ResourceState(object):
@@ -17,8 +18,21 @@ class Resource(object):
         self.status_code = None
         self.status_reason = None
         self.body_size = 0
-        self.touch_timestamp = None
+        self.touch_timestamp = time.time()
         self.state = ResourceState.pending
+
+    def start(self, status_code, status_reason):
+        self.touch_timestamp = time.time()
+        self.status_code = status_code
+        self.status_reason = status_reason
+
+    def end(self):
+        self.touch_timestamp = time.time()
+        self.state = ResourceState.loaded
+
+    def error(self):
+        self.touch_timestamp = time.time()
+        self.state = ResourceState.error
 
 
 class ResourceTracker(object, metaclass=abc.ABCMeta):
