@@ -48,14 +48,24 @@ class ResourceTracker(object, metaclass=abc.ABCMeta):
     def resources(self):
         return self._resources
 
+    @property
     def pending(self):
         return self._pending
 
+    @property
     def error(self):
         return self._error
 
+    @property
     def loaded(self):
         return self._loaded
+
+    def reset(self):
+        '''Reset tracker to 0 values.'''
+        self._resources.clear()
+        self._pending.clear()
+        self._error.clear()
+        self._loaded.clear()
 
     @abc.abstractmethod
     def process_request(self, request):

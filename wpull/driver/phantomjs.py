@@ -13,6 +13,7 @@ import trollius
 from trollius.coroutines import From, Return
 
 from wpull.backport.logging import BraceMessage as __
+from wpull.driver.resource import ResourceTracker
 import wpull.observer
 import wpull.util
 
@@ -56,7 +57,8 @@ class PhantomJSRemote(object):
         self._rewrite_enabled = rewrite_enabled
 
         self.page_observer = wpull.observer.Observer()
-        self.resource_counter = ResourceCounter()
+        # self.resource_counter = ResourceCounter()
+        self.resource_tracker = ResourceTracker()
 
         self._rpc_out_queue = trollius.Queue()
 
@@ -490,32 +492,32 @@ class PhantomJSClient(object):
         self._remotes_ready.clear()
 
 
-class ResourceCounter(object):
-    '''Resource counter.
-
-    Attributes:
-        pending (int): Number of resources that are downloading.
-        loaded (int): Number of resources that have downloaded.
-        error (int): Number of resources that have failed to download.
-    '''
-    def __init__(self):
-        self.pending = 0
-        self.loaded = 0
-        self.error = 0
-
-    def reset(self):
-        '''Reset the counter to 0.'''
-        self.pending = 0
-        self.loaded = 0
-        self.error = 0
-
-    def values(self):
-        '''Return the counter as an tuple.
-
-        Returns:
-            tuple: (pending, loaded, error)
-        '''
-        return (self.pending, self.loaded, self.error)
+# class ResourceCounter(object):
+#     '''Resource counter.
+#
+#     Attributes:
+#         pending (int): Number of resources that are downloading.
+#         loaded (int): Number of resources that have downloaded.
+#         error (int): Number of resources that have failed to download.
+#     '''
+#     def __init__(self):
+#         self.pending = 0
+#         self.loaded = 0
+#         self.error = 0
+#
+#     def reset(self):
+#         '''Reset the counter to 0.'''
+#         self.pending = 0
+#         self.loaded = 0
+#         self.error = 0
+#
+#     def values(self):
+#         '''Return the counter as an tuple.
+#
+#         Returns:
+#             tuple: (pending, loaded, error)
+#         '''
+#         return (self.pending, self.loaded, self.error)
 
 
 def get_version(exe_path='phantomjs'):
