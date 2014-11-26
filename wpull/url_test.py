@@ -64,7 +64,10 @@ class TestURL(unittest.TestCase):
     def test_url_info_parts(self):
         url_info = URLInfo.parse(
             'HTTP://userName:pass%3Aword@[::1]:81/ásdf/ghjk?a=b=c&d#/?')
-        self.assertEqual('http://[::1]:81/%C3%A1sdf/ghjk?a=b=c&d', url_info.url)
+        self.assertEqual(
+            'http://userName:pass:word@[::1]:81/%C3%A1sdf/ghjk?a=b=c&d',
+            url_info.url
+        )
         self.assertEqual('http', url_info.scheme)
         self.assertEqual('userName:pass%3Aword@[::1]:81',
                          url_info.authority)
@@ -380,6 +383,32 @@ class TestURL(unittest.TestCase):
         self.assertEqual(
             'http://example.com.:81/',
             URLInfo.parse('http://example.com.:81/').url
+        )
+
+    def test_url_info_usrename_password(self):
+        self.assertEqual(
+            'http://UserName@example.com/',
+            URLInfo.parse('http://UserName@example.com/').url
+        )
+        self.assertEqual(
+            'http://UserName:PassWord@example.com/',
+            URLInfo.parse('http://UserName:PassWord@example.com/').url
+        )
+        self.assertEqual(
+            'http://:PassWord@example.com/',
+            URLInfo.parse('http://:PassWord@example.com/').url
+        )
+        self.assertEqual(
+            'http://UserName:Pass:Word@example.com/',
+            URLInfo.parse('http://UserName:Pass:Word@example.com/').url
+        )
+        self.assertEqual(
+            'http://User%40Name:Pass:Word@example.com/',
+            URLInfo.parse('http://User%40Name:Pass%3AWord@example.com/').url
+        )
+        self.assertEqual(
+            'http://User%20Name%3A@example.com/',
+            URLInfo.parse('http://User Name%3A:@example.com/').url
         )
 
     def test_url_info_round_trip(self):

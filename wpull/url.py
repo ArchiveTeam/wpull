@@ -284,6 +284,16 @@ class URLInfo(object):
 
             parts = [self.scheme, '://']
 
+            if self.username:
+                parts.append(normalize_username(self.username))
+
+            if self.password:
+                parts.append(':')
+                parts.append(normalize_password(self.password))
+
+            if self.username or self.password:
+                parts.append('@')
+
             if self.is_ipv6():
                 parts.append('[{}]'.format(self.hostname))
             else:
