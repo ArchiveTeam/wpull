@@ -1,11 +1,8 @@
 # encoding=utf8
 '''Web processing.'''
-import copy
 import gettext
 import io
 import logging
-import os.path
-import tempfile
 
 from trollius.coroutines import Return, From
 import namedlist
@@ -13,13 +10,9 @@ import trollius
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
-from wpull.coprocessor.phantomjs import WebProcessorSessionMixin
-from wpull.document.html import HTMLReader
 from wpull.errors import NetworkError, ProtocolError, ServerError, \
     SSLVerificationError
 from wpull.hook import HookableMixin, Actions
-from wpull.namevalue import NameValueRecord
-from wpull.driver.phantomjs import PhantomJSRPCTimedOut
 from wpull.processor.base import BaseProcessor, BaseProcessorSession
 from wpull.processor.rule import FetchRule, ResultRule
 from wpull.stats import Statistics
@@ -56,7 +49,7 @@ WebProcessorInstances = namedlist.namedtuple(
         ('processing_rule', None),
         ('file_writer', NullWriter()),
         ('statistics', Statistics()),
-        ('phantomjs_controller', None),
+        ('phantomjs_coprocessor', None),
     ]
 )
 '''WebProcessorInstances
@@ -66,8 +59,8 @@ Args:
     result_rule ( :class:`.processor.rule.ResultRule`): The result rule.
     processing_rule ( :class:`.processor.rule.ProcessingRule`): The processing rule.
     file_writer (:class`.writer.BaseWriter`): The file writer.
-    phantomjs_controller (:class:`PhantomJSController`): The PhantomJS
-        controller.
+    phantomjs_coprocessor (:class:`.coprocessor.phantomjs.PhantomJSCoprocessor`): The PhantomJS
+        corprocessor.
 '''
 
 
@@ -134,7 +127,7 @@ class WebProcessor(BaseProcessor, HookableMixin):
         self._web_client.close()
 
 
-class WebProcessorSession(BaseProcessorSession, WebProcessorSessionMixin):
+class WebProcessorSession(BaseProcessorSession):
     '''Fetches an HTTP document.
 
     This Processor Session will handle document redirects within the same
@@ -326,7 +319,11 @@ class WebProcessorSession(BaseProcessorSession, WebProcessorSessionMixin):
             self._log_response(request, response)
             action = self._handle_response(request, response)
 
-            yield From(self._process_phantomjs(request, response))
+            phantomjs_coprocessor = self._processor.instances.phantomjs_coprocessor
+            if phantomjs_coprocessor:
+                yield From(phantomjs_coprocessor.process(
+                    self._url_item, request, response, self._file_writer_session
+                ))
 
             response.body.close()
 

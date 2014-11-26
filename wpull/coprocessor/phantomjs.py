@@ -149,33 +149,38 @@ class PhantomJSController(object):
         yield From(remote.call('page.sendEvent', 'keyup', page_down_key))
 
     @trollius.coroutine
-    def snapshot(self, remote, html_path=None, render_path=None):
-        '''Take HTML and PDF snapshot.
+    def snapshot(self, remote, path):
+        '''Take HTML, PDF, or PNG snapshot.
+
+        The behavior of PNG image dimension exceeding PNG limitations is
+        undefined. PhantomJS probably crashes.
 
         Coroutine.
         '''
+        extension = os.path.splitext(path)[1]
+
+        assert extension in ('.pdf', '.png', '.html'), (path, extension)
+
         content = yield From(remote.eval('page.content'))
         url = yield From(remote.eval('page.url'))
 
-        if html_path:
-            _logger.debug(__('Saving snapshot to {0}.', html_path))
-            dir_path = os.path.abspath(os.path.dirname(html_path))
+        _logger.debug(__('Saving snapshot to {0}.', path))
+        dir_path = os.path.abspath(os.path.dirname(path))
 
-            if not os.path.exists(dir_path):
-                os.makedirs(dir_path)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
 
-            with open(html_path, 'wb') as out_file:
-                out_file.write(content.encode('utf-8'))
+        with open(path, 'wb') as out_file:
+            out_file.write(content.encode('utf-8'))
 
-            if self._warc_recorder:
-                self._add_warc_snapshot(html_path, 'text/html', url)
+        if self._warc_recorder:
+            mime_type = {
+                '.pdf': 'application/pdf',
+                '.html': 'text/html',
+                '.png': 'image/png',
+            }[extension]
 
-        if render_path:
-            _logger.debug(__('Saving snapshot to {0}.', render_path))
-            yield From(remote.call('page.render', render_path))
-
-            if self._warc_recorder:
-                self._add_warc_snapshot(render_path, 'application/pdf', url)
+            self._add_warc_snapshot(path, mime_type, url)
 
         raise Return(content)
 
@@ -227,19 +232,23 @@ class PhantomJSController(object):
         self._warc_recorder.write_record(record)
 
 
-class WebProcessorSessionMixin(object):
-    '''This class is just temporary while things are rewritten out of
-    web processor.'''
+class PhantomJSCoprocessor(object):
+    '''PhantomJS coprocessor.'''
+    def __init__(self, controller, processing_rule, statistics, snapshot_types=('html', 'pdf'), root_path='.'):
+        self._controller = controller
+        self._processing_rule = processing_rule
+        self._statistics = statistics
+        self._snapshot_types = snapshot_types
+        self._root_path = root_path
+
+        self._file_writer_session = None
 
     @trollius.coroutine
-    def _process_phantomjs(self, request, response):
+    def process(self, url_item, request, response, file_writer_session):
         '''Process PhantomJS.
 
         Coroutine.
         '''
-        if not self._processor.instances.phantomjs_controller:
-            return
-
         if response.status_code != 200:
             return
 
@@ -248,7 +257,8 @@ class WebProcessorSessionMixin(object):
 
         _logger.debug('Starting PhantomJS processing.')
 
-        controller = self._processor.instances.phantomjs_controller
+        controller = self._controller
+        self._file_writer_session = file_writer_session
 
         attempts = int(os.environ.get('WPULL_PHANTOMJS_TRIES', 5))
         content = None
@@ -264,9 +274,8 @@ class WebProcessorSessionMixin(object):
                     yield From(remote.wait_page_event('load_finished'))
                     yield From(controller.control(remote))
 
-                    # FIXME: not sure where the logic should fit in
-                    if controller._snapshot:
-                        yield From(self._take_phantomjs_snapshot(controller, remote))
+                    for snapshot_type in self._snapshot_types or ():
+                        yield From(self._take_phantomjs_snapshot(snapshot_type, remote))
 
                     content = yield From(remote.eval('page.content'))
             except PhantomJSRPCTimedOut:
@@ -277,9 +286,10 @@ class WebProcessorSessionMixin(object):
         if content is not None:
             mock_response = self._new_phantomjs_response(response, content)
 
-            self._processing_rule.scrape_document(request, mock_response, self._url_item)
+            self._processing_rule.scrape_document(request, mock_response, url_item)
 
-            self._close_instance_body(mock_response)
+            if mock_response.body:
+                mock_response.body.close()
 
             _logger.debug('Ended PhantomJS processing.')
         else:
@@ -294,9 +304,8 @@ class WebProcessorSessionMixin(object):
 
         mock_response.body = Body(
             wpull.body.new_temp_file(
-                self._processor.root_path, hint='phjs_resp'
+                self._root_path, hint='phjs_resp'
             ))
-        self._temp_files.add(mock_response.body)
 
         mock_response.body.write(content.encode('utf-8'))
         mock_response.body.seek(0)
@@ -324,7 +333,7 @@ class WebProcessorSessionMixin(object):
 
             response = rpc_info['response']
 
-            self._processor.instances.statistics.increment(
+            self._statistics.increment(
                 response.get('bodySize', 0)
             )
 
@@ -365,39 +374,30 @@ class WebProcessorSessionMixin(object):
         remote.page_observer.add(handle_page_event)
 
     @trollius.coroutine
-    def _take_phantomjs_snapshot(self, controller, remote):
+    def _take_phantomjs_snapshot(self, snapshot_type, remote, infix='snapshot'):
         '''Take HTML and PDF snapshot.
 
         Coroutine.
         '''
-        html_path = self._file_writer_session.extra_resource_path(
-            '.snapshot.html'
+        assert snapshot_type, snapshot_type
+        assert infix, infix
+
+        path = self._file_writer_session.extra_resource_path(
+            '.{infix}.{file_type}'.format(infix=infix, file_type=snapshot_type)
         )
-        pdf_path = self._file_writer_session.extra_resource_path(
-            '.snapshot.pdf'
-        )
 
-        files_to_del = []
-
-        if not html_path:
-            temp_file = tempfile.NamedTemporaryFile(
-                dir=self._processor.root_path, delete=False, suffix='.html'
+        if not path:
+            temp_file, temp_path = tempfile.mkstemp(
+                dir=self._root_path, prefix='phnsh',
+                suffix='.{}'.format(snapshot_type)
             )
-            html_path = temp_file.name
-            files_to_del.append(html_path)
             temp_file.close()
-
-        if not pdf_path:
-            temp_file = tempfile.NamedTemporaryFile(
-                dir=self._processor.root_path, delete=False, suffix='.pdf'
-            )
-            pdf_path = temp_file.name
-            files_to_del.append(pdf_path)
-            temp_file.close()
+            path = temp_path
+        else:
+            temp_path = None
 
         try:
-            yield From(controller.snapshot(remote, html_path, pdf_path))
+            yield From(self._controller.snapshot(remote, path))
         finally:
-            for filename in files_to_del:
-                if os.path.exists(filename):
-                    os.remove(filename)
+            if temp_path and os.path.exists(temp_path):
+                os.remove(temp_path)

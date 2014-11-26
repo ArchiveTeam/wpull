@@ -42,7 +42,8 @@ from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
     FTPProcessorInstances
 from wpull.processor.rule import FetchRule, ResultRule, ProcessingRule
-from wpull.coprocessor.phantomjs import PhantomJSController
+from wpull.coprocessor.phantomjs import PhantomJSController, \
+    PhantomJSCoprocessor
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
     WebProcessorInstances
 from wpull.proxy import HTTPProxyServer
@@ -119,6 +120,7 @@ class Builder(object):
             'PathNamer': PathNamer,
             'PhantomJSClient': PhantomJSClient,
             'PhantomJSController': PhantomJSController,
+            'PhantomJSCoprocessor': PhantomJSCoprocessor,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
             'ProcessingRule': ProcessingRule,
             'Processor': DelegateProcessor,
@@ -717,7 +719,7 @@ class Builder(object):
         file_writer = self._build_file_writer()
         post_data = self._get_post_data()
         web_client = self._build_web_client()
-        phantomjs_controller = self._build_phantomjs_controller()
+
         robots_txt_checker = self._build_robots_txt_checker()
         fetch_rule = self._factory.new(
             'FetchRule',
@@ -744,6 +746,8 @@ class Builder(object):
             sitemaps=self._args.sitemaps,
         )
 
+        phantomjs_coprocessor = self._build_phantomjs_coprocessor()
+
         web_processor_instances = self._factory.new(
             'WebProcessorInstances',
             fetch_rule=fetch_rule,
@@ -751,7 +755,7 @@ class Builder(object):
             processing_rule=processing_rule,
             file_writer=file_writer,
             statistics=self._factory['Statistics'],
-            phantomjs_controller=phantomjs_controller,
+            phantomjs_coprocessor=phantomjs_coprocessor,
         )
 
         web_processor_fetch_params = self._factory.new(
@@ -1074,8 +1078,8 @@ class Builder(object):
 
         return converter
 
-    def _build_phantomjs_controller(self):
-        '''Build proxy server and PhantomJS client and controller.'''
+    def _build_phantomjs_coprocessor(self):
+        '''Build proxy server and PhantomJS client. controller, coprocessor.'''
         if not self._args.phantomjs:
             return
 
@@ -1131,7 +1135,15 @@ class Builder(object):
             snapshot=self._args.phantomjs_snapshot,
         )
 
-        return phantomjs_controller
+        phantomjs_coprocessor = self._factory.new(
+            'PhantomJSCoprocessor',
+            phantomjs_controller,
+            self._factory['ProcessingRule'],
+            self._factory['Statistics'],
+            root_path=self._args.directory_prefix,
+        )
+
+        return phantomjs_coprocessor
 
     def _build_robots_txt_checker(self):
         if self._args.robots:
