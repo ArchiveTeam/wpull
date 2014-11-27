@@ -215,20 +215,20 @@ class URLInfo(object):
         userinfo, sep, host = authority.partition('@')
 
         if not sep:
-            return ('', userinfo)
+            return '', userinfo
         else:
-            return (userinfo, host)
+            return userinfo, host
 
     @classmethod
     def parse_userinfo(cls, userinfo):
         username, sep, password = userinfo.partition(':')
 
-        return (username, password)
+        return username, password
 
     @classmethod
     def parse_host(cls, host):
         if host.endswith(']'):
-            return (cls.parse_hostname(host), None)
+            return cls.parse_hostname(host), None
         else:
             hostname, sep, port = host.rpartition(':')
 
@@ -238,7 +238,7 @@ class URLInfo(object):
             hostname = port
             port = None
 
-        return (cls.parse_hostname(hostname), port)
+        return cls.parse_hostname(hostname), port
 
     @classmethod
     def parse_hostname(cls, hostname):

@@ -14,6 +14,7 @@ import sys
 import tempfile
 
 import tornado.testing
+import tornado.web
 import trollius
 
 from wpull.app import Application

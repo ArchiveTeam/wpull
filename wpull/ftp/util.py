@@ -89,7 +89,7 @@ def reply_code_tuple(code):
     Returns:
         tuple: Each item is the digit.
     '''
-    return (code // 100, code // 10 % 10, code % 10)
+    return code // 100, code // 10 % 10, code % 10
 
 
 def parse_machine_listing(text, convert=True, strict=True):

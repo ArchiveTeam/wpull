@@ -75,7 +75,7 @@ class FetchRule(HookableMixin):
             3. dict: The result from :func:`DemuxURLFilter.test_info`
         '''
         if not self._url_filter:
-            return (True, 'nofilters', None)
+            return True, 'nofilters', None
 
         test_info = self._url_filter.test_info(url_info, url_record)
 
