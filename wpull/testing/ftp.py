@@ -35,6 +35,7 @@ class FTPSession(object):
         self.writer = writer
         self.data_reader = None
         self.data_writer = None
+        self._current_username = None
         self.routes = {
             '/':
                 ('dir',
@@ -122,11 +123,17 @@ class FTPSession(object):
 
     @trollius.coroutine
     def _cmd_user(self):
+        self._current_username = self.arg
         self.writer.write(b'331 Password required\r\n')
 
     @trollius.coroutine
     def _cmd_pass(self):
-        self.writer.write(b'230 Log in OK\r\n')
+        if self._current_username == 'anonymous':
+            self.writer.write(b'230 Log in OK\r\n')
+        elif self._current_username == 'smaug' and self.arg == 'gold1':
+            self.writer.write(b'230 Welcome!\r\n')
+        else:
+            self.writer.write(b'530 Password incorrect\r\n')
 
     @trollius.coroutine
     def _cmd_pasv(self):

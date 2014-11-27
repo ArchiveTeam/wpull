@@ -4,6 +4,7 @@ What's New
 
 * Added ``--database-uri`` option to specify a SQLAlchemy URI.
 * Added ``none`` as a choice to ``--progress``.
+* Added ``--user``/``--password`` support.
 
 
 0.1002 (2014-11-24)

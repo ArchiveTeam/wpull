@@ -143,6 +143,10 @@ class FTPProcessorSession(BaseProcessorSession):
             return
 
         request = Request(self._url_item.url_info.url)  # TODO: dependency inject
+
+        if self._fetch_rule.ftp_login:
+            request.username, request.password = self._fetch_rule.ftp_login
+
         self._file_writer_session.process_request(request)
 
         yield From(self._fetch(request))

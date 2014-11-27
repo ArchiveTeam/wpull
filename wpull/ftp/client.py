@@ -70,9 +70,8 @@ class Session(BaseSession):
 
         Coroutine.
         '''
-        # TODO: grab defaults from options
-        username = self._request.url_info.username or 'anonymous'
-        password = self._request.url_info.password or '-wpull@'
+        username = self._request.url_info.username or self._request.username or 'anonymous'
+        password = self._request.url_info.password or self._request.password or '-wpull@'
 
         yield From(self._commander.reconnect())
         yield From(self._commander.login(username, password))

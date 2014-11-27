@@ -20,10 +20,13 @@ _logger = logging.getLogger(__name__)
 
 class FetchRule(HookableMixin):
     '''Decide on what URLs should be fetched.'''
-    def __init__(self, url_filter=None, robots_txt_checker=None):
+    def __init__(self, url_filter=None, robots_txt_checker=None,
+                 http_login=None, ftp_login=None):
         super().__init__()
         self._url_filter = url_filter
         self._robots_txt_checker = robots_txt_checker
+        self.http_login = http_login
+        self.ftp_login = ftp_login
 
         self.register_hook('should_fetch')
 
