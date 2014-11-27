@@ -474,6 +474,7 @@ class PercentEncoderMap(collections.defaultdict):
     '''Helper map for percent encoding.'''
     # This class is based on urllib.parse.Quoter
     def __init__(self, encode_set):
+        super().__init__()
         self.encode_set = encode_set
 
     def __missing__(self, char):
