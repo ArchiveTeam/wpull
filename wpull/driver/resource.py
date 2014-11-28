@@ -77,8 +77,12 @@ class ResourceTracker(object, metaclass=abc.ABCMeta):
 
 
 class PhantomJSResourceTracker(ResourceTracker):
-    pass
+    def process_request(self, request):
+        pass
+
+    def process_reply(self, reply):
+        pass
 
 
-class PySideResourceTracker(ResourceTracker)
+class PySideResourceTracker(ResourceTracker):
     pass

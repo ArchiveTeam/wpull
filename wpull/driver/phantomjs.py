@@ -13,7 +13,7 @@ import trollius
 from trollius.coroutines import From, Return
 
 from wpull.backport.logging import BraceMessage as __
-from wpull.driver.resource import ResourceTracker
+from wpull.driver.process import RPCProcess
 import wpull.observer
 import wpull.util
 
@@ -30,7 +30,7 @@ class PhantomJSRPCTimedOut(PhantomJSRPCError):
     '''RPC call timed out.'''
 
 
-class PhantomJSRemote(object):
+class PhantomJSDriver(object):
     '''PhantomJS RPC wrapper.
 
     Args:
@@ -40,357 +40,295 @@ class PhantomJSRemote(object):
     will automatically terminate the process on interpreter shutdown.
 
     Attributes:
-        page_observer: An instance of :class:`.observer.Observer` that is
-            fired whenever a page event occurs. The argument passed to the
-            listener is a RPC Info ``dict``.
-        resource_counter: An instance of :class:`ResourceCounter()`.
+        page_event_handlers (dict): A mapping of event names to callback
+            functions.
 
     The messages passed are in the JSON format.
     '''
     def __init__(self, exe_path='phantomjs', extra_args=None,
-                 page_settings=None, default_headers=None,
-                 rewrite_enabled=True):
-        self._exe_path = exe_path
-        self._extra_args = extra_args
+                 page_settings=None, default_headers=None):
+
+        script_path = wpull.util.get_package_filename('driver/phantomjs.js')
+        args = [exe_path] + (extra_args or []) + [script_path]
+
+        self._process = RPCProcess(args, self._message_callback)
+
         self._page_settings = page_settings
         self._default_headers = default_headers
-        self._rewrite_enabled = rewrite_enabled
 
-        self.page_observer = wpull.observer.Observer()
-        # self.resource_counter = ResourceCounter()
-        self.resource_tracker = ResourceTracker()
+        self.page_event_handlers = {}
 
-        self._rpc_out_queue = trollius.Queue()
+        self._message_out_queue = trollius.Queue()
+        self._message_in_queue = trollius.Queue()
 
-        self._rpc_reply_map = {}
-
-        self._subproc = None
         self._is_setup = False
 
     @trollius.coroutine
-    def _setup(self):
+    def start(self):
         _logger.debug('PhantomJS setup.')
 
         assert not self._is_setup
         self._is_setup = True
-        yield From(self._create_subprocess())
 
-        trollius.async(self._read_stdout())
-        trollius.async(self._write_stdin())
+        yield From(self._process.start())
 
-        yield From(self._apply_default_settings())
+    def _message_callback(self, message):
+        event_name = message['event']
 
-        if self._rewrite_enabled:
-            yield From(self.set('rewriteEnabled', True))
-
-    @trollius.coroutine
-    def _create_subprocess(self):
-        script_path = wpull.util.get_package_filename('driver/phantomjs.js')
-        args = [self._exe_path] + (self._extra_args or []) + [script_path]
-
-        self._subproc = yield From(
-            trollius.create_subprocess_exec(*args,
-                                            stdin=subprocess.PIPE,
-                                            stdout=subprocess.PIPE)
-        )
-
-        atexit.register(self._atexit_kill_subprocess)
-
-        _logger.debug('PhantomJS subprocess created.')
-
-    @trollius.coroutine
-    def _read_stdout(self):
-        _logger.debug('Begin reading stdout.')
-        multiline_list = None
-
-        while self._subproc.returncode is None:
-            line = yield From(self._subproc.stdout.readline())
-
-            if line[-1:] != b'\n':
-                break
-
-            if line.startswith(b'!RPC!'):
-                self._parse_message(line[5:])
-            elif line.startswith(b'!RPC['):
-                multiline_list = [line[5:].rstrip()]
-            elif line.startswith(b'!RPC+'):
-                multiline_list.append(line[5:].rstrip())
-            elif line.startswith(b'!RPC]'):
-                self._parse_message(b''.join(multiline_list))
-                multiline_list = None
-            else:
-                _logger.debug(
-                    __('PhantomJS: {0}', line.decode('utf-8').rstrip())
-                )
-
-        _logger.debug(__('End reading stdout. returncode {0}',
-                         self._subproc.returncode))
-
-    def _parse_message(self, message):
-        try:
-            rpc_info = json.loads(message.decode('utf-8'))
-        except ValueError:
-            _logger.exception('Error decoding message.')
-        else:
-            if 'event' in rpc_info:
-                self._process_resource_counter(rpc_info)
-                self.page_observer.notify(rpc_info)
-            else:
-                self._process_rpc_result(rpc_info)
-
-    @trollius.coroutine
-    def _write_stdin(self):
-        _logger.debug('Begin writing stdin.')
-
-        while self._subproc.returncode is None:
+        if event_name == 'poll':
             try:
-                # XXX: we are nonblocking because wait_for seems to lose items
-                rpc_info = self._rpc_out_queue.get_nowait()
+                return self._message_out_queue.get_nowait()
             except trollius.QueueEmpty:
-                yield From(trollius.sleep(0.1))
-            else:
-                self._subproc.stdin.write(b'!RPC!')
-                self._subproc.stdin.write(json.dumps(rpc_info).encode('utf-8'))
+                return {'command': None}
+        elif event_name == 'reply':
+            self._message_in_queue.put_nowait(message)
+        else:
+            return self._event_callback(message)
 
-            # XXX: always force feed so phantomjs doesn't block on readline
-            self._subproc.stdin.write(b'\n')
-            yield From(self._subproc.stdin.drain())
+    def _event_callback(self, message):
+        name = message['event']
 
-        _logger.debug('End writing stdin.')
+        if name in self.page_event_handlers:
+            value = self.page_event_handlers[name](message)
+        else:
+            value = None
+
+        return {'value': value}
+
+    def close(self):
+        '''Terminate the PhantomJS process.'''
+        self._process.close()
+
+    @trollius.coroutine
+    def send_command(self, command, **kwargs):
+        message = {'command': command}
+        message.update(dict(**kwargs))
+        yield From(self._message_out_queue.put(message))
+
+        reply = yield From(self._message_in_queue.get())
+
+        raise Return(reply['value'])
+
+    @trollius.coroutine
+    def open_page(self, url, viewport_size=(1024, 768), paper_size=(1024, 768)):
+        yield From(self.send_command('new_page'))
+        yield From(self.send_command('set_page_size',
+                                     viewport_width=viewport_size[0],
+                                     viewport_height=viewport_size[1],
+                                     paper_width=paper_size[0],
+                                     paper_height=paper_size[1]
+        ))
+        yield From(self._apply_default_settings())
+        yield From(self.send_command('open_url', url=url))
 
     @trollius.coroutine
     def _apply_default_settings(self):
         if self._page_settings:
             yield From(
-                self.call('setDefaultPageSettings', self._page_settings)
+                self.send_command('set_page_settings',
+                                  settings=self._page_settings)
             )
 
         if self._default_headers:
             yield From(
-                self.call('setDefaultPageHeaders', self._default_headers)
+                self.send_command('set_page_custom_headers',
+                                  headers=self._default_headers)
             )
 
-    def close(self):
-        '''Terminate the PhantomJS process.'''
-        if not self._subproc:
-            return
-
-        if self._subproc.returncode is not None:
-            return
-
-        self._subproc.terminate()
-
-    @property
-    def return_code(self):
-        '''Return the exit code of the PhantomJS process.'''
-        if self._subproc:
-            return self._subproc.returncode
-
-    def _atexit_kill_subprocess(self):
-        '''Terminate or kill the subprocess.
-
-        This function is blocking.
-        '''
-        if not self._subproc:
-            return
-
-        if self._subproc.returncode is not None:
-            return
-
-        try:
-            self._subproc.terminate()
-        except OSError as error:
-            if error.errno != errno.ESRCH:
-                raise
-
-        for dummy in range(10):
-            if self._subproc.returncode is not None:
-                return
-
-            time.sleep(0.05)
-
-        try:
-            self._subproc.kill()
-        except OSError as error:
-            if error.errno != errno.ESRCH:
-                raise
+    @trollius.coroutine
+    def close_page(self):
+        yield From(self.send_command('close_page'))
 
     @trollius.coroutine
-    def call(self, name, *args, timeout=10):
-        '''Call a function.
-
-        Args:
-            name (str): The name of the function.
-            args: Any arguments for the function.
-            timeout (float): Time out in seconds.
-
-        Returns:
-            something
-
-        Raises:
-            PhantomJSRPCError
-        '''
-        rpc_info = {
-            'action': 'call',
-            'name': name,
-            'args': args,
-        }
-        result = yield From(self._rpc_exec(rpc_info, timeout=timeout))
-        raise Return(result)
+    def snapshot(self, path):
+        yield From(self.send_command('render_page', path=path))
 
     @trollius.coroutine
-    def set(self, name, value, timeout=10):
-        '''Set a variable value.
+    def scroll_to(self, x, y):
+        yield From(self.send_command('scroll_page', x=x, y=y))
 
-        Args:
-            name (str): The name of the variable.
-            value: The value.
-            timeout (float): Time out in seconds.
+    # @property
+    # def return_code(self):
+    #     '''Return the exit code of the PhantomJS process.'''
+    #     if self._subproc:
+    #         return self._subproc.returncode
 
-        Raises:
-            PhantomJSRPCError
-        '''
-        rpc_info = {
-            'action': 'set',
-            'name': name,
-            'value': value,
-        }
-        result = yield From(self._rpc_exec(rpc_info, timeout=timeout))
-        raise Return(result)
-
-    @trollius.coroutine
-    def eval(self, text, timeout=10):
-        '''Get a variable value or evaluate an expression.
-
-        Args:
-            text (str): The variable name or expression.
-
-        Returns:
-            something
-
-        Raises:
-            PhantomJSRPCError
-        '''
-        rpc_info = {
-            'action': 'eval',
-            'text': text,
-        }
-        result = yield From(self._rpc_exec(rpc_info, timeout=timeout))
-        raise Return(result)
-
-    @trollius.coroutine
-    def wait_page_event(self, event_name, timeout=120):
-        '''Wait until given event occurs.
-
-        Args:
-            event_name (str): The event name.
-            timeout (float): Time out in seconds.
-
-        Returns:
-            dict:
-        '''
-        event_lock = trollius.Event()
-
-        def page_event_cb(rpc_info):
-            if rpc_info['event'] == event_name:
-                event_lock.rpc_info = rpc_info
-                event_lock.set()
-
-        self.page_observer.add(page_event_cb)
-
-        try:
-            yield From(trollius.wait_for(event_lock.wait(), timeout=timeout))
-        except trollius.TimeoutError as error:
-            raise PhantomJSRPCTimedOut('Waiting for event timed out.') \
-                from error
-
-        self.page_observer.remove(page_event_cb)
-
-        raise Return(event_lock.rpc_info)
-
-    @trollius.coroutine
-    def _rpc_exec(self, rpc_info, timeout=None):
-        '''Execute the RPC and return.
-
-        Returns:
-            something
-
-        Raises:
-            PhantomJSRPCError
-        '''
-        if not self._is_setup:
-            yield From(self._setup())
-
-        while not self._subproc:
-            # This case occurs when using trollius.async() which causes
-            # things to be out of order even though it appears that
-            # the subprocess should have been set up already.
-            # FIXME: Maybe we should use a lock
-            _logger.debug('Waiting for PhantomJS subprocess.')
-            yield From(trollius.sleep(0.1))
-
-        if 'id' not in rpc_info:
-            rpc_info['id'] = uuid.uuid4().hex
-
-        if self._subproc.returncode is not None:
-            raise PhantomJSRPCError('PhantomJS process has quit unexpectedly.')
-
-        event_lock = yield From(self._put_rpc_info(rpc_info))
-
-        try:
-            yield From(trollius.wait_for(event_lock.wait(), timeout=timeout))
-            rpc_call_info = event_lock.rpc_info
-        except trollius.TimeoutError as error:
-            self._cancel_rpc_info(rpc_info)
-            raise PhantomJSRPCTimedOut('RPC timed out.') from error
-
-        if 'error' in rpc_call_info:
-            raise PhantomJSRPCError(rpc_call_info['error']['stack'])
-        elif 'result' in rpc_call_info:
-            raise Return(rpc_call_info['result'])
-
-    @trollius.coroutine
-    def _put_rpc_info(self, rpc_info):
-        '''Put the request RPC info into the out queue and reply mapping.
-
-        Returns:
-            Event: An instance of :class:`trollius.Event`.
-        '''
-        event_lock = trollius.Event()
-        self._rpc_reply_map[rpc_info['id']] = event_lock
-
-        _logger.debug(__('Put RPC. {0}', rpc_info))
-
-        yield From(self._rpc_out_queue.put(rpc_info))
-
-        raise Return(event_lock)
-
-    def _cancel_rpc_info(self, rpc_info):
-        '''Cancel the request RPC.'''
-        self._rpc_reply_map.pop(rpc_info['id'], None)
-
-    def _process_rpc_result(self, rpc_info):
-        '''Match the reply and invoke the Event.'''
-        answer_id = rpc_info['reply_id']
-        event_lock = self._rpc_reply_map.pop(answer_id, None)
-
-        if event_lock:
-            event_lock.rpc_info = rpc_info
-            event_lock.set()
-
-    def _process_resource_counter(self, rpc_info):
-        '''Check event type and increment counter as needed.'''
-        event_name = rpc_info['event']
-
-        if event_name == 'resource_requested':
-            self.resource_counter.pending += 1
-        elif (event_name == 'resource_received'
-              and rpc_info['response']['stage'] == 'end'):
-            self.resource_counter.pending -= 1
-            self.resource_counter.loaded += 1
-        elif event_name == 'resource_error':
-            self.resource_counter.pending -= 1
-            self.resource_counter.error += 1
+    # @trollius.coroutine
+    # def call(self, name, *args, timeout=10):
+    #     '''Call a function.
+    #
+    #     Args:
+    #         name (str): The name of the function.
+    #         args: Any arguments for the function.
+    #         timeout (float): Time out in seconds.
+    #
+    #     Returns:
+    #         something
+    #
+    #     Raises:
+    #         PhantomJSRPCError
+    #     '''
+    #     rpc_info = {
+    #         'action': 'call',
+    #         'name': name,
+    #         'args': args,
+    #     }
+    #     result = yield From(self._rpc_exec(rpc_info, timeout=timeout))
+    #     raise Return(result)
+    #
+    # @trollius.coroutine
+    # def set(self, name, value, timeout=10):
+    #     '''Set a variable value.
+    #
+    #     Args:
+    #         name (str): The name of the variable.
+    #         value: The value.
+    #         timeout (float): Time out in seconds.
+    #
+    #     Raises:
+    #         PhantomJSRPCError
+    #     '''
+    #     rpc_info = {
+    #         'action': 'set',
+    #         'name': name,
+    #         'value': value,
+    #     }
+    #     result = yield From(self._rpc_exec(rpc_info, timeout=timeout))
+    #     raise Return(result)
+    #
+    # @trollius.coroutine
+    # def eval(self, text, timeout=10):
+    #     '''Get a variable value or evaluate an expression.
+    #
+    #     Args:
+    #         text (str): The variable name or expression.
+    #
+    #     Returns:
+    #         something
+    #
+    #     Raises:
+    #         PhantomJSRPCError
+    #     '''
+    #     rpc_info = {
+    #         'action': 'eval',
+    #         'text': text,
+    #     }
+    #     result = yield From(self._rpc_exec(rpc_info, timeout=timeout))
+    #     raise Return(result)
+    #
+    # @trollius.coroutine
+    # def wait_page_event(self, event_name, timeout=120):
+    #     '''Wait until given event occurs.
+    #
+    #     Args:
+    #         event_name (str): The event name.
+    #         timeout (float): Time out in seconds.
+    #
+    #     Returns:
+    #         dict:
+    #     '''
+    #     event_lock = trollius.Event()
+    #
+    #     def page_event_cb(rpc_info):
+    #         if rpc_info['event'] == event_name:
+    #             event_lock.rpc_info = rpc_info
+    #             event_lock.set()
+    #
+    #     self.page_observer.add(page_event_cb)
+    #
+    #     try:
+    #         yield From(trollius.wait_for(event_lock.wait(), timeout=timeout))
+    #     except trollius.TimeoutError as error:
+    #         raise PhantomJSRPCTimedOut('Waiting for event timed out.') \
+    #             from error
+    #
+    #     self.page_observer.remove(page_event_cb)
+    #
+    #     raise Return(event_lock.rpc_info)
+    #
+    # @trollius.coroutine
+    # def _rpc_exec(self, rpc_info, timeout=None):
+    #     '''Execute the RPC and return.
+    #
+    #     Returns:
+    #         something
+    #
+    #     Raises:
+    #         PhantomJSRPCError
+    #     '''
+    #     if not self._is_setup:
+    #         yield From(self._setup())
+    #
+    #     while not self._subproc:
+    #         # This case occurs when using trollius.async() which causes
+    #         # things to be out of order even though it appears that
+    #         # the subprocess should have been set up already.
+    #         # FIXME: Maybe we should use a lock
+    #         _logger.debug('Waiting for PhantomJS subprocess.')
+    #         yield From(trollius.sleep(0.1))
+    #
+    #     if 'id' not in rpc_info:
+    #         rpc_info['id'] = uuid.uuid4().hex
+    #
+    #     if self._subproc.returncode is not None:
+    #         raise PhantomJSRPCError('PhantomJS process has quit unexpectedly.')
+    #
+    #     event_lock = yield From(self._put_rpc_info(rpc_info))
+    #
+    #     try:
+    #         yield From(trollius.wait_for(event_lock.wait(), timeout=timeout))
+    #         rpc_call_info = event_lock.rpc_info
+    #     except trollius.TimeoutError as error:
+    #         self._cancel_rpc_info(rpc_info)
+    #         raise PhantomJSRPCTimedOut('RPC timed out.') from error
+    #
+    #     if 'error' in rpc_call_info:
+    #         raise PhantomJSRPCError(rpc_call_info['error']['stack'])
+    #     elif 'result' in rpc_call_info:
+    #         raise Return(rpc_call_info['result'])
+    #
+    # @trollius.coroutine
+    # def _put_rpc_info(self, rpc_info):
+    #     '''Put the request RPC info into the out queue and reply mapping.
+    #
+    #     Returns:
+    #         Event: An instance of :class:`trollius.Event`.
+    #     '''
+    #     event_lock = trollius.Event()
+    #     self._rpc_reply_map[rpc_info['id']] = event_lock
+    #
+    #     _logger.debug(__('Put RPC. {0}', rpc_info))
+    #
+    #     yield From(self._rpc_out_queue.put(rpc_info))
+    #
+    #     raise Return(event_lock)
+    #
+    # def _cancel_rpc_info(self, rpc_info):
+    #     '''Cancel the request RPC.'''
+    #     self._rpc_reply_map.pop(rpc_info['id'], None)
+    #
+    # def _process_rpc_result(self, rpc_info):
+    #     '''Match the reply and invoke the Event.'''
+    #     answer_id = rpc_info['reply_id']
+    #     event_lock = self._rpc_reply_map.pop(answer_id, None)
+    #
+    #     if event_lock:
+    #         event_lock.rpc_info = rpc_info
+    #         event_lock.set()
+    #
+    # def _process_resource_counter(self, rpc_info):
+    #     '''Check event type and increment counter as needed.'''
+    #     event_name = rpc_info['event']
+    #
+    #     if event_name == 'resource_requested':
+    #         self.resource_counter.pending += 1
+    #     elif (event_name == 'resource_received'
+    #           and rpc_info['response']['stage'] == 'end'):
+    #         self.resource_counter.pending -= 1
+    #         self.resource_counter.loaded += 1
+    #     elif event_name == 'resource_error':
+    #         self.resource_counter.pending -= 1
+    #         self.resource_counter.error += 1
 
 
 class PhantomJSClient(object):
@@ -533,6 +471,6 @@ def get_version(exe_path='phantomjs'):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
 
-    phantomjs = PhantomJSRemote()
+    phantomjs = PhantomJSDriver()
 
     trollius.get_event_loop().run_forever()
