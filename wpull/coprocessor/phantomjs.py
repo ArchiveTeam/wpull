@@ -161,7 +161,6 @@ class PhantomJSController(object):
 
         assert extension in ('.pdf', '.png', '.html'), (path, extension)
 
-        content = yield From(remote.eval('page.content'))
         url = yield From(remote.eval('page.url'))
 
         _logger.debug(__('Saving snapshot to {0}.', path))
@@ -170,8 +169,13 @@ class PhantomJSController(object):
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
 
-        with open(path, 'wb') as out_file:
-            out_file.write(content.encode('utf-8'))
+        if extension == '.html':
+            content = yield From(remote.eval('page.content'))
+
+            with open(path, 'wb') as out_file:
+                out_file.write(content.encode('utf-8'))
+        else:
+            yield From(remote.call('page.render', path))
 
         if self._warc_recorder:
             mime_type = {
