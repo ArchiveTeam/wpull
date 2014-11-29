@@ -147,11 +147,11 @@ class PhantomJSDriver(object):
     def scroll_to(self, x, y):
         yield From(self.send_command('scroll_page', x=x, y=y))
 
-    # @property
-    # def return_code(self):
-    #     '''Return the exit code of the PhantomJS process.'''
-    #     if self._subproc:
-    #         return self._subproc.returncode
+    @property
+    def return_code(self):
+        '''Return the exit code of the PhantomJS process.'''
+        if self._process and self._process.process:
+            return self._process.process.returncode
 
     # @trollius.coroutine
     # def call(self, name, *args, timeout=10):
@@ -331,103 +331,98 @@ class PhantomJSDriver(object):
     #         self.resource_counter.error += 1
 
 
-class PhantomJSClient(object):
-    '''PhantomJS Remote Client.
-
-    This class wraps the components of Wpull to the Remote. A pool of Remotes
-    are used.
+class PhantomJSPool(object):
+    '''PhantomJS driver pool
     '''
-    def __init__(self, proxy_address, exe_path='phantomjs', extra_args=None,
+    def __init__(self, exe_path='phantomjs', extra_args=None,
                  page_settings=None, default_headers=None):
-        self._remotes_ready = set()
-        self._remotes_busy = set()
+        self._ready = set()
+        self._busy = set()
         self._exe_path = exe_path
         self._extra_args = extra_args
         self._page_settings = page_settings
         self._default_headers = default_headers
-        self._proxy_address = proxy_address
 
-    def test_client_exe(self):
-        '''Raise an error if PhantomJS executable is not found.'''
-        remote = PhantomJSRemote(self._exe_path)
-        remote.close()
-
-    @property
-    def remotes_ready(self):
-        '''Return the Remotes that are not used.'''
-        return frozenset(self._remotes_ready)
+    # def test_client_exe(self):
+    #     '''Raise an error if PhantomJS executable is not found.'''
+    #     remote = PhantomJSRemote(self._exe_path)
+    #     remote.close()
 
     @property
-    def remotes_busy(self):
-        '''Return the Remotes that are currently used.'''
-        return frozenset(self._remotes_busy)
+    def drivers_ready(self):
+        '''Return the drivers that are not used.'''
+        return frozenset(self._ready)
 
-    @contextlib.contextmanager
-    def remote(self):
-        '''Return a PhantomJS Remote within a context manager.'''
+    @property
+    def drivers_busy(self):
+        '''Return the drivers that are currently used.'''
+        return frozenset(self._busy)
+
+    def check_out(self):
+        '''Return a driver.'''
         while True:
-            if not self._remotes_ready:
-                extra_args = [
-                    '--proxy={0}'.format(self._proxy_address)
-                ]
+            if not self._ready:
+                _logger.debug('Creating new driver')
 
-                if self._extra_args:
-                    extra_args.extend(self._extra_args)
-
-                _logger.debug(__(
-                    'Creating new remote with proxy {0}',
-                    self._proxy_address
-                ))
-
-                remote = PhantomJSRemote(
+                driver = PhantomJSDriver(
                     self._exe_path,
-                    extra_args=extra_args,
+                    extra_args=self._extra_args,
                     page_settings=self._page_settings,
                     default_headers=self._default_headers,
-                )
+                    )
                 break
             else:
-                remote = self._remotes_ready.pop()
+                driver = self._ready.pop()
 
                 # Check if phantomjs has crashed
-                if remote.return_code is None:
+                if driver.return_code is None:
                     break
                 else:
-                    remote.close()
+                    driver.close()
 
-        self._remotes_busy.add(remote)
+        self._busy.add(driver)
 
-        assert remote.return_code is None
+        return driver
+
+    def check_in(self, driver):
+        '''Check in a driver after using it.'''
+        self._busy.remove(driver)
+
+        if driver.return_code is None:
+            self._ready.add(driver)
+        else:
+            driver.close()
+
+    @contextlib.contextmanager
+    def session(self):
+        '''Return a PhantomJS Remote within a context manager.'''
+
+        driver = self.check_out()
+
+        assert driver.return_code is None
 
         try:
-            yield remote
+            yield driver
         finally:
-            remote.page_observer.clear()
-            remote.resource_counter.reset()
-
-            self._remotes_busy.remove(remote)
-
-            def put_back_remote():
-                # FIXME: catch exception
-                trollius.async(remote.call('resetPage'))
-                self._remotes_ready.add(remote)
-
-            if remote.return_code is None:
-                trollius.get_event_loop().call_soon(put_back_remote)
-            else:
-                remote.close()
+            self.check_in(driver)
 
     def close(self):
-        '''Close all remotes.'''
-        for remote in self._remotes_busy:
-            remote.close()
+        '''Close all drivers.'''
+        for driver in self._busy:
+            driver.close()
 
-        self._remotes_busy.clear()
+        self._busy.clear()
 
-        for remote in self._remotes_ready:
-            remote.close()
+        for driver in self._ready:
+            driver.close()
 
-        self._remotes_ready.clear()
+        self._ready.clear()
+
+    def clean(self):
+        '''Clean up drivers that are closed.'''
+        for driver in self._ready:
+            if driver.return_code is not None:
+                driver.close()
 
 
 # class ResourceCounter(object):

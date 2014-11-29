@@ -7,8 +7,9 @@ from trollius import From
 import trollius
 
 from wpull.http.client import Client
-from wpull.driver.phantomjs import (PhantomJSDriver, PhantomJSClient,
-                             PhantomJSRPCTimedOut, PhantomJSRPCError)
+from wpull.driver.phantomjs import (PhantomJSDriver,
+                             PhantomJSRPCTimedOut, PhantomJSRPCError,
+                             PhantomJSPool)
 from wpull.proxy import HTTPProxyServer
 import wpull.testing.async
 from wpull.testing.goodapp import GoodAppTestCase
@@ -25,6 +26,7 @@ def cd_tempdir():
             yield temp_dir
         finally:
             os.chdir(original_dir)
+
 
 class TestPhantomJS(GoodAppTestCase):
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
@@ -60,52 +62,41 @@ class TestPhantomJS(GoodAppTestCase):
 
             self.assertTrue(load_finished)
 
-        #
-    # @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    # def test_events(self):
-    #     remote = PhantomJSRemote(
-    #         page_settings={'userAgent': 'Blah'},
-    #         default_headers={'Accept-Encoding': 'identity'},
-    #     )
-    #
-    #     yield From(remote.call('page.open', 'http://example.invalid'))
-    #
-    #     rpc_info = yield From(remote.wait_page_event('load_finished'))
-    #
-    #     self.assertEqual('fail', rpc_info['status'])
-    #
-    # @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    # def test_page_reset(self):
-    #     remote = PhantomJSRemote()
-    #
-    #     yield From(remote.call('resetPage'))
-    #
-    # @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    # def test_client(self):
-    #     http_client = Client()
-    #     proxy_server = HTTPProxyServer(http_client)
-    #     proxy_socket, proxy_host = tornado.testing.bind_unused_port()
-    #
-    #     yield From(trollius.start_server(proxy_server, sock=proxy_socket))
-    #
-    #     remote_client = PhantomJSClient('localhost:{0}'.format(proxy_host))
-    #
-    #     with remote_client.remote() as remote:
-    #         self.assertIn(remote, remote_client.remotes_busy)
-    #
-    #         test_remote = remote
-    #
-    #     for dummy in range(100):
-    #         if test_remote in remote_client.remotes_ready:
-    #             break
-    #
-    #         yield From(trollius.sleep(0.1))
-    #
-    #     self.assertIn(test_remote, remote_client.remotes_ready)
-    #     self.assertNotIn(test_remote, remote_client.remotes_busy)
-    #
-    #     remote_client.close()
-    #
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_pool(self):
+        pool = PhantomJSPool()
+
+        with pool.session() as driver:
+            self.assertIn(driver, pool.drivers_busy)
+            self.assertNotIn(driver, pool.drivers_ready)
+
+            test_driver = driver
+
+        self.assertIn(test_driver, pool.drivers_ready)
+        self.assertNotIn(test_driver, pool.drivers_busy)
+
+        pool.close()
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_pool_exception(self):
+        pool = PhantomJSPool()
+
+        try:
+            with pool.session() as driver:
+                self.assertIn(driver, pool.drivers_busy)
+                self.assertNotIn(driver, pool.drivers_ready)
+
+                test_driver = driver
+
+                raise ValueError('much crash')
+        except ValueError:
+            pass
+
+        self.assertIn(test_driver, pool.drivers_ready)
+        self.assertNotIn(test_driver, pool.drivers_busy)
+
+        pool.close()
+
     # @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     # def test_client_with_remote_crash(self):
     #     http_client = Client()

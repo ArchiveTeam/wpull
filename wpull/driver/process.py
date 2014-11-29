@@ -23,6 +23,11 @@ class RPCProcess(object):
         self._stderr_reader = None
         self._stdout_reader = None
 
+    @property
+    def process(self):
+        '''Return the underlying process.'''
+        return self._process
+
     @trollius.coroutine
     def start(self, use_atexit=True):
         process_future = trollius.create_subprocess_exec(
