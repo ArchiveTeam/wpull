@@ -127,12 +127,34 @@ class Commander(object):
         raise Return(data_stream)
 
     @trollius.coroutine
-    def read_stream(self, command, file, data_stream):
-        '''Read from the data stream.
+    def begin_stream(self, command):
+        '''Start sending content on the data stream.
 
         Args:
             command (:class:`.ftp.request.Command`): A command that
-                sends data over the data connection.
+                tells the server to send data over the data connection.
+
+        Coroutine.
+
+        Returns:
+            Reply: The begin reply.
+        '''
+        yield From(self._control_stream.write_command(command))
+        reply = yield From(self._control_stream.read_reply())
+
+        self.raise_if_not_match(
+            'Begin stream',
+            ReplyCodes.file_status_okay_about_to_open_data_connection,
+            reply
+        )
+
+        raise Return(reply)
+
+    @trollius.coroutine
+    def read_stream(self, file, data_stream):
+        '''Read from the data stream.
+
+        Args:
             file: A destination file object or a stream writer.
             data_stream (:class:`.ftp.stream.DataStream`): The stream of which
                 to read from.
@@ -142,15 +164,6 @@ class Commander(object):
         Returns:
             Reply: The final reply.
         '''
-
-        yield From(self._control_stream.write_command(command))
-        reply = yield From(self._control_stream.read_reply())
-
-        self.raise_if_not_match(
-            'Begin stream',
-            ReplyCodes.file_status_okay_about_to_open_data_connection,
-            reply
-        )
 
         yield From(data_stream.read_file(file=file))
 
