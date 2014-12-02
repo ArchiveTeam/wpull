@@ -47,5 +47,15 @@ class TestDate(unittest.TestCase):
                 2014, 4, 1, 22, 39, tzinfo=datetime.timezone.utc),
             parse_datetime('Apr 1 2014 10:39PM', is_day_period=True)[0]
         )
+        self.assertEqual(
+            datetime.datetime(
+                2014, 4, 1, 12, 39, tzinfo=datetime.timezone.utc),
+            parse_datetime('Apr 1 2014 12:39PM', is_day_period=True)[0]
+        )
+        self.assertEqual(
+            datetime.datetime(
+                2014, 4, 1, 0, 39, tzinfo=datetime.timezone.utc),
+            parse_datetime('Apr 1 2014 12:39AM', is_day_period=True)[0]
+        )
 
         # TODO: more tests
