@@ -50,6 +50,7 @@ class ReplyCodes(object):
 class FTPServerError(ServerError):
     @property
     def reply_code(self):
+        '''Return reply code.'''
         if len(self.args) >= 2 and isinstance(self.args[1], int):
             return self.args[1]
 
