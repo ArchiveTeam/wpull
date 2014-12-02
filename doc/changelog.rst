@@ -2,6 +2,7 @@
 What's New
 ==========
 
+* Fixed FTP fetch where code 125 was not recognized as valid.
 * Added ``--database-uri`` option to specify a SQLAlchemy URI.
 * Added ``none`` as a choice to ``--progress``.
 * Added ``--user``/``--password`` support.

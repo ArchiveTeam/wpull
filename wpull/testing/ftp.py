@@ -171,7 +171,7 @@ class FTPSession(object):
             self.writer.write(b'227 Use PORT or PASV first\r\n')
             return
         else:
-            self.writer.write(b'150 Begin listings\r\n')
+            self.writer.write(b'125 Begin listings\r\n')
 
             info = self.routes.get(self.path)
 
@@ -192,7 +192,7 @@ class FTPSession(object):
         if not self.data_writer:
             self.writer.write(b'227 Use PORT or PASV first\r\n')
         else:
-            self.writer.write(b'150 Begin listings\r\n')
+            self.writer.write(b'125 Begin listings\r\n')
 
             info = self.routes.get(self.path)
 

@@ -26,7 +26,19 @@ class Commander(object):
 
     @classmethod
     def raise_if_not_match(cls, action, expected_code, reply):
-        if expected_code != reply.code:
+        '''Raise FTPServerError if not expected reply code.
+
+        Args:
+            action (str): Label to use in the exception message.
+            expected_code (int, list): Expected 3 digit code.
+            reply (Reply): Reply from the server.
+        '''
+        if isinstance(expected_code, int):
+            expected_codes = (expected_code,)
+        else:
+            expected_codes = expected_code
+
+        if reply.code not in expected_codes:
             raise FTPServerError(
                 'Failed action {action}: {reply_code} {reply_text}'
                 .format(action=action, reply_code=reply.code,
@@ -144,7 +156,10 @@ class Commander(object):
 
         self.raise_if_not_match(
             'Begin stream',
-            ReplyCodes.file_status_okay_about_to_open_data_connection,
+            (
+                ReplyCodes.file_status_okay_about_to_open_data_connection,
+                ReplyCodes.data_connection_already_open_transfer_starting,
+            ),
             reply
         )
 
