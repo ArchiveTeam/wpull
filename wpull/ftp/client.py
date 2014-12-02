@@ -170,7 +170,6 @@ class Session(BaseSession):
 
         Coroutine.
         '''
-        # TODO: the recorder needs to fit inside here
         data_connection = None
         data_stream = None
 
