@@ -52,7 +52,9 @@ class Session(BaseSession):
             request (:class:`.http.request.Request`): Request.
 
         Returns:
-            .http.request.Response
+            .http.request.Response: A Response populated with the HTTP headers.
+
+        Once the headers are received, call :meth:`read_content`.
 
         Coroutine.
         '''
@@ -103,6 +105,8 @@ class Session(BaseSession):
             raw (bool): Whether chunked transfer encoding should be included.
             rewind: Seek the given file back to its original offset after
                 reading is finished.
+
+        Be sure to call :meth:`fetch` first.
 
         Coroutine.
         '''
