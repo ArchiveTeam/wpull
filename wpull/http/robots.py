@@ -14,6 +14,7 @@ from wpull.errors import ServerError, ProtocolError
 from wpull.http.web import WebClient
 from wpull.robotstxt import RobotsTxtPool
 from wpull.url import URLInfo
+import wpull.util
 
 
 _logger = logging.getLogger(__name__)
