@@ -1,5 +1,6 @@
 '''FTP client.'''
 import io
+import logging
 
 from trollius import From, Return
 import trollius
@@ -14,6 +15,9 @@ from wpull.ftp.request import Response, Command, ListingResponse
 from wpull.ftp.stream import ControlStream
 from wpull.ftp.util import FTPServerError, ReplyCodes
 import wpull.ftp.util
+
+
+_logger = logging.getLogger(__name__)
 
 
 class Client(BaseClient):
@@ -127,20 +131,17 @@ class Session(BaseSession):
         list_command = Command('LIST', self._request.url_info.path)
 
         try:
-            try:
-                begin_reply = yield From(self._commander.begin_stream(mlsd_command))
-                self._listing_type = 'mlsd'
-            except FTPServerError as error:
-                if error.reply_code in (ReplyCodes.syntax_error_command_unrecognized,
-                                        ReplyCodes.command_not_implemented):
-                    begin_reply = yield From(self._commander.begin_stream(list_command))
-                    self._listing_type = 'list'
-                else:
-                    raise
+            begin_reply = yield From(self._commander.begin_stream(mlsd_command))
+            self._listing_type = 'mlsd'
+        except FTPServerError as error:
+            if error.reply_code in (ReplyCodes.syntax_error_command_unrecognized,
+                                    ReplyCodes.command_not_implemented):
+                begin_reply = yield From(self._commander.begin_stream(list_command))
+                self._listing_type = 'list'
+            else:
+                raise
 
-        except ListingError as error:
-            raise ProtocolError(*error.args) from error
-
+        _logger.debug('Listing type is %s', self._listing_type)
         response.reply = begin_reply
 
         raise Return(response)
@@ -237,14 +238,16 @@ class Session(BaseSession):
                 file = io.TextIOWrapper(self._response.body, encoding='latin-1')
 
                 listing_parser = ListingParser(file=file)
-                listing_parser.run_heuristics()
+                heuristics_result = listing_parser.run_heuristics()
+
+                _logger.debug('Listing detected as %s', heuristics_result)
 
                 listings = listing_parser.parse()
 
                 # We don't want the file to be closed when exiting this function
                 file.detach()
 
-        except ListingError as error:
+        except (ListingError, ValueError) as error:
             raise ProtocolError(*error.args) from error
 
         self._response.files = listings
