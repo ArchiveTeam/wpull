@@ -131,7 +131,7 @@ class URLInfo(object):
 
         if not sep and default_scheme:
             # Likely something like example.com/mystuff
-            remaining = scheme
+            remaining = url
             scheme = default_scheme
         elif not sep:
             raise ValueError('URI missing colon: {}'.format(ascii(url)))

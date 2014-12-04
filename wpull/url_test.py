@@ -35,22 +35,27 @@ class TestURL(unittest.TestCase):
             URLInfo.parse('//example.com').url
         )
         self.assertEqual(
-            'http://example.com/blah',
-            URLInfo.parse('//example.com/blah').url
+            'http://example.com/Blah',
+            URLInfo.parse('//example.com/Blah').url
         )
 
         url_info = URLInfo.parse('example.com:8080')
         self.assertEqual('http://example.com:8080/', url_info.url)
         self.assertEqual('example.com:8080', url_info.hostname_with_port)
-        self.assertEqual(8080, URLInfo.parse('example.com:8080').port)
+        self.assertEqual(8080, url_info.port)
+
+        url_info = URLInfo.parse('localhost:8080/A/b/C:')
+        self.assertEqual('http://localhost:8080/A/b/C:', url_info.url)
+        self.assertEqual('localhost:8080', url_info.hostname_with_port)
+        self.assertEqual(8080, url_info.port)
 
         self.assertEqual(
-            'http://example.com/asdf',
-            URLInfo.parse('example.com/asdf#blah').url
+            'http://example.com/Asdf',
+            URLInfo.parse('example.com/Asdf#Blah').url
         )
         self.assertEqual(
-            'http://example.com/asdf/ghjk',
-            URLInfo.parse('example.com/asdf/ghjk#blah').url
+            'http://example.com/asdf/Ghjk',
+            URLInfo.parse('example.com/asdf/Ghjk#blah').url
         )
         self.assertEqual(
             'http://example.com/',
@@ -63,26 +68,26 @@ class TestURL(unittest.TestCase):
 
     def test_url_info_parts(self):
         url_info = URLInfo.parse(
-            'HTTP://userName:pass%3Aword@[::1]:81/ásdf/ghjk?a=b=c&d#/?')
+            'HTTP://userName:pass%3Aword@[::1]:81/ásdF/ghjK?a=b=c&D#/?')
         self.assertEqual(
-            'http://userName:pass:word@[::1]:81/%C3%A1sdf/ghjk?a=b=c&d',
+            'http://userName:pass:word@[::1]:81/%C3%A1sdF/ghjK?a=b=c&D',
             url_info.url
         )
         self.assertEqual('http', url_info.scheme)
         self.assertEqual('userName:pass%3Aword@[::1]:81',
                          url_info.authority)
-        self.assertEqual('/ásdf/ghjk?a=b=c&d#/?', url_info.resource)
+        self.assertEqual('/ásdF/ghjK?a=b=c&D#/?', url_info.resource)
         self.assertEqual('userName', url_info.username)
         self.assertEqual('pass:word', url_info.password)
         self.assertEqual('[::1]:81', url_info.host)
         self.assertEqual('::1', url_info.hostname)
         self.assertEqual(81, url_info.port)
-        self.assertEqual('/%C3%A1sdf/ghjk', url_info.path)
-        self.assertEqual('a=b=c&d', url_info.query)
+        self.assertEqual('/%C3%A1sdF/ghjK', url_info.path)
+        self.assertEqual('a=b=c&D', url_info.query)
         self.assertEqual('/?', url_info.fragment)
         self.assertEqual('utf-8', url_info.encoding)
         self.assertEqual(
-            'HTTP://userName:pass%3Aword@[::1]:81/ásdf/ghjk?a=b=c&d#/?',
+            'HTTP://userName:pass%3Aword@[::1]:81/ásdF/ghjK?a=b=c&D#/?',
             url_info.raw)
 
     def test_url_info_default_port(self):

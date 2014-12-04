@@ -4,6 +4,7 @@ What's New
 
 * Fixed FTP fetch where code 125 was not recognized as valid.
 * Fixed FTP 12 o'clock AM/PM time logic.
+* Fixed URLs fetched as lowercase URLs when scheme and authority separator is not provided.
 * Added ``--database-uri`` option to specify a SQLAlchemy URI.
 * Added ``none`` as a choice to ``--progress``.
 * Added ``--user``/``--password`` support.
