@@ -30,6 +30,8 @@ class RPCProcess(object):
 
     @trollius.coroutine
     def start(self, use_atexit=True):
+        _logger.debug('Starting process %s', self._proc_args)
+
         process_future = trollius.create_subprocess_exec(
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -55,6 +57,8 @@ class RPCProcess(object):
         if self._process.returncode is not None:
             return
 
+        _logger.debug('Terminate process.')
+
         try:
             self._process.terminate()
         except OSError as error:
@@ -66,6 +70,8 @@ class RPCProcess(object):
                 return
 
             time.sleep(0.05)
+
+        _logger.debug('Failed to terminate. Killing.')
 
         try:
             self._process.kill()

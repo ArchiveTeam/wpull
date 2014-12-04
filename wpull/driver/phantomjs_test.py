@@ -97,70 +97,66 @@ class TestPhantomJS(GoodAppTestCase):
 
         pool.close()
 
-    # @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    # def test_client_with_remote_crash(self):
-    #     http_client = Client()
-    #     proxy_server = HTTPProxyServer(http_client)
-    #     proxy_socket, proxy_host = tornado.testing.bind_unused_port()
-    #
-    #     yield From(trollius.start_server(proxy_server, sock=proxy_socket))
-    #
-    #     remote_client = PhantomJSClient('localhost:{0}'.format(proxy_host))
-    #
-    #     with remote_client.remote() as remote:
-    #         self.assertIn(remote, remote_client.remotes_busy)
-    #
-    #         try:
-    #             yield From(remote.eval('phantom.exit(1)'))
-    #         except PhantomJSRPCTimedOut:
-    #             # It probably quit before it could reply
-    #             pass
-    #         except PhantomJSRPCError:
-    #             # PhantomJS 1.9.8+: Ignore 'undefined' error.
-    #             pass
-    #
-    #         yield From(trollius.sleep(0.1))
-    #
-    #         test_remote = remote
-    #
-    #     self.assertNotIn(test_remote, remote_client.remotes_ready)
-    #     self.assertNotIn(test_remote, remote_client.remotes_busy)
-    #
-    #     remote_client.close()
-    #
-    # @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    # def test_client_with_remote_crash_later(self):
-    #     http_client = Client()
-    #     proxy_server = HTTPProxyServer(http_client)
-    #     proxy_socket, proxy_host = tornado.testing.bind_unused_port()
-    #
-    #     yield From(trollius.start_server(proxy_server, sock=proxy_socket))
-    #
-    #     remote_client = PhantomJSClient('localhost:{0}'.format(proxy_host))
-    #
-    #     with remote_client.remote() as remote:
-    #         self.assertIn(remote, remote_client.remotes_busy)
-    #
-    #         test_remote = remote
-    #
-    #     yield From(trollius.sleep(0.1))
-    #
-    #     try:
-    #         yield From(test_remote.eval('phantom.exit(1)'))
-    #     except PhantomJSRPCTimedOut:
-    #         # It probably quit before it could reply
-    #         pass
-    #     except PhantomJSRPCError:
-    #         # PhantomJS 1.9.8+: Ignore 'undefined' error.
-    #         pass
-    #
-    #     with remote_client.remote() as remote:
-    #         self.assertIn(remote, remote_client.remotes_busy)
-    #
-    #     self.assertNotIn(test_remote, remote_client.remotes_ready)
-    #     self.assertNotIn(test_remote, remote_client.remotes_busy)
-    #
-    #     remote_client.close()
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_pool_with_driver_crash(self):
+        pool = PhantomJSPool()
+
+        with pool.session() as driver:
+            self.assertIn(driver, pool.drivers_busy)
+            self.assertNotIn(driver, pool.drivers_ready)
+
+            yield From(driver.start())
+
+            # Simulate crash
+            driver.close()
+
+            for dummy in range(50):
+                if driver.return_code is not None:
+                    break
+                else:
+                    yield From(trollius.sleep(0.1))
+            else:
+                print('Did not close!')
+
+            test_driver = driver
+
+        self.assertNotIn(test_driver, pool.drivers_busy)
+        self.assertNotIn(test_driver, pool.drivers_ready)
+
+        pool.close()
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_client_with_driver_crash_later(self):
+        pool = PhantomJSPool()
+
+        with pool.session() as driver:
+            self.assertIn(driver, pool.drivers_busy)
+
+            yield From(driver.start())
+
+            test_driver = driver
+
+        yield From(trollius.sleep(0.1))
+
+        # Simulate crash
+        test_driver.close()
+
+        for dummy in range(50):
+            if test_driver.return_code is not None:
+                break
+            else:
+                yield From(trollius.sleep(0.1))
+        else:
+            print('Did not close!')
+
+        with pool.session() as driver:
+            self.assertNotEqual(test_driver, driver)
+            self.assertIn(driver, pool.drivers_busy)
+
+        self.assertNotIn(test_driver, pool.drivers_ready)
+        self.assertNotIn(test_driver, pool.drivers_busy)
+
+        pool.close()
     #
     # @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     # def test_timeouts(self):

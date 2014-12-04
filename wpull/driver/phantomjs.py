@@ -97,7 +97,9 @@ class PhantomJSDriver(object):
 
     def close(self):
         '''Terminate the PhantomJS process.'''
-        self._process.close()
+        if self.return_code is None:
+            _logger.debug('Terminate phantomjs process.')
+            self._process.close()
 
     @trollius.coroutine
     def send_command(self, command, **kwargs):
