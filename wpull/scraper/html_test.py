@@ -22,7 +22,7 @@ ROOT_PATH = os.path.join(os.path.dirname(__file__), '..')
 
 class Mixin(object):
     def get_html_parser(self):
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     def test_html_scraper_links(self):
         element_walker = ElementWalker(
