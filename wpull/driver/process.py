@@ -1,4 +1,5 @@
 import abc
+import gettext
 import json
 import logging
 import subprocess
@@ -12,6 +13,7 @@ import trollius
 from wpull.backport.logging import BraceMessage as __
 
 
+_ = gettext.gettext
 _logger = logging.getLogger(__name__)
 
 
@@ -95,6 +97,11 @@ class RPCProcess(object):
 
                 if return_value is not None:
                     yield From(self.send_message(return_value))
+            else:
+                _logger.warning(__(
+                    _('Subprocess: {message}'),
+                    message=line.decode('utf-8', 'replace').rstrip()
+                ))
 
     @trollius.coroutine
     def _read_stderr(self):
@@ -106,7 +113,7 @@ class RPCProcess(object):
 
             _logger.warning(__(
                 _('Subprocess: {message}'),
-                message=line.rstrip()
+                message=line.decode('utf-8', 'replace').rstrip()
             ))
 
     @trollius.coroutine

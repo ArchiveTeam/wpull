@@ -55,6 +55,8 @@ class PhantomJS {
                 scrollPage(commandMessage.x, commandMessage.y);
             case "exit":
                 exit(commandMessage.exit_code);
+            case "get_page_url":
+                replyValue = page.url;
             case null:
             default:
                 trace("Unknown command");
@@ -235,13 +237,17 @@ class PhantomJS {
                 network_request: networkRequest
             });
 
-            var replyType = Type.typeof(reply);
-
-            if (replyType == TBool) {
+            if (cast(reply, String) == 'abort') {
                 networkRequest.abort();
             } else if (reply) {
                 networkRequest.changeUrl(reply);
             }
+        }
+
+        page.onResourceTimeout = function (request) {
+            sendEvent("resource_timeout", {
+                request: request
+            });
         }
 
         page.onUrlChanged = function (targetUrl) {

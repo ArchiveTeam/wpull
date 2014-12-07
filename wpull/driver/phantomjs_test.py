@@ -50,6 +50,14 @@ class TestPhantomJS(GoodAppTestCase):
             yield From(driver.snapshot('asdf.png'))
             yield From(driver.snapshot('asdf.pdf'))
             yield From(driver.snapshot('asdf.html'))
+            page_url = yield From(driver.get_page_url())
+
+            for dummy in range(50):
+                if not load_finished:
+                    yield From(trollius.sleep(0.1))
+                else:
+                    break
+
             yield From(driver.close_page())
             driver.close()
 
@@ -61,6 +69,8 @@ class TestPhantomJS(GoodAppTestCase):
             self.assertGreater(os.path.getsize('asdf.html'), 100)
 
             self.assertTrue(load_finished)
+
+            self.assertEqual(self.get_url('/'), page_url)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_pool(self):

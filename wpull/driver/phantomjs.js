@@ -10,7 +10,6 @@ HxOverrides.substr = function(s,pos,len) {
 	} else if(len < 0) len = s.length + len - pos;
 	return s.substr(pos,len);
 };
-Math.__name__ = true;
 var PhantomJS = function() {
 	this.system = require("system");
 	this.webpage = require("webpage");
@@ -61,19 +60,22 @@ PhantomJS.prototype = {
 		case "exit":
 			this.exit(commandMessage.exit_code);
 			break;
+		case "get_page_url":
+			replyValue = this.page.url;
+			break;
 		default:
-			haxe.Log.trace("Unknown command",{ fileName : "PhantomJS.hx", lineNumber : 60, className : "PhantomJS", methodName : "pollForCommand"});
+			haxe.Log.trace("Unknown command",{ fileName : "PhantomJS.hx", lineNumber : 62, className : "PhantomJS", methodName : "pollForCommand"});
 		}
 		this.sendMessage({ event : "reply", value : replyValue});
 	}
 	,sendMessage: function(message) {
-		haxe.Log.trace("send message",{ fileName : "PhantomJS.hx", lineNumber : 67, className : "PhantomJS", methodName : "sendMessage"});
+		haxe.Log.trace("send message",{ fileName : "PhantomJS.hx", lineNumber : 69, className : "PhantomJS", methodName : "sendMessage"});
 		var messageString = JSON.stringify(message);
 		this.system.stdout.write("!RPC ");
 		this.system.stdout.writeLine(messageString);
 	}
 	,readMessage: function() {
-		haxe.Log.trace("read message",{ fileName : "PhantomJS.hx", lineNumber : 74, className : "PhantomJS", methodName : "readMessage"});
+		haxe.Log.trace("read message",{ fileName : "PhantomJS.hx", lineNumber : 76, className : "PhantomJS", methodName : "readMessage"});
 		var messageString = this.system.stdin.readLine();
 		var message = JSON.parse(messageString.slice(5));
 		return message;
@@ -171,8 +173,10 @@ PhantomJS.prototype = {
 		};
 		this.page.onResourceRequested = function(requestData,networkRequest) {
 			var reply = _g.sendEvent("resource_requested",{ request_data : requestData, network_request : networkRequest});
-			var replyType = Type["typeof"](reply);
-			if(replyType == ValueType.TBool) networkRequest.abort(); else if(reply) networkRequest.changeUrl(reply);
+			if(js.Boot.__cast(reply , String) == "abort") networkRequest.abort(); else if(reply) networkRequest.changeUrl(reply);
+		};
+		this.page.onResourceTimeout = function(request) {
+			_g.sendEvent("resource_timeout",{ request : request});
 		};
 		this.page.onUrlChanged = function(targetUrl) {
 			_g.sendEvent("url_changed",{ target_url : targetUrl});
@@ -210,58 +214,17 @@ Reflect.fields = function(o) {
 	}
 	return a;
 };
+var Std = function() { };
+Std.__name__ = true;
+Std.string = function(s) {
+	return js.Boot.__string_rec(s,"");
+};
 var StringTools = function() { };
 StringTools.__name__ = true;
 StringTools.endsWith = function(s,end) {
 	var elen = end.length;
 	var slen = s.length;
 	return slen >= elen && HxOverrides.substr(s,slen - elen,elen) == end;
-};
-var ValueType = { __ename__ : true, __constructs__ : ["TNull","TInt","TFloat","TBool","TObject","TFunction","TClass","TEnum","TUnknown"] };
-ValueType.TNull = ["TNull",0];
-ValueType.TNull.__enum__ = ValueType;
-ValueType.TInt = ["TInt",1];
-ValueType.TInt.__enum__ = ValueType;
-ValueType.TFloat = ["TFloat",2];
-ValueType.TFloat.__enum__ = ValueType;
-ValueType.TBool = ["TBool",3];
-ValueType.TBool.__enum__ = ValueType;
-ValueType.TObject = ["TObject",4];
-ValueType.TObject.__enum__ = ValueType;
-ValueType.TFunction = ["TFunction",5];
-ValueType.TFunction.__enum__ = ValueType;
-ValueType.TClass = function(c) { var $x = ["TClass",6,c]; $x.__enum__ = ValueType; return $x; };
-ValueType.TEnum = function(e) { var $x = ["TEnum",7,e]; $x.__enum__ = ValueType; return $x; };
-ValueType.TUnknown = ["TUnknown",8];
-ValueType.TUnknown.__enum__ = ValueType;
-var Type = function() { };
-Type.__name__ = true;
-Type["typeof"] = function(v) {
-	var _g = typeof(v);
-	switch(_g) {
-	case "boolean":
-		return ValueType.TBool;
-	case "string":
-		return ValueType.TClass(String);
-	case "number":
-		if(Math.ceil(v) == v % 2147483648.0) return ValueType.TInt;
-		return ValueType.TFloat;
-	case "object":
-		if(v == null) return ValueType.TNull;
-		var e = v.__enum__;
-		if(e != null) return ValueType.TEnum(e);
-		var c;
-		if((v instanceof Array) && v.__enum__ == null) c = Array; else c = v.__class__;
-		if(c != null) return ValueType.TClass(c);
-		return ValueType.TObject;
-	case "function":
-		if(v.__name__ || v.__ename__) return ValueType.TObject;
-		return ValueType.TFunction;
-	case "undefined":
-		return ValueType.TNull;
-	default:
-		return ValueType.TUnknown;
-	}
 };
 var haxe = {};
 haxe.Log = function() { };
@@ -290,6 +253,9 @@ js.Boot.__trace = function(v,i) {
 	}
 	var d;
 	if(typeof(document) != "undefined" && (d = document.getElementById("haxe:trace")) != null) d.innerHTML += js.Boot.__unhtml(msg) + "<br/>"; else if(typeof console != "undefined" && console.log != null) console.log(msg);
+};
+js.Boot.getClass = function(o) {
+	if((o instanceof Array) && o.__enum__ == null) return Array; else return o.__class__;
 };
 js.Boot.__string_rec = function(o,s) {
 	if(o == null) return "null";
@@ -358,19 +324,63 @@ js.Boot.__string_rec = function(o,s) {
 		return String(o);
 	}
 };
+js.Boot.__interfLoop = function(cc,cl) {
+	if(cc == null) return false;
+	if(cc == cl) return true;
+	var intf = cc.__interfaces__;
+	if(intf != null) {
+		var _g1 = 0;
+		var _g = intf.length;
+		while(_g1 < _g) {
+			var i = _g1++;
+			var i1 = intf[i];
+			if(i1 == cl || js.Boot.__interfLoop(i1,cl)) return true;
+		}
+	}
+	return js.Boot.__interfLoop(cc.__super__,cl);
+};
+js.Boot.__instanceof = function(o,cl) {
+	if(cl == null) return false;
+	switch(cl) {
+	case Int:
+		return (o|0) === o;
+	case Float:
+		return typeof(o) == "number";
+	case Bool:
+		return typeof(o) == "boolean";
+	case String:
+		return typeof(o) == "string";
+	case Array:
+		return (o instanceof Array) && o.__enum__ == null;
+	case Dynamic:
+		return true;
+	default:
+		if(o != null) {
+			if(typeof(cl) == "function") {
+				if(o instanceof cl) return true;
+				if(js.Boot.__interfLoop(js.Boot.getClass(o),cl)) return true;
+			}
+		} else return false;
+		if(cl == Class && o.__name__ != null) return true;
+		if(cl == Enum && o.__ename__ != null) return true;
+		return o.__enum__ == cl;
+	}
+};
+js.Boot.__cast = function(o,t) {
+	if(js.Boot.__instanceof(o,t)) return o; else throw "Cannot cast " + Std.string(o) + " to " + Std.string(t);
+};
 var $_, $fid = 0;
 function $bind(o,m) { if( m == null ) return null; if( m.__id__ == null ) m.__id__ = $fid++; var f; if( o.hx__closures__ == null ) o.hx__closures__ = {}; else f = o.hx__closures__[m.__id__]; if( f == null ) { f = function(){ return f.method.apply(f.scope, arguments); }; f.scope = o; f.method = m; o.hx__closures__[m.__id__] = f; } return f; }
-Math.NaN = Number.NaN;
-Math.NEGATIVE_INFINITY = Number.NEGATIVE_INFINITY;
-Math.POSITIVE_INFINITY = Number.POSITIVE_INFINITY;
-Math.isFinite = function(i) {
-	return isFinite(i);
-};
-Math.isNaN = function(i1) {
-	return isNaN(i1);
-};
 String.prototype.__class__ = String;
 String.__name__ = true;
 Array.__name__ = true;
+var Int = { __name__ : ["Int"]};
+var Dynamic = { __name__ : ["Dynamic"]};
+var Float = Number;
+Float.__name__ = ["Float"];
+var Bool = Boolean;
+Bool.__ename__ = ["Bool"];
+var Class = { __name__ : ["Class"]};
+var Enum = { };
 PhantomJS.main();
 })();
