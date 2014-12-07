@@ -64,6 +64,7 @@ class FTPSession(object):
         self.command = None
         self.arg = None
         self.path = '/'
+        self.evil_flags = set()
 
     @trollius.coroutine
     def process(self):
@@ -110,6 +111,7 @@ class FTPSession(object):
                 'CWD': self._cmd_cwd,
                 'TYPE': self._cmd_type,
                 'PWD': self._cmd_pwd,
+                'EVIL_BAD_PASV_ADDR': self._cmd_evil_bad_pasv_addr,
             }
             func = funcs.get(self.command)
 
@@ -150,9 +152,13 @@ class FTPSession(object):
 
         big_port_num = port >> 8
         small_port_num = port & 0xff
-        self.writer.write('227 Now passive mode (127,0,0,1,{},{})\r\n'
-                          .format(big_port_num, small_port_num)
-                          .encode('latin-1'))
+
+        if 'bad_pasv_addr' in self.evil_flags:
+            self.writer.write(b'227 Now passive mode (127,0,0,WOW,SO,UNEXPECT)\r\n')
+        else:
+            self.writer.write('227 Now passive mode (127,0,0,1,{},{})\r\n'
+                              .format(big_port_num, small_port_num)
+                              .encode('latin-1'))
 
     @trollius.coroutine
     def _wait_data_writer(self):
@@ -241,6 +247,10 @@ class FTPSession(object):
     @trollius.coroutine
     def _cmd_pwd(self):
         self.writer.write(b'257 /\r\n')
+
+    @trollius.coroutine
+    def _cmd_evil_bad_pasv_addr(self):
+        self.evil_flags.add('bad_pasv_addr')
 
 
 class FTPTestCase(AsyncTestCase):

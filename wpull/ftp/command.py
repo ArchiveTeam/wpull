@@ -3,6 +3,7 @@ import logging
 
 from trollius import From, Return
 import trollius
+from wpull.errors import ProtocolError
 
 from wpull.ftp.request import Command
 from wpull.ftp.stream import DataStream
@@ -102,7 +103,10 @@ class Commander(object):
         self.raise_if_not_match(
             'Passive mode', ReplyCodes.entering_passive_mode, reply)
 
-        raise Return(wpull.ftp.util.parse_address(reply.text))
+        try:
+            raise Return(wpull.ftp.util.parse_address(reply.text))
+        except ValueError as error:
+            raise ProtocolError(str(error)) from error
 
     @trollius.coroutine
     def setup_data_stream(self, connection_factory,

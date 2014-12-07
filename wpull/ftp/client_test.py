@@ -2,9 +2,11 @@ import io
 import logging
 
 from trollius import From
+import trollius
+from wpull.errors import ProtocolError
 
 from wpull.ftp.client import Client
-from wpull.ftp.request import Request
+from wpull.ftp.request import Request, Command
 from wpull.ftp.util import FTPServerError
 import wpull.testing.async
 from wpull.testing.ftp import FTPTestCase
@@ -63,3 +65,24 @@ class TestClient(FTPTestCase):
         self.assertEqual('example1', response.files[1].name)
         self.assertEqual('example2', response.files[2].name)
         self.assertEqual('example.txt', response.files[3].name)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_fetch_bad_pasv_addr(self):
+        client = Client()
+        file = io.BytesIO()
+
+        with client.session() as session:
+            original_func = session._log_in
+
+            @trollius.coroutine
+            def override_func():
+                yield From(original_func())
+                yield From(session._control_stream.write_command(Command('EVIL_BAD_PASV_ADDR')))
+                print('Evil awaits')
+
+            session._log_in = override_func
+
+            with self.assertRaises(ProtocolError):
+                yield From(
+                    session.fetch(Request(self.get_url('/example.txt')))
+                )
