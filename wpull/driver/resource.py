@@ -4,13 +4,27 @@ import time
 
 
 class ResourceState(object):
+    '''Resource states'''
     pending = 'pending'
+    '''Resource is being fetched.'''
     loaded = 'loaded'
+    '''Resource has been fetched.'''
     error = 'error'
+    '''An error occured fetching the resource.'''
 
 
 class Resource(object):
-    '''Represents a WebKit resource.'''
+    '''Represents a WebKit resource.
+
+    Attributes:
+        id: Unique identifier for the resource request.
+        url (str): URL of the request.
+        status_code (int): HTTP status code.
+        status_reason (str): HTTP status reason line.
+        body_size (int): Size of content.
+        touch_timestamp (int): Timestamp of last request activity.
+        state (ResourceState): State of the resource request.
+    '''
 
     def __init__(self, resource_id, url):
         self.id = resource_id
@@ -21,22 +35,35 @@ class Resource(object):
         self.touch_timestamp = time.time()
         self.state = ResourceState.pending
 
-    def start(self, status_code, status_reason):
+    def start(self):
+        '''Set resource request as pending.'''
         self.touch_timestamp = time.time()
-        self.status_code = status_code
-        self.status_reason = status_reason
+        self.state = ResourceState.pending
+
+    def touch(self):
+        '''Update the timestamp.'''
+        self.touch_timestamp = time.time()
 
     def end(self):
+        '''Set resource request as loaded.'''
         self.touch_timestamp = time.time()
         self.state = ResourceState.loaded
 
     def error(self):
+        '''Set resource request as error.'''
         self.touch_timestamp = time.time()
         self.state = ResourceState.error
 
 
 class ResourceTracker(object, metaclass=abc.ABCMeta):
-    '''WebKit resource tracker.'''
+    '''WebKit resource tracker.
+
+    Attributes:
+        resources (dict): Mapping from ID to Resource.
+        pending (set): Set of pending Resources.
+        error (set): Set of errored Resources.
+        loaded (set): Set of loaded Resources.
+    '''
 
     def __init__(self):
         self._resources = {}
@@ -69,19 +96,41 @@ class ResourceTracker(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def process_request(self, request):
-        pass
+        '''Process resource request.'''
 
     @abc.abstractmethod
-    def process_reply(self, reply):
-        pass
+    def process_response(self, response):
+        '''Process resource response.'''
+
+    @abc.abstractmethod
+    def process_error(self, resource_error):
+        '''Process resource error.'''
 
 
 class PhantomJSResourceTracker(ResourceTracker):
+    '''PhantomJS resource tracker.'''
     def process_request(self, request):
-        pass
+        resource = Resource(request['id'], request['url'])
+        self._resources[resource.id] = resource
+        self._pending.add(resource)
+        resource.start()
 
-    def process_reply(self, reply):
-        pass
+    def process_response(self, response):
+        resource = self._resources[response['id']]
+
+        if response['stage'] == 'end':
+            resource.end()
+            self._pending.remove(resource)
+            self._loaded.add(resource)
+        else:
+            resource.touch()
+
+    def process_error(self, resource_error):
+        resource = self._resources[resource_error['id']]
+
+        resource.error()
+        self._pending.remove(resource)
+        self._error.add(resource)
 
 
 class PySideResourceTracker(ResourceTracker):

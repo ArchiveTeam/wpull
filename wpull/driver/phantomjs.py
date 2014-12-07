@@ -427,34 +427,6 @@ class PhantomJSPool(object):
                 driver.close()
 
 
-# class ResourceCounter(object):
-#     '''Resource counter.
-#
-#     Attributes:
-#         pending (int): Number of resources that are downloading.
-#         loaded (int): Number of resources that have downloaded.
-#         error (int): Number of resources that have failed to download.
-#     '''
-#     def __init__(self):
-#         self.pending = 0
-#         self.loaded = 0
-#         self.error = 0
-#
-#     def reset(self):
-#         '''Reset the counter to 0.'''
-#         self.pending = 0
-#         self.loaded = 0
-#         self.error = 0
-#
-#     def values(self):
-#         '''Return the counter as an tuple.
-#
-#         Returns:
-#             tuple: (pending, loaded, error)
-#         '''
-#         return (self.pending, self.loaded, self.error)
-
-
 def get_version(exe_path='phantomjs'):
     '''Get the version string of PhantomJS.'''
     process = subprocess.Popen(
