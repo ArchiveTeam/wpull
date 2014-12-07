@@ -106,6 +106,10 @@ class ResourceTracker(object, metaclass=abc.ABCMeta):
     def process_error(self, resource_error):
         '''Process resource error.'''
 
+    def to_values(self):
+        '''Return a tuple of counter values.'''
+        return len(self._pending), len(self._loaded), len(self._error)
+
 
 class PhantomJSResourceTracker(ResourceTracker):
     '''PhantomJS resource tracker.'''
