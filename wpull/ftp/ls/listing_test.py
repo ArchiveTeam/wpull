@@ -15,6 +15,12 @@ MSDOS_LS = '''04-27-00  09:09PM       <DIR>          licensed
 '''
 
 
+MSDOS_NO_DIR_LS = '''04-27-00  09:09PM               123  licensed.exe
+07-18-00  10:16AM               456  pub.pdf
+04-14-00  03:47PM                  589 readme.htm
+'''
+
+
 NLST_LS = '''horse.txt
 fish
 dolphin.jpg
@@ -34,5 +40,6 @@ class TestHeuristic(unittest.TestCase):
     def test_guess_listing_type(self):
         self.assertEqual('unix', guess_listing_type(UNIX_LS.splitlines()))
         self.assertEqual('msdos', guess_listing_type(MSDOS_LS.splitlines()))
+        self.assertEqual('msdos', guess_listing_type(MSDOS_NO_DIR_LS.splitlines()))
         self.assertEqual('nlst', guess_listing_type(NLST_LS.splitlines()))
         self.assertEqual('unknown', guess_listing_type(MVS_LS.splitlines()))

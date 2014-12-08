@@ -1292,7 +1292,7 @@ class TestAppFTP(FTPTestCase):
             app = builder.build()
             exit_code = yield From(app.run())
 
-            self.assertEqual(7, exit_code)
+            self.assertEqual(8, exit_code)
             self.assertEqual(4, builder.factory['Statistics'].files)
 
             print(os.listdir())
