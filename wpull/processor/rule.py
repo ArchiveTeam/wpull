@@ -253,7 +253,10 @@ class ResultRule(HookableMixin):
             str: A value from :class:`.hook.Actions`.
         '''
         self._waiter.reset()
-        return Actions.NORMAL
+
+        action = self.handle_response(request, response, url_item)
+
+        return action
 
     def handle_document_error(self, request, response, url_item):
         '''Callback for when the document only describes an server error.

@@ -9,6 +9,10 @@ What's New
 * Added ``none`` as a choice to ``--progress``.
 * Added ``--user``/``--password`` support.
 
+* Scripting:
+
+  * Fixed missing response callback during redirects. Regression introduced in v0.1002.
+
 
 0.1002 (2014-11-24)
 ===================

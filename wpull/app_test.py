@@ -414,6 +414,7 @@ class TestApp(GoodAppTestCase):
         args = arg_parser.parse_args([
             self.get_url('/'),
             self.get_url('/some_page'),
+            self.get_url('/mordor'),
             'localhost:1/wolf',
             '--python-script', filename,
             '--page-requisites',
@@ -426,6 +427,7 @@ class TestApp(GoodAppTestCase):
         with cd_tempdir():
             app = builder.build()
             exit_code = yield From(app.run())
+            print(list(os.walk('.')))
 
         self.assertEqual(42, exit_code)
 
@@ -434,7 +436,7 @@ class TestApp(GoodAppTestCase):
 
         stats = builder.factory['Statistics']
 
-        self.assertEqual(2, stats.files)
+        self.assertEqual(3, stats.files)
 
         # duration should be virtually 0 but account for slowness on travis ci
         self.assertGreater(10.0, stats.duration)
@@ -466,6 +468,7 @@ class TestApp(GoodAppTestCase):
         args = arg_parser.parse_args([
             self.get_url('/'),
             self.get_url('/some_page'),
+            self.get_url('/mordor'),
             'localhost:1/wolf',
             '--lua-script', filename,
             '--page-requisites',
@@ -478,6 +481,7 @@ class TestApp(GoodAppTestCase):
         with cd_tempdir():
             app = builder.build()
             exit_code = yield From(app.run())
+            print(list(os.walk('.')))
 
         self.assertEqual(42, exit_code)
 
@@ -486,7 +490,7 @@ class TestApp(GoodAppTestCase):
 
         stats = builder.factory['Statistics']
 
-        self.assertEqual(2, stats.files)
+        self.assertEqual(3, stats.files)
 
         # duration should be virtually 0 but account for slowness on travis ci
         self.assertGreater(10.0, stats.duration)

@@ -158,7 +158,7 @@ class URLItem(object):
             increment_try_count (bool): if True, increment the ``try_count``
                 value
         '''
-        assert not self._try_count_incremented
+        assert not self._try_count_incremented, (self._url, status)
 
         if increment_try_count:
             self._try_count_incremented = True
