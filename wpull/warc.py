@@ -195,11 +195,11 @@ def read_cdx(file, encoding='utf8'):
     '''
     with codecs.getreader(encoding)(file) as stream:
         header_line = stream.readline()
-        seperator = header_line[0]
-        field_keys = header_line.strip().split(seperator)
+        separator = header_line[0]
+        field_keys = header_line.strip().split(separator)
 
         if field_keys.pop(0) != 'CDX':
             raise ValueError('CDX header not found.')
 
         for line in stream:
-            yield dict(zip(field_keys, line.strip().split(seperator)))
+            yield dict(zip(field_keys, line.strip().split(separator)))

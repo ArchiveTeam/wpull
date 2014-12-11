@@ -131,6 +131,15 @@ class SomePageHandler(tornado.web.RequestHandler):
         self.write(b'Hello world!')
 
 
+class BasicAuthHandler(tornado.web.RequestHandler):
+    def get(self):
+        _logger.debug('Authorization: %s', self.request.headers.get('Authorization'))
+        if self.request.headers.get('Authorization') == 'Basic cm9vdDpzbWF1Zw==':
+            self.write(b'Welcome. The Krabby Patty Secret formula is:')
+        else:
+            raise HTTPError(401)
+
+
 class GoodApp(tornado.web.Application):
     def __init__(self):
         tornado.web.Application.__init__(self, [
@@ -147,7 +156,11 @@ class GoodApp(tornado.web.Application):
             (r'/big_payload', BigPayloadHandler),
             (r'/dir_or_file', DirOrFileHandle),
             (r'/dir_or_file/', DirOrFileHandle),
-            (r'/some_page', SomePageHandler),
+            (r'/mordor', SomePageHandler),
+            (r'/some_page/', SomePageHandler),
+            (r'/some_page', tornado.web.RedirectHandler,
+             {'url': '/some_page/'}),
+            (r'/basic_auth', BasicAuthHandler),
         ],
             template_path=os.path.join(os.path.dirname(__file__),
                                        'templates'),

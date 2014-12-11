@@ -1,7 +1,9 @@
 # encoding=utf-8
 '''Advanced HTTP Client handling.'''
+import base64
 import gettext
 import logging
+import http.client
 
 from trollius import From, Return
 import trollius
@@ -25,6 +27,8 @@ class LoopType(object):
     '''Redirect.'''
     robots = 3
     '''Response to a robots.txt request.'''
+    authentication = 4
+    '''Response to a HTTP authentication.'''
 
 
 class WebClient(object):
@@ -105,6 +109,7 @@ class WebSession(object):
         self._next_request = request
         self._redirect_tracker = web_client.redirect_tracker_factory()
         self._loop_type = LoopType.normal
+        self._hostnames_with_auth = set()
 
         if self._web_client.cookie_jar:
             self._add_cookies(self._next_request)
@@ -152,6 +157,11 @@ class WebSession(object):
         with self._web_client.http_client.session() as session:
             request = self.next_request()
             assert request
+
+            if request.url_info.password or \
+                    request.url_info.hostname_with_port in self._hostnames_with_auth:
+                self._add_basic_auth_header(request)
+
             response = yield From(session.fetch(request))
 
             if callback:
@@ -172,6 +182,8 @@ class WebSession(object):
         if self._redirect_tracker.is_redirect():
             self._process_redirect()
             self._loop_type = LoopType.redirect
+        elif response.status_code == http.client.UNAUTHORIZED and self._next_request.password:
+            self._process_authentication(response)
         else:
             self._next_request = None
             self._loop_type = LoopType.normal
@@ -231,3 +243,27 @@ class WebSession(object):
         self._web_client.cookie_jar.extract_cookies(
             response, response.request, self._get_cookie_referrer_host()
         )
+
+    def _process_authentication(self, response):
+        if self._loop_type == LoopType.authentication:
+            _logger.warning(_('Unable to authenticate.'))
+            self._next_request = None
+            self._loop_type = LoopType.normal
+            return
+
+        self._add_basic_auth_header(self._next_request)
+        self._loop_type = LoopType.authentication
+        self._hostnames_with_auth.add(self._next_request.url_info.hostname_with_port)
+
+    def _add_basic_auth_header(self, request):
+        username = request.url_info.username or request.username
+        password = request.url_info.password or request.password
+
+        if username and password:
+            _logger.debug('Add basic auth header')
+
+            auth_string = '{}:{}'.format(username, password)
+            auth_string = base64.b64encode(
+                auth_string.encode('utf-8', 'replace')).decode('utf-8')
+            request.fields['Authorization'] = 'Basic {}'.format(auth_string)
+

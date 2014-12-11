@@ -1,10 +1,14 @@
 # encoding=utf-8
 '''Statistics.'''
 from collections import Counter
+import logging
 import time
 
 from wpull.bandwidth import BandwidthMeter
 from wpull.errors import ERROR_PRIORITIES
+
+
+_logger = logging.getLogger(__name__)
 
 
 class Statistics(object):
@@ -73,6 +77,8 @@ class Statistics(object):
 
     def increment_error(self, error):
         '''Increment the error counter preferring base exceptions.'''
+        _logger.debug('Increment error %s', error)
+
         for error_class in ERROR_PRIORITIES:
             if isinstance(error, error_class):
                 self.errors[error_class] += 1

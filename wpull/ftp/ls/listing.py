@@ -162,7 +162,7 @@ def guess_listing_type(lines, threshold=100):
         if re.search(r'---|r--|rw-|rwx', line):
             scores['unix'] += 1
 
-        if '<DIR>' in line:
+        if '<DIR>' in line or re.search(r'^.{0,4}\d\d', line):
             scores['msdos'] += 1
 
         words = line.split(' ', 1)

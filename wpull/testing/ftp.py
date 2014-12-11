@@ -35,6 +35,7 @@ class FTPSession(object):
         self.writer = writer
         self.data_reader = None
         self.data_writer = None
+        self._current_username = None
         self.routes = {
             '/':
                 ('dir',
@@ -63,6 +64,7 @@ class FTPSession(object):
         self.command = None
         self.arg = None
         self.path = '/'
+        self.evil_flags = set()
 
     @trollius.coroutine
     def process(self):
@@ -109,6 +111,7 @@ class FTPSession(object):
                 'CWD': self._cmd_cwd,
                 'TYPE': self._cmd_type,
                 'PWD': self._cmd_pwd,
+                'EVIL_BAD_PASV_ADDR': self._cmd_evil_bad_pasv_addr,
             }
             func = funcs.get(self.command)
 
@@ -122,11 +125,17 @@ class FTPSession(object):
 
     @trollius.coroutine
     def _cmd_user(self):
+        self._current_username = self.arg
         self.writer.write(b'331 Password required\r\n')
 
     @trollius.coroutine
     def _cmd_pass(self):
-        self.writer.write(b'230 Log in OK\r\n')
+        if self._current_username == 'anonymous':
+            self.writer.write(b'230 Log in OK\r\n')
+        elif self._current_username == 'smaug' and self.arg == 'gold1':
+            self.writer.write(b'230 Welcome!\r\n')
+        else:
+            self.writer.write(b'530 Password incorrect\r\n')
 
     @trollius.coroutine
     def _cmd_pasv(self):
@@ -143,9 +152,13 @@ class FTPSession(object):
 
         big_port_num = port >> 8
         small_port_num = port & 0xff
-        self.writer.write('227 Now passive mode (127,0,0,1,{},{})\r\n'
-                          .format(big_port_num, small_port_num)
-                          .encode('latin-1'))
+
+        if 'bad_pasv_addr' in self.evil_flags:
+            self.writer.write(b'227 Now passive mode (127,0,0,WOW,SO,UNEXPECT)\r\n')
+        else:
+            self.writer.write('227 Now passive mode (127,0,0,1,{},{})\r\n'
+                              .format(big_port_num, small_port_num)
+                              .encode('latin-1'))
 
     @trollius.coroutine
     def _wait_data_writer(self):
@@ -164,7 +177,7 @@ class FTPSession(object):
             self.writer.write(b'227 Use PORT or PASV first\r\n')
             return
         else:
-            self.writer.write(b'150 Begin listings\r\n')
+            self.writer.write(b'125 Begin listings\r\n')
 
             info = self.routes.get(self.path)
 
@@ -185,7 +198,7 @@ class FTPSession(object):
         if not self.data_writer:
             self.writer.write(b'227 Use PORT or PASV first\r\n')
         else:
-            self.writer.write(b'150 Begin listings\r\n')
+            self.writer.write(b'125 Begin listings\r\n')
 
             info = self.routes.get(self.path)
 
@@ -234,6 +247,10 @@ class FTPSession(object):
     @trollius.coroutine
     def _cmd_pwd(self):
         self.writer.write(b'257 /\r\n')
+
+    @trollius.coroutine
+    def _cmd_evil_bad_pasv_addr(self):
+        self.evil_flags.add('bad_pasv_addr')
 
 
 class FTPTestCase(AsyncTestCase):

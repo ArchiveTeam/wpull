@@ -1,5 +1,6 @@
 '''FTP client.'''
 import io
+import logging
 
 from trollius import From, Return
 import trollius
@@ -14,6 +15,9 @@ from wpull.ftp.request import Response, Command, ListingResponse
 from wpull.ftp.stream import ControlStream
 from wpull.ftp.util import FTPServerError, ReplyCodes
 import wpull.ftp.util
+
+
+_logger = logging.getLogger(__name__)
 
 
 class Client(BaseClient):
@@ -34,6 +38,9 @@ class Session(BaseSession):
         self._commander = None
         self._request = None
         self._response = None
+        self._data_stream = None
+        self._data_connection = None
+        self._listing_type = None
 
         # TODO: maybe keep track of sessions among connections to avoid
         # having to login over and over again
@@ -70,67 +77,77 @@ class Session(BaseSession):
 
         Coroutine.
         '''
-        # TODO: grab defaults from options
-        username = self._request.url_info.username or 'anonymous'
-        password = self._request.url_info.password or '-wpull@'
+        username = self._request.url_info.username or self._request.username or 'anonymous'
+        password = self._request.url_info.password or self._request.password or '-wpull@'
 
         yield From(self._commander.reconnect())
         yield From(self._commander.login(username, password))
 
     @trollius.coroutine
-    def fetch(self, request, file=None, callback=None):
-        '''Fetch a file.
+    def fetch(self, request):
+        '''Fulfill a request.
+
+        Args:
+            request (:class:`.ftp.request.Request`): Request.
 
         Returns:
-            .ftp.request.Response
+            .ftp.request.Response: A Response populated with the initial
+            data connection reply.
+
+        Once the response is received, call :meth:`read_content`.
 
         Coroutine.
         '''
         response = Response()
 
-        yield From(self._prepare_fetch(request, response, file, callback))
+        yield From(self._prepare_fetch(request, response))
+        yield From(self._open_data_stream())
 
-        reply = yield From(self._fetch_with_command(
-            Command('RETR', request.url_info.path), response.body
-        ))
+        command = Command('RETR', request.url_info.path)
 
-        self._clean_up_fetch(reply)
+        begin_reply = yield From(self._commander.begin_stream(command))
+
+        response.reply = begin_reply
 
         raise Return(response)
 
     @trollius.coroutine
-    def fetch_file_listing(self, request, file=None, callback=None):
+    def fetch_file_listing(self, request):
         '''Fetch a file listing.
 
         Returns:
             .ftp.request.ListingResponse
 
+        Once the response is received, call :meth:`read_listing_content`.
+
         Coroutine.
         '''
         response = ListingResponse()
 
-        yield From(self._prepare_fetch(request, response, file, callback))
+        yield From(self._prepare_fetch(request, response))
+        yield From(self._open_data_stream())
+
+        mlsd_command = Command('MLSD', self._request.url_info.path)
+        list_command = Command('LIST', self._request.url_info.path)
 
         try:
-            try:
-                reply = yield From(self._get_machine_listing())
-            except FTPServerError as error:
-                response.body.seek(0)
-                response.body.truncate()
-                if error.reply_code in (ReplyCodes.syntax_error_command_unrecognized,
-                                        ReplyCodes.command_not_implemented):
-                    reply = yield From(self._get_list_listing())
-                else:
-                    raise
-        except ListingError as error:
-            raise ProtocolError(*error.args) from error
+            begin_reply = yield From(self._commander.begin_stream(mlsd_command))
+            self._listing_type = 'mlsd'
+        except FTPServerError as error:
+            if error.reply_code in (ReplyCodes.syntax_error_command_unrecognized,
+                                    ReplyCodes.command_not_implemented):
+                begin_reply = yield From(self._commander.begin_stream(list_command))
+                self._listing_type = 'list'
+            else:
+                raise
 
-        self._clean_up_fetch(reply)
+        _logger.debug('Listing type is %s', self._listing_type)
+        response.reply = begin_reply
 
         raise Return(response)
 
     @trollius.coroutine
-    def _prepare_fetch(self, request, response, file=None, callback=None):
+    def _prepare_fetch(self, request, response):
         '''Prepare for a fetch.
 
         Coroutine.
@@ -149,126 +166,134 @@ class Session(BaseSession):
 
         self._response.request = request
 
-        if callback:
-            file = callback(request, response)
+    @trollius.coroutine
+    def read_content(self, file=None, rewind=True):
+        '''Read the response content into file.
 
-        if not isinstance(file, Body):
-            self._response.body = Body(file)
+        Args:
+            file: A file object or asyncio stream.
+            rewind: Seek the given file back to its original offset after
+                reading is finished.
+
+        Returns:
+            .ftp.request.Response: A Response populated with the final
+            data connection reply.
+
+        Be sure to call :meth:`fetch` first.
+
+        Coroutine.
+        '''
+        if rewind and file and hasattr(file, 'seek'):
+            original_offset = file.tell()
         else:
+            original_offset = None
+
+        if not hasattr(file, 'drain'):
             self._response.body = file
 
-    def _clean_up_fetch(self, reply):
-        '''Clean up after a fetch.'''
-        self._response.body.seek(0)
+            if not isinstance(file, Body):
+                self._response.body = Body(file)
+
+        reply = yield From(self._commander.read_stream(
+            file, self._data_stream
+        ))
+
         self._response.reply = reply
 
+        if original_offset is not None:
+            file.seek(original_offset)
+
         if self._recorder_session:
-            self._recorder_session.end_control(self._response)
+            self._recorder_session.response(self._response)
+
+        raise Return(self._response)
 
     @trollius.coroutine
-    def _fetch_with_command(self, command, file=None):
-        '''Fetch data through a data connection.
+    def read_listing_content(self, file):
+        '''Read file listings.
+
+        Returns:
+            .ftp.request.ListingResponse: A Response populated the
+            file listings
+
+        Be sure to call :meth:`fetch_file_listing` first.
 
         Coroutine.
         '''
-        # TODO: the recorder needs to fit inside here
-        data_connection = None
-        data_stream = None
-
-        @trollius.coroutine
-        def connection_factory(address):
-            nonlocal data_connection
-            data_connection = yield From(
-                self._connection_pool.check_out(address[0], address[1]))
-            raise Return(data_connection)
+        yield From(self.read_content(file=file, rewind=False))
 
         try:
-            data_stream = yield From(self._commander.setup_data_stream(
-                connection_factory
-            ))
+            if self._response.body.tell() == 0:
+                listings = ()
+            elif self._listing_type == 'mlsd':
+                self._response.body.seek(0)
 
-            if self._recorder_session:
-                self._response.data_address = data_connection.address
-                self._recorder_session.pre_response(self._response)
-
-                def data_callback(action, data):
-                    if action == 'read':
-                        self._recorder_session.response_data(data)
-
-                data_stream.data_observer.add(data_callback)
-
-            reply = yield From(self._commander.read_stream(
-                command, file, data_stream
-            ))
-
-            if self._recorder_session:
-                self._recorder_session.response(self._response)
-
-            raise Return(reply)
-        finally:
-            if data_stream:
-                data_stream.data_observer.clear()
-
-            if data_connection:
-                data_connection.close()
-                self._connection_pool.check_in(data_connection)
-
-    @trollius.coroutine
-    def _get_machine_listing(self):
-        '''Request a MLSD.
-
-        Coroutine.
-        '''
-        reply = yield From(self._fetch_with_command(
-            Command('MLSD', self._request.url_info.path), self._response.body
-        ))
-
-        if self._response.body.tell() == 0:
-            listings = ()
-        else:
-            self._response.body.seek(0)
-
-            listings = wpull.ftp.util.parse_machine_listing(
-                self._response.body.read().decode('latin-1'),
-                convert=True, strict=False
+                listings = wpull.ftp.util.parse_machine_listing(
+                    self._response.body.read().decode('latin-1'),
+                    convert=True, strict=False
                 )
+            else:
+                self._response.body.seek(0)
+
+                file = io.TextIOWrapper(self._response.body, encoding='latin-1')
+
+                listing_parser = ListingParser(file=file)
+                heuristics_result = listing_parser.run_heuristics()
+
+                _logger.debug('Listing detected as %s', heuristics_result)
+
+                listings = listing_parser.parse()
+
+                # We don't want the file to be closed when exiting this function
+                file.detach()
+
+        except (ListingError, ValueError) as error:
+            raise ProtocolError(*error.args) from error
 
         self._response.files = listings
 
-        raise Return(reply)
+        self._response.body.seek(0)
+        raise Return(self._response)
 
     @trollius.coroutine
-    def _get_list_listing(self):
-        '''Request a LIST listing.
+    def _open_data_stream(self):
+        '''Open the data stream connection.
 
         Coroutine.
         '''
-        reply = yield From(self._fetch_with_command(
-            Command('LIST', self._request.url_info.path), self._response.body
+        @trollius.coroutine
+        def connection_factory(address):
+            self._data_connection = yield From(
+                self._connection_pool.check_out(address[0], address[1]))
+            raise Return(self._data_connection)
+
+        self._data_stream = yield From(self._commander.setup_data_stream(
+            connection_factory
         ))
 
-        if self._response.body.tell() == 0:
-            listings = ()
-        else:
-            self._response.body.seek(0)
+        if self._recorder_session:
+            self._response.data_address = self._data_connection.address
+            self._recorder_session.pre_response(self._response)
 
-            file = io.TextIOWrapper(self._response.body, encoding='latin-1')
+            def data_callback(action, data):
+                if action == 'read':
+                    self._recorder_session.response_data(data)
 
-            listing_parser = ListingParser(file=file)
-            listing_parser.run_heuristics()
-
-            listings = listing_parser.parse()
-
-            # We don't want the file to be closed when exiting this function
-            file.detach()
-
-        self._response.files = listings
-
-        raise Return(reply)
+            self._data_stream.data_observer.add(data_callback)
 
     def clean(self):
         if self._connection:
+            if self._recorder_session:
+                self._recorder_session.end_control(self._response)
+
             self._connection_pool.check_in(self._connection)
+
+        if self._data_connection:
+            self._data_connection.close()
+            self._connection_pool.check_in(self._data_connection)
+
+        if self._data_stream:
+            self._data_stream.data_observer.clear()
 
     def close(self):
         if self._connection:

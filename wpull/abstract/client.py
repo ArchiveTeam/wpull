@@ -35,7 +35,7 @@ class BaseClient(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def _session_class(self):
-        pass
+        '''Return session class.'''
 
     @contextlib.contextmanager
     def session(self):
@@ -99,15 +99,14 @@ class BaseSession(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def close(self):
         '''Close any connections.'''
-        pass
 
     @abc.abstractmethod
     def clean(self):
         '''Return connection back to the pool.'''
-        pass
 
     @trollius.coroutine
     def _check_out_connection(self, request):
+        '''Return a connection.'''
         self._request = request
         host = request.url_info.hostname
         port = request.url_info.port
