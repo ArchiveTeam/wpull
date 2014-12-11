@@ -2,6 +2,9 @@
 What's New
 ==========
 
+0.1003 (2014-12-11)
+===================
+
 * Fixed FTP fetch where code 125 was not recognized as valid.
 * Fixed FTP 12 o'clock AM/PM time logic.
 * Fixed URLs fetched as lowercase URLs when scheme and authority separator is not provided.
