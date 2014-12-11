@@ -37,4 +37,4 @@ class RobotsTxtPool(object):
 
     @classmethod
     def url_info_key(cls, url_info):
-        return (url_info.scheme, url_info.hostname, url_info.port)
+        return url_info.scheme, url_info.hostname, url_info.port

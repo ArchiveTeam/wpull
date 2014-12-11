@@ -14,6 +14,7 @@ from wpull.recorder.printing import DebugPrintRecorder
 from wpull.wrapper import CookieJarWrapper
 import wpull.testing.badapp
 import wpull.testing.goodapp
+import wpull.testing.async
 
 
 try:

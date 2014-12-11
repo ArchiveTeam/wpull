@@ -143,6 +143,10 @@ class FTPProcessorSession(BaseProcessorSession):
             return
 
         request = Request(self._url_item.url_info.url)  # TODO: dependency inject
+
+        if self._fetch_rule.ftp_login:
+            request.username, request.password = self._fetch_rule.ftp_login
+
         self._file_writer_session.process_request(request)
 
         yield From(self._fetch(request))
@@ -163,31 +167,32 @@ class FTPProcessorSession(BaseProcessorSession):
 
         response = None
 
-        def response_callback(dummy, callback_response):
-            nonlocal response
-            response = callback_response
-
-            action = self._result_rule.handle_pre_response(
-                request, response, self._url_item
-            )
-
-            if action in (Actions.RETRY, Actions.FINISH):
-                raise HookPreResponseBreak()
-
-            self._file_writer_session.process_response(response)
-
-            if not response.body:
-                response.body = Body(directory=self._processor.root_path,
-                                     hint='resp_cb')
-
-            return response.body
+        is_file = not request.url_info.path.endswith('/')
 
         try:
             with self._processor.ftp_client.session() as session:
-                if not request.url_info.path.endswith('/'):
-                    response = yield From(session.fetch(request, callback=response_callback))
+                if is_file:
+                    response = yield From(session.fetch(request))
                 else:
-                    response = yield From(session.fetch_file_listing(request, callback=response_callback))
+                    response = yield From(session.fetch_file_listing(request))
+
+                action = self._result_rule.handle_pre_response(
+                    request, response, self._url_item
+                )
+
+                if action in (Actions.RETRY, Actions.FINISH):
+                    raise HookPreResponseBreak()
+
+                self._file_writer_session.process_response(response)
+
+                if not response.body:
+                    response.body = Body(directory=self._processor.root_path,
+                                         hint='resp_cb')
+
+                if is_file:
+                    yield From(session.read_content(response.body))
+                else:
+                    yield From(session.read_listing_content(response.body))
 
         except HookPreResponseBreak:
             if response:

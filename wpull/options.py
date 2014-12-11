@@ -226,11 +226,17 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='FILE',
             help=_('load Lua hook script from FILE')
         )
-        group.add_argument(
+        database_group = group.add_mutually_exclusive_group()
+        database_group.add_argument(
             '--database',
             metavar='FILE',
             default=':memory:',
             help=_('save database tables into FILE instead of memory'),
+        )
+        database_group.add_argument(
+            '--database-uri',
+            metavar='URI',
+            help=_('save database tables at SQLAlchemy URI instead of memory'),
         )
         group.add_argument(
             '--concurrent',
@@ -424,7 +430,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         group.add_argument(
             '--progress',
             metavar='TYPE',
-            choices=['dot', 'bar'],
+            choices=['dot', 'bar', 'none'],
             default='bar',
             help=_('choose the type of progress indicator'),
         )
@@ -566,12 +572,14 @@ class AppArgumentParser(argparse.ArgumentParser):
             choices=['IPv6', 'IPv4'],
             help=_('prefer to connect to FAMILY IP addresses'),
         )
-#         self.add_argument(
-#             '--user'
-#         )
-#         self.add_argument(
-#             '--password'
-#         )
+        group.add_argument(
+            '--user',
+            help=_('username for both FTP and HTTP authentication')
+        )
+        group.add_argument(
+            '--password',
+            help=_('password for both FTP and HTTP authentication')
+        )
 #         self.add_argument(
 #             '--ask-password',
 #             action='store_true',
@@ -650,12 +658,14 @@ class AppArgumentParser(argparse.ArgumentParser):
 
     def _add_http_args(self):
         group = self.add_argument_group('HTTP')
-#         self.add_argument(
-#             '--http-user',
-#         )
-#         self.add_argument(
-#             '--http-password'
-#         )
+        group.add_argument(
+            '--http-user',
+            help=_('username for HTTP authentication')
+        )
+        group.add_argument(
+            '--http-password',
+            help=_('password for HTTP authentication')
+        )
 #         self.add_argument(
 #             '--no-cache',
 #             action='store_true',
@@ -877,14 +887,16 @@ class AppArgumentParser(argparse.ArgumentParser):
 
     def _add_ftp_args(self):
         group = self.add_argument_group('FTP')
-#         self.add_argument(
-#             '--ftp-user',
-#             metavar='USER'
-#         )
-#         self.add_argument(
-#             '--ftp-password',
-#             metavar='PASS'
-#         )
+        group.add_argument(
+            '--ftp-user',
+            metavar='USER',
+            help=_('username for FTP login'),
+        )
+        group.add_argument(
+            '--ftp-password',
+            metavar='PASS',
+            help=_('password for FTP login'),
+        )
         group.add_argument(
             '--no-remove-listing',
             action='store_false',

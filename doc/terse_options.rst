@@ -4,7 +4,7 @@ Brief Option Overview
 ::
 
   usage: __main__.py [-h] [-V] [--python-script FILE | --lua-script FILE]
-                     [--database FILE] [--concurrent N]
+                     [--database FILE | --database-uri URI] [--concurrent N]
                      [--debug-console-port PORT] [--debug-manhole]
                      [--ignore-fatal-errors] [-o FILE | -a FILE]
                      [-d | -q | -v | -nv] [--ascii-print] [-i FILE] [-F]
@@ -13,17 +13,19 @@ Brief Option Overview
                      [--proxy-password PASS] [--no-proxy]
                      [--no-secure-proxy-tunnel] [-t NUMBER]
                      [--retry-connrefused] [--retry-dns-error] [-O FILE] [-nc]
-                     [-c] [--progress TYPE={bar,dot}] [-N]
+                     [-c] [--progress TYPE={bar,dot,none}] [-N]
                      [--no-use-server-timestamps] [-S] [-T SECONDS]
                      [--dns-timeout SECS] [--connect-timeout SECS]
                      [--read-timeout SECS] [-w SECONDS] [--waitretry SECONDS]
                      [--random-wait] [-Q NUMBER] [--bind-address ADDRESS]
                      [--no-dns-cache] [--rotate-dns]
                      [--restrict-file-names MODES=<ascii,lower,nocontrol,unix,upper,windows>]
-                     [-4 | -6 | --prefer-family FAMILY={IPv4,IPv6}] [--no-iri]
+                     [-4 | -6 | --prefer-family FAMILY={IPv4,IPv6}]
+                     [--user USER] [--password PASSWORD] [--no-iri]
                      [--local-encoding ENC] [--remote-encoding ENC]
                      [--max-filename-length NUMBER] [-nd | -x] [-nH]
                      [--protocol-directories] [-P PREFIX] [--cut-dirs NUMBER]
+                     [--http-user HTTP_USER] [--http-password HTTP_PASSWORD]
                      [--default-page NAME] [--ignore-length] [--header STRING]
                      [--max-redirect NUMBER] [--referer URL] [--save-headers]
                      [-U AGENT] [--no-robots] [--no-http-keep-alive]
@@ -38,17 +40,17 @@ Brief Option Overview
                      [--certificate-type TYPE={PEM}] [--private-key FILE]
                      [--private-key-type TYPE={PEM}] [--ca-certificate FILE]
                      [--ca-directory DIR] [--no-use-internal-ca-certs]
-                     [--random-file FILE] [--edg-file FILE]
-                     [--no-remove-listing] [--warc-file FILENAME]
-                     [--warc-append] [--warc-header STRING]
-                     [--warc-max-size NUMBER] [--warc-move DIRECTORY]
-                     [--warc-cdx] [--warc-dedup FILE] [--no-warc-compression]
-                     [--no-warc-digests] [--no-warc-keep-log]
-                     [--warc-tempdir DIRECTORY] [-r] [-l NUMBER]
-                     [--delete-after] [-k] [-K] [-p] [--sitemaps] [-A LIST]
-                     [-R LIST] [--accept-regex REGEX] [--reject-regex REGEX]
-                     [--regex-type TYPE={posix}] [-D LIST]
-                     [--exclude-domains LIST] [--hostnames LIST]
+                     [--random-file FILE] [--edg-file FILE] [--ftp-user USER]
+                     [--ftp-password PASS] [--no-remove-listing]
+                     [--warc-file FILENAME] [--warc-append]
+                     [--warc-header STRING] [--warc-max-size NUMBER]
+                     [--warc-move DIRECTORY] [--warc-cdx] [--warc-dedup FILE]
+                     [--no-warc-compression] [--no-warc-digests]
+                     [--no-warc-keep-log] [--warc-tempdir DIRECTORY] [-r]
+                     [-l NUMBER] [--delete-after] [-k] [-K] [-p] [--sitemaps]
+                     [-A LIST] [-R LIST] [--accept-regex REGEX]
+                     [--reject-regex REGEX] [--regex-type TYPE={posix}]
+                     [-D LIST] [--exclude-domains LIST] [--hostnames LIST]
                      [--exclude-hostnames LIST] [--follow-ftp]
                      [--follow-tags LIST] [--ignore-tags LIST]
                      [-H | --span-hosts-allow LIST=<linked-pages,page-requisites>]
@@ -72,6 +74,8 @@ Brief Option Overview
     --lua-script FILE     load Lua hook script from FILE
     --database FILE       save database tables into FILE instead of memory
                           (default: :memory:)
+    --database-uri URI    save database tables at SQLAlchemy URI instead of
+                          memory
     --concurrent N        run at most N downloads at the same time (default: 1)
     --debug-console-port PORT
                           run a web debug console at given port number
@@ -115,7 +119,7 @@ Brief Option Overview
                           stream every document into FILE
     -nc, --no-clobber     don’t use anti-clobbering filenames
     -c, --continue        resume downloading a partially-downloaded file
-    --progress TYPE={bar,dot}
+    --progress TYPE={bar,dot,none}
                           choose the type of progress indicator (default: bar)
     -N, --timestamping    only download files that are newer than local files
     --no-use-server-timestamps
@@ -145,6 +149,8 @@ Brief Option Overview
     -6, --inet6-only      connect to IPv6 addresses only
     --prefer-family FAMILY={IPv4,IPv6}
                           prefer to connect to FAMILY IP addresses
+    --user USER           username for both FTP and HTTP authentication
+    --password PASSWORD   password for both FTP and HTTP authentication
     --no-iri              use ASCII encoding only
     --local-encoding ENC  use ENC as the encoding of input files and options
     --remote-encoding ENC
@@ -168,6 +174,10 @@ Brief Option Overview
     --cut-dirs NUMBER     don’t make NUMBER of leading directories
 
   HTTP:
+    --http-user HTTP_USER
+                          username for HTTP authentication
+    --http-password HTTP_PASSWORD
+                          password for HTTP authentication
     --default-page NAME   use NAME as index page if not known (default:
                           index.html)
     --ignore-length       ignore any Content-Length provided by the server
@@ -219,6 +229,8 @@ Brief Option Overview
     --edg-file FILE       connect to entropy gathering daemon using socket FILE
 
   FTP:
+    --ftp-user USER       username for FTP login
+    --ftp-password PASS   password for FTP login
     --no-remove-listing   keep directory file listings
 
   WARC:

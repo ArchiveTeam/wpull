@@ -29,7 +29,7 @@ def get_version_tuple(string):
     level = RELEASE_LEVEL_MAP.get(match.group(4), 'final')
     serial = int(match.group(5) or 0)
 
-    return (major, minor, patch, level, serial)
+    return major, minor, patch, level, serial
 
 
 __version__ = '0.1002'

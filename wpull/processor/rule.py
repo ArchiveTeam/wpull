@@ -20,10 +20,13 @@ _logger = logging.getLogger(__name__)
 
 class FetchRule(HookableMixin):
     '''Decide on what URLs should be fetched.'''
-    def __init__(self, url_filter=None, robots_txt_checker=None):
+    def __init__(self, url_filter=None, robots_txt_checker=None,
+                 http_login=None, ftp_login=None):
         super().__init__()
         self._url_filter = url_filter
         self._robots_txt_checker = robots_txt_checker
+        self.http_login = http_login
+        self.ftp_login = ftp_login
 
         self.register_hook('should_fetch')
 
@@ -72,7 +75,7 @@ class FetchRule(HookableMixin):
             3. dict: The result from :func:`DemuxURLFilter.test_info`
         '''
         if not self._url_filter:
-            return (True, 'nofilters', None)
+            return True, 'nofilters', None
 
         test_info = self._url_filter.test_info(url_info, url_record)
 
@@ -250,7 +253,10 @@ class ResultRule(HookableMixin):
             str: A value from :class:`.hook.Actions`.
         '''
         self._waiter.reset()
-        return Actions.NORMAL
+
+        action = self.handle_response(request, response, url_item)
+
+        return action
 
     def handle_document_error(self, request, response, url_item):
         '''Callback for when the document only describes an server error.

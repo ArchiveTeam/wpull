@@ -1,5 +1,7 @@
 local counter = 0
 local injected_url_found = false
+local got_redirected_page = false
+
 
 wpull_hook.callbacks.version = 2
 
@@ -25,6 +27,8 @@ wpull_hook.callbacks.accept_url = function(url_info, record_info, verdict, reaso
     ['/static/style.css'] = true,
     ['/wolf'] = true,
     ['/some_page'] = true,
+    ['/some_page/'] = true,
+    ['/mordor'] = true,
   }
 
   if string.match(url_info['url'], 'mailto:') then
@@ -76,7 +80,7 @@ wpull_hook.callbacks.dequeued_url = function(url_info, record_info)
 end
 
 wpull_hook.callbacks.handle_pre_response = function(url_info, record_info, http_info)
-  if url_info['path'] == '/some_page' then
+  if url_info['path'] == '/mordor' then
     return wpull_hook.actions.FINISH
   end
 
@@ -93,6 +97,8 @@ wpull_hook.callbacks.handle_response = function(url_info, record_info, http_info
     assert(http_info['status_code'] == 200)
     injected_url_found = true
     return wpull_hook.actions.FINISH
+  elseif url_info['path'] == '/some_page/' then
+    got_redirected_page = true
   end
 
   return wpull_hook.actions.NORMAL
@@ -150,5 +156,6 @@ wpull_hook.callbacks.exit_status = function(exit_code)
   --  print('exit_status', exit_code)
   assert(exit_code == 4)
   assert(injected_url_found)
+  assert(got_redirected_page)
   return 42
 end

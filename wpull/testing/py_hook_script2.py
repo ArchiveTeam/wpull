@@ -7,6 +7,8 @@ wpull_hook.callbacks.version = 2
 
 counter = 0
 injected_url_found = False
+got_redirected_page = False
+
 
 def engine_run():
     assert wpull_hook.factory['Engine']
@@ -27,10 +29,13 @@ def accept_url(url_info, record_info, verdict, reasons):
         assert not verdict
         assert not reasons['filters']['SchemeFilter']
     else:
-        assert url_info['path'] in ('/robots.txt', '/', '/post/',
-                                    '/%95%B6%8E%9A%89%BB%82%AF/',
-                                    '/static/style.css', '/wolf',
-                                    '/some_page',)
+        assert url_info['path'] in (
+            '/robots.txt', '/', '/post/',
+            '/%95%B6%8E%9A%89%BB%82%AF/',
+            '/static/style.css', '/wolf',
+            '/some_page', '/some_page/',
+            '/mordor',
+            )
         assert reasons['filters']['SchemeFilter']
 
     assert record_info['url']
@@ -74,7 +79,7 @@ def dequeued_url(url_info, record_info):
 
 
 def handle_pre_response(url_info, record_info, http_info):
-    if url_info['path'] == '/some_page':
+    if url_info['path'] == '/mordor':
         return wpull_hook.actions.FINISH
 
     return wpull_hook.actions.NORMAL
@@ -91,6 +96,9 @@ def handle_response(url_info, record_info, http_info):
         global injected_url_found
         injected_url_found = True
         return wpull_hook.actions.FINISH
+    elif url_info['path'] == '/some_page/':
+        global got_redirected_page
+        got_redirected_page = True
 
     return wpull_hook.actions.NORMAL
 
@@ -142,6 +150,7 @@ def finish_statistics(start_time, end_time, num_urls, bytes_downloaded):
 def exit_status(exit_code):
     assert exit_code == 4
     assert injected_url_found
+    assert got_redirected_page
     print('exit_status', exit_code)
     return 42
 

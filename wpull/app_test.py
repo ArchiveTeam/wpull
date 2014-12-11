@@ -414,6 +414,7 @@ class TestApp(GoodAppTestCase):
         args = arg_parser.parse_args([
             self.get_url('/'),
             self.get_url('/some_page'),
+            self.get_url('/mordor'),
             'localhost:1/wolf',
             '--python-script', filename,
             '--page-requisites',
@@ -426,6 +427,7 @@ class TestApp(GoodAppTestCase):
         with cd_tempdir():
             app = builder.build()
             exit_code = yield From(app.run())
+            print(list(os.walk('.')))
 
         self.assertEqual(42, exit_code)
 
@@ -434,7 +436,7 @@ class TestApp(GoodAppTestCase):
 
         stats = builder.factory['Statistics']
 
-        self.assertEqual(2, stats.files)
+        self.assertEqual(3, stats.files)
 
         # duration should be virtually 0 but account for slowness on travis ci
         self.assertGreater(10.0, stats.duration)
@@ -466,6 +468,7 @@ class TestApp(GoodAppTestCase):
         args = arg_parser.parse_args([
             self.get_url('/'),
             self.get_url('/some_page'),
+            self.get_url('/mordor'),
             'localhost:1/wolf',
             '--lua-script', filename,
             '--page-requisites',
@@ -478,6 +481,7 @@ class TestApp(GoodAppTestCase):
         with cd_tempdir():
             app = builder.build()
             exit_code = yield From(app.run())
+            print(list(os.walk('.')))
 
         self.assertEqual(42, exit_code)
 
@@ -486,7 +490,7 @@ class TestApp(GoodAppTestCase):
 
         stats = builder.factory['Statistics']
 
-        self.assertEqual(2, stats.files)
+        self.assertEqual(3, stats.files)
 
         # duration should be virtually 0 but account for slowness on travis ci
         self.assertGreater(10.0, stats.duration)
@@ -962,6 +966,56 @@ class TestApp(GoodAppTestCase):
 
         self.assertEqual(4, exit_code)
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_database_uri(self):
+        arg_parser = AppArgumentParser()
+
+        with cd_tempdir():
+            args = arg_parser.parse_args([
+                self.get_url('/'),
+                '--database-uri', 'sqlite:///test.db'
+            ])
+
+            builder = Builder(args, unit_test=True)
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_basic_auth(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/basic_auth'),
+            '--user', 'root',
+            '--password', 'smaug',
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_basic_auth_fail(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/basic_auth'),
+            '--user', 'root',
+            '--password', 'toothless',
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
+
 
 class SimpleHandler(tornado.web.RequestHandler):
     def get(self):
@@ -1188,6 +1242,41 @@ class TestAppFTP(FTPTestCase):
         self.assertEqual(0, builder.factory['Statistics'].files)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_login(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/example.txt'),
+            '--user', 'smaug',
+            '--password', 'gold1',
+        ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_login_fail(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/example.txt'),
+            '--user', 'smaug',
+            '--password', 'hunter2',
+            '--tries', '1'
+        ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(8, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_args(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -1207,8 +1296,8 @@ class TestAppFTP(FTPTestCase):
             app = builder.build()
             exit_code = yield From(app.run())
 
-            self.assertEqual(7, exit_code)
-            self.assertEqual(4, builder.factory['Statistics'].files)
+            self.assertEqual(8, exit_code)
+            self.assertEqual(5, builder.factory['Statistics'].files)
 
             print(os.listdir())
 

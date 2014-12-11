@@ -3,6 +3,7 @@ import logging
 
 from trollius import From, Return
 import trollius
+from wpull.errors import ProtocolError
 
 from wpull.ftp.request import Command
 from wpull.ftp.stream import DataStream
@@ -26,7 +27,19 @@ class Commander(object):
 
     @classmethod
     def raise_if_not_match(cls, action, expected_code, reply):
-        if expected_code != reply.code:
+        '''Raise FTPServerError if not expected reply code.
+
+        Args:
+            action (str): Label to use in the exception message.
+            expected_code (int, list): Expected 3 digit code.
+            reply (Reply): Reply from the server.
+        '''
+        if isinstance(expected_code, int):
+            expected_codes = (expected_code,)
+        else:
+            expected_codes = expected_code
+
+        if reply.code not in expected_codes:
             raise FTPServerError(
                 'Failed action {action}: {reply_code} {reply_text}'
                 .format(action=action, reply_code=reply.code,
@@ -90,7 +103,10 @@ class Commander(object):
         self.raise_if_not_match(
             'Passive mode', ReplyCodes.entering_passive_mode, reply)
 
-        raise Return(wpull.ftp.util.parse_address(reply.text))
+        try:
+            raise Return(wpull.ftp.util.parse_address(reply.text))
+        except ValueError as error:
+            raise ProtocolError(str(error)) from error
 
     @trollius.coroutine
     def setup_data_stream(self, connection_factory,
@@ -127,12 +143,37 @@ class Commander(object):
         raise Return(data_stream)
 
     @trollius.coroutine
-    def read_stream(self, command, file, data_stream):
-        '''Read from the data stream.
+    def begin_stream(self, command):
+        '''Start sending content on the data stream.
 
         Args:
             command (:class:`.ftp.request.Command`): A command that
-                sends data over the data connection.
+                tells the server to send data over the data connection.
+
+        Coroutine.
+
+        Returns:
+            Reply: The begin reply.
+        '''
+        yield From(self._control_stream.write_command(command))
+        reply = yield From(self._control_stream.read_reply())
+
+        self.raise_if_not_match(
+            'Begin stream',
+            (
+                ReplyCodes.file_status_okay_about_to_open_data_connection,
+                ReplyCodes.data_connection_already_open_transfer_starting,
+            ),
+            reply
+        )
+
+        raise Return(reply)
+
+    @trollius.coroutine
+    def read_stream(self, file, data_stream):
+        '''Read from the data stream.
+
+        Args:
             file: A destination file object or a stream writer.
             data_stream (:class:`.ftp.stream.DataStream`): The stream of which
                 to read from.
@@ -142,15 +183,6 @@ class Commander(object):
         Returns:
             Reply: The final reply.
         '''
-
-        yield From(self._control_stream.write_command(command))
-        reply = yield From(self._control_stream.read_reply())
-
-        self.raise_if_not_match(
-            'Begin stream',
-            ReplyCodes.file_status_okay_about_to_open_data_connection,
-            reply
-        )
 
         yield From(data_stream.read_file(file=file))
 

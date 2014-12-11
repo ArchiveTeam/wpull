@@ -14,6 +14,7 @@ import sys
 import tempfile
 
 import tornado.testing
+import tornado.web
 import trollius
 
 from wpull.app import Application
@@ -21,7 +22,7 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.connection import Connection, ConnectionPool, SSLConnection
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
-from wpull.database.sqltable import URLTable as SQLURLTable
+from wpull.database.sqltable import URLTable as SQLURLTable, GenericSQLURLTable
 from wpull.database.wrap import URLTableHookWrapper
 from wpull.debug import DebugConsoleHandler
 from wpull.dns import Resolver
@@ -564,8 +565,15 @@ class Builder(object):
         Returns:
             URLTable: An instance of :class:`.database.base.BaseURLTable`.
         '''
-        url_table_impl = self._factory.new(
-            'URLTableImplementation', path=self._args.database)
+        if self._args.database_uri:
+            self._factory.class_map[
+                'URLTableImplementation'] = GenericSQLURLTable
+            url_table_impl = self._factory.new(
+                'URLTableImplementation', self._args.database_uri)
+        else:
+            url_table_impl = self._factory.new(
+                'URLTableImplementation', path=self._args.database)
+
         url_table = self._factory.new('URLTable', url_table_impl)
         return url_table
 
@@ -624,7 +632,7 @@ class Builder(object):
         assert args.verbosity, \
             'Expect logging level. Got {}.'.format(args.verbosity)
 
-        if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARNING):
+        if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARNING) and args.progress != 'none':
             stream = self._new_encoded_stream(self._get_stderr())
 
             bar_style = args.progress == 'bar'
@@ -712,9 +720,18 @@ class Builder(object):
         web_client = self._build_web_client()
         phantomjs_controller = self._build_phantomjs_controller()
         robots_txt_checker = self._build_robots_txt_checker()
+
+        http_username = args.user or args.http_user
+        http_password = args.password or args.http_password
+        ftp_username = args.user or args.ftp_user
+        ftp_password = args.password or args.ftp_password
+
         fetch_rule = self._factory.new(
             'FetchRule',
-            url_filter=url_filter, robots_txt_checker=robots_txt_checker)
+            url_filter=url_filter, robots_txt_checker=robots_txt_checker,
+            http_login=(http_username, http_password),
+            ftp_login=(ftp_username, ftp_password),
+        )
 
         waiter = self._factory.new('Waiter',
                                    wait=args.wait,
@@ -1259,9 +1276,11 @@ class Builder(object):
         if self._args.no_secure_proxy_tunnel:
             _logger.warning(_('HTTPS without encryption is enabled.'))
 
-        if self._args.proxy_password and self._args.warc_file:
+        if (self._args.password or self._args.ftp_password or
+                self._args.http_password or self._args.proxy_password) and \
+                self._args.warc_file:
             _logger.warning(
-                _('Your proxy password is recorded in the WARC file.'))
+                _('Your password is recorded in the WARC file.'))
 
     def _warn_unsafe_options(self):
         '''Print warnings about any enabled hazardous options.
