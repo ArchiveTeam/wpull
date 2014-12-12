@@ -10,6 +10,7 @@ python:
 branches:
   except:
     - topic/rewrite_phantomjs
+    - topic/rewrite_phantomjs_2
 
 
 before_install:
