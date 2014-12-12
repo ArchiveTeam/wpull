@@ -97,11 +97,15 @@ class Request(RawRequest, URLPropertyMixin):
 
     Attributes:
         address (tuple): An address tuple suitable for :func:`socket.connect`.
+        username (str): Username for HTTP authentication.
+        password (str): Password for HTTP authentication.
     '''
     def __init__(self, url=None, method='GET', version='HTTP/1.1'):
         super().__init__(method=method, resource_path=url, version=version)
 
         self.address = None
+        self.username = None
+        self.password = None
 
         if url:
             self.url = url

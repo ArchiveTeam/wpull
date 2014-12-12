@@ -13,6 +13,8 @@ from wpull.body import Body
 from wpull.errors import NetworkError, ProtocolError, ServerError, \
     SSLVerificationError
 from wpull.hook import HookableMixin, Actions
+from wpull.http.web import LoopType
+from wpull.namevalue import NameValueRecord
 from wpull.processor.base import BaseProcessor, BaseProcessorSession
 from wpull.processor.rule import FetchRule, ResultRule
 from wpull.stats import Statistics
@@ -184,6 +186,9 @@ class WebProcessorSession(BaseProcessorSession):
 
         if url_record.referrer:
             request.fields['Referer'] = url_record.referrer
+
+        if self._fetch_rule.http_login:
+            request.username, request.password = self._fetch_rule.http_login
 
     @trollius.coroutine
     def process(self):
@@ -422,7 +427,8 @@ class WebProcessorSession(BaseProcessorSession):
         '''
         self._url_item.set_value(status_code=response.status_code)
 
-        if self._web_client_session.redirect_tracker.is_redirect():
+        if self._web_client_session.redirect_tracker.is_redirect() or \
+                self._web_client_session.loop_type() == LoopType.authentication:
             self._file_writer_session.discard_document(response)
 
             return self._result_rule.handle_intermediate_response(

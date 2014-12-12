@@ -14,6 +14,7 @@ import sys
 import tempfile
 
 import tornado.testing
+import tornado.web
 import trollius
 
 from wpull.app import Application
@@ -721,9 +722,18 @@ class Builder(object):
         web_client = self._build_web_client()
 
         robots_txt_checker = self._build_robots_txt_checker()
+
+        http_username = args.user or args.http_user
+        http_password = args.password or args.http_password
+        ftp_username = args.user or args.ftp_user
+        ftp_password = args.password or args.ftp_password
+
         fetch_rule = self._factory.new(
             'FetchRule',
-            url_filter=url_filter, robots_txt_checker=robots_txt_checker)
+            url_filter=url_filter, robots_txt_checker=robots_txt_checker,
+            http_login=(http_username, http_password),
+            ftp_login=(ftp_username, ftp_password),
+        )
 
         waiter = self._factory.new('Waiter',
                                    wait=args.wait,
@@ -1278,9 +1288,11 @@ class Builder(object):
         if self._args.no_secure_proxy_tunnel:
             _logger.warning(_('HTTPS without encryption is enabled.'))
 
-        if self._args.proxy_password and self._args.warc_file:
+        if (self._args.password or self._args.ftp_password or
+                self._args.http_password or self._args.proxy_password) and \
+                self._args.warc_file:
             _logger.warning(
-                _('Your proxy password is recorded in the WARC file.'))
+                _('Your password is recorded in the WARC file.'))
 
     def _warn_unsafe_options(self):
         '''Print warnings about any enabled hazardous options.

@@ -112,18 +112,29 @@ class Reply(SerializableMixin, DictableMixin):
 
 
 class Request(URLPropertyMixin):
-    '''FTP request for a file.'''
+    '''FTP request for a file.
+
+    Attributes:
+        address (tuple): Address of control connection.
+        data_address (tuple): Address of data connection.
+        username (str): Username for login.
+        password (str): Password for login.
+    '''
     def __init__(self, url):
         super().__init__()
         self.url = url
         self.address = None
         self.data_address = None
+        self.username = None
+        self.password = None
 
     def to_dict(self):
         return {
             'protocol': 'ftp',
             'url': self.url,
-            'url_info': self.url_info.to_dict() if self.url_info else None
+            'url_info': self.url_info.to_dict() if self.url_info else None,
+            'username': self.username,
+            'password': self.password,
         }
 
 

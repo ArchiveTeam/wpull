@@ -18,6 +18,9 @@ MSDOS_LS = '''04-27-00  09:09PM       <DIR>          licensed
 04-14-00  03:47PM                  589 readme.htm
 '''
 
+MSDOS_NO_DIR_LS = '''04-14-00  03:47PM                  589 readme.htm
+'''
+
 NLST = '''dog.txt
 cat.txt
 bird.txt
@@ -63,6 +66,21 @@ class TestParse(unittest.TestCase):
                           date_factory(2000, 4, 27, 21, 9)),
                 FileEntry('pub', 'dir', None,
                           date_factory(2000, 7, 18, 10, 16)),
+                FileEntry('readme.htm', 'file', 589,
+                          date_factory(2000, 4, 14, 15, 47)),
+            ],
+            results
+        )
+
+    def test_parse_msdos_no_dir(self):
+        parser = ListingParser(MSDOS_NO_DIR_LS)
+        parser.run_heuristics()
+        results = parser.parse()
+        date_factory = functools.partial(datetime.datetime,
+                                         tzinfo=datetime.timezone.utc)
+
+        self.assertEqual(
+            [
                 FileEntry('readme.htm', 'file', 589,
                           date_factory(2000, 4, 14, 15, 47)),
             ],

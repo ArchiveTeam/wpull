@@ -131,7 +131,7 @@ class URLInfo(object):
 
         if not sep and default_scheme:
             # Likely something like example.com/mystuff
-            remaining = scheme
+            remaining = url
             scheme = default_scheme
         elif not sep:
             raise ValueError('URI missing colon: {}'.format(ascii(url)))
@@ -215,20 +215,20 @@ class URLInfo(object):
         userinfo, sep, host = authority.partition('@')
 
         if not sep:
-            return ('', userinfo)
+            return '', userinfo
         else:
-            return (userinfo, host)
+            return userinfo, host
 
     @classmethod
     def parse_userinfo(cls, userinfo):
         username, sep, password = userinfo.partition(':')
 
-        return (username, password)
+        return username, password
 
     @classmethod
     def parse_host(cls, host):
         if host.endswith(']'):
-            return (cls.parse_hostname(host), None)
+            return cls.parse_hostname(host), None
         else:
             hostname, sep, port = host.rpartition(':')
 
@@ -238,7 +238,7 @@ class URLInfo(object):
             hostname = port
             port = None
 
-        return (cls.parse_hostname(hostname), port)
+        return cls.parse_hostname(hostname), port
 
     @classmethod
     def parse_hostname(cls, hostname):
@@ -283,6 +283,16 @@ class URLInfo(object):
                 return self._url
 
             parts = [self.scheme, '://']
+
+            if self.username:
+                parts.append(normalize_username(self.username))
+
+            if self.password:
+                parts.append(':')
+                parts.append(normalize_password(self.password))
+
+            if self.username or self.password:
+                parts.append('@')
 
             if self.is_ipv6():
                 parts.append('[{}]'.format(self.hostname))
@@ -464,6 +474,7 @@ class PercentEncoderMap(collections.defaultdict):
     '''Helper map for percent encoding.'''
     # This class is based on urllib.parse.Quoter
     def __init__(self, encode_set):
+        super().__init__()
         self.encode_set = encode_set
 
     def __missing__(self, char):

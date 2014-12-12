@@ -32,7 +32,7 @@ class TestUtil(unittest.TestCase):
                    b'QWERTY\n'
                    b'-----END CERTIFICATE-----\n'
                    b'Kit\n')
-        clean = set([
+        clean = {
             (
                 b'-----BEGIN CERTIFICATE-----\n'
                 b'ABCDEFG\n'
@@ -43,7 +43,7 @@ class TestUtil(unittest.TestCase):
                 b'QWERTY\n'
                 b'-----END CERTIFICATE-----\n'
             )
-        ])
+        }
 
         self.assertEqual(clean, filter_pem(unclean))
 

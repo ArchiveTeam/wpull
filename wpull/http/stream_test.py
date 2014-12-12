@@ -78,7 +78,7 @@ class StreamTestsMixin(object):
         except NetworkError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_refused(self):
@@ -88,7 +88,7 @@ class StreamTestsMixin(object):
         except ConnectionRefused:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_timeout(self):
@@ -100,7 +100,7 @@ class StreamTestsMixin(object):
         except NetworkError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_connection_reuse(self):
@@ -146,7 +146,7 @@ class StreamTestsMixin(object):
         except NetworkError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_basic(self):
@@ -206,7 +206,7 @@ class StreamTestsMixin(object):
         except ProtocolError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_non_standard_delim_chunked(self):
@@ -235,7 +235,7 @@ class StreamTestsMixin(object):
         except ProtocolError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_buffer_overflow_header(self):
@@ -246,7 +246,7 @@ class StreamTestsMixin(object):
         except ProtocolError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_bad_chunk_size(self):
@@ -257,7 +257,7 @@ class StreamTestsMixin(object):
         except ProtocolError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_content_length_and_chunked(self):
@@ -294,7 +294,7 @@ class StreamTestsMixin(object):
         except NetworkError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
         request = Request(self.get_url('/'))
         yield From(self.fetch(stream, request))
@@ -308,7 +308,7 @@ class StreamTestsMixin(object):
         except NetworkError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
         request = Request(self.get_url('/'))
         yield From(self.fetch(stream, request))
@@ -390,7 +390,7 @@ class StreamTestsMixin(object):
         except ProtocolError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_gzip_corrupt_footer(self):
@@ -401,7 +401,7 @@ class StreamTestsMixin(object):
         except ProtocolError:
             pass
         else:
-            self.fail()
+            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_no_content(self):
@@ -435,7 +435,7 @@ class StreamTestsMixin(object):
             except NetworkTimedOut:
                 pass
             else:
-                self.fail()
+                self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_overrun(self):

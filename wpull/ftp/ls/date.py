@@ -229,7 +229,10 @@ def parse_datetime(text, date_format=None, is_day_period=None):
 
         if day_period and is_day_period and hour < 13:
             if day_period.lower() in PM_STRINGS:
-                hour += 12
+                if hour != 12:
+                    hour += 12
+            elif hour == 12:
+                hour = 0
 
         start_index = match.start()
         end_index = match.end()
