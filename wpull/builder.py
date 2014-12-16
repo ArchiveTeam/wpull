@@ -38,13 +38,12 @@ from wpull.http.robots import RobotsTxtChecker
 from wpull.http.stream import Stream as HTTPStream
 from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
-from wpull.driver.phantomjs import PhantomJSClient
+from wpull.driver.phantomjs import PhantomJSPool
 from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
     FTPProcessorInstances
 from wpull.processor.rule import FetchRule, ResultRule, ProcessingRule
-from wpull.coprocessor.phantomjs import PhantomJSController, \
-    PhantomJSCoprocessor
+from wpull.coprocessor.phantomjs import PhantomJSCoprocessor, PhantomJSParams
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
     WebProcessorInstances
 from wpull.proxy import HTTPProxyServer
@@ -119,8 +118,7 @@ class Builder(object):
             'JavaScriptScraper': JavaScriptScraper,
             'OutputDocumentRecorder': OutputDocumentRecorder,
             'PathNamer': PathNamer,
-            'PhantomJSClient': PhantomJSClient,
-            'PhantomJSController': PhantomJSController,
+            'PhantomJSPool': PhantomJSPool,
             'PhantomJSCoprocessor': PhantomJSCoprocessor,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
             'ProcessingRule': ProcessingRule,
@@ -1125,33 +1123,39 @@ class Builder(object):
         page_settings['userAgent'] = self._args.user_agent \
             or self.default_user_agent
 
-        phantomjs_client = self._factory.new(
-            'PhantomJSClient',
-            'localhost:{0}'.format(proxy_port),
-            page_settings=page_settings,
-            default_headers=default_headers,
-            exe_path=self._args.phantomjs_exe
-        )
-        phantomjs_client.test_client_exe()
-        phantomjs_client.proxy_task = proxy_task  # FIXME:
+        # Test early for executable
+        wpull.driver.phantomjs.get_version(self._args.phantomjs_exe)
 
-        phantomjs_controller = self._factory.new(
-            'PhantomJSController',
-            phantomjs_client,
+        phantomjs_params = PhantomJSParams(
             wait_time=self._args.phantomjs_wait,
             num_scrolls=self._args.phantomjs_scroll,
-            warc_recorder=self.factory.get('WARCRecorder'),
             smart_scroll=self._args.phantomjs_smart_scroll,
             snapshot=self._args.phantomjs_snapshot,
         )
 
+        extra_args = ['--proxy', 'localhost:{0}'.format(proxy_port)]
+
+        phantomjs_pool = self._factory.new(
+            'PhantomJSPool',
+            exe_path=self._args.phantomjs_exe,
+            default_headers=default_headers,
+            page_settings=page_settings,
+            extra_args=extra_args,
+        )
+
         phantomjs_coprocessor = self._factory.new(
             'PhantomJSCoprocessor',
-            phantomjs_controller,
+            phantomjs_pool,
             self._factory['ProcessingRule'],
             self._factory['Statistics'],
+            self._factory['FetchRule'],
+            self._factory['ProcessingRule'],
+            phantomjs_params,
             root_path=self._args.directory_prefix,
+            warc_recorder=self.factory.get('WARCRecorder'),
         )
+
+        phantomjs_coprocessor.proxy_task = proxy_task  # FIXME: stick this somewhere else
 
         return phantomjs_coprocessor
 

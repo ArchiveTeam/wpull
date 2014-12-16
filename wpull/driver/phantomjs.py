@@ -1,13 +1,8 @@
 # encoding=utf-8
 '''PhantomJS wrapper.'''
-import atexit
 import contextlib
-import json
 import logging
 import subprocess
-import time
-import uuid
-import errno
 
 import trollius
 from trollius.coroutines import From, Return
@@ -23,11 +18,13 @@ _logger = logging.getLogger(__name__)
 
 class PhantomJSRPCError(OSError):
     '''Error during RPC call to PhantomJS.'''
-    pass
 
 
 class PhantomJSRPCTimedOut(PhantomJSRPCError):
     '''RPC call timed out.'''
+
+
+# TODO: implement timeouts
 
 
 class PhantomJSDriver(object):
@@ -74,6 +71,7 @@ class PhantomJSDriver(object):
 
     def _message_callback(self, message):
         event_name = message['event']
+        _logger.debug(__('Message callback {}', event_name))
 
         if event_name == 'poll':
             try:
@@ -87,6 +85,7 @@ class PhantomJSDriver(object):
 
     def _event_callback(self, message):
         name = message['event']
+        _logger.debug(__('Event callback {}', name))
 
         if name in self.page_event_handlers:
             value = self.page_event_handlers[name](message)
@@ -172,11 +171,6 @@ class PhantomJSPool(object):
         self._extra_args = extra_args
         self._page_settings = page_settings
         self._default_headers = default_headers
-
-    # def test_client_exe(self):
-    #     '''Raise an error if PhantomJS executable is not found.'''
-    #     remote = PhantomJSRemote(self._exe_path)
-    #     remote.close()
 
     @property
     def drivers_ready(self):
