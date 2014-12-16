@@ -83,38 +83,46 @@ class RPCProcess(object):
 
     @trollius.coroutine
     def _read_stdout(self):
-        while True:
-            line = yield From(self._process.stdout.readline())
+        try:
+            while True:
+                line = yield From(self._process.stdout.readline())
 
-            _logger.debug('Read stdout line %s', repr(line))
+                _logger.debug('Read stdout line %s', repr(line))
 
-            if not line:
-                break
+                if not line:
+                    break
 
-            if line.startswith(b'!RPC '):
-                message = json.loads(line[5:].decode('utf-8'))
-                return_value = self._message_callback(message)
+                if line.startswith(b'!RPC '):
+                    message = json.loads(line[5:].decode('utf-8'))
+                    return_value = self._message_callback(message)
 
-                if return_value is not None:
-                    yield From(self.send_message(return_value))
-            else:
+                    if return_value is not None:
+                        yield From(self.send_message(return_value))
+                else:
+                    _logger.warning(__(
+                        _('Subprocess: {message}'),
+                        message=line.decode('utf-8', 'replace').rstrip()
+                    ))
+        except Exception:
+            _logger.exception('Unhandled read stdout exception.')
+            raise
+
+    @trollius.coroutine
+    def _read_stderr(self):
+        try:
+            while True:
+                line = yield From(self._process.stderr.readline())
+
+                if not line:
+                    break
+
                 _logger.warning(__(
                     _('Subprocess: {message}'),
                     message=line.decode('utf-8', 'replace').rstrip()
                 ))
-
-    @trollius.coroutine
-    def _read_stderr(self):
-        while True:
-            line = yield From(self._process.stderr.readline())
-
-            if not line:
-                break
-
-            _logger.warning(__(
-                _('Subprocess: {message}'),
-                message=line.decode('utf-8', 'replace').rstrip()
-            ))
+        except Exception:
+            _logger.exception('Unhandled read stderr exception.')
+            raise
 
     @trollius.coroutine
     def send_message(self, message):
