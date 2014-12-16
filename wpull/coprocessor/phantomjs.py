@@ -111,12 +111,12 @@ class PhantomJSCoprocessor(object):
     @trollius.coroutine
     def _scrape_document(self, session, request, response, url_item):
         temp_fd, temp_path = tempfile.mkstemp(
-            dir=self._root_path, prefix='phnsh',
+            dir=self._root_path, prefix='phnsc',
             suffix='.html'
         )
         os.close(temp_fd)
 
-        yield From(session.take_snapshot(temp_path))
+        yield From(session.take_snapshot(temp_path, add_warc=False))
 
         mock_response = self._new_mock_response(response, temp_path)
 
@@ -124,6 +124,9 @@ class PhantomJSCoprocessor(object):
 
         if mock_response.body:
             mock_response.body.close()
+
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
 
         _logger.debug('Ended PhantomJS processing.')
 
@@ -175,6 +178,15 @@ class PhantomJSCoprocessorSession(object):
 
     @trollius.coroutine
     def fetch(self, url):
+        _logger.info(__(
+            _('PhantomJS fetching ‘{url}’.'),
+            url=url
+        ))
+
+        if url.startswith('https://'):
+            _logger.debug('Rewriting')
+            url = 'http://{}/WPULLHTTPS'.format(url[8:])
+
         yield From(self._driver.open_page(
             url,
             viewport_size=self._params.viewport_size,
@@ -228,7 +240,7 @@ class PhantomJSCoprocessorSession(object):
         self._warc_recorder.write_record(record)
 
     @trollius.coroutine
-    def take_snapshot(self, path):
+    def take_snapshot(self, path, add_warc=True):
         extension = os.path.splitext(path)[1]
 
         assert extension in ('.pdf', '.png', '.html'), (path, extension)
@@ -243,7 +255,7 @@ class PhantomJSCoprocessorSession(object):
         yield From(self._driver.snapshot(path))
         url = yield From(self._driver.get_page_url())
 
-        if self._warc_recorder:
+        if self._warc_recorder and add_warc:
             mime_type = {
                 '.pdf': 'application/pdf',
                 '.html': 'text/html',
@@ -279,6 +291,8 @@ class PhantomJSCoprocessorSession(object):
 
     def _resource_requested_cb(self, message):
         request_data = message['request_data']
+        _logger.debug(__('Resource requested {}', request_data['url']))
+
         url_info = wpull.url.parse_url_or_log(request_data['url'])
 
         if not url_info:
@@ -298,10 +312,12 @@ class PhantomJSCoprocessorSession(object):
             self._resource_tracker.process_request(request_data)
 
             if url.startswith('https://'):
-                new_url = '{}/WPULLHTTPS'.format(url)
+                _logger.debug('Rewriting')
+                new_url = 'http://{}/WPULLHTTPS'.format(url[8:])
                 return new_url
 
         else:
+            _logger.debug('Aborting.')
             return 'abort'
 
     def _resource_received_cb(self, message):
