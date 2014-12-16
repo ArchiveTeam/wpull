@@ -47,9 +47,9 @@ class PhantomJSDriver(object):
                  page_settings=None, default_headers=None):
 
         script_path = wpull.util.get_package_filename('driver/phantomjs.js')
-        args = [exe_path] + (extra_args or []) + [script_path]
+        self._args = [exe_path] + (extra_args or []) + [script_path]
 
-        self._process = RPCProcess(args, self._message_callback)
+        self._process = None
 
         self._page_settings = page_settings
         self._default_headers = default_headers
@@ -59,14 +59,14 @@ class PhantomJSDriver(object):
         self._message_out_queue = trollius.Queue()
         self._message_in_queue = trollius.Queue()
 
-        self._is_setup = False
-
     @trollius.coroutine
     def start(self):
         _logger.debug('PhantomJS setup.')
 
-        assert not self._is_setup
-        self._is_setup = True
+        if self._process and self._process.process.returncode is None:
+            return
+
+        self._process = RPCProcess(self._args, self._message_callback)
 
         yield From(self._process.start())
 
@@ -97,7 +97,7 @@ class PhantomJSDriver(object):
 
     def close(self):
         '''Terminate the PhantomJS process.'''
-        if self.return_code is None:
+        if self._process and self.return_code is None:
             _logger.debug('Terminate phantomjs process.')
             self._process.close()
 

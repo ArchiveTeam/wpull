@@ -32,6 +32,8 @@ class RPCProcess(object):
 
     @trollius.coroutine
     def start(self, use_atexit=True):
+        assert not self._process
+
         _logger.debug('Starting process %s', self._proc_args)
 
         process_future = trollius.create_subprocess_exec(
@@ -84,7 +86,7 @@ class RPCProcess(object):
     @trollius.coroutine
     def _read_stdout(self):
         try:
-            while True:
+            while self._process.returncode is None:
                 line = yield From(self._process.stdout.readline())
 
                 _logger.debug('Read stdout line %s', repr(line))
@@ -110,7 +112,7 @@ class RPCProcess(object):
     @trollius.coroutine
     def _read_stderr(self):
         try:
-            while True:
+            while self._process.returncode is None:
                 line = yield From(self._process.stderr.readline())
 
                 if not line:

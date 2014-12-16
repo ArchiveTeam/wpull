@@ -70,7 +70,15 @@ class TestPhantomJS(GoodAppTestCase):
 
             self.assertTrue(load_finished)
 
-            self.assertEqual(self.get_url('/'), page_url)
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_process_reuse(self):
+        driver = PhantomJSDriver()
+
+        with cd_tempdir():
+            yield From(driver.start())
+            yield From(driver.open_page(self.get_url('/')))
+            yield From(driver.start())
+            yield From(driver.open_page(self.get_url('/')))
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_pool(self):
