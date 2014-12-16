@@ -18,7 +18,6 @@ class PhantomJS {
     }
 
     public static function main() {
-        trace("Hello world");
         var app = new PhantomJS();
     }
 
@@ -26,8 +25,6 @@ class PhantomJS {
         sendMessage({event: "poll"});
         var commandMessage = readMessage();
         var replyValue = null;
-
-        trace("pollForCommand", commandMessage);
 
         switch commandMessage.command {
             case "new_page":
@@ -58,22 +55,24 @@ class PhantomJS {
             case "get_page_url":
                 replyValue = page.url;
             case null:
+                return;
             default:
                 trace("Unknown command");
         }
 
-        sendMessage({event: "reply", value: replyValue});
+        sendMessage({
+            event: "reply", value: replyValue,
+            reply_id: commandMessage.message_id
+        });
     }
 
     private function sendMessage(message : Dynamic) {
-        trace("send message");
         var messageString = untyped __js__("JSON").stringify(message);
         system.stdout.write("!RPC ");
         system.stdout.writeLine(messageString);
     }
 
     private function readMessage() : Dynamic {
-        trace("read message");
         var messageString = system.stdin.readLine();
         var message = untyped __js__("JSON").parse(messageString.slice(5));
         return message;
@@ -236,6 +235,10 @@ class PhantomJS {
                 request_data: requestData,
                 network_request: networkRequest
             });
+
+            if (!reply) {
+                return;
+            }
 
             if (cast(reply, String) == 'abort') {
                 networkRequest.abort();

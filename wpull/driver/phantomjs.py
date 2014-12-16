@@ -3,6 +3,7 @@
 import contextlib
 import logging
 import subprocess
+import uuid
 
 import trollius
 from trollius.coroutines import From, Return
@@ -102,11 +103,16 @@ class PhantomJSDriver(object):
 
     @trollius.coroutine
     def send_command(self, command, **kwargs):
-        message = {'command': command}
+        message_id = uuid.uuid4().hex
+        _logger.debug(__('Send command {} {}', command, message_id))
+
+        message = {'command': command, 'message_id': message_id}
         message.update(dict(**kwargs))
         yield From(self._message_out_queue.put(message))
 
         reply = yield From(self._message_in_queue.get())
+
+        _logger.debug(__('Command reply {} {}', command, reply))
 
         raise Return(reply['value'])
 

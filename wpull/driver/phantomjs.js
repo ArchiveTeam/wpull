@@ -19,7 +19,6 @@ var PhantomJS = function() {
 };
 PhantomJS.__name__ = true;
 PhantomJS.main = function() {
-	haxe.Log.trace("Hello world",{ fileName : "PhantomJS.hx", lineNumber : 21, className : "PhantomJS", methodName : "main"});
 	var app = new PhantomJS();
 };
 PhantomJS.prototype = {
@@ -27,10 +26,8 @@ PhantomJS.prototype = {
 		this.sendMessage({ event : "poll"});
 		var commandMessage = this.readMessage();
 		var replyValue = null;
-		haxe.Log.trace("pollForCommand",{ fileName : "PhantomJS.hx", lineNumber : 30, className : "PhantomJS", methodName : "pollForCommand", customParams : [commandMessage]});
 		var _g = commandMessage.command;
-		if(_g == null) {
-		} else switch(_g) {
+		if(_g == null) return; else switch(_g) {
 		case "new_page":
 			this.newPage();
 			break;
@@ -64,18 +61,16 @@ PhantomJS.prototype = {
 			replyValue = this.page.url;
 			break;
 		default:
-			haxe.Log.trace("Unknown command",{ fileName : "PhantomJS.hx", lineNumber : 62, className : "PhantomJS", methodName : "pollForCommand"});
+			console.log("Unknown command");
 		}
-		this.sendMessage({ event : "reply", value : replyValue});
+		this.sendMessage({ event : "reply", value : replyValue, reply_id : commandMessage.message_id});
 	}
 	,sendMessage: function(message) {
-		haxe.Log.trace("send message",{ fileName : "PhantomJS.hx", lineNumber : 69, className : "PhantomJS", methodName : "sendMessage"});
 		var messageString = JSON.stringify(message);
 		this.system.stdout.write("!RPC ");
 		this.system.stdout.writeLine(messageString);
 	}
 	,readMessage: function() {
-		haxe.Log.trace("read message",{ fileName : "PhantomJS.hx", lineNumber : 76, className : "PhantomJS", methodName : "readMessage"});
 		var messageString = this.system.stdin.readLine();
 		var message = JSON.parse(messageString.slice(5));
 		return message;
@@ -173,6 +168,7 @@ PhantomJS.prototype = {
 		};
 		this.page.onResourceRequested = function(requestData,networkRequest) {
 			var reply = _g.sendEvent("resource_requested",{ request_data : requestData, network_request : networkRequest});
+			if(!reply) return;
 			if(js.Boot.__cast(reply , String) == "abort") networkRequest.abort(); else if(reply) networkRequest.changeUrl(reply);
 		};
 		this.page.onResourceTimeout = function(request) {
@@ -226,34 +222,9 @@ StringTools.endsWith = function(s,end) {
 	var slen = s.length;
 	return slen >= elen && HxOverrides.substr(s,slen - elen,elen) == end;
 };
-var haxe = {};
-haxe.Log = function() { };
-haxe.Log.__name__ = true;
-haxe.Log.trace = function(v,infos) {
-	js.Boot.__trace(v,infos);
-};
 var js = {};
 js.Boot = function() { };
 js.Boot.__name__ = true;
-js.Boot.__unhtml = function(s) {
-	return s.split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;");
-};
-js.Boot.__trace = function(v,i) {
-	var msg;
-	if(i != null) msg = i.fileName + ":" + i.lineNumber + ": "; else msg = "";
-	msg += js.Boot.__string_rec(v,"");
-	if(i != null && i.customParams != null) {
-		var _g = 0;
-		var _g1 = i.customParams;
-		while(_g < _g1.length) {
-			var v1 = _g1[_g];
-			++_g;
-			msg += "," + js.Boot.__string_rec(v1,"");
-		}
-	}
-	var d;
-	if(typeof(document) != "undefined" && (d = document.getElementById("haxe:trace")) != null) d.innerHTML += js.Boot.__unhtml(msg) + "<br/>"; else if(typeof console != "undefined" && console.log != null) console.log(msg);
-};
 js.Boot.getClass = function(o) {
 	if((o instanceof Array) && o.__enum__ == null) return Array; else return o.__class__;
 };

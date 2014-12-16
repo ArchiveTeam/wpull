@@ -12,6 +12,7 @@ from trollius import From, Return
 from wpull.body import Body
 from wpull.driver.resource import PhantomJSResourceTracker
 from wpull.driver.scroller import Scroller
+from wpull.http.request import Request, Response
 from wpull.namevalue import NameValueRecord
 from wpull.warc import WARCRecord
 import wpull.url
@@ -63,11 +64,16 @@ class PhantomJSCoprocessor(object):
         if not HTMLReader.is_supported(request=request, response=response):
             return
 
+        # TODO: is page dynamic?
+
         _logger.debug('Starting PhantomJS processing.')
+
+        self._file_writer_session = file_writer_session
 
         with self._phantomjs_pool.session() as driver:
             session = PhantomJSCoprocessorSession(
                 driver, self._fetch_rule, self._result_rule,
+                url_item,
                 self._phantomjs_params, warc_recorder=self._warc_recorder
             )
             # TODO: need to implement and handle timeouts
@@ -81,17 +87,17 @@ class PhantomJSCoprocessor(object):
 
     @trollius.coroutine
     def _take_snapshots(self, session, infix='snapshot'):
-        for snapshot_type in self._phantomjs_params.snapshot_type or ():
+        for snapshot_type in self._phantomjs_params.snapshot_types or ():
             path = self._file_writer_session.extra_resource_path(
                 '.{infix}.{file_type}'.format(infix=infix, file_type=snapshot_type)
             )
 
             if not path:
-                temp_file, temp_path = tempfile.mkstemp(
+                temp_fd, temp_path = tempfile.mkstemp(
                         dir=self._root_path, prefix='phnsh',
                         suffix='.{}'.format(snapshot_type)
                     )
-                temp_file.close()
+                os.close(temp_fd)
                 path = temp_path
             else:
                 temp_path = None
@@ -104,15 +110,15 @@ class PhantomJSCoprocessor(object):
 
     @trollius.coroutine
     def _scrape_document(self, session, request, response, url_item):
-        temp_file, temp_path = tempfile.mkstemp(
+        temp_fd, temp_path = tempfile.mkstemp(
             dir=self._root_path, prefix='phnsh',
             suffix='.html'
         )
-        temp_file.close()
+        os.close(temp_fd)
 
         yield From(session.take_snapshot(temp_path))
 
-        mock_response = self._new_mock_response(response, temp_file)
+        mock_response = self._new_mock_response(response, temp_path)
 
         self._processing_rule.scrape_document(request, mock_response, url_item)
 
@@ -137,10 +143,11 @@ class PhantomJSCoprocessor(object):
 
 
 class PhantomJSCoprocessorSession(object):
-    def __init__(self, driver, fetch_rule, result_rule, params, warc_recorder=None):
+    def __init__(self, driver, fetch_rule, result_rule, url_item, params, warc_recorder=None):
         self._driver = driver
         self._fetch_rule = fetch_rule
         self._result_rule = result_rule
+        self._url_item = url_item
         self._params = params
         self._warc_recorder = warc_recorder
 
@@ -156,12 +163,15 @@ class PhantomJSCoprocessorSession(object):
 
         self._actions = []
         self._action_warc_record = None
+        self._load_state = 'not_started'
 
-        driver.page_event_handlers['resource_requested'] = self.resource_error_cb
-        driver.page_event_handlers['resource_received'] = self.resource_received_cb
-        driver.page_event_handlers['resource_error'] = self.resource_error_cb
-        driver.page_event_handlers['resource_timeout'] = self.resource_timeout_cb
-        driver.page_event_handlers['error'] = self.error_cb
+        driver.page_event_handlers['load_started'] = self._load_started_cb
+        driver.page_event_handlers['load_finished'] = self._load_finished_cb
+        driver.page_event_handlers['resource_requested'] = self._resource_requested_cb
+        driver.page_event_handlers['resource_received'] = self._resource_received_cb
+        driver.page_event_handlers['resource_error'] = self._resource_error_cb
+        driver.page_event_handlers['resource_timeout'] = self._resource_timeout_cb
+        driver.page_event_handlers['error'] = self._error_cb
 
     @trollius.coroutine
     def fetch(self, url):
@@ -176,7 +186,7 @@ class PhantomJSCoprocessorSession(object):
         _logger.debug('Wait load')
 
         # TODO: need a session timeout option
-        while self._resource_tracker.pending:
+        while self._load_state != 'finished' or self._resource_tracker.pending:
             yield From(trollius.sleep(0.1))
 
         _logger.debug('Wait over')
@@ -184,6 +194,10 @@ class PhantomJSCoprocessorSession(object):
     @trollius.coroutine
     def scroll_page(self):
         yield From(self._scroller.scroll_to_bottom())
+
+        if self._warc_recorder:
+            url = yield From(self._driver.get_page_url())
+            self._add_warc_action_log(url)
 
     def _log_action(self, name, value):
         '''Add a action to the action log.'''
@@ -257,9 +271,21 @@ class PhantomJSCoprocessorSession(object):
             self._warc_recorder.set_length_and_maybe_checksums(record)
             self._warc_recorder.write_record(record)
 
-    def resource_requested_cb(self, message):
+    def _load_started_cb(self, message):
+        self._load_state = 'started'
+
+    def _load_finished_cb(self, message):
+        self._load_state = 'finished'
+
+    def _resource_requested_cb(self, message):
         request_data = message['request_data']
-        should_fetch = self._fetch_rule.check_generic_request()[0]
+        url_info = wpull.url.parse_url_or_log(request_data['url'])
+
+        if not url_info:
+            return
+
+        should_fetch = self._fetch_rule.check_generic_request(
+            url_info, self._url_item.url_record)[0]
 
         if should_fetch:
             url = request_data['url']
@@ -278,7 +304,7 @@ class PhantomJSCoprocessorSession(object):
         else:
             return 'abort'
 
-    def resource_received_cb(self, message):
+    def _resource_received_cb(self, message):
         response = message['response']
 
         self._resource_tracker.process_response(response)
@@ -304,7 +330,7 @@ class PhantomJSCoprocessorSession(object):
             content_type=response.get('contentType'),
             ))
 
-    def resource_error_cb(self, message):
+    def _resource_error_cb(self, message):
         resource_error = message['resource_error']
 
         self._resource_tracker.process_error(resource_error)
@@ -318,7 +344,7 @@ class PhantomJSCoprocessorSession(object):
         # TODO
         # self._result_rule.handle_error(asdfasdf, asdfsadfasdf)
 
-    def resource_timeout_cb(self, message):
+    def _resource_timeout_cb(self, message):
         request = message['request']
 
         self._resource_tracker.process_error(request)
@@ -332,9 +358,43 @@ class PhantomJSCoprocessorSession(object):
         # TODO
         # self._result_rule.handle_error(asdfasdf, asdfsadfasdf)
 
-    def error_cb(self, message):
+    def _error_cb(self, message):
         _logger.error(__(
             _('PhantomJSError: {message} {trace}'),
             message=message['message'],
             trace=message['trace']
         ))
+
+
+def convert_phantomjs_request(request_data):
+    url_info = wpull.url.parse_url_or_log(request_data['url'])
+
+    if not url_info:
+        return
+
+    request = Request()
+    request.method = request_data['method']
+    request.url_info = url_info
+
+    for header in request_data['headers']:
+        request.fields.add(header['name'], header['value'])
+
+    return request
+
+
+def convert_phantomjs_response(response):
+    url_info = wpull.url.parse_url_or_log(response['url'])
+
+    if not url_info:
+        return
+
+    response = Response(
+        status_code=response['status'],
+        reason=response['statusText'],
+    )
+    response.url_info = url_info
+
+    for header in response['headers']:
+        response.fields.add(header['name'], header['value'])
+
+    return response

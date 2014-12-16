@@ -120,7 +120,11 @@ class PhantomJSResourceTracker(ResourceTracker):
         resource.start()
 
     def process_response(self, response):
-        resource = self._resources[response['id']]
+        try:
+            resource = self._resources[response['id']]
+        except KeyError:
+            # FIXME:
+            return
 
         if response['stage'] == 'end':
             resource.end()
@@ -130,7 +134,11 @@ class PhantomJSResourceTracker(ResourceTracker):
             resource.touch()
 
     def process_error(self, resource_error):
-        resource = self._resources[resource_error['id']]
+        try:
+            resource = self._resources[resource_error['id']]
+        except KeyError:
+            # FIXME:
+            return
 
         resource.error()
         self._pending.remove(resource)
