@@ -2,6 +2,9 @@
 What's New
 ==========
 
+* Fixed FTP data connection reuse error.
+
+
 0.1003 (2014-12-11)
 ===================
 

@@ -136,6 +136,10 @@ class Commander(object):
 
         connection = yield From(connection_factory(address))
 
+        # TODO: unit test for following line for connections that have
+        # the same port over time but within pool cleaning intervals
+        connection.reset()
+
         yield From(connection.connect())
 
         data_stream = data_stream_factory(connection)
