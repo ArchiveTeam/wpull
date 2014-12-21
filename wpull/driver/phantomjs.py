@@ -158,6 +158,14 @@ class PhantomJSDriver(object):
         yield From(self.send_command('scroll_page', x=x, y=y))
 
     @trollius.coroutine
+    def send_click(self, x, y, button='left'):
+        yield From(self.send_command('click', x=x, y=y, button=button))
+
+    @trollius.coroutine
+    def send_key(self, key, modifier=0):
+        yield From(self.send_command('key', key=key, modifier=modifier))
+
+    @trollius.coroutine
     def get_page_url(self):
         url = yield From(self.send_command('get_page_url'))
         raise Return(url)

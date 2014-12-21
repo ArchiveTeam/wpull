@@ -60,6 +60,12 @@ PhantomJS.prototype = {
 		case "get_page_url":
 			replyValue = this.page.url;
 			break;
+		case "click":
+			this.sendClick(commandMessage.x,commandMessage.y,commandMessage.button);
+			break;
+		case "key":
+			this.sendKey(commandMessage.key,commandMessage.modifier);
+			break;
 		default:
 			console.log("Unknown command");
 		}
@@ -118,9 +124,16 @@ PhantomJS.prototype = {
 	,scrollPage: function(x,y) {
 		this.page.scrollPosition = { left : x, top : y};
 		this.page.evaluate("\n            function () {\n                if (window) {\n                    window.scrollTo(" + x + ", " + y + ");\n                }\n            }\n        ");
-		this.page.sendEvent("keypress",this.page.event.key.PageDown);
-		this.page.sendEvent("keydown",this.page.event.key.PageDown);
-		this.page.sendEvent("keyup",this.page.event.key.PageDown);
+	}
+	,sendClick: function(x,y,button) {
+		this.page.sendEvent("mousedown",x,y,button);
+		this.page.sendEvent("mouseup",x,y,button);
+		this.page.sendEvent("click",x,y,button);
+	}
+	,sendKey: function(key,modifier) {
+		this.page.sendEvent("keypress",key,null,null,modifier);
+		this.page.sendEvent("keydown",key,null,null,modifier);
+		this.page.sendEvent("keyup",key,null,null,modifier);
 	}
 	,listenEvents: function() {
 		var _g = this;

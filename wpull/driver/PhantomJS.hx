@@ -54,6 +54,10 @@ class PhantomJS {
                 exit(commandMessage.exit_code);
             case "get_page_url":
                 replyValue = page.url;
+            case "click":
+                sendClick(commandMessage.x, commandMessage.y, commandMessage.button);
+            case "key":
+                sendKey(commandMessage.key, commandMessage.modifier);
             case null:
                 return;
             default:
@@ -149,9 +153,18 @@ class PhantomJS {
                 }
             }
         ');
-        page.sendEvent("keypress", page.event.key.PageDown);
-        page.sendEvent("keydown", page.event.key.PageDown);
-        page.sendEvent("keyup", page.event.key.PageDown);
+    }
+
+    private function sendClick(x : Int, y : Int, button : String) {
+        page.sendEvent("mousedown", x, y, button);
+        page.sendEvent("mouseup", x, y, button);
+        page.sendEvent("click", x, y, button);
+    }
+
+    private function sendKey(key : Int, modifier : Int) {
+        page.sendEvent("keypress", key, null, null, modifier);
+        page.sendEvent("keydown", key, null, null, modifier);
+        page.sendEvent("keyup", key, null, null, modifier);
     }
 
     private function listenEvents() {

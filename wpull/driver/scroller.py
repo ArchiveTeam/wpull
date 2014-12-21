@@ -11,6 +11,9 @@ _logger = logging.getLogger(__name__)
 _ = gettext.gettext
 
 
+PAGE_DOWN = 16777239
+
+
 class Scroller(object):
     '''PhantomJS page scroller.
 
@@ -48,6 +51,7 @@ class Scroller(object):
             self._log_action('set_scroll_top', self._current_y)
 
             yield From(self._driver.scroll_to(0, self._current_y))
+            yield From(self._driver.send_key(PAGE_DOWN))
 
             total_scroll_count += 1
 
