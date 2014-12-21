@@ -239,6 +239,7 @@ class PhantomJSCoprocessorSession(object):
         yield From(self._scroller.scroll_to_bottom())
 
         if self._warc_recorder:
+            # FIXME: this doesn't account for the HTTP/HTTPS hack!!!
             url = yield From(self._driver.get_page_url())
             self._add_warc_action_log(url)
 
@@ -285,6 +286,8 @@ class PhantomJSCoprocessorSession(object):
 
         yield From(self._scroller.scroll_to_top())
         yield From(self._driver.snapshot(path))
+
+        # FIXME: this doesn't account for the HTTP/HTTPS hack!!!
         url = yield From(self._driver.get_page_url())
 
         if self._warc_recorder and add_warc:

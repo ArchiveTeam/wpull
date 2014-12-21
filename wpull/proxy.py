@@ -85,6 +85,12 @@ class HTTPProxyServer(object):
         if self._rewrite and request.url.endswith('/WPULLHTTPS'):
             request.url = request.url[:-11].replace('http://', 'https://', 1)
 
+        if self._rewrite and 'Referer' in request.fields and \
+                request.fields['Referer'].endswith('/WPULLHTTPS'):
+            url = request.fields['Referer']
+            url = url[:-11].replace('http://', 'https://', 1)
+            request.fields['Referer'] = url
+
         _logger.debug('Begin response.')
 
         with self._http_client.session() as session:
