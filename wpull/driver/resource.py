@@ -1,6 +1,10 @@
 '''Resource tracking.'''
 import abc
+import logging
 import time
+
+
+_logger = logging.getLogger(__name__)
 
 
 class ResourceState(object):
@@ -122,27 +126,28 @@ class PhantomJSResourceTracker(ResourceTracker):
     def process_response(self, response):
         try:
             resource = self._resources[response['id']]
+
+            if response['stage'] == 'end':
+                resource.end()
+                self._pending.remove(resource)
+                self._loaded.add(resource)
+            else:
+                resource.touch()
+
         except KeyError:
             # FIXME:
-            return
-
-        if response['stage'] == 'end':
-            resource.end()
-            self._pending.remove(resource)
-            self._loaded.add(resource)
-        else:
-            resource.touch()
+            _logger.exception('Ugh.')
 
     def process_error(self, resource_error):
         try:
             resource = self._resources[resource_error['id']]
+
+            resource.error()
+            self._pending.remove(resource)
+            self._error.add(resource)
         except KeyError:
             # FIXME:
-            return
-
-        resource.error()
-        self._pending.remove(resource)
-        self._error.add(resource)
+            _logger.exception('Ugh.')
 
 
 class PySideResourceTracker(ResourceTracker):
