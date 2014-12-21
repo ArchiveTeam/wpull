@@ -231,6 +231,11 @@ class PhantomJSCoprocessorSession(object):
 
     @trollius.coroutine
     def scroll_page(self):
+        # Try to get rid of any stupid "sign up now" overlays.
+        click_x, click_y = self._params.viewport_size
+        self._log_action('click', [click_x, click_y])
+        yield From(self._driver.send_click(click_x, click_y))
+
         yield From(self._scroller.scroll_to_bottom())
 
         if self._warc_recorder:
@@ -278,6 +283,7 @@ class PhantomJSCoprocessorSession(object):
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
 
+        yield From(self._scroller.scroll_to_top())
         yield From(self._driver.snapshot(path))
         url = yield From(self._driver.get_page_url())
 
@@ -310,9 +316,11 @@ class PhantomJSCoprocessorSession(object):
             self._warc_recorder.write_record(record)
 
     def _load_started_cb(self, message):
+        _logger.debug('Load started.')
         self._load_state = 'started'
 
     def _load_finished_cb(self, message):
+        _logger.debug('Load finished')
         self._load_state = 'finished'
 
     def _resource_requested_cb(self, message):
@@ -324,10 +332,12 @@ class PhantomJSCoprocessorSession(object):
         if not url_info:
             return
 
+        # FIXME: need to tell resource is inline
         should_fetch = self._fetch_rule.check_generic_request(
             url_info, self._url_item.url_record)[0]
 
-        if should_fetch:
+        # if should_fetch:
+        if True:
             url = request_data['url']
 
             _logger.info(__(
