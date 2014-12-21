@@ -25,9 +25,6 @@ class PhantomJSRPCTimedOut(PhantomJSRPCError):
     '''RPC call timed out.'''
 
 
-# TODO: implement timeouts
-
-
 class PhantomJSDriver(object):
     '''PhantomJS RPC wrapper.
 
@@ -44,7 +41,7 @@ class PhantomJSDriver(object):
     The messages passed are in the JSON format.
     '''
     def __init__(self, exe_path='phantomjs', extra_args=None,
-                 page_settings=None, default_headers=None):
+                 page_settings=None, default_headers=None, rpc_timeout=60):
 
         script_path = wpull.util.get_package_filename('driver/phantomjs.js')
         self._args = [exe_path] + (extra_args or []) + [script_path]
@@ -53,6 +50,7 @@ class PhantomJSDriver(object):
 
         self._page_settings = page_settings
         self._default_headers = default_headers
+        self._rpc_timeout = rpc_timeout
 
         self.page_event_handlers = {}
 
@@ -110,7 +108,12 @@ class PhantomJSDriver(object):
         message.update(dict(**kwargs))
         yield From(self._message_out_queue.put(message))
 
-        reply = yield From(self._message_in_queue.get())
+        try:
+            reply = yield From(trollius.wait_for(self._message_in_queue.get(), self._rpc_timeout))
+        except trollius.TimeoutError as error:
+            self.close()
+            raise PhantomJSRPCTimedOut(
+                'Send command {} timed out'.format(repr(command))) from error
 
         _logger.debug(__('Command reply {} {}', command, reply))
 

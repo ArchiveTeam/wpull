@@ -57,6 +57,8 @@ class TestPhantomJS(GoodAppTestCase):
                     yield From(trollius.sleep(0.1))
                 else:
                     break
+            else:
+                print('Load did not finish!')
 
             yield From(driver.close_page())
             driver.close()
@@ -177,51 +179,17 @@ class TestPhantomJS(GoodAppTestCase):
         self.assertNotIn(test_driver, pool.drivers_busy)
 
         pool.close()
-    #
-    # @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    # def test_timeouts(self):
-    #     remote = PhantomJSRemote()
-    #
-    #     try:
-    #         yield From(remote.wait_page_event('invalid_event', timeout=0.1))
-    #     except PhantomJSRPCTimedOut:
-    #         pass
-    #     else:
-    #         self.fail()  # pragma: no cover
-    #
-    #     @trollius.coroutine
-    #     def mock_put_rpc_info(rpc_info):
-    #         '''Discard any RPC to be sent to the subprocesss.'''
-    #         return trollius.Event()
-    #
-    #     remote._put_rpc_info = mock_put_rpc_info
-    #
-    #     try:
-    #         yield From(trollius.async(remote.eval('blah', timeout=0.1)))
-    #     except PhantomJSRPCTimedOut:
-    #         pass
-    #     else:
-    #         self.fail()  # pragma: no cover
-    #
-    #     try:
-    #         yield From(remote.set('blah', 123, timeout=0.1))
-    #     except PhantomJSRPCTimedOut:
-    #         pass
-    #     else:
-    #         self.fail()  # pragma: no cover
-    #
-    #     try:
-    #         yield From(remote.call('blah', timeout=0.1))
-    #     except PhantomJSRPCTimedOut:
-    #         pass
-    #     else:
-    #         self.fail()  # pragma: no cover
-    #
-    # @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    # def test_multiline(self):
-    #     remote = PhantomJSRemote()
-    #
-    #     code = "new Array(9001).join('a');"
-    #     result = yield From(trollius.async(remote.eval(code)))
-    #
-    #     self.assertEqual('a' * 9000, result)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_timeouts(self):
+        driver = PhantomJSDriver(rpc_timeout=0)
+
+        with cd_tempdir():
+            yield From(driver.start())
+
+            try:
+                yield From(driver.open_page(self.get_url('/')))
+            except PhantomJSRPCTimedOut:
+                pass
+            else:
+                self.fail()  # pragma: no-cover
