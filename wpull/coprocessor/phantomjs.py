@@ -5,17 +5,23 @@ import logging
 import os
 import tempfile
 import io
-import namedlist
 import time
+
+import namedlist
 import trollius
 from trollius import From, Return
+
+from wpull.backport.logging import BraceMessage as __
+from wpull.document.html import HTMLReader
 from wpull.body import Body
+from wpull.driver.phantomjs import PhantomJSRPCError
 from wpull.driver.resource import PhantomJSResourceTracker
 from wpull.driver.scroller import Scroller
 from wpull.http.request import Request, Response
 from wpull.namevalue import NameValueRecord
 from wpull.warc import WARCRecord
 import wpull.url
+
 
 PhantomJSParams = namedlist.namedtuple(
     'PhantomJSParamsType', [
@@ -28,8 +34,6 @@ PhantomJSParams = namedlist.namedtuple(
         ('paper_size', (2400, 3840))
     ]
 )
-from wpull.backport.logging import BraceMessage as __
-from wpull.document.html import HTMLReader
 
 
 _logger = logging.getLogger(__name__)
@@ -70,6 +74,26 @@ class PhantomJSCoprocessor(object):
 
         self._file_writer_session = file_writer_session
 
+        # FIXME: this is a quick hack for handling time outs. See #137.
+        attempts = int(os.environ.get('WPULL_PHANTOMJS_TRIES', 5))
+
+        for dummy in range(attempts):
+            try:
+                yield From(self._run_driver(url_item, request, response))
+            except PhantomJSRPCError as error:
+                _logger.exception(__('PhantomJS Error: {}', error))
+            else:
+                break
+        else:
+            _logger.warning(__(
+                _('PhantomJS failed to fetch ‘{url}’. I am sorry.'),
+                url=request.url_info.url
+            ))
+
+    @trollius.coroutine
+    def _run_driver(self, url_item, request, response):
+        _logger.debug('Started PhantomJS processing.')
+
         with self._phantomjs_pool.session() as driver:
             session = PhantomJSCoprocessorSession(
                 driver, self._fetch_rule, self._result_rule,
@@ -84,6 +108,8 @@ class PhantomJSCoprocessor(object):
             yield From(session.wait_load())
             yield From(self._take_snapshots(session))
             yield From(self._scrape_document(session, request, response, url_item))
+
+        _logger.debug('Ended PhantomJS processing.')
 
     @trollius.coroutine
     def _take_snapshots(self, session, infix='snapshot'):
