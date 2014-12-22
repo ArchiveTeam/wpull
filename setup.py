@@ -123,6 +123,14 @@ if os.environ.get('USE_CX_FREEZE'):
                     os.path.join(wpull_package_src_dir, 'driver', 'phantomjs.js'),
                     'phantomjs.js'
                 ),
+                (
+                    os.path.join(wpull_package_src_dir, 'proxy.crt'),
+                    'proxy.crt'
+                ),
+                (
+                    os.path.join(wpull_package_src_dir, 'proxy.key'),
+                    'proxy.key'
+                ),
             ]
         }
     }
