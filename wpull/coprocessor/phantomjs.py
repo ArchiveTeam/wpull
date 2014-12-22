@@ -219,9 +219,16 @@ class PhantomJSCoprocessorSession(object):
     def wait_load(self):
         _logger.debug('Wait load')
 
-        # TODO: need a session timeout option
+        # FIXME: should this be a configurable option somewhere
+        timeout = self._params.wait_time * 2
+        start_time = time.time()
+
         while self._load_state != 'finished' or self._resource_tracker.pending:
             yield From(trollius.sleep(0.1))
+
+            if time.time() - start_time > timeout:
+                _logger.warning(_('Waiting for page load timed out.'))
+                break
 
         _logger.debug('Wait over')
 
