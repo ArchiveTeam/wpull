@@ -109,8 +109,8 @@ class HTTPProxyServer(object):
             loop = trollius.get_event_loop()
             reader = trollius.StreamReader(loop=loop)
             protocol = trollius.StreamReaderProtocol(reader, loop=loop)
-            transport, dummy = yield from loop.create_connection(
-                lambda: protocol, sock=ssl_socket)
+            transport, dummy = yield From(loop.create_connection(
+                lambda: protocol, sock=ssl_socket))
             writer = trollius.StreamWriter(transport, protocol, reader, loop)
 
             is_tunnel = True
