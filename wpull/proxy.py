@@ -1,6 +1,8 @@
 # encoding=utf-8
 '''Proxy Tools'''
+import gettext
 import logging
+import ssl
 
 from trollius import From, Return
 import trollius
@@ -8,8 +10,10 @@ import trollius
 from wpull.backport.logging import BraceMessage as __
 from wpull.http.request import Request
 from wpull.recorder.progress import ProgressRecorder
+import wpull.util
 
 
+_ = gettext.gettext
 _logger = logging.getLogger(__name__)
 
 
@@ -22,12 +26,9 @@ class HTTPProxyServer(object):
 
     Args:
         http_client (:class:`.http.client.Client`): The HTTP client.
-        rewrite (bool): If True, strip off URLs ending with
-            ``/WPULLHTTPS`` and replaces the scheme with HTTPS.
     '''
-    def __init__(self, http_client, rewrite=False, cookie_jar=None):
+    def __init__(self, http_client, cookie_jar=None):
         self._http_client = http_client
-        self._rewrite = rewrite
         self._cookie_jar = cookie_jar
 
     @trollius.coroutine
@@ -57,6 +58,7 @@ class HTTPProxyServer(object):
         '''Process a request.'''
         _logger.debug('Begin request.')
 
+        is_tunnel = False
         request = Request()
 
         while True:
@@ -75,21 +77,71 @@ class HTTPProxyServer(object):
         _logger.debug(__('Got request {0}', request))
 
         if request.method == 'CONNECT':
-            _logger.warning('Proxy does not support CONNECT.')
-            writer.close()
-            return
+            socket_ = writer.get_extra_info('socket')
+            trollius.get_event_loop().remove_reader(socket_.fileno())
+
+            writer.write(b'HTTP/1.1 200 Connection established\r\n\r\n')
+            yield From(writer.drain())
+
+            trollius.get_event_loop().remove_writer(socket_.fileno())
+
+            ssl_socket = ssl.wrap_socket(
+                socket_, server_side=True,
+                certfile=wpull.util.get_package_filename('proxy.crt'),
+                keyfile=wpull.util.get_package_filename('proxy.key'),
+                do_handshake_on_connect=False
+            )
+
+            # FIXME: this isn't how to START TLS
+            for dummy in range(20):
+                try:
+                    ssl_socket.do_handshake()
+                    break
+                except (ssl.SSLWantReadError, ssl.SSLWantWriteError) as error:
+                    _logger.debug('Do handshake %s', error)
+                    yield From(trollius.sleep(0.05))
+            else:
+                _logger.error(request.resource_path)
+                _logger.error(_('Unable to handshake.'))
+                ssl_socket.close()
+                raise Return(False)
+
+            loop = trollius.get_event_loop()
+            reader = trollius.StreamReader(loop=loop)
+            protocol = trollius.StreamReaderProtocol(reader, loop=loop)
+            transport, dummy = yield from loop.create_connection(
+                lambda: protocol, sock=ssl_socket)
+            writer = trollius.StreamWriter(transport, protocol, reader, loop)
+
+            is_tunnel = True
+
+            request = Request()
+
+            while True:
+                line = yield From(reader.readline())
+
+                _logger.debug(__('Got line {0}', line))
+
+                if line[-1:] != b'\n':
+                    return
+
+                if not line.strip():
+                    break
+
+                request.parse(line)
+
+            if request.url.startswith('http://'):
+                request.url = request.url.replace('http://', 'https://', 1)
+
+        if 'Upgrade' in request.fields.get('Connection', ''):
+            _logger.warning(__(
+                _('Connection Upgrade not supported for {}'),
+                request.url
+            ))
+            raise Return(False)
 
         if self._cookie_jar:
             self._cookie_jar.add_cookie_header(request)
-
-        if self._rewrite and request.url.endswith('/WPULLHTTPS'):
-            request.url = request.url[:-11].replace('http://', 'https://', 1)
-
-        if self._rewrite and 'Referer' in request.fields and \
-                request.fields['Referer'].endswith('/WPULLHTTPS'):
-            url = request.fields['Referer']
-            url = url[:-11].replace('http://', 'https://', 1)
-            request.fields['Referer'] = url
 
         _logger.debug('Begin response.')
 
@@ -107,6 +159,11 @@ class HTTPProxyServer(object):
             yield From(session.read_content(file=writer, raw=True))
 
         _logger.debug('Response done.')
+
+        if is_tunnel:
+            # Can't reuse the connection anymore
+            writer.close()
+            raise Return(False)
 
         raise Return(True)
 
