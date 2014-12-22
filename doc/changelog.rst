@@ -7,6 +7,7 @@ What's New
 * Fixed FTP file listing detecting dates too eagerly as ISO8601 format.
 * Fixed crash on FTP if file listing could not find a date in a line.
 * Fixed HTTP status code 204 "No Content" interpreted as an error.
+* Improved PhantomJS stability. Timeout errors should be less frequent.
 
 
 0.1003 (2014-12-11)
