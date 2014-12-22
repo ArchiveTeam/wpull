@@ -1094,7 +1094,6 @@ class Builder(object):
         proxy_server = self._factory.new(
             'HTTPProxyServer',
             self.factory['HTTPClient'],
-            rewrite=True,
             cookie_jar=self.factory.get('CookieJarWrapper'),
         )
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
@@ -1133,7 +1132,10 @@ class Builder(object):
             snapshot=self._args.phantomjs_snapshot,
         )
 
-        extra_args = ['--proxy', 'localhost:{0}'.format(proxy_port)]
+        extra_args = [
+            '--proxy', 'localhost:{0}'.format(proxy_port),
+            '--ignore-ssl-errors=true'
+        ]
 
         phantomjs_pool = self._factory.new(
             'PhantomJSPool',

@@ -209,10 +209,6 @@ class PhantomJSCoprocessorSession(object):
             url=url
         ))
 
-        if url.startswith('https://'):
-            _logger.debug('Rewriting')
-            url = 'http://{}/WPULLHTTPS'.format(url[8:])
-
         yield From(self._driver.open_page(
             url,
             viewport_size=self._params.viewport_size,
@@ -239,7 +235,6 @@ class PhantomJSCoprocessorSession(object):
         yield From(self._scroller.scroll_to_bottom())
 
         if self._warc_recorder:
-            # FIXME: this doesn't account for the HTTP/HTTPS hack!!!
             url = yield From(self._driver.get_page_url())
             self._add_warc_action_log(url)
 
@@ -287,7 +282,6 @@ class PhantomJSCoprocessorSession(object):
         yield From(self._scroller.scroll_to_top())
         yield From(self._driver.snapshot(path))
 
-        # FIXME: this doesn't account for the HTTP/HTTPS hack!!!
         url = yield From(self._driver.get_page_url())
 
         if self._warc_recorder and add_warc:
@@ -349,12 +343,6 @@ class PhantomJSCoprocessorSession(object):
             ))
 
             self._resource_tracker.process_request(request_data)
-
-            if url.startswith('https://'):
-                _logger.debug('Rewriting')
-                new_url = 'http://{}/WPULLHTTPS'.format(url[8:])
-                return new_url
-
         else:
             _logger.debug('Aborting.')
             return 'abort'
@@ -371,9 +359,6 @@ class PhantomJSCoprocessorSession(object):
         # self._result_rule.handle_document(adsfasdfa,asdfsdf)
 
         url = response['url']
-
-        if url.endswith('/WPULLHTTPS'):
-            url = url[:-11].replace('http://', 'https://', 1)
 
         _logger.info(__(
             _('PhantomJS fetched ‘{url}’: {status_code} {reason}. '
