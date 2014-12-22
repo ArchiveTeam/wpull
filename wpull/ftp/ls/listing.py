@@ -97,6 +97,7 @@ class LineParser(object):
         entries = []
 
         for line in lines:
+            original_line = line
             fields = line.split(' ')
             after_perm_index = 0
 
@@ -133,6 +134,9 @@ class LineParser(object):
                     line = line[4:]
                 else:
                     break
+            else:
+                raise ListingError(
+                    'Could parse a date from {}'.format(repr(original_line)))
 
             file_size = int(line[:start_index].rstrip().rpartition(' ')[-1])
 
