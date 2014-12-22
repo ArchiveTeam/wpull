@@ -27,6 +27,10 @@ bird.txt
 fish.txt
 '''
 
+UNIX_LS_DATELIKE_FILE = '''-rw-r--r--    1 500      500       1558532 Dec 30  2009 2009-12
+-rw-r--r--    1 500      500      10564020 Jan 14  2010 2010-01
+'''
+
 
 class TestParse(unittest.TestCase):
     def test_parse_unix(self):
@@ -107,3 +111,20 @@ class TestParse(unittest.TestCase):
         parser.run_heuristics()
 
         self.assertRaises(UnknownListingError, parser.parse)
+
+    def test_parse_unix_datelike_file(self):
+        parser = ListingParser(UNIX_LS_DATELIKE_FILE)
+        parser.run_heuristics()
+        results = parser.parse()
+        date_factory = functools.partial(datetime.datetime,
+                                         tzinfo=datetime.timezone.utc)
+
+        self.assertEqual(
+            [
+                FileEntry('2009-12', 'file', 1558532,
+                          date_factory(2009, 12, 30)),
+                FileEntry('2010-01', 'file', 10564020,
+                          date_factory(2010, 1, 14)),
+            ],
+            results
+        )

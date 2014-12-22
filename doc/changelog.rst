@@ -4,6 +4,7 @@ What's New
 
 * Fixed FTP data connection reuse error.
 * Fixed maximum recursion depth exceeded on FTP downloads.
+* Fixed FTP file listing detecting dates too eagerly as ISO8601 format.
 * Fixed crash on FTP if file listing could not find a date in a line.
 
 
