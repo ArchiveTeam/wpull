@@ -40,8 +40,19 @@ class TestProxy(wpull.testing.goodapp.GoodAppTestCase):
         cookie_jar_wrapper = CookieJarWrapper(cookie_jar)
 
         http_client = Client(recorder=DebugPrintRecorder())
-        proxy = HTTPProxyServer(http_client, cookie_jar=cookie_jar_wrapper)
+        proxy = HTTPProxyServer(http_client)
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
+
+        def request_callback(request):
+            print(request)
+            cookie_jar_wrapper.add_cookie_header(request)
+
+        def response_callback(request, response):
+            print(response)
+            cookie_jar_wrapper.extract_cookies(response, request)
+
+        proxy.request_callback = request_callback
+        proxy.response_callback = response_callback
 
         yield From(trollius.start_server(proxy, sock=proxy_socket))
 

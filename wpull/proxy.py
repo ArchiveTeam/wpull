@@ -27,10 +27,16 @@ class HTTPProxyServer(object):
 
     Args:
         http_client (:class:`.http.client.Client`): The HTTP client.
+
+    Attributes:
+        request_callback: A callback function that accepts a Request.
+        response_callback: A callback function that accepts a Request and
+            Response
     '''
-    def __init__(self, http_client, cookie_jar=None):
+    def __init__(self, http_client):
         self._http_client = http_client
-        self._cookie_jar = cookie_jar
+        self.request_callback = None
+        self.response_callback = None
 
     @trollius.coroutine
     def __call__(self, reader, writer):
@@ -101,8 +107,8 @@ class HTTPProxyServer(object):
                 ))
                 return
 
-            if self._cookie_jar:
-                self._cookie_jar.add_cookie_header(request)
+            if self.request_callback:
+                self.request_callback(request)
 
             _logger.debug('Begin response.')
 
@@ -112,8 +118,8 @@ class HTTPProxyServer(object):
 
                 response = yield From(session.fetch(request))
 
-                if self._cookie_jar:
-                    self._cookie_jar.extract_cookies(response, request)
+                if self.response_callback:
+                    self.response_callback(request, response)
 
                 writer.write(response.to_bytes())
                 yield From(writer.drain())

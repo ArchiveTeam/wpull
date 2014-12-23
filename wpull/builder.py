@@ -996,6 +996,7 @@ class Builder(object):
                                  proxy_adapter=proxy_adapter)
 
     def _build_proxy_adapter(self):
+        '''Build HTTP proxy adapter.'''
         if self._args.no_proxy:
             return
 
@@ -1091,15 +1092,7 @@ class Builder(object):
         if not self._args.phantomjs:
             return
 
-        proxy_server = self._factory.new(
-            'HTTPProxyServer',
-            self.factory['HTTPClient'],
-            cookie_jar=self.factory.get('CookieJarWrapper'),
-        )
-        proxy_socket, proxy_port = tornado.testing.bind_unused_port()
-
-        proxy_task = trollius.async(trollius.start_server(proxy_server, sock=proxy_socket))
-
+        proxy_server, proxy_port, proxy_task = self._build_proxy_server()
         page_settings = {}
         default_headers = NameValueRecord()
 
@@ -1161,7 +1154,33 @@ class Builder(object):
 
         return phantomjs_coprocessor
 
+    def _build_proxy_server(self):
+        '''Build MITM proxy server.'''
+        proxy_server = self._factory.new(
+            'HTTPProxyServer',
+            self.factory['HTTPClient'],
+        )
+
+        cookie_jar = self.factory.get('CookieJarWrapper')
+
+        if cookie_jar:
+            def request_callback(request):
+                cookie_jar.add_cookie_header(request)
+
+            def response_callback(request, response):
+                cookie_jar.extract_cookies(response, request)
+
+            proxy_server.request_callback = request_callback
+            proxy_server.response_callback = response_callback
+
+        proxy_socket, proxy_port = tornado.testing.bind_unused_port()
+
+        proxy_task = trollius.async(trollius.start_server(proxy_server, sock=proxy_socket))
+
+        return proxy_server, proxy_port, proxy_task
+
     def _build_robots_txt_checker(self):
+        '''Build robots.txt checker.'''
         if self._args.robots:
             robots_txt_pool = self._factory.new('RobotsTxtPool')
             robots_txt_checker = self._factory.new(
