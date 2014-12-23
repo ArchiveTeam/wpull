@@ -78,15 +78,3 @@ The filename of the PhantomJS executable must be on the PATH environment variabl
 
     It is possible for another user, on the same machine as Wpull, to send bogus requests to the HTTP proxy. Wpull, however, does *not* expose the HTTP proxy outside to the net.
 
-
-Options
-=======
-
-Wpull offers a brief overview of the options::
-
-    wpull --help
-
-.. toctree::
-   :maxdepth: 2
-
-   terse_options

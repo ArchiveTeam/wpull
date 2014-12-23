@@ -5,3 +5,4 @@ sqlalchemy>=0.9
 sphinxcontrib-napoleon>=0.2.6
 namedlist>=1.3
 html5lib>=0.999
+sphinx-argparse

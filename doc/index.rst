@@ -16,6 +16,7 @@ Contents:
    intro
    install
    usage
+   options
    help
    scripting
    api
