@@ -8,6 +8,7 @@ from trollius import From, Return
 import trollius
 
 from wpull.backport.logging import BraceMessage as __
+from wpull.errors import ProtocolError
 from wpull.http.request import Request
 from wpull.recorder.progress import ProgressRecorder
 import wpull.util
@@ -36,88 +37,29 @@ class HTTPProxyServer(object):
         '''Handle a request
 
         Coroutine.'''
-        while True:
-            try:
-                result = yield From(self._process_request(reader, writer))
-            except Exception as error:
-                if not isinstance(error, StopIteration):
-                    if isinstance(error, ConnectionError):
-                        _logger.debug('Proxy error', exc_info=True)
-                    else:
-                        _logger.exception('Proxy error')
+        try:
+            yield From(self._process_connection(reader, writer))
+        except Exception as error:
+            if not isinstance(error, StopIteration):
+                if isinstance(error, ConnectionError):
+                    _logger.debug('Proxy error', exc_info=True)
+                else:
+                    _logger.exception('Proxy error')
+            else:
+                raise
 
-                    writer.close()
-                    return
-
-            if not result:
-                writer.close()
-                break
+        writer.close()
 
     @trollius.coroutine
-    def _process_request(self, reader, writer):
-        '''Process a request.'''
-        _logger.debug('Begin request.')
+    def _process_connection(self, reader, writer):
+        '''Process a connection session.'''
+        _logger.debug('Begin session.')
 
-        is_tunnel = False
-        request = Request()
-
-        while True:
-            line = yield From(reader.readline())
-
-            _logger.debug(__('Got line {0}', line))
-
-            if line[-1:] != b'\n':
-                return
-
-            if not line.strip():
-                break
-
-            request.parse(line)
-
-        _logger.debug(__('Got request {0}', request))
-
-        if request.method == 'CONNECT':
-            socket_ = writer.get_extra_info('socket')
-            trollius.get_event_loop().remove_reader(socket_.fileno())
-
-            writer.write(b'HTTP/1.1 200 Connection established\r\n\r\n')
-            yield From(writer.drain())
-
-            trollius.get_event_loop().remove_writer(socket_.fileno())
-
-            ssl_socket = ssl.wrap_socket(
-                socket_, server_side=True,
-                certfile=wpull.util.get_package_filename('proxy.crt'),
-                keyfile=wpull.util.get_package_filename('proxy.key'),
-                do_handshake_on_connect=False
-            )
-
-            # FIXME: this isn't how to START TLS
-            for dummy in range(20):
-                try:
-                    ssl_socket.do_handshake()
-                    break
-                except (ssl.SSLWantReadError, ssl.SSLWantWriteError) as error:
-                    _logger.debug('Do handshake %s', error)
-                    yield From(trollius.sleep(0.05))
-            else:
-                _logger.error(request.resource_path)
-                _logger.error(_('Unable to handshake.'))
-                ssl_socket.close()
-                raise Return(False)
-
-            loop = trollius.get_event_loop()
-            reader = trollius.StreamReader(loop=loop)
-            protocol = trollius.StreamReaderProtocol(reader, loop=loop)
-            transport, dummy = yield From(loop.create_connection(
-                lambda: protocol, sock=ssl_socket))
-            writer = trollius.StreamWriter(transport, protocol, reader, loop)
-
-            is_tunnel = True
-
+        @trollius.coroutine
+        def read_request():
             request = Request()
 
-            while True:
+            for dummy in range(100):
                 line = yield From(reader.readline())
 
                 _logger.debug(__('Got line {0}', line))
@@ -129,44 +71,95 @@ class HTTPProxyServer(object):
                     break
 
                 request.parse(line)
+            else:
+                raise ProtocolError('Request has too many headers.')
 
-            if request.url.startswith('http://'):
+            raise Return(request)
+
+        is_ssl_tunnel = False
+
+        while True:
+            request = yield From(read_request())
+
+            if not request:
+                return
+
+            _logger.debug(__('Got request {0}', request))
+
+            if request.method == 'CONNECT':
+                reader, writer = yield From(self._start_tls(reader, writer))
+                is_ssl_tunnel = True
+                request = yield From(read_request())
+
+            if is_ssl_tunnel and request.url.startswith('http://'):
                 request.url = request.url.replace('http://', 'https://', 1)
 
-        if 'Upgrade' in request.fields.get('Connection', ''):
-            _logger.warning(__(
-                _('Connection Upgrade not supported for {}'),
-                request.url
-            ))
-            raise Return(False)
-
-        if self._cookie_jar:
-            self._cookie_jar.add_cookie_header(request)
-
-        _logger.debug('Begin response.')
-
-        with self._http_client.session() as session:
-            if 'Content-Length' in request.fields:
-                request.body = reader
-
-            response = yield From(session.fetch(request))
+            if 'Upgrade' in request.fields.get('Connection', ''):
+                _logger.warning(__(
+                    _('Connection Upgrade not supported for {}'),
+                    request.url
+                ))
+                return
 
             if self._cookie_jar:
-                self._cookie_jar.extract_cookies(response, request)
+                self._cookie_jar.add_cookie_header(request)
 
-            writer.write(response.to_bytes())
-            yield From(writer.drain())
-            yield From(session.read_content(file=writer, raw=True))
+            _logger.debug('Begin response.')
 
-        _logger.debug('Response done.')
+            with self._http_client.session() as session:
+                if 'Content-Length' in request.fields:
+                    request.body = reader
 
-        if is_tunnel:
-            # Can't reuse the connection anymore
-            writer.close()
+                response = yield From(session.fetch(request))
+
+                if self._cookie_jar:
+                    self._cookie_jar.extract_cookies(response, request)
+
+                writer.write(response.to_bytes())
+                yield From(writer.drain())
+                yield From(session.read_content(file=writer, raw=True))
+
+            _logger.debug('Response done.')
+
+    @classmethod
+    def _start_tls(cls, reader, writer):
+        '''Start SSL protocol on the socket.'''
+        socket_ = writer.get_extra_info('socket')
+        trollius.get_event_loop().remove_reader(socket_.fileno())
+
+        writer.write(b'HTTP/1.1 200 Connection established\r\n\r\n')
+        yield From(writer.drain())
+
+        trollius.get_event_loop().remove_writer(socket_.fileno())
+
+        ssl_socket = ssl.wrap_socket(
+            socket_, server_side=True,
+            certfile=wpull.util.get_package_filename('proxy.crt'),
+            keyfile=wpull.util.get_package_filename('proxy.key'),
+            do_handshake_on_connect=False
+        )
+
+        # FIXME: this isn't how to START TLS
+        for dummy in range(20):
+            try:
+                ssl_socket.do_handshake()
+                break
+            except (ssl.SSLWantReadError, ssl.SSLWantWriteError) as error:
+                _logger.debug('Do handshake %s', error)
+                yield From(trollius.sleep(0.05))
+        else:
+            _logger.error(_('Unable to handshake.'))
+            ssl_socket.close()
             raise Return(False)
 
-        raise Return(True)
+        loop = trollius.get_event_loop()
+        reader = trollius.StreamReader(loop=loop)
+        protocol = trollius.StreamReaderProtocol(reader, loop=loop)
+        transport, dummy = yield From(loop.create_connection(
+            lambda: protocol, sock=ssl_socket))
+        writer = trollius.StreamWriter(transport, protocol, reader, loop)
 
+        raise Return((reader, writer))
 
 if __name__ == '__main__':
     from wpull.http.client import Client
