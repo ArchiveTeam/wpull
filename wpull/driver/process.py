@@ -1,3 +1,5 @@
+'''RPC processes.'''
+
 import abc
 import gettext
 import json
@@ -18,6 +20,7 @@ _logger = logging.getLogger(__name__)
 
 
 class RPCProcess(object):
+    '''RPC subprocess wrapper.'''
     def __init__(self, proc_args, message_callback):
         self._proc_args = proc_args
         self._process = None
@@ -32,6 +35,12 @@ class RPCProcess(object):
 
     @trollius.coroutine
     def start(self, use_atexit=True):
+        '''Start the executable.
+
+        Args:
+            use_atexit (bool): If True, the process will automatically be
+                terminated at exit.
+        '''
         assert not self._process
 
         _logger.debug('Starting process %s', self._proc_args)
@@ -85,6 +94,7 @@ class RPCProcess(object):
 
     @trollius.coroutine
     def _read_stdout(self):
+        '''Continously read the stdout for RPC messages.'''
         try:
             while self._process.returncode is None:
                 line = yield From(self._process.stdout.readline())
@@ -111,6 +121,7 @@ class RPCProcess(object):
 
     @trollius.coroutine
     def _read_stderr(self):
+        '''Continously read stderr for error messages.'''
         try:
             while self._process.returncode is None:
                 line = yield From(self._process.stderr.readline())
@@ -128,6 +139,7 @@ class RPCProcess(object):
 
     @trollius.coroutine
     def send_message(self, message):
+        '''Send a RPC message.'''
         self._process.stdin.write(b'!RPC ')
         self._process.stdin.write(json.dumps(message).encode('utf-8'))
         self._process.stdin.write(b'\n')

@@ -1,5 +1,5 @@
 # encoding=utf-8
-'''Python and Lua scripting supprt.'''
+'''Python and Lua scripting support.'''
 import logging
 
 from wpull.backport.logging import BraceMessage as __
@@ -82,9 +82,15 @@ class Actions(object):
 class LegacyCallbacks(object):
     '''Legacy callback hooks.
 
+    API scripting versions were introduced when function signatures needed to
+    be changed. Instead of breaking existing scripts in production, the
+    default signature remained the same unless it was changed by the script.
+
     .. note:: Legacy functions are suffixed with an integer here only for
        documentation purposes. Do not include the integer suffix in your
-       scripts; the arugment signature will be adjusted automatically.
+       scripts; the argument signature will be adjusted automatically.
+
+    Currently, no deprecated functions exist.
     '''
 
 
@@ -255,7 +261,7 @@ class Callbacks(LegacyCallbacks):
             url_info (dict): A mapping containing the same information in
                 :class:`.url.URLInfo`.
             document_info (dict): A mapping containing the same information in
-                :class:`.conversation.Body`.
+                :class:`.body.Body`.
 
         .. Note:: The URLs provided do not replace entries in the URL Table.
            If a URL already exists in the URL Table, it will be ignored

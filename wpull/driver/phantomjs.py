@@ -59,6 +59,12 @@ class PhantomJSDriver(object):
 
     @trollius.coroutine
     def start(self):
+        '''Start the PhantomJS executable.
+
+        Always call this first.
+
+        Coroutine.
+        '''
         _logger.debug('PhantomJS setup.')
 
         if self._process and self._process.process.returncode is None:
@@ -69,6 +75,7 @@ class PhantomJSDriver(object):
         yield From(self._process.start())
 
     def _message_callback(self, message):
+        '''Callback for a RPC message.'''
         event_name = message['event']
         _logger.debug(__('Message callback {}', event_name))
 
@@ -83,6 +90,7 @@ class PhantomJSDriver(object):
             return self._event_callback(message)
 
     def _event_callback(self, message):
+        '''Callback for a page event.'''
         name = message['event']
         _logger.debug(__('Event callback {}', name))
 
@@ -101,6 +109,7 @@ class PhantomJSDriver(object):
 
     @trollius.coroutine
     def send_command(self, command, **kwargs):
+        '''Send a RPC command.'''
         message_id = uuid.uuid4().hex
         _logger.debug(__('Send command {} {}', command, message_id))
 
@@ -121,6 +130,7 @@ class PhantomJSDriver(object):
 
     @trollius.coroutine
     def open_page(self, url, viewport_size=(1024, 768), paper_size=(1024, 768)):
+        '''Create a page and load the URL.'''
         yield From(self.send_command('new_page'))
         yield From(self.send_command('set_page_size',
                                      viewport_width=viewport_size[0],
@@ -133,6 +143,7 @@ class PhantomJSDriver(object):
 
     @trollius.coroutine
     def _apply_default_settings(self):
+        '''Apply default settings and headers.'''
         if self._page_settings:
             yield From(
                 self.send_command('set_page_settings',
@@ -147,26 +158,32 @@ class PhantomJSDriver(object):
 
     @trollius.coroutine
     def close_page(self):
+        '''Close and delete the page.'''
         yield From(self.send_command('close_page'))
 
     @trollius.coroutine
     def snapshot(self, path):
+        '''Generate a snapshot file.'''
         yield From(self.send_command('render_page', path=path))
 
     @trollius.coroutine
     def scroll_to(self, x, y):
+        '''Scroll the page to given location.'''
         yield From(self.send_command('scroll_page', x=x, y=y))
 
     @trollius.coroutine
     def send_click(self, x, y, button='left'):
+        '''Mouse click on a position.'''
         yield From(self.send_command('click', x=x, y=y, button=button))
 
     @trollius.coroutine
     def send_key(self, key, modifier=0):
+        '''Send a keyboard command.'''
         yield From(self.send_command('key', key=key, modifier=modifier))
 
     @trollius.coroutine
     def get_page_url(self):
+        '''Return the current page URL.'''
         url = yield From(self.send_command('get_page_url'))
         raise Return(url)
 

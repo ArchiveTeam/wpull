@@ -1,3 +1,4 @@
+'''PhantomJS page loading and scrolling.'''
 import copy
 import gettext
 import json
@@ -34,6 +35,18 @@ PhantomJSParams = namedlist.namedtuple(
         ('paper_size', (2400, 3840))
     ]
 )
+'''PhantomJS parameters
+
+Attributes:
+    snapshot_type (list): File types. Accepted are html, pdf, png, gif.
+    wait_time (float): Time between page scrolls.
+    num_scrolls (int): Maximum number of scrolls.
+    smart_scroll (bool): Whether to stop scrolling if number of
+        requests & responses do not change.
+    snapshot (bool): Whether to take snapshot files.
+    viewport_size (tuple): Width and height of the page viewport.
+    paper_size (tuple): Width and height of the paper size.
+'''
 
 
 _logger = logging.getLogger(__name__)
@@ -41,7 +54,18 @@ _ = gettext.gettext
 
 
 class PhantomJSCoprocessor(object):
-    '''PhantomJS coprocessor.'''
+    '''PhantomJS coprocessor.
+
+    Args:
+        phantomjs_pool (:class:`.driver.phantomjs.PhantomJSPool`): PhantomJS
+            pool.
+        processing_rule (:class:`.processor.rule.ProcessingRule`): Processing
+            rule.
+        statistics (:class:`.stats.Statistics`): Statistics.
+        fetch_rule (:class:`.processor.rule.FetchRule`): Fetch rule.
+        warc_recorder: WARC recorder.
+        root_dir (str): Root directory path for temp files.
+    '''
     def __init__(self, phantomjs_pool, processing_rule, statistics,
                  fetch_rule, result_rule, phantomjs_params,
                  warc_recorder=None, root_path='.'):
@@ -92,6 +116,7 @@ class PhantomJSCoprocessor(object):
 
     @trollius.coroutine
     def _run_driver(self, url_item, request, response):
+        '''Start PhantomJS processing.'''
         _logger.debug('Started PhantomJS processing.')
 
         with self._phantomjs_pool.session() as driver:
@@ -113,6 +138,7 @@ class PhantomJSCoprocessor(object):
 
     @trollius.coroutine
     def _take_snapshots(self, session, infix='snapshot'):
+        '''Make snapshot files.'''
         for snapshot_type in self._phantomjs_params.snapshot_types or ():
             path = self._file_writer_session.extra_resource_path(
                 '.{infix}.{file_type}'.format(infix=infix, file_type=snapshot_type)
@@ -136,6 +162,7 @@ class PhantomJSCoprocessor(object):
 
     @trollius.coroutine
     def _scrape_document(self, session, request, response, url_item):
+        '''Extract links from the DOM.'''
         temp_fd, temp_path = tempfile.mkstemp(
             dir=self._root_path, prefix='phnsc',
             suffix='.html'
@@ -172,6 +199,7 @@ class PhantomJSCoprocessor(object):
 
 
 class PhantomJSCoprocessorSession(object):
+    '''PhantomJS coprocessor session.'''
     def __init__(self, driver, fetch_rule, result_rule, url_item, params, warc_recorder=None):
         self._driver = driver
         self._fetch_rule = fetch_rule
@@ -204,6 +232,7 @@ class PhantomJSCoprocessorSession(object):
 
     @trollius.coroutine
     def fetch(self, url):
+        '''Load the page with the given URL.'''
         _logger.info(__(
             _('PhantomJS fetching ‘{url}’.'),
             url=url
@@ -217,6 +246,13 @@ class PhantomJSCoprocessorSession(object):
 
     @trollius.coroutine
     def wait_load(self):
+        '''Wait for the page to load.
+
+        This function polls the Resource Tracker until nothing is left
+        pending.
+
+        Coroutine.
+        '''
         _logger.debug('Wait load')
 
         # FIXME: should this be a configurable option somewhere
@@ -234,6 +270,7 @@ class PhantomJSCoprocessorSession(object):
 
     @trollius.coroutine
     def scroll_page(self):
+        '''Scroll the page to the bottom and record actions'''
         # Try to get rid of any stupid "sign up now" overlays.
         click_x, click_y = self._params.viewport_size
         self._log_action('click', [click_x, click_y])
@@ -275,6 +312,10 @@ class PhantomJSCoprocessorSession(object):
 
     @trollius.coroutine
     def take_snapshot(self, path, add_warc=True):
+        '''Take a snapshot and record it.
+
+        Coroutine.
+        '''
         extension = os.path.splitext(path)[1]
 
         assert extension in ('.pdf', '.png', '.html'), (path, extension)
@@ -320,14 +361,17 @@ class PhantomJSCoprocessorSession(object):
             self._warc_recorder.write_record(record)
 
     def _load_started_cb(self, message):
+        '''Page is loading.'''
         _logger.debug('Load started.')
         self._load_state = 'started'
 
     def _load_finished_cb(self, message):
+        '''Page loaded.'''
         _logger.debug('Load finished')
         self._load_state = 'finished'
 
     def _resource_requested_cb(self, message):
+        '''Allow or abort request.'''
         request_data = message['request_data']
         _logger.debug(__('Resource requested {}', request_data['url']))
 
@@ -355,6 +399,7 @@ class PhantomJSCoprocessorSession(object):
             return 'abort'
 
     def _resource_received_cb(self, message):
+        '''Process response.'''
         response = message['response']
 
         self._resource_tracker.process_response(response)
@@ -378,6 +423,7 @@ class PhantomJSCoprocessorSession(object):
             ))
 
     def _resource_error_cb(self, message):
+        '''Resource errored.'''
         resource_error = message['resource_error']
 
         self._resource_tracker.process_error(resource_error)
@@ -392,6 +438,7 @@ class PhantomJSCoprocessorSession(object):
         # self._result_rule.handle_error(asdfasdf, asdfsadfasdf)
 
     def _resource_timeout_cb(self, message):
+        '''Resource timed out.'''
         request = message['request']
 
         self._resource_tracker.process_error(request)
@@ -406,6 +453,7 @@ class PhantomJSCoprocessorSession(object):
         # self._result_rule.handle_error(asdfasdf, asdfsadfasdf)
 
     def _error_cb(self, message):
+        '''JavaScript error.'''
         _logger.error(__(
             _('PhantomJSError: {message} {trace}'),
             message=message['message'],
@@ -414,6 +462,7 @@ class PhantomJSCoprocessorSession(object):
 
 
 def convert_phantomjs_request(request_data):
+    '''Convert a dict into a Request.'''
     url_info = wpull.url.parse_url_or_log(request_data['url'])
 
     if not url_info:
@@ -430,6 +479,7 @@ def convert_phantomjs_request(request_data):
 
 
 def convert_phantomjs_response(response):
+    '''Convert a dict into a Response.'''
     url_info = wpull.url.parse_url_or_log(response['url'])
 
     if not url_info:

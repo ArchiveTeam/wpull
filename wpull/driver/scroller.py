@@ -1,3 +1,4 @@
+'''PhantomJS page scrolling.'''
 import gettext
 import logging
 
@@ -15,7 +16,7 @@ PAGE_DOWN = 16777239
 
 
 class Scroller(object):
-    '''PhantomJS page scroller.
+    '''PhantomJS infinite page scroller.
 
     Attributes:
         action_callback: A function that accepts two arguments for actions.
@@ -90,5 +91,6 @@ class Scroller(object):
         yield From(self._driver.scroll_to(0, 0))
 
     def _log_action(self, action_name, action_value):
+        '''Call the action callback.'''
         if self.action_callback:
             self.action_callback(action_name, action_value)

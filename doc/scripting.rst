@@ -34,3 +34,4 @@ Wpull will attempt to support deprecation and feature selection through Scriptin
 
     wpull_hook.callbacks.version = 2
 
+For complete details, see :py:mod:`wpull.hook`.
