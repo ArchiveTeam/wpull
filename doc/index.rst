@@ -21,6 +21,7 @@ Contents:
    scripting
    api
    changelog
+   warc
 
 
 Indices and tables
