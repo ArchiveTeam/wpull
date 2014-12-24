@@ -92,8 +92,6 @@ class PhantomJSCoprocessor(object):
         if not HTMLReader.is_supported(request=request, response=response):
             return
 
-        # TODO: is page dynamic?
-
         _logger.debug('Starting PhantomJS processing.')
 
         self._file_writer_session = file_writer_session
@@ -125,12 +123,21 @@ class PhantomJSCoprocessor(object):
                 url_item,
                 self._phantomjs_params, warc_recorder=self._warc_recorder
             )
-            # TODO: need to implement and handle timeouts
             yield From(driver.start())
             yield From(session.fetch(request.url_info.url))
             yield From(session.wait_load())
-            yield From(session.scroll_page())
-            yield From(session.wait_load())
+
+            if self._phantomjs_params.num_scrolls:
+                if self._phantomjs_params.smart_scroll:
+                    is_dynamic = yield From(driver.is_page_dynamic())
+
+                    if is_dynamic:
+                        yield From(session.scroll_page())
+                else:
+                    yield From(session.scroll_page())
+
+                yield From(session.wait_load())
+
             yield From(self._take_snapshots(session))
             yield From(self._scrape_document(session, request, response, url_item))
 
