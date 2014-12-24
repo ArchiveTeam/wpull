@@ -11,12 +11,15 @@ import http.client
 import itertools
 import logging
 import os
+import re
 import shutil
 import time
 import urllib.parse
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
+from wpull.document.css import CSSReader
+from wpull.document.html import HTMLReader
 import wpull.util
 
 
@@ -95,13 +98,17 @@ class BaseFileWriter(BaseWriter):
             responses on top of the document
         local_timestamping: If True, the writer will set the Last-Modified
             timestamp on downloaded files
+        adjust_extension: If True, HTML or CSS file extension will be added
+            whenever it is detected as so.
     '''
     def __init__(self, path_namer, file_continuing=False,
-                 headers_included=False, local_timestamping=True):
+                 headers_included=False, local_timestamping=True,
+                 adjust_extension=False):
         self._path_namer = path_namer
         self._file_continuing = file_continuing
         self._headers_included = headers_included
         self._local_timestamping = local_timestamping
+        self._adjust_extension = adjust_extension
 
     @abc.abstractproperty
     def session_class(self):
@@ -118,17 +125,20 @@ class BaseFileWriter(BaseWriter):
             self._file_continuing,
             self._headers_included,
             self._local_timestamping,
+            self._adjust_extension,
         )
 
 
 class BaseFileWriterSession(BaseWriterSession):
     '''Base class for File Writer Sessions.'''
     def __init__(self, path_namer, file_continuing,
-                 headers_included, local_timestamping):
+                 headers_included, local_timestamping,
+                 adjust_extension):
         self._path_namer = path_namer
         self._file_continuing = file_continuing
         self._headers_included = headers_included
         self._local_timestamping = local_timestamping
+        self._adjust_extension = adjust_extension
         self._filename = None
 
     @classmethod
@@ -237,6 +247,9 @@ class BaseFileWriterSession(BaseWriterSession):
             if self._file_continuing:
                 self._process_file_continue_response(response)
             elif 200 <= code <= 299 or 400 <= code:
+                if self._adjust_extension:
+                    self._append_filename_extension(response)
+
                 self.open_file(self._filename, response)
 
     def _process_file_continue_response(self, response):
@@ -249,6 +262,21 @@ class BaseFileWriterSession(BaseWriterSession):
             raise IOError(
                 _('Could not continue file download: {filename}.')
                 .format(filename=self._filename))
+
+    def _append_filename_extension(self, response):
+        '''Append an HTML/CSS file suffix as needed.'''
+        if not self._filename:
+            return
+
+        if response.request.url_info.scheme not in ('http', 'https'):
+            return
+
+        if not re.search(r'\.[hH][tT][mM][lL]?$', self._filename) and \
+                HTMLReader.is_response(response):
+            self._filename += '.html'
+        elif not re.search(r'\.[cC][sS][sS]$', self._filename) and \
+                CSSReader.is_response(response):
+            self._filename += '.css'
 
     def save_document(self, response):
         if self._filename and os.path.exists(self._filename):

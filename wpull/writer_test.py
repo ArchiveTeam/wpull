@@ -336,3 +336,37 @@ class TestWriterApp(GoodAppTestCase):
             self.assertTrue(os.path.isdir('dir_or_file.d'))
             self.assertTrue(os.path.isfile('dir_or_file.d/index.html'))
             self.assertTrue(os.path.isfile('dir_or_file'))
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_adjust_extension(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/mordor'),
+            self.get_url('/mordor?ring.asp'),
+            self.get_url('/mordor?ring.htm'),
+            self.get_url('/static/my_file.txt'),
+            self.get_url('/static/style.css'),
+            self.get_url('/static/style.css?hamster.exe'),
+            self.get_url('/static/mojibake.html'),
+            self.get_url('/static/mojibake.html?dolphin.png'),
+            '--adjust-extension',
+            '--no-host-directories',
+        ])
+
+        with cd_tempdir() as temp_dir:
+            builder = Builder(args, unit_test=True)
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+            self.assertEqual(0, exit_code)
+
+            print(list(os.walk('.')))
+
+            self.assertTrue(os.path.isfile('mordor.html'))
+            self.assertTrue(os.path.isfile('mordor?ring.asp.html'))
+            self.assertTrue(os.path.isfile('mordor?ring.htm'))
+            self.assertTrue(os.path.isfile('static/my_file.txt'))
+            self.assertTrue(os.path.isfile('static/style.css'))
+            self.assertTrue(os.path.isfile('static/style.css?hamster.exe.css'))
+            self.assertTrue(os.path.isfile('static/mojibake.html'))
+            self.assertTrue(os.path.isfile('static/mojibake.html?dolphin.png.html'))

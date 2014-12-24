@@ -8,6 +8,7 @@ What's New
 * Fixed crash on FTP if file listing could not find a date in a line.
 * Fixed HTTP status code 204 "No Content" interpreted as an error.
 * Improved PhantomJS stability. Timeout errors should be less frequent.
+* Added ``--adjust-extension``.
 
 
 0.1003 (2014-12-11)

@@ -878,7 +878,8 @@ class Builder(object):
             path_namer,
             file_continuing=args.continue_download,
             headers_included=args.save_headers,
-            local_timestamping=args.use_server_timestamps
+            local_timestamping=args.use_server_timestamps,
+            adjust_extension=args.adjust_extension,
         )
 
     def _get_post_data(self):

@@ -676,11 +676,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             default='index.html',
             help=_('use NAME as index page if not known'),
         )
-#         self.add_argument(
-#             '-E',
-#             '--adjust-extension',
-#             action='store_true',
-#         )
+        self.add_argument(
+            '-E',
+            '--adjust-extension',
+            action='store_true',
+            help=_('append HTML or CSS file extension if needed')
+        )
         group.add_argument(
             '--ignore-length',
             action='store_true',
