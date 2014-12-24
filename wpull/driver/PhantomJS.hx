@@ -58,6 +58,8 @@ class PhantomJS {
                 sendClick(commandMessage.x, commandMessage.y, commandMessage.button);
             case "key":
                 sendKey(commandMessage.key, commandMessage.modifier);
+            case "is_page_dynamic":
+                replyValue = isPageDynamic();
             case null:
                 return;
             default:
@@ -165,6 +167,19 @@ class PhantomJS {
         page.sendEvent("keypress", key, null, null, modifier);
         page.sendEvent("keydown", key, null, null, modifier);
         page.sendEvent("keyup", key, null, null, modifier);
+    }
+
+    private function isPageDynamic() : Bool {
+        var result : Bool = page.evaluate("
+            function () {
+            return document.getElementsByTagName('script').length ||
+                document.querySelector(
+                    '[onload],[onunload],[onabortonclick],[ondblclick],' +
+                    '[onmousedown],[onmousemove],[onmouseout],[onmouseover],' +
+                    '[onmouseup],[onkeydown],[onkeypress],[onkeyup]');
+            }
+        ");
+        return result;
     }
 
     private function listenEvents() {

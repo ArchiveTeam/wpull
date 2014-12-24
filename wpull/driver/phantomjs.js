@@ -66,6 +66,9 @@ PhantomJS.prototype = {
 		case "key":
 			this.sendKey(commandMessage.key,commandMessage.modifier);
 			break;
+		case "is_page_dynamic":
+			replyValue = this.isPageDynamic();
+			break;
 		default:
 			console.log("Unknown command");
 		}
@@ -134,6 +137,10 @@ PhantomJS.prototype = {
 		this.page.sendEvent("keypress",key,null,null,modifier);
 		this.page.sendEvent("keydown",key,null,null,modifier);
 		this.page.sendEvent("keyup",key,null,null,modifier);
+	}
+	,isPageDynamic: function() {
+		var result = this.page.evaluate("\n            function () {\n            return document.getElementsByTagName('script').length ||\n                document.querySelector(\n                    '[onload],[onunload],[onabortonclick],[ondblclick],' +\n                    '[onmousedown],[onmousemove],[onmouseout],[onmouseover],' +\n                    '[onmouseup],[onkeydown],[onkeypress],[onkeyup]');\n            }\n        ");
+		return result;
 	}
 	,listenEvents: function() {
 		var _g = this;

@@ -187,6 +187,13 @@ class PhantomJSDriver(object):
         url = yield From(self.send_command('get_page_url'))
         raise Return(url)
 
+    @trollius.coroutine
+    def is_page_dynamic(self):
+        '''Return whether the page is dynamic.'''
+        result = yield From(self.send_command('is_page_dynamic'))
+        raise Return(result)
+
+
     @property
     def return_code(self):
         '''Return the exit code of the PhantomJS process.'''
