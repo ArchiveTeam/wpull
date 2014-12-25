@@ -880,6 +880,7 @@ class Builder(object):
             headers_included=args.save_headers,
             local_timestamping=args.use_server_timestamps,
             adjust_extension=args.adjust_extension,
+            content_disposition=args.content_disposition,
         )
 
     def _get_post_data(self):

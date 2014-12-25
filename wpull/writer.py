@@ -100,15 +100,18 @@ class BaseFileWriter(BaseWriter):
             timestamp on downloaded files
         adjust_extension: If True, HTML or CSS file extension will be added
             whenever it is detected as so.
+        content_disposition: If True, the filename is extracted from
+            the Content-Disposition header.
     '''
     def __init__(self, path_namer, file_continuing=False,
                  headers_included=False, local_timestamping=True,
-                 adjust_extension=False):
+                 adjust_extension=False, content_disposition=False):
         self._path_namer = path_namer
         self._file_continuing = file_continuing
         self._headers_included = headers_included
         self._local_timestamping = local_timestamping
         self._adjust_extension = adjust_extension
+        self._content_disposition = content_disposition
 
     @abc.abstractproperty
     def session_class(self):
@@ -126,6 +129,7 @@ class BaseFileWriter(BaseWriter):
             self._headers_included,
             self._local_timestamping,
             self._adjust_extension,
+            self._content_disposition,
         )
 
 
@@ -133,12 +137,13 @@ class BaseFileWriterSession(BaseWriterSession):
     '''Base class for File Writer Sessions.'''
     def __init__(self, path_namer, file_continuing,
                  headers_included, local_timestamping,
-                 adjust_extension):
+                 adjust_extension, content_disposition):
         self._path_namer = path_namer
         self._file_continuing = file_continuing
         self._headers_included = headers_included
         self._local_timestamping = local_timestamping
         self._adjust_extension = adjust_extension
+        self._content_disposition = content_disposition
         self._filename = None
 
     @classmethod
@@ -247,6 +252,9 @@ class BaseFileWriterSession(BaseWriterSession):
             if self._file_continuing:
                 self._process_file_continue_response(response)
             elif 200 <= code <= 299 or 400 <= code:
+                if self._content_disposition:
+                    self._rename_with_content_disposition(response)
+
                 if self._adjust_extension:
                     self._append_filename_extension(response)
 
@@ -277,6 +285,31 @@ class BaseFileWriterSession(BaseWriterSession):
         elif not re.search(r'\.[cC][sS][sS]$', self._filename) and \
                 CSSReader.is_response(response):
             self._filename += '.css'
+
+    def _rename_with_content_disposition(self, response):
+        '''Rename using the Content-Disposition header.'''
+        if not self._filename:
+            return
+
+        if response.request.url_info.scheme not in ('http', 'https'):
+            return
+
+        header_value = response.fields.get('Content-Disposition')
+
+        if not header_value:
+            return
+
+        filename = parse_content_disposition(header_value)
+
+        if filename:
+            parts = list(self._filename.split(os.sep))
+
+            if parts:
+                del parts[-1]
+
+            new_filename = self._path_namer.safe_filename(filename)
+            parts.append(new_filename)
+            self._filename = os.path.join(*parts)
 
     def save_document(self, response):
         if self._filename and os.path.exists(self._filename):
@@ -465,17 +498,18 @@ class PathNamer(BasePathNamer):
             alt_char=alt_char
         ))
 
-        parts = [
-            safe_filename(
-                part,
-                os_type=self._os_type, no_control=self._no_control,
-                ascii_only=self._ascii_only, case=self._case,
-                max_length=self._max_filename_length,
-            )
-            for part in parts
-        ]
+        parts = [self.safe_filename(part) for part in parts]
 
         return os.path.join(self._root, *parts)
+
+    def safe_filename(self, part):
+        '''Return a safe filename or file part.'''
+        return safe_filename(
+            part,
+            os_type=self._os_type, no_control=self._no_control,
+            ascii_only=self._ascii_only, case=self._case,
+            max_length=self._max_filename_length,
+        )
 
 
 def url_to_filename(url, index='index.html', alt_char=False):
@@ -692,3 +726,25 @@ def anti_clobber_dir_path(dir_path, suffix='.d'):
             return os.path.join(*parts)
 
     return dir_path
+
+
+def parse_content_disposition(text):
+    '''Parse a Content-Disposition header value.'''
+    match = re.search(r'filename\s*=\s*(.+)', text, re.IGNORECASE)
+
+    if not match:
+        return
+
+    filename = match.group(1)
+
+    if filename[0] in '"\'':
+        match = re.match(r'(.)(.+)(?!\\)\1', filename)
+
+        if match:
+            filename = match.group(2).replace('\\"', '"')
+
+            return filename
+
+    else:
+        filename = filename.partition(';')[0].strip()
+        return filename

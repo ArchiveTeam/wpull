@@ -140,6 +140,15 @@ class BasicAuthHandler(tornado.web.RequestHandler):
             raise HTTPError(401)
 
 
+class ContentDispositionHandler(tornado.web.RequestHandler):
+    def get(self):
+        filename = self.get_argument('filename', 'command.com')
+        self.add_header(
+            'Content-Disposition', 'attachment; filename={}'.format(filename)
+        )
+        self.write(b'The small pup gnawed a hole in the sock.')
+
+
 class GoodApp(tornado.web.Application):
     def __init__(self):
         tornado.web.Application.__init__(self, [
@@ -161,6 +170,7 @@ class GoodApp(tornado.web.Application):
             (r'/some_page', tornado.web.RedirectHandler,
              {'url': '/some_page/'}),
             (r'/basic_auth', BasicAuthHandler),
+            (r'/content_disposition', ContentDispositionHandler),
         ],
             template_path=os.path.join(os.path.dirname(__file__),
                                        'templates'),

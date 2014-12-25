@@ -9,6 +9,7 @@ What's New
 * Fixed HTTP status code 204 "No Content" interpreted as an error.
 * Improved PhantomJS stability. Timeout errors should be less frequent.
 * Added ``--adjust-extension``.
+* Added ``--content-disposition``.
 
 
 0.1003 (2014-12-11)

@@ -11,7 +11,7 @@ from wpull.options import AppArgumentParser
 import wpull.testing.async
 from wpull.testing.goodapp import GoodAppTestCase
 from wpull.writer import (url_to_dir_parts, url_to_filename, safe_filename,
-                          anti_clobber_dir_path)
+                          anti_clobber_dir_path, parse_content_disposition)
 
 
 DEFAULT_TIMEOUT = 30
@@ -160,6 +160,70 @@ class TestWriter(unittest.TestCase):
                 'a/b/c/d/e/f/g.d',
                 anti_clobber_dir_path('a/b/c/d/e/f/g')
             )
+
+    def test_parse_content_disposition(self):
+        self.assertEqual(
+            'hello.txt',
+            parse_content_disposition('attachment; filename=hello.txt')
+        )
+        self.assertEqual(
+            'hello.txt',
+            parse_content_disposition(
+                'attachment; filename=hello.txt; filename*=blahblah')
+        )
+        self.assertEqual(
+            'hello.txt',
+            parse_content_disposition(
+                'attachment; filename=hello.txt ;filename*=blahblah')
+        )
+        self.assertEqual(
+            'hello.txt',
+            parse_content_disposition('attachment; filename="hello.txt"')
+        )
+        self.assertEqual(
+            'hello.txt',
+            parse_content_disposition('attachment; filename="hello.txt" ;')
+        )
+        self.assertEqual(
+            'hello world',
+            parse_content_disposition('attachment; filename="hello world"')
+        )
+        self.assertEqual(
+            'hello world',
+            parse_content_disposition('attachment; filename="hello world"')
+        )
+        self.assertEqual(
+            'hello world',
+            parse_content_disposition("attachment; filename='hello world'")
+        )
+        self.assertEqual(
+            'hello"world',
+            parse_content_disposition('attachment; filename="hello\\"world"')
+        )
+        self.assertEqual(
+            '\'hello"world\'',
+            parse_content_disposition('attachment; filename="\'hello\\"world\'"')
+        )
+        self.assertEqual(
+            '\'hello"world\'',
+            parse_content_disposition(
+                'attachment; filename="\'hello\\"world\'";')
+        )
+        self.assertFalse(
+            parse_content_disposition('attachment; filename=')
+        )
+        self.assertFalse(
+            parse_content_disposition('attachment; filename=""')
+        )
+        self.assertFalse(
+            parse_content_disposition('attachment; filename=";')
+        )
+        self.assertFalse(
+            parse_content_disposition('attachment; filename=\'aaa')
+        )
+        self.assertFalse(
+            parse_content_disposition('attachment; filename="aaa')
+        )
 
 
 class TestWriterApp(GoodAppTestCase):
@@ -370,3 +434,29 @@ class TestWriterApp(GoodAppTestCase):
             self.assertTrue(os.path.isfile('static/style.css?hamster.exe.css'))
             self.assertTrue(os.path.isfile('static/mojibake.html'))
             self.assertTrue(os.path.isfile('static/mojibake.html?dolphin.png.html'))
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_content_disposition(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/content_disposition?filename=hello1.txt'),
+            self.get_url('/content_disposition?filename=hello2.txt;'),
+            self.get_url('/content_disposition?filename="hello3.txt"'),
+            self.get_url('/content_disposition?filename=\'hello4.txt\''),
+            '--content-disposition',
+            '--no-host-directories',
+        ])
+
+        with cd_tempdir() as temp_dir:
+            builder = Builder(args, unit_test=True)
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+            self.assertEqual(0, exit_code)
+
+            print(list(os.walk('.')))
+
+            self.assertTrue(os.path.isfile('hello1.txt'))
+            self.assertTrue(os.path.isfile('hello2.txt'))
+            self.assertTrue(os.path.isfile('hello3.txt'))
+            self.assertTrue(os.path.isfile('hello4.txt'))

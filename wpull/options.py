@@ -777,9 +777,11 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--body-file',
 #             metavar='FILE'
 #         )
-#         self.add_argument(
-#             '--content-disposition'
-#         )
+        self.add_argument(
+            '--content-disposition',
+            action='store_true',
+            help=_('use filename given in Content-Disposition header')
+        )
         group.add_argument(
             '--content-on-error',
             action='store_true',
