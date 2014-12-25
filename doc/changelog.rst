@@ -7,6 +7,7 @@ What's New
 * Fixed FTP file listing detecting dates too eagerly as ISO8601 format.
 * Fixed crash on FTP if file listing could not find a date in a line.
 * Fixed HTTP status code 204 "No Content" interpreted as an error.
+* Fixed "cert already in hash table" error when using both OS and Wpull's certificates.
 * Improved PhantomJS stability. Timeout errors should be less frequent.
 * Added ``--adjust-extension``.
 * Added ``--content-disposition``.
