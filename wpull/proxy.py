@@ -97,6 +97,9 @@ class HTTPProxyServer(object):
                 is_ssl_tunnel = True
                 request = yield From(read_request())
 
+                if not request:
+                    return
+
             if is_ssl_tunnel and request.url.startswith('http://'):
                 request.url = request.url.replace('http://', 'https://', 1)
 
