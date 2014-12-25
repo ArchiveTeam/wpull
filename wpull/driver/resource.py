@@ -28,6 +28,8 @@ class Resource(object):
         body_size (int): Size of content.
         touch_timestamp (int): Timestamp of last request activity.
         state (ResourceState): State of the resource request.
+        request: Original request data.
+        response: Original response data.
     '''
 
     def __init__(self, resource_id, url):
@@ -38,6 +40,8 @@ class Resource(object):
         self.body_size = 0
         self.touch_timestamp = time.time()
         self.state = ResourceState.pending
+        self.request = None
+        self.response = None
 
     def start(self):
         '''Set resource request as pending.'''
@@ -119,13 +123,17 @@ class PhantomJSResourceTracker(ResourceTracker):
     '''PhantomJS resource tracker.'''
     def process_request(self, request):
         resource = Resource(request['id'], request['url'])
+        resource.request = request
         self._resources[resource.id] = resource
         self._pending.add(resource)
         resource.start()
 
+        return resource
+
     def process_response(self, response):
         try:
             resource = self._resources[response['id']]
+            resource.response = response
 
             if response['stage'] == 'end':
                 resource.end()
@@ -136,7 +144,10 @@ class PhantomJSResourceTracker(ResourceTracker):
 
         except KeyError:
             # FIXME:
-            _logger.exception('Ugh.')
+            _logger.exception('Resource tracking lost a resource.')
+
+        else:
+            return resource
 
     def process_error(self, resource_error):
         try:
@@ -147,7 +158,9 @@ class PhantomJSResourceTracker(ResourceTracker):
             self._error.add(resource)
         except KeyError:
             # FIXME:
-            _logger.exception('Ugh.')
+            _logger.exception('Resource tracking lost a resource.')
+        else:
+            return resource
 
 
 class PySideResourceTracker(ResourceTracker):

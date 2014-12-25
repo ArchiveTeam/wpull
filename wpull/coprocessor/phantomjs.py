@@ -18,7 +18,9 @@ from wpull.body import Body
 from wpull.driver.phantomjs import PhantomJSRPCError
 from wpull.driver.resource import PhantomJSResourceTracker
 from wpull.driver.scroller import Scroller
+from wpull.errors import ServerError
 from wpull.http.request import Request, Response
+from wpull.item import URLRecord, Status
 from wpull.namevalue import NameValueRecord
 from wpull.warc import WARCRecord
 import wpull.url
@@ -387,20 +389,19 @@ class PhantomJSCoprocessorSession(object):
         if not url_info:
             return
 
-        # FIXME: need to tell resource is inline
+        resource_url_record = self._new_url_record(url_info)
         should_fetch = self._fetch_rule.check_generic_request(
-            url_info, self._url_item.url_record)[0]
+            url_info, resource_url_record)[0]
 
-        # if should_fetch:
-        if True:
+        self._resource_tracker.process_request(request_data)
+
+        if should_fetch:
             url = request_data['url']
 
             _logger.info(__(
                 _('PhantomJS fetching ‘{url}’.'),
                 url=url
             ))
-
-            self._resource_tracker.process_request(request_data)
         else:
             _logger.debug('Aborting.')
             return 'abort'
@@ -409,13 +410,19 @@ class PhantomJSCoprocessorSession(object):
         '''Process response.'''
         response = message['response']
 
-        self._resource_tracker.process_response(response)
+        resource = self._resource_tracker.process_response(response)
 
         if response['stage'] != 'end':
             return
 
-        # TODO
-        # self._result_rule.handle_document(adsfasdfa,asdfsdf)
+        # TODO: url_item, filename
+        # if resource and resource.request:
+        #     converted_request = convert_phantomjs_request(resource.request)
+        #     converted_response = convert_phantomjs_response(response)
+        #     converted_response.request = converted_request
+        #     self._result_rule.handle_document(
+        #         converted_request, converted_response, url_item, filename
+        #     )
 
         url = response['url']
 
@@ -433,7 +440,7 @@ class PhantomJSCoprocessorSession(object):
         '''Resource errored.'''
         resource_error = message['resource_error']
 
-        self._resource_tracker.process_error(resource_error)
+        resource = self._resource_tracker.process_error(resource_error)
 
         _logger.error(__(
             _('PhantomJS fetching ‘{url}’ encountered an error: {error}'),
@@ -441,8 +448,12 @@ class PhantomJSCoprocessorSession(object):
             error=resource_error['errorString']
         ))
 
-        # TODO
-        # self._result_rule.handle_error(asdfasdf, asdfsadfasdf)
+        # TODO: url_item
+        # if resource and resource.request:
+        #     converted_request = convert_phantomjs_request(resource.request)
+        #     error = ServerError(resource_error['errorString'])
+        #     self._result_rule.handle_error(converted_request, error, url_item)
+
 
     def _resource_timeout_cb(self, message):
         '''Resource timed out.'''
@@ -456,8 +467,10 @@ class PhantomJSCoprocessorSession(object):
             error=request['errorString']
         ))
 
-        # TODO
-        # self._result_rule.handle_error(asdfasdf, asdfsadfasdf)
+        converted_request = convert_phantomjs_request(request)
+        error = ServerError(request['errorString'])
+        url_info = converted_request.url_info
+        self._result_rule.handle_error(converted_request, error, url_info)
 
     def _error_cb(self, message):
         '''JavaScript error.'''
@@ -466,6 +479,22 @@ class PhantomJSCoprocessorSession(object):
             message=message['message'],
             trace=message['trace']
         ))
+
+    def _new_url_record(self, url_info):
+        '''Return a URL Record for the request.'''
+        return URLRecord(
+            url_info.url,
+            Status.in_progress,
+            0,  # try_count
+            self._url_item.url_record.level + 1,
+            self._url_item.url_record.top_url,
+            None,  # status_code
+            self._url_item.url_info.url,  # referrer
+            True,  # inline
+            None,  # link_type
+            None,  # post_data
+            None  # filename
+        )
 
 
 def convert_phantomjs_request(request_data):
@@ -492,13 +521,13 @@ def convert_phantomjs_response(response):
     if not url_info:
         return
 
-    response = Response(
+    converted_response = Response(
         status_code=response['status'],
         reason=response['statusText'],
     )
-    response.url_info = url_info
+    converted_response.url_info = url_info
 
     for header in response['headers']:
-        response.fields.add(header['name'], header['value'])
+        converted_response.fields.add(header['name'], header['value'])
 
-    return response
+    return converted_response

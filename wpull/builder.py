@@ -1147,7 +1147,7 @@ class Builder(object):
             self._factory['ProcessingRule'],
             self._factory['Statistics'],
             self._factory['FetchRule'],
-            self._factory['ProcessingRule'],
+            self._factory['ResultRule'],
             phantomjs_params,
             root_path=self._args.directory_prefix,
             warc_recorder=self.factory.get('WARCRecorder'),
