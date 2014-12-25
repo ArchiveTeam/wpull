@@ -16,10 +16,12 @@ Contents:
    intro
    install
    usage
+   options
    help
    scripting
    api
    changelog
+   warc
 
 
 Indices and tables

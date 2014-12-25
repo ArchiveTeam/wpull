@@ -38,12 +38,12 @@ from wpull.http.robots import RobotsTxtChecker
 from wpull.http.stream import Stream as HTTPStream
 from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
-from wpull.driver.phantomjs import PhantomJSClient
+from wpull.driver.phantomjs import PhantomJSPool
 from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
     FTPProcessorInstances
 from wpull.processor.rule import FetchRule, ResultRule, ProcessingRule
-from wpull.coprocessor.phantomjs import PhantomJSController
+from wpull.coprocessor.phantomjs import PhantomJSCoprocessor, PhantomJSParams
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
     WebProcessorInstances
 from wpull.proxy import HTTPProxyServer
@@ -118,8 +118,8 @@ class Builder(object):
             'JavaScriptScraper': JavaScriptScraper,
             'OutputDocumentRecorder': OutputDocumentRecorder,
             'PathNamer': PathNamer,
-            'PhantomJSClient': PhantomJSClient,
-            'PhantomJSController': PhantomJSController,
+            'PhantomJSPool': PhantomJSPool,
+            'PhantomJSCoprocessor': PhantomJSCoprocessor,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
             'ProcessingRule': ProcessingRule,
             'Processor': DelegateProcessor,
@@ -718,7 +718,7 @@ class Builder(object):
         file_writer = self._build_file_writer()
         post_data = self._get_post_data()
         web_client = self._build_web_client()
-        phantomjs_controller = self._build_phantomjs_controller()
+
         robots_txt_checker = self._build_robots_txt_checker()
 
         http_username = args.user or args.http_user
@@ -754,6 +754,8 @@ class Builder(object):
             sitemaps=self._args.sitemaps,
         )
 
+        phantomjs_coprocessor = self._build_phantomjs_coprocessor()
+
         web_processor_instances = self._factory.new(
             'WebProcessorInstances',
             fetch_rule=fetch_rule,
@@ -761,7 +763,7 @@ class Builder(object):
             processing_rule=processing_rule,
             file_writer=file_writer,
             statistics=self._factory['Statistics'],
-            phantomjs_controller=phantomjs_controller,
+            phantomjs_coprocessor=phantomjs_coprocessor,
         )
 
         web_processor_fetch_params = self._factory.new(
@@ -876,7 +878,10 @@ class Builder(object):
             path_namer,
             file_continuing=args.continue_download,
             headers_included=args.save_headers,
-            local_timestamping=args.use_server_timestamps
+            local_timestamping=args.use_server_timestamps,
+            adjust_extension=args.adjust_extension,
+            content_disposition=args.content_disposition,
+            trust_server_names=args.trust_server_names,
         )
 
     def _get_post_data(self):
@@ -994,6 +999,7 @@ class Builder(object):
                                  proxy_adapter=proxy_adapter)
 
     def _build_proxy_adapter(self):
+        '''Build HTTP proxy adapter.'''
         if self._args.no_proxy:
             return
 
@@ -1084,21 +1090,12 @@ class Builder(object):
 
         return converter
 
-    def _build_phantomjs_controller(self):
-        '''Build proxy server and PhantomJS client and controller.'''
+    def _build_phantomjs_coprocessor(self):
+        '''Build proxy server and PhantomJS client. controller, coprocessor.'''
         if not self._args.phantomjs:
             return
 
-        proxy_server = self._factory.new(
-            'HTTPProxyServer',
-            self.factory['HTTPClient'],
-            rewrite=True,
-            cookie_jar=self.factory.get('CookieJarWrapper'),
-        )
-        proxy_socket, proxy_port = tornado.testing.bind_unused_port()
-
-        proxy_task = trollius.async(trollius.start_server(proxy_server, sock=proxy_socket))
-
+        proxy_server, proxy_port, proxy_task = self._build_proxy_server()
         page_settings = {}
         default_headers = NameValueRecord()
 
@@ -1121,29 +1118,72 @@ class Builder(object):
         page_settings['userAgent'] = self._args.user_agent \
             or self.default_user_agent
 
-        phantomjs_client = self._factory.new(
-            'PhantomJSClient',
-            'localhost:{0}'.format(proxy_port),
-            page_settings=page_settings,
-            default_headers=default_headers,
-            exe_path=self._args.phantomjs_exe
-        )
-        phantomjs_client.test_client_exe()
-        phantomjs_client.proxy_task = proxy_task  # FIXME:
+        # Test early for executable
+        wpull.driver.phantomjs.get_version(self._args.phantomjs_exe)
 
-        phantomjs_controller = self._factory.new(
-            'PhantomJSController',
-            phantomjs_client,
+        phantomjs_params = PhantomJSParams(
             wait_time=self._args.phantomjs_wait,
             num_scrolls=self._args.phantomjs_scroll,
-            warc_recorder=self.factory.get('WARCRecorder'),
             smart_scroll=self._args.phantomjs_smart_scroll,
             snapshot=self._args.phantomjs_snapshot,
         )
 
-        return phantomjs_controller
+        extra_args = [
+            '--proxy', 'localhost:{0}'.format(proxy_port),
+            '--ignore-ssl-errors=true'
+        ]
+
+        phantomjs_pool = self._factory.new(
+            'PhantomJSPool',
+            exe_path=self._args.phantomjs_exe,
+            default_headers=default_headers,
+            page_settings=page_settings,
+            extra_args=extra_args,
+        )
+
+        phantomjs_coprocessor = self._factory.new(
+            'PhantomJSCoprocessor',
+            phantomjs_pool,
+            self._factory['ProcessingRule'],
+            self._factory['Statistics'],
+            self._factory['FetchRule'],
+            self._factory['ResultRule'],
+            phantomjs_params,
+            root_path=self._args.directory_prefix,
+            warc_recorder=self.factory.get('WARCRecorder'),
+        )
+
+        phantomjs_coprocessor.proxy_task = proxy_task  # FIXME: stick this somewhere else
+
+        return phantomjs_coprocessor
+
+    def _build_proxy_server(self):
+        '''Build MITM proxy server.'''
+        proxy_server = self._factory.new(
+            'HTTPProxyServer',
+            self.factory['HTTPClient'],
+        )
+
+        cookie_jar = self.factory.get('CookieJarWrapper')
+
+        if cookie_jar:
+            def request_callback(request):
+                cookie_jar.add_cookie_header(request)
+
+            def response_callback(request, response):
+                cookie_jar.extract_cookies(response, request)
+
+            proxy_server.request_callback = request_callback
+            proxy_server.response_callback = response_callback
+
+        proxy_socket, proxy_port = tornado.testing.bind_unused_port()
+
+        proxy_task = trollius.async(trollius.start_server(proxy_server, sock=proxy_socket))
+
+        return proxy_server, proxy_port, proxy_task
 
     def _build_robots_txt_checker(self):
+        '''Build robots.txt checker.'''
         if self._args.robots:
             robots_txt_pool = self._factory.new('RobotsTxtPool')
             robots_txt_checker = self._factory.new(

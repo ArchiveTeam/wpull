@@ -136,10 +136,15 @@ class Session(BaseSession):
         except FTPServerError as error:
             if error.reply_code in (ReplyCodes.syntax_error_command_unrecognized,
                                     ReplyCodes.command_not_implemented):
-                begin_reply = yield From(self._commander.begin_stream(list_command))
-                self._listing_type = 'list'
+                self._listing_type = None
             else:
                 raise
+
+        if not self._listing_type:
+            # This code not in exception handler to avoid incorrect
+            # exception chaining
+            begin_reply = yield From(self._commander.begin_stream(list_command))
+            self._listing_type = 'list'
 
         _logger.debug('Listing type is %s', self._listing_type)
         response.reply = begin_reply

@@ -4,7 +4,6 @@ import calendar
 import codecs
 import contextlib
 import datetime
-import functools
 import os.path
 import platform
 import re
@@ -100,22 +99,32 @@ def filter_pem(data):
         if line == b'-----BEGIN CERTIFICATE-----':
             assert not in_pem_block
             in_pem_block = True
-            new_list.append(line)
         elif line == b'-----END CERTIFICATE-----':
             assert in_pem_block
             in_pem_block = False
-            new_list.append(line)
 
-            # Add trailing new line
-            new_list.append(b'')
+            content = b''.join(new_list)
+            content = rewrap_bytes(content)
 
-            certs.add(b'\n'.join(new_list))
+            certs.add(b'-----BEGIN CERTIFICATE-----\n' +
+                      content +
+                      b'\n-----END CERTIFICATE-----\n')
 
             new_list = []
         elif in_pem_block:
             new_list.append(line)
 
     return certs
+
+
+def rewrap_bytes(data):
+    '''Rewrap characters to 70 character width.
+
+    Intended to rewrap base64 content.
+    '''
+    return b'\n'.join(
+        data[index:index+70] for index in range(0, len(data), 70)
+    )
 
 
 def truncate_file(path):

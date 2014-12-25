@@ -676,11 +676,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             default='index.html',
             help=_('use NAME as index page if not known'),
         )
-#         self.add_argument(
-#             '-E',
-#             '--adjust-extension',
-#             action='store_true',
-#         )
+        self.add_argument(
+            '-E',
+            '--adjust-extension',
+            action='store_true',
+            help=_('append HTML or CSS file extension if needed')
+        )
         group.add_argument(
             '--ignore-length',
             action='store_true',
@@ -776,9 +777,11 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--body-file',
 #             metavar='FILE'
 #         )
-#         self.add_argument(
-#             '--content-disposition'
-#         )
+        self.add_argument(
+            '--content-disposition',
+            action='store_true',
+            help=_('use filename given in Content-Disposition header')
+        )
         group.add_argument(
             '--content-on-error',
             action='store_true',
@@ -1146,11 +1149,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=self.comma_list,
             help=_('download only paths in LIST')
         )
-#         self.add_argument(
-#             '--trust-server-names',
-#             action='store_true',
-#             help=_('use the last given filename by the server for filenames')
-#         )
+        self.add_argument(
+            '--trust-server-names',
+            action='store_true',
+            help=_('use the last given URL for filename during redirects')
+        )
         group.add_argument(
             '-X',
             '--exclude-directories',

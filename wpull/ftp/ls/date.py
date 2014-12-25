@@ -115,7 +115,7 @@ DAY_PERIOD_PATTERN = re.compile(
     r'({})\b'.format('|'.join(AM_STRINGS | PM_STRINGS)), re.IGNORECASE)
 '''Regex pattern for AM/PM string.'''
 
-ISO_8601_DATE_PATTERN = re.compile(r'(\d{4})[\w./-](\d{1,2})[\w./-](\d{1,2})')
+ISO_8601_DATE_PATTERN = re.compile(r'(\d{4})(?!\d)[\w./-](\d{1,2})(?!\d)[\w./-](\d{1,2})')
 '''Regex pattern for dates similar to YYYY-MM-DD.'''
 
 MMM_DD_YY_PATTERN = re.compile(r'([^\W\d_]{3,4})\s{0,4}(\d{1,2})\s{0,4}(\d{0,4})')

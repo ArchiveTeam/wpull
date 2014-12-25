@@ -1213,6 +1213,22 @@ class TestAppBad(BadAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertEqual(4, builder.factory['Statistics'].files)
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_no_content(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/no_content'),
+            '--tries=1',
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
 
 class TestAppFTP(FTPTestCase):
     def setUp(self):

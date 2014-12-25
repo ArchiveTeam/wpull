@@ -2,6 +2,22 @@
 What's New
 ==========
 
+
+0.1004 (2014-12-25)
+===================
+
+* Fixed FTP data connection reuse error.
+* Fixed maximum recursion depth exceeded on FTP downloads.
+* Fixed FTP file listing detecting dates too eagerly as ISO8601 format.
+* Fixed crash on FTP if file listing could not find a date in a line.
+* Fixed HTTP status code 204 "No Content" interpreted as an error.
+* Fixed "cert already in hash table" error when using both OS and Wpull's certificates.
+* Improved PhantomJS stability. Timeout errors should be less frequent.
+* Added ``--adjust-extension``.
+* Added ``--content-disposition``.
+* Added ``--trust-server-names``.
+
+
 0.1003 (2014-12-11)
 ===================
 

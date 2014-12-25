@@ -1,202 +1,295 @@
-# encoding=utf-8
-'''PhantomJS coprocessing.'''
+'''PhantomJS page loading and scrolling.'''
 import copy
 import gettext
-import io
 import json
 import logging
-import os.path
+import os
 import tempfile
+import io
 import time
 
+import namedlist
 import trollius
 from trollius import From, Return
 
 from wpull.backport.logging import BraceMessage as __
-from wpull.body import Body
 from wpull.document.html import HTMLReader
-from wpull.driver.phantomjs import PhantomJSRPCTimedOut
+from wpull.body import Body
+from wpull.driver.phantomjs import PhantomJSRPCError
+from wpull.driver.resource import PhantomJSResourceTracker
+from wpull.driver.scroller import Scroller
+from wpull.errors import ServerError
+from wpull.http.request import Request, Response
+from wpull.item import URLRecord, Status
 from wpull.namevalue import NameValueRecord
-import wpull.url
 from wpull.warc import WARCRecord
+import wpull.url
+
+
+PhantomJSParams = namedlist.namedtuple(
+    'PhantomJSParamsType', [
+        ('snapshot_types', ('html', 'pdf')),
+        ('wait_time', 1),
+        ('num_scrolls', 10),
+        ('smart_scroll', True),
+        ('snapshot', True),
+        ('viewport_size', (1200, 1920)),
+        ('paper_size', (2400, 3840))
+    ]
+)
+'''PhantomJS parameters
+
+Attributes:
+    snapshot_type (list): File types. Accepted are html, pdf, png, gif.
+    wait_time (float): Time between page scrolls.
+    num_scrolls (int): Maximum number of scrolls.
+    smart_scroll (bool): Whether to stop scrolling if number of
+        requests & responses do not change.
+    snapshot (bool): Whether to take snapshot files.
+    viewport_size (tuple): Width and height of the page viewport.
+    paper_size (tuple): Width and height of the paper size.
+'''
 
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
 
 
-class PhantomJSController(object):
-    '''PhantomJS Page Controller.'''
-    def __init__(self, client, wait_time=1.0, num_scrolls=10, snapshot=True,
-                 warc_recorder=None, viewport_size=(1200, 1920),
-                 paper_size=(2400, 3840), smart_scroll=True):
-        self.client = client
-        self._wait_time = wait_time
-        self._num_scrolls = num_scrolls
-        self._snapshot = snapshot
+class PhantomJSCoprocessor(object):
+    '''PhantomJS coprocessor.
+
+    Args:
+        phantomjs_pool (:class:`.driver.phantomjs.PhantomJSPool`): PhantomJS
+            pool.
+        processing_rule (:class:`.processor.rule.ProcessingRule`): Processing
+            rule.
+        statistics (:class:`.stats.Statistics`): Statistics.
+        fetch_rule (:class:`.processor.rule.FetchRule`): Fetch rule.
+        warc_recorder: WARC recorder.
+        root_dir (str): Root directory path for temp files.
+    '''
+    def __init__(self, phantomjs_pool, processing_rule, statistics,
+                 fetch_rule, result_rule, phantomjs_params,
+                 warc_recorder=None, root_path='.'):
+        self._phantomjs_pool = phantomjs_pool
+        self._processing_rule = processing_rule
+        self._statistics = statistics
+        self._fetch_rule = fetch_rule
+        self._result_rule = result_rule
+        self._phantomjs_params = phantomjs_params
         self._warc_recorder = warc_recorder
-        self._viewport_size = viewport_size
-        self._paper_size = paper_size
-        self._smart_scroll = smart_scroll
-        self._actions = []
-        self._action_warc_record = None
+        self._root_path = root_path
+
+        self._file_writer_session = None
 
     @trollius.coroutine
-    def apply_page_size(self, remote):
-        '''Apply page size.
+    def process(self, url_item, request, response, file_writer_session):
+        '''Process PhantomJS.
 
         Coroutine.
         '''
-        yield From(remote.set(
-            'page.viewportSize',
-            {'width': self._viewport_size[0], 'height': self._viewport_size[1]}
-        ))
-        yield From(remote.set(
-            'page.paperSize',
-            {
-                'width': '{0}.px'.format(self._paper_size[0]),
-                'height': '{0}.px'.format(self._paper_size[1]),
-                'border': '0px'
-            }
-        ))
+        if response.status_code != 200:
+            return
 
-    @trollius.coroutine
-    def control(self, remote):
-        '''Scroll the page.
+        if not HTMLReader.is_supported(request=request, response=response):
+            return
 
-        Coroutine.
-        '''
-        num_scrolls = self._num_scrolls
+        _logger.debug('Starting PhantomJS processing.')
 
-        if self._smart_scroll:
-            is_page_dynamic = yield From(remote.call('isPageDynamic'))
+        self._file_writer_session = file_writer_session
 
-            if not is_page_dynamic:
-                num_scrolls = 0
+        # FIXME: this is a quick hack for handling time outs. See #137.
+        attempts = int(os.environ.get('WPULL_PHANTOMJS_TRIES', 5))
 
-        url = yield From(remote.eval('page.url'))
-        total_scroll_count = 0
-
-        for scroll_count in range(num_scrolls):
-            _logger.debug(__('Scrolling page. Count={0}.', scroll_count))
-
-            pre_scroll_counter_values = remote.resource_counter.values()
-
-            scroll_position = yield From(remote.eval('page.scrollPosition'))
-            scroll_position['top'] += self._viewport_size[1]
-
-            yield From(self.scroll_to(remote, 0, scroll_position['top']))
-
-            total_scroll_count += 1
-
-            self._log_action('wait', self._wait_time)
-            yield From(trollius.sleep(self._wait_time))
-
-            post_scroll_counter_values = remote.resource_counter.values()
-
-            _logger.debug(__(
-                'Counter values pre={0} post={1}',
-                pre_scroll_counter_values,
-                post_scroll_counter_values
-            ))
-
-            if post_scroll_counter_values == pre_scroll_counter_values \
-               and self._smart_scroll:
-                break
-
-        for dummy in range(remote.resource_counter.pending):
-            if remote.resource_counter.pending:
-                self._log_action('wait', self._wait_time)
-                yield From(trollius.sleep(self._wait_time))
+        for dummy in range(attempts):
+            try:
+                yield From(self._run_driver(url_item, request, response))
+            except PhantomJSRPCError as error:
+                _logger.exception(__('PhantomJS Error: {}', error))
             else:
                 break
+        else:
+            _logger.warning(__(
+                _('PhantomJS failed to fetch ‘{url}’. I am sorry.'),
+                url=request.url_info.url
+            ))
 
-        yield From(self.scroll_to(remote, 0, 0))
+    @trollius.coroutine
+    def _run_driver(self, url_item, request, response):
+        '''Start PhantomJS processing.'''
+        _logger.debug('Started PhantomJS processing.')
 
+        with self._phantomjs_pool.session() as driver:
+            session = PhantomJSCoprocessorSession(
+                driver, self._fetch_rule, self._result_rule,
+                url_item,
+                self._phantomjs_params, warc_recorder=self._warc_recorder
+            )
+            yield From(driver.start())
+            yield From(session.fetch(request.url_info.url))
+            yield From(session.wait_load())
+
+            if self._phantomjs_params.num_scrolls:
+                if self._phantomjs_params.smart_scroll:
+                    is_dynamic = yield From(driver.is_page_dynamic())
+
+                    if is_dynamic:
+                        yield From(session.scroll_page())
+                else:
+                    yield From(session.scroll_page())
+
+                yield From(session.wait_load())
+
+            yield From(self._take_snapshots(session))
+            yield From(self._scrape_document(session, request, response, url_item))
+
+        _logger.debug('Ended PhantomJS processing.')
+
+    @trollius.coroutine
+    def _take_snapshots(self, session, infix='snapshot'):
+        '''Make snapshot files.'''
+        for snapshot_type in self._phantomjs_params.snapshot_types or ():
+            path = self._file_writer_session.extra_resource_path(
+                '.{infix}.{file_type}'.format(infix=infix, file_type=snapshot_type)
+            )
+
+            if not path:
+                temp_fd, temp_path = tempfile.mkstemp(
+                        dir=self._root_path, prefix='phnsh',
+                        suffix='.{}'.format(snapshot_type)
+                    )
+                os.close(temp_fd)
+                path = temp_path
+            else:
+                temp_path = None
+
+            try:
+                yield From(session.take_snapshot(path))
+            finally:
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
+
+    @trollius.coroutine
+    def _scrape_document(self, session, request, response, url_item):
+        '''Extract links from the DOM.'''
+        temp_fd, temp_path = tempfile.mkstemp(
+            dir=self._root_path, prefix='phnsc',
+            suffix='.html'
+        )
+        os.close(temp_fd)
+
+        yield From(session.take_snapshot(temp_path, add_warc=False))
+
+        mock_response = self._new_mock_response(response, temp_path)
+
+        self._processing_rule.scrape_document(request, mock_response, url_item)
+
+        if mock_response.body:
+            mock_response.body.close()
+
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
+
+        _logger.debug('Ended PhantomJS processing.')
+
+    def _new_mock_response(self, response, file_path):
+        '''Return a new mock Response with the content.'''
+        mock_response = copy.copy(response)
+
+        mock_response.body = Body(open(file_path, 'rb'))
+        mock_response.fields = NameValueRecord()
+
+        for name, value in response.fields.get_all():
+            mock_response.fields.add(name, value)
+
+        mock_response.fields['Content-Type'] = 'text/html; charset="utf-8"'
+
+        return mock_response
+
+
+class PhantomJSCoprocessorSession(object):
+    '''PhantomJS coprocessor session.'''
+    def __init__(self, driver, fetch_rule, result_rule, url_item, params, warc_recorder=None):
+        self._driver = driver
+        self._fetch_rule = fetch_rule
+        self._result_rule = result_rule
+        self._url_item = url_item
+        self._params = params
+        self._warc_recorder = warc_recorder
+
+        self._resource_tracker = PhantomJSResourceTracker()
+        self._scroller = Scroller(
+            driver, self._resource_tracker,
+            scroll_height=self._params.viewport_size[1],
+            wait_time=self._params.wait_time,
+            num_scrolls=self._params.num_scrolls,
+            smart_scroll=self._params.smart_scroll
+        )
+        self._scroller.action_callback = self._log_action
+
+        self._actions = []
+        self._action_warc_record = None
+        self._load_state = 'not_started'
+
+        driver.page_event_handlers['load_started'] = self._load_started_cb
+        driver.page_event_handlers['load_finished'] = self._load_finished_cb
+        driver.page_event_handlers['resource_requested'] = self._resource_requested_cb
+        driver.page_event_handlers['resource_received'] = self._resource_received_cb
+        driver.page_event_handlers['resource_error'] = self._resource_error_cb
+        driver.page_event_handlers['resource_timeout'] = self._resource_timeout_cb
+        driver.page_event_handlers['error'] = self._error_cb
+
+    @trollius.coroutine
+    def fetch(self, url):
+        '''Load the page with the given URL.'''
         _logger.info(__(
-            gettext.ngettext(
-                'Scrolled page {num} time.',
-                'Scrolled page {num} times.',
-                total_scroll_count,
-            ), num=total_scroll_count
+            _('PhantomJS fetching ‘{url}’.'),
+            url=url
         ))
 
+        yield From(self._driver.open_page(
+            url,
+            viewport_size=self._params.viewport_size,
+            paper_size=self._params.paper_size
+        ))
+
+    @trollius.coroutine
+    def wait_load(self):
+        '''Wait for the page to load.
+
+        This function polls the Resource Tracker until nothing is left
+        pending.
+
+        Coroutine.
+        '''
+        _logger.debug('Wait load')
+
+        # FIXME: should this be a configurable option somewhere
+        timeout = self._params.wait_time * 2
+        start_time = time.time()
+
+        while self._load_state != 'finished' or self._resource_tracker.pending:
+            yield From(trollius.sleep(0.1))
+
+            if time.time() - start_time > timeout:
+                _logger.warning(_('Waiting for page load timed out.'))
+                break
+
+        _logger.debug('Wait over')
+
+    @trollius.coroutine
+    def scroll_page(self):
+        '''Scroll the page to the bottom and record actions'''
+        # Try to get rid of any stupid "sign up now" overlays.
+        click_x, click_y = self._params.viewport_size
+        self._log_action('click', [click_x, click_y])
+        yield From(self._driver.send_click(click_x, click_y))
+
+        yield From(self._scroller.scroll_to_bottom())
+
         if self._warc_recorder:
+            url = yield From(self._driver.get_page_url())
             self._add_warc_action_log(url)
-
-    @trollius.coroutine
-    def scroll_to(self, remote, x, y):
-        '''Scroll the page.
-
-        Coroutine.
-        '''
-        page_down_key = yield From(remote.eval('page.event.key.PageDown'))
-
-        self._log_action('set_scroll_left', x)
-        self._log_action('set_scroll_top', y)
-
-        yield From(remote.set('page.scrollPosition', {'left': x, 'top': y}))
-        yield From(remote.set('page.evaluate',
-                              '''
-                              function() {{
-                              if (window) {{
-                              window.scrollTo({0}, {1});
-                              }}
-                              }}
-                              '''.format(x, y)))
-        yield From(remote.call('page.sendEvent', 'keypress', page_down_key))
-        yield From(remote.call('page.sendEvent', 'keydown', page_down_key))
-        yield From(remote.call('page.sendEvent', 'keyup', page_down_key))
-
-    @trollius.coroutine
-    def snapshot(self, remote, html_path=None, render_path=None):
-        '''Take HTML and PDF snapshot.
-
-        Coroutine.
-        '''
-        content = yield From(remote.eval('page.content'))
-        url = yield From(remote.eval('page.url'))
-
-        if html_path:
-            _logger.debug(__('Saving snapshot to {0}.', html_path))
-            dir_path = os.path.abspath(os.path.dirname(html_path))
-
-            if not os.path.exists(dir_path):
-                os.makedirs(dir_path)
-
-            with open(html_path, 'wb') as out_file:
-                out_file.write(content.encode('utf-8'))
-
-            if self._warc_recorder:
-                self._add_warc_snapshot(html_path, 'text/html', url)
-
-        if render_path:
-            _logger.debug(__('Saving snapshot to {0}.', render_path))
-            yield From(remote.call('page.render', render_path))
-
-            if self._warc_recorder:
-                self._add_warc_snapshot(render_path, 'application/pdf', url)
-
-        raise Return(content)
-
-    def _add_warc_snapshot(self, filename, content_type, url):
-        '''Add the snaphot to the WARC file.'''
-        _logger.debug('Adding snapshot record.')
-
-        record = WARCRecord()
-        record.set_common_fields('resource', content_type)
-        record.fields['WARC-Target-URI'] = 'urn:X-wpull:snapshot?url={0}'\
-            .format(wpull.url.percent_encode_query_value(url))
-
-        if self._action_warc_record:
-            record.fields['WARC-Concurrent-To'] = \
-                self._action_warc_record.fields[WARCRecord.WARC_RECORD_ID]
-
-        with open(filename, 'rb') as in_file:
-            record.block_file = in_file
-
-            self._warc_recorder.set_length_and_maybe_checksums(record)
-            self._warc_recorder.write_record(record)
 
     def _log_action(self, name, value):
         '''Add a action to the action log.'''
@@ -215,189 +308,229 @@ class PhantomJSController(object):
         log_data = json.dumps(
             {'actions': self._actions},
             indent=4,
-        ).encode('utf-8')
+            ).encode('utf-8')
 
         self._action_warc_record = record = WARCRecord()
         record.set_common_fields('metadata', 'application/json')
-        record.fields['WARC-Target-URI'] = 'urn:X-wpull:snapshot?url={0}'\
+        record.fields['WARC-Target-URI'] = 'urn:X-wpull:snapshot?url={0}' \
             .format(wpull.url.percent_encode_query_value(url))
         record.block_file = io.BytesIO(log_data)
 
         self._warc_recorder.set_length_and_maybe_checksums(record)
         self._warc_recorder.write_record(record)
 
-
-class WebProcessorSessionMixin(object):
-    '''This class is just temporary while things are rewritten out of
-    web processor.'''
-
     @trollius.coroutine
-    def _process_phantomjs(self, request, response):
-        '''Process PhantomJS.
+    def take_snapshot(self, path, add_warc=True):
+        '''Take a snapshot and record it.
 
         Coroutine.
         '''
-        if not self._processor.instances.phantomjs_controller:
+        extension = os.path.splitext(path)[1]
+
+        assert extension in ('.pdf', '.png', '.html'), (path, extension)
+
+        _logger.debug(__('Saving snapshot to {0}.', path))
+
+        dir_path = os.path.abspath(os.path.dirname(path))
+
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+
+        yield From(self._scroller.scroll_to_top())
+        yield From(self._driver.snapshot(path))
+
+        url = yield From(self._driver.get_page_url())
+
+        if self._warc_recorder and add_warc:
+            mime_type = {
+                '.pdf': 'application/pdf',
+                '.html': 'text/html',
+                '.png': 'image/png',
+                }[extension]
+
+            self._add_warc_snapshot(path, mime_type, url)
+
+    def _add_warc_snapshot(self, filename, content_type, url):
+        '''Add the snaphot to the WARC file.'''
+        _logger.debug('Adding snapshot record.')
+
+        record = WARCRecord()
+        record.set_common_fields('resource', content_type)
+        record.fields['WARC-Target-URI'] = 'urn:X-wpull:snapshot?url={0}' \
+            .format(wpull.url.percent_encode_query_value(url))
+
+        if self._action_warc_record:
+            record.fields['WARC-Concurrent-To'] = \
+                self._action_warc_record.fields[WARCRecord.WARC_RECORD_ID]
+
+        with open(filename, 'rb') as in_file:
+            record.block_file = in_file
+
+            self._warc_recorder.set_length_and_maybe_checksums(record)
+            self._warc_recorder.write_record(record)
+
+    def _load_started_cb(self, message):
+        '''Page is loading.'''
+        _logger.debug('Load started.')
+        self._load_state = 'started'
+
+    def _load_finished_cb(self, message):
+        '''Page loaded.'''
+        _logger.debug('Load finished')
+        self._load_state = 'finished'
+
+    def _resource_requested_cb(self, message):
+        '''Allow or abort request.'''
+        request_data = message['request_data']
+        _logger.debug(__('Resource requested {}', request_data['url']))
+
+        url_info = wpull.url.parse_url_or_log(request_data['url'])
+
+        if not url_info:
             return
 
-        if response.status_code != 200:
-            return
+        # FIXME: things are not fetched as expected
+        # TODO: always allow data URLs.
+        # resource_url_record = self._new_url_record(url_info)
+        # should_fetch = self._fetch_rule.check_generic_request(
+        #     url_info, resource_url_record)[0]
 
-        if not HTMLReader.is_supported(request=request, response=response):
-            return
+        self._resource_tracker.process_request(request_data)
 
-        _logger.debug('Starting PhantomJS processing.')
+        if True:
+        # if should_fetch:
+            url = request_data['url']
 
-        controller = self._processor.instances.phantomjs_controller
-
-        attempts = int(os.environ.get('WPULL_PHANTOMJS_TRIES', 5))
-        content = None
-
-        for dummy in range(attempts):
-            # FIXME: this is a quick hack for handling time outs. See #137.
-            try:
-                with controller.client.remote() as remote:
-                    self._hook_phantomjs_logging(remote)
-
-                    yield From(controller.apply_page_size(remote))
-                    yield From(remote.call('page.open', request.url_info.url))
-                    yield From(remote.wait_page_event('load_finished'))
-                    yield From(controller.control(remote))
-
-                    # FIXME: not sure where the logic should fit in
-                    if controller._snapshot:
-                        yield From(self._take_phantomjs_snapshot(controller, remote))
-
-                    content = yield From(remote.eval('page.content'))
-            except PhantomJSRPCTimedOut:
-                _logger.exception('PhantomJS timed out.')
-            else:
-                break
-
-        if content is not None:
-            mock_response = self._new_phantomjs_response(response, content)
-
-            self._processing_rule.scrape_document(request, mock_response, self._url_item)
-
-            self._close_instance_body(mock_response)
-
-            _logger.debug('Ended PhantomJS processing.')
-        else:
-            _logger.warning(__(
-                _('PhantomJS failed to fetch ‘{url}’. I am sorry.'),
-                url=request.url_info.url
-            ))
-
-    def _new_phantomjs_response(self, response, content):
-        '''Return a new mock Response with the content.'''
-        mock_response = copy.copy(response)
-
-        mock_response.body = Body(
-            wpull.body.new_temp_file(
-                self._processor.root_path, hint='phjs_resp'
-            ))
-        self._temp_files.add(mock_response.body)
-
-        mock_response.body.write(content.encode('utf-8'))
-        mock_response.body.seek(0)
-
-        mock_response.fields = NameValueRecord()
-
-        for name, value in response.fields.get_all():
-            mock_response.fields.add(name, value)
-
-        mock_response.fields['Content-Type'] = 'text/html; charset="utf-8"'
-
-        return mock_response
-
-    def _hook_phantomjs_logging(self, remote):
-        '''Set up logging from PhantomJS to Wpull.'''
-        def fetch_log(rpc_info):
             _logger.info(__(
                 _('PhantomJS fetching ‘{url}’.'),
-                url=rpc_info['request_data']['url']
+                url=url
+            ))
+        else:
+            _logger.debug('Aborting.')
+            return 'abort'
+
+    def _resource_received_cb(self, message):
+        '''Process response.'''
+        response = message['response']
+
+        resource = self._resource_tracker.process_response(response)
+
+        if response['stage'] != 'end':
+            return
+
+        # TODO: url_item, filename
+        # if resource and resource.request:
+        #     converted_request = convert_phantomjs_request(resource.request)
+        #     converted_response = convert_phantomjs_response(response)
+        #     converted_response.request = converted_request
+        #     self._result_rule.handle_document(
+        #         converted_request, converted_response, url_item, filename
+        #     )
+
+        url = response['url']
+
+        _logger.info(__(
+            _('PhantomJS fetched ‘{url}’: {status_code} {reason}. '
+              'Length: {content_length} [{content_type}].'),
+            url=url,
+            status_code=response['status'],
+            reason=response['statusText'],
+            content_length=response.get('bodySize'),
+            content_type=response.get('contentType'),
             ))
 
-        def fetched_log(rpc_info):
-            if rpc_info['response']['stage'] != 'end':
-                return
+    def _resource_error_cb(self, message):
+        '''Resource errored.'''
+        resource_error = message['resource_error']
 
-            response = rpc_info['response']
+        resource = self._resource_tracker.process_error(resource_error)
 
-            self._processor.instances.statistics.increment(
-                response.get('bodySize', 0)
-            )
+        _logger.error(__(
+            _('PhantomJS fetching ‘{url}’ encountered an error: {error}'),
+            url=resource_error['url'],
+            error=resource_error['errorString']
+        ))
 
-            url = response['url']
+        # TODO: url_item
+        # if resource and resource.request:
+        #     converted_request = convert_phantomjs_request(resource.request)
+        #     error = ServerError(resource_error['errorString'])
+        #     self._result_rule.handle_error(converted_request, error, url_item)
 
-            if url.endswith('/WPULLHTTPS'):
-                url = url[:-11].replace('http://', 'https://', 1)
 
-            _logger.info(__(
-                _('PhantomJS fetched ‘{url}’: {status_code} {reason}. '
-                  'Length: {content_length} [{content_type}].'),
-                url=url,
-                status_code=response['status'],
-                reason=response['statusText'],
-                content_length=response.get('bodySize'),
-                content_type=response.get('contentType'),
-                ))
+    def _resource_timeout_cb(self, message):
+        '''Resource timed out.'''
+        request = message['request']
 
-        def fetch_error_log(rpc_info):
-            resource_error = rpc_info['resource_error']
+        self._resource_tracker.process_error(request)
 
-            _logger.error(__(
-                _('PhantomJS fetching ‘{url}’ encountered an error: {error}'),
-                url=resource_error['url'],
-                error=resource_error['errorString']
-            ))
+        _logger.error(__(
+            _('PhantomJS fetching ‘{url}’ encountered an error: {error}'),
+            url=request['url'],
+            error=request['errorString']
+        ))
 
-        def handle_page_event(rpc_info):
-            name = rpc_info['event']
+        converted_request = convert_phantomjs_request(request)
+        error = ServerError(request['errorString'])
+        url_info = converted_request.url_info
+        self._result_rule.handle_error(converted_request, error, url_info)
 
-            if name == 'resource_requested':
-                fetch_log(rpc_info)
-            elif name == 'resource_received':
-                fetched_log(rpc_info)
-            elif name == 'resource_error':
-                fetch_error_log(rpc_info)
+    def _error_cb(self, message):
+        '''JavaScript error.'''
+        _logger.error(__(
+            _('PhantomJSError: {message} {trace}'),
+            message=message['message'],
+            trace=message['trace']
+        ))
 
-        remote.page_observer.add(handle_page_event)
-
-    @trollius.coroutine
-    def _take_phantomjs_snapshot(self, controller, remote):
-        '''Take HTML and PDF snapshot.
-
-        Coroutine.
-        '''
-        html_path = self._file_writer_session.extra_resource_path(
-            '.snapshot.html'
+    def _new_url_record(self, url_info):
+        '''Return a URL Record for the request.'''
+        return URLRecord(
+            url_info.url,
+            Status.in_progress,
+            0,  # try_count
+            self._url_item.url_record.level + 1,
+            self._url_item.url_record.top_url,
+            None,  # status_code
+            self._url_item.url_info.url,  # referrer
+            True,  # inline
+            None,  # link_type
+            None,  # post_data
+            None  # filename
         )
-        pdf_path = self._file_writer_session.extra_resource_path(
-            '.snapshot.pdf'
-        )
 
-        files_to_del = []
 
-        if not html_path:
-            temp_file = tempfile.NamedTemporaryFile(
-                dir=self._processor.root_path, delete=False, suffix='.html'
-            )
-            html_path = temp_file.name
-            files_to_del.append(html_path)
-            temp_file.close()
+def convert_phantomjs_request(request_data):
+    '''Convert a dict into a Request.'''
+    url_info = wpull.url.parse_url_or_log(request_data['url'])
 
-        if not pdf_path:
-            temp_file = tempfile.NamedTemporaryFile(
-                dir=self._processor.root_path, delete=False, suffix='.pdf'
-            )
-            pdf_path = temp_file.name
-            files_to_del.append(pdf_path)
-            temp_file.close()
+    if not url_info:
+        return
 
-        try:
-            yield From(controller.snapshot(remote, html_path, pdf_path))
-        finally:
-            for filename in files_to_del:
-                if os.path.exists(filename):
-                    os.remove(filename)
+    request = Request()
+    request.method = request_data['method']
+    request.url_info = url_info
+
+    for header in request_data['headers']:
+        request.fields.add(header['name'], header['value'])
+
+    return request
+
+
+def convert_phantomjs_response(response):
+    '''Convert a dict into a Response.'''
+    url_info = wpull.url.parse_url_or_log(response['url'])
+
+    if not url_info:
+        return
+
+    converted_response = Response(
+        status_code=response['status'],
+        reason=response['statusText'],
+    )
+    converted_response.url_info = url_info
+
+    for header in response['headers']:
+        converted_response.fields.add(header['name'], header['value'])
+
+    return converted_response
