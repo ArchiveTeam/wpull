@@ -389,13 +389,16 @@ class PhantomJSCoprocessorSession(object):
         if not url_info:
             return
 
-        resource_url_record = self._new_url_record(url_info)
-        should_fetch = self._fetch_rule.check_generic_request(
-            url_info, resource_url_record)[0]
+        # FIXME: things are not fetched as expected
+        # TODO: always allow data URLs.
+        # resource_url_record = self._new_url_record(url_info)
+        # should_fetch = self._fetch_rule.check_generic_request(
+        #     url_info, resource_url_record)[0]
 
         self._resource_tracker.process_request(request_data)
 
-        if should_fetch:
+        if True:
+        # if should_fetch:
             url = request_data['url']
 
             _logger.info(__(
