@@ -881,6 +881,7 @@ class Builder(object):
             local_timestamping=args.use_server_timestamps,
             adjust_extension=args.adjust_extension,
             content_disposition=args.content_disposition,
+            trust_server_names=args.trust_server_names,
         )
 
     def _get_post_data(self):

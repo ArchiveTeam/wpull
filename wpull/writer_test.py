@@ -460,3 +460,23 @@ class TestWriterApp(GoodAppTestCase):
             self.assertTrue(os.path.isfile('hello2.txt'))
             self.assertTrue(os.path.isfile('hello3.txt'))
             self.assertTrue(os.path.isfile('hello4.txt'))
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_trust_server_names(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/redirect'),
+            '--trust-server-names',
+            '--no-host-directories',
+            ])
+
+        with cd_tempdir() as temp_dir:
+            builder = Builder(args, unit_test=True)
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+            self.assertEqual(0, exit_code)
+
+            print(list(os.walk('.')))
+
+            self.assertTrue(os.path.isfile('index.html'))

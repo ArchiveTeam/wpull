@@ -10,6 +10,7 @@ What's New
 * Improved PhantomJS stability. Timeout errors should be less frequent.
 * Added ``--adjust-extension``.
 * Added ``--content-disposition``.
+* Added ``--trust-server-names``.
 
 
 0.1003 (2014-12-11)

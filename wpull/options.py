@@ -1149,11 +1149,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=self.comma_list,
             help=_('download only paths in LIST')
         )
-#         self.add_argument(
-#             '--trust-server-names',
-#             action='store_true',
-#             help=_('use the last given filename by the server for filenames')
-#         )
+        self.add_argument(
+            '--trust-server-names',
+            action='store_true',
+            help=_('use the last given URL for filename during redirects')
+        )
         group.add_argument(
             '-X',
             '--exclude-directories',

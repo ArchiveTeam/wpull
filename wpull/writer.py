@@ -102,16 +102,20 @@ class BaseFileWriter(BaseWriter):
             whenever it is detected as so.
         content_disposition: If True, the filename is extracted from
             the Content-Disposition header.
+        trust_server_names: If True and there is redirection, use the last
+            given response for the filename.
     '''
     def __init__(self, path_namer, file_continuing=False,
                  headers_included=False, local_timestamping=True,
-                 adjust_extension=False, content_disposition=False):
+                 adjust_extension=False, content_disposition=False,
+                 trust_server_names=False):
         self._path_namer = path_namer
         self._file_continuing = file_continuing
         self._headers_included = headers_included
         self._local_timestamping = local_timestamping
         self._adjust_extension = adjust_extension
         self._content_disposition = content_disposition
+        self._trust_server_names = trust_server_names
 
     @abc.abstractproperty
     def session_class(self):
@@ -130,6 +134,7 @@ class BaseFileWriter(BaseWriter):
             self._local_timestamping,
             self._adjust_extension,
             self._content_disposition,
+            self._trust_server_names,
         )
 
 
@@ -137,13 +142,15 @@ class BaseFileWriterSession(BaseWriterSession):
     '''Base class for File Writer Sessions.'''
     def __init__(self, path_namer, file_continuing,
                  headers_included, local_timestamping,
-                 adjust_extension, content_disposition):
+                 adjust_extension, content_disposition,
+                 trust_server_names):
         self._path_namer = path_namer
         self._file_continuing = file_continuing
         self._headers_included = headers_included
         self._local_timestamping = local_timestamping
         self._adjust_extension = adjust_extension
         self._content_disposition = content_disposition
+        self._trust_server_names = trust_server_names
         self._filename = None
 
     @classmethod
@@ -252,6 +259,9 @@ class BaseFileWriterSession(BaseWriterSession):
             if self._file_continuing:
                 self._process_file_continue_response(response)
             elif 200 <= code <= 299 or 400 <= code:
+                if self._trust_server_names:
+                    self._rename_with_last_response(response)
+
                 if self._content_disposition:
                     self._rename_with_content_disposition(response)
 
@@ -310,6 +320,15 @@ class BaseFileWriterSession(BaseWriterSession):
             new_filename = self._path_namer.safe_filename(filename)
             parts.append(new_filename)
             self._filename = os.path.join(*parts)
+
+    def _rename_with_last_response(self, response):
+        if not self._filename:
+            return
+
+        if response.request.url_info.scheme not in ('http', 'https'):
+            return
+
+        self._filename = self._compute_filename(response.request)
 
     def save_document(self, response):
         if self._filename and os.path.exists(self._filename):
