@@ -118,6 +118,7 @@ class URLInfo(object):
     @classmethod
     @functools.lru_cache()
     def parse(cls, url, default_scheme='http', encoding='utf-8'):
+        '''Parse a URL and return a URLInfo.'''
         url = url.strip()
         if not url.isprintable():
             raise ValueError('URL is not printable: {}'.format(ascii(url)))
@@ -212,6 +213,7 @@ class URLInfo(object):
 
     @classmethod
     def parse_authority(cls, authority):
+        '''Parse the authority part and return userinfo and host.'''
         userinfo, sep, host = authority.partition('@')
 
         if not sep:
@@ -221,12 +223,14 @@ class URLInfo(object):
 
     @classmethod
     def parse_userinfo(cls, userinfo):
+        '''Parse the userinfo and return username and password.'''
         username, sep, password = userinfo.partition(':')
 
         return username, password
 
     @classmethod
     def parse_host(cls, host):
+        '''Parse the host and return hostname and port.'''
         if host.endswith(']'):
             return cls.parse_hostname(host), None
         else:
@@ -242,6 +246,7 @@ class URLInfo(object):
 
     @classmethod
     def parse_hostname(cls, hostname):
+        '''Parse the hostname and normalize.'''
         if hostname.startswith('['):
             return cls.parse_ipv6_hostname(hostname)
         else:
@@ -255,6 +260,7 @@ class URLInfo(object):
 
     @classmethod
     def parse_ipv6_hostname(cls, hostname):
+        '''Parse and normalize a IPv6 address.'''
         if not hostname.startswith('[') or not hostname.endswith(']'):
             raise ValueError('Invalid IPv6 address: {}'
                              .format(ascii(hostname)))
@@ -313,6 +319,7 @@ class URLInfo(object):
         return self._url
 
     def to_dict(self):
+        '''Return a dict of the attributes.'''
         return dict(
             raw=self.raw,
             scheme=self.scheme,
