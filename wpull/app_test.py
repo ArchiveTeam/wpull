@@ -1107,6 +1107,8 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase):
 class TestAppBad(BadAppTestCase):
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_bad_cookie(self):
+        import http.cookiejar
+        http.cookiejar.debug = True
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
             self.get_url('/bad_cookie'),
@@ -1121,7 +1123,7 @@ class TestAppBad(BadAppTestCase):
 
         cookies = list(builder.factory['CookieJar'])
         _logger.debug('{0}'.format(cookies))
-        self.assertEqual(3, len(cookies))
+        self.assertEqual(4, len(cookies))
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_long_cookie(self):

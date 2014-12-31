@@ -2,6 +2,8 @@
 What's New
 ==========
 
+* Fixed TypeError crash on a bad cookie.
+
 
 0.1004 (2014-12-25)
 ===================
