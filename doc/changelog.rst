@@ -3,6 +3,7 @@ What's New
 ==========
 
 * Fixed NameError with PhantomJS proxy on Python 3.2.
+* Fixed PhantomJS stop waiting for page load too early.
 * Fixed ``--page-requisites`` exceeding ``--level``.
 * Fixed infinite page requisite recursion when using ``--span-hosts-allow page-requisites``.
 * Added ``--page-requisites-level``. The default max recursion depth on page requisites is now 5.
