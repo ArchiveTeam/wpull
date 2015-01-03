@@ -3,6 +3,7 @@
 import gettext
 import logging
 import ssl
+import os
 
 from trollius import From, Return
 import trollius
@@ -37,6 +38,12 @@ class HTTPProxyServer(object):
         self._http_client = http_client
         self.request_callback = None
         self.response_callback = None
+
+        self._cert_filename = wpull.util.get_package_filename('proxy.crt')
+        self._key_filename = wpull.util.get_package_filename('proxy.key')
+
+        assert os.path.isfile(self._cert_filename), self._cert_filename
+        assert os.path.isfile(self._key_filename), self._key_filename
 
     @trollius.coroutine
     def __call__(self, reader, writer):
@@ -130,8 +137,7 @@ class HTTPProxyServer(object):
 
             _logger.debug('Response done.')
 
-    @classmethod
-    def _start_tls(cls, reader, writer):
+    def _start_tls(self, reader, writer):
         '''Start SSL protocol on the socket.'''
         socket_ = writer.get_extra_info('socket')
         trollius.get_event_loop().remove_reader(socket_.fileno())
@@ -143,8 +149,8 @@ class HTTPProxyServer(object):
 
         ssl_socket = ssl.wrap_socket(
             socket_, server_side=True,
-            certfile=wpull.util.get_package_filename('proxy.crt'),
-            keyfile=wpull.util.get_package_filename('proxy.key'),
+            certfile=self._cert_filename,
+            keyfile=self._cert_key,
             do_handshake_on_connect=False
         )
 

@@ -1,9 +1,13 @@
 # encoding=utf-8
 '''HTTP Cookies.'''
+import gettext
 from http.cookiejar import DefaultCookiePolicy, MozillaCookieJar
+import logging
 import re
 
 import wpull.util
+
+_logger = logging.getLogger(__name__)
 
 
 class DeFactoCookiePolicy(DefaultCookiePolicy):
@@ -23,9 +27,14 @@ class DeFactoCookiePolicy(DefaultCookiePolicy):
         if not DefaultCookiePolicy.set_ok(self, cookie, request):
             return False
 
-        new_cookie_length = (self.cookie_length(cookie.domain) +
-                             len(cookie.path) + len(cookie.name) +
-                             len(cookie.value or ''))
+        try:
+            new_cookie_length = (self.cookie_length(cookie.domain) +
+                                 len(cookie.path) + len(cookie.name) +
+                                 len(cookie.value or ''))
+        except TypeError as error:
+            # cookiejar is not infallible #220
+            _logger.debug('Cookie handling error', exc_info=1)
+            return False
 
         if new_cookie_length >= 4100:
             return False

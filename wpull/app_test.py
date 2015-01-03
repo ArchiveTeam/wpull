@@ -23,7 +23,7 @@ from wpull.http.web import WebSession
 from wpull.options import AppArgumentParser
 from wpull.testing.async import AsyncTestCase
 from wpull.testing.badapp import BadAppTestCase
-from wpull.testing.goodapp import GoodAppTestCase
+from wpull.testing.goodapp import GoodAppTestCase, GoodAppHTTPSTestCase
 from wpull.url import URLInfo
 from wpull.util import IS_PYPY
 import wpull.testing.async
@@ -759,83 +759,6 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(1, builder.factory['Statistics'].files)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_app_phantomjs(self):
-        arg_parser = AppArgumentParser()
-        script_filename = os.path.join(os.path.dirname(__file__),
-                                       'testing', 'boring_script.py')
-        args = arg_parser.parse_args([
-            self.get_url('/static/simple_javascript.html'),
-            '--warc-file', 'test',
-            '--no-warc-compression',
-            '-4',
-            '--no-robots',
-            '--phantomjs',
-            '--phantomjs-exe', 'phantomjs',
-            '--phantomjs-wait', '0.1',
-            '--phantomjs-scroll', '2',
-            '--header', 'accept-language: dragon',
-            '--python-script', script_filename,
-        ])
-        builder = Builder(args, unit_test=True)
-
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
-
-            self.assertTrue(os.path.exists('test.warc'))
-            self.assertTrue(
-                os.path.exists('simple_javascript.html.snapshot.html')
-            )
-            self.assertTrue(
-                os.path.exists('simple_javascript.html.snapshot.pdf')
-            )
-
-            with open('simple_javascript.html.snapshot.html', 'rb') as in_file:
-                data = in_file.read()
-                self.assertIn(b'Hello world!', data)
-
-            with open('test.warc', 'rb') as in_file:
-                data = in_file.read()
-
-                self.assertIn(b'urn:X-wpull:snapshot?url=', data)
-                self.assertIn(b'text/html', data)
-                self.assertIn(b'application/pdf', data)
-                self.assertIn(b'application/json', data)
-                self.assertIn(b'"set_scroll_top"', data)
-                try:
-                    self.assertIn(b'Accept-Encoding: identity', data)
-                except AssertionError:
-                    # webkit treats localhost differently
-                    self.assertNotIn(b'Accept-Encoding: gzip', data)
-                self.assertIn(b'Accept-Language: dragon', data)
-
-        self.assertEqual(0, exit_code)
-        self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
-
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_app_phantomjs_scroll(self):
-        arg_parser = AppArgumentParser()
-        args = arg_parser.parse_args([
-            self.get_url('/static/DEUUEAUGH.html'),
-            '-4',
-            '--no-robots',
-            '--phantomjs',
-            '--phantomjs-wait', '0.1',
-            '--phantomjs-scroll', '20',
-        ])
-        builder = Builder(args, unit_test=True)
-
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
-
-            with open('DEUUEAUGH.html.snapshot.html', 'rb') as in_file:
-                data = in_file.read()
-                self.assertIn(b'Count: 10', data)
-
-        self.assertEqual(0, exit_code)
-
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_sitemaps(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
@@ -1104,9 +1027,100 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase):
         self.assertEqual(0, builder.factory['Statistics'].files)
 
 
+class PhantomJSMixin(object):
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_phantomjs(self):
+        arg_parser = AppArgumentParser()
+        script_filename = os.path.join(os.path.dirname(__file__),
+                                       'testing', 'boring_script.py')
+        args = arg_parser.parse_args([
+            self.get_url('/static/simple_javascript.html'),
+            '--warc-file', 'test',
+            '--no-warc-compression',
+            '-4',
+            '--no-robots',
+            '--phantomjs',
+            '--phantomjs-exe', 'phantomjs',
+            '--phantomjs-wait', '0.1',
+            '--phantomjs-scroll', '2',
+            '--header', 'accept-language: dragon',
+            '--python-script', script_filename,
+            '--no-check-certificate',
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+            self.assertTrue(os.path.exists('test.warc'))
+            self.assertTrue(
+                os.path.exists('simple_javascript.html.snapshot.html')
+            )
+            self.assertTrue(
+                os.path.exists('simple_javascript.html.snapshot.pdf')
+            )
+
+            with open('simple_javascript.html.snapshot.html', 'rb') as in_file:
+                data = in_file.read()
+                self.assertIn(b'Hello world!', data)
+
+            with open('test.warc', 'rb') as in_file:
+                data = in_file.read()
+
+                self.assertIn(b'urn:X-wpull:snapshot?url=', data)
+                self.assertIn(b'text/html', data)
+                self.assertIn(b'application/pdf', data)
+                self.assertIn(b'application/json', data)
+                self.assertIn(b'"set_scroll_top"', data)
+                try:
+                    self.assertIn(b'Accept-Encoding: identity', data)
+                except AssertionError:
+                    # webkit treats localhost differently
+                    self.assertNotIn(b'Accept-Encoding: gzip', data)
+                self.assertIn(b'Accept-Language: dragon', data)
+
+        self.assertEqual(0, exit_code)
+        self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_phantomjs_scroll(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/static/DEUUEAUGH.html'),
+            '-4',
+            '--no-robots',
+            '--phantomjs',
+            '--phantomjs-wait', '0.1',
+            '--phantomjs-scroll', '20',
+            '--no-check-certificate',
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+            with open('DEUUEAUGH.html.snapshot.html', 'rb') as in_file:
+                data = in_file.read()
+                self.assertIn(b'Count: 10', data)
+
+        self.assertEqual(0, exit_code)
+
+
+class TestPhantomJS(GoodAppTestCase, PhantomJSMixin):
+    pass
+
+
+class TestPhantomJSHTTPS(GoodAppHTTPSTestCase, PhantomJSMixin):
+    pass
+
+
 class TestAppBad(BadAppTestCase):
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_bad_cookie(self):
+        import http.cookiejar
+        http.cookiejar.debug = True
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
             self.get_url('/bad_cookie'),
@@ -1121,7 +1135,7 @@ class TestAppBad(BadAppTestCase):
 
         cookies = list(builder.factory['CookieJar'])
         _logger.debug('{0}'.format(cookies))
-        self.assertEqual(3, len(cookies))
+        self.assertEqual(4, len(cookies))
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_long_cookie(self):

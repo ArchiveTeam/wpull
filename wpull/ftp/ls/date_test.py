@@ -5,16 +5,22 @@ from wpull.ftp.ls.date import parse_datetime
 
 class TestDate(unittest.TestCase):
     def test_parse_datetime(self):
-        datetime_now = datetime.datetime.utcnow()
+        datetime_now = datetime.datetime.now(datetime.timezone.utc)
 
         self.assertEqual(
             datetime.datetime(1990, 2, 9, tzinfo=datetime.timezone.utc),
             parse_datetime('Feb  9 1990')[0]
         )
 
+        datetime_feb9 = datetime.datetime(
+            datetime_now.year, 2, 9, 18, 45, tzinfo=datetime.timezone.utc)
+
+        if datetime_feb9 > datetime_now:
+            datetime_feb9 = datetime.datetime(
+                datetime_now.year - 1, 2, 9, 18, 45, tzinfo=datetime.timezone.utc)
+
         self.assertEqual(
-            datetime.datetime(
-                datetime_now.year, 2, 9, 18, 45, tzinfo=datetime.timezone.utc),
+            datetime_feb9,
             parse_datetime('Feb  9  18:45')[0]
         )
 

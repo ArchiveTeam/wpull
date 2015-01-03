@@ -2,6 +2,12 @@
 What's New
 ==========
 
+0.1004.1 (2015-01-03)
+=====================
+
+* Fixed TypeError crash on a bad cookie.
+* Fixed PhantomJS mode's MITM proxy SSL certificates not installed.
+
 
 0.1004 (2014-12-25)
 ===================
