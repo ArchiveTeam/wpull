@@ -54,7 +54,9 @@ class HTTPProxyServer(object):
             yield From(self._process_connection(reader, writer))
         except Exception as error:
             if not isinstance(error, StopIteration):
-                if isinstance(error, ConnectionError):
+                if isinstance(error, (trollius.ConnectionAbortedError,
+                                      trollius.ConnectionResetError)):
+                    # Client using the proxy has closed the connection
                     _logger.debug('Proxy error', exc_info=True)
                 else:
                     _logger.exception('Proxy error')
@@ -159,9 +161,12 @@ class HTTPProxyServer(object):
             try:
                 ssl_socket.do_handshake()
                 break
-            except (ssl.SSLWantReadError, ssl.SSLWantWriteError) as error:
-                _logger.debug('Do handshake %s', error)
-                yield From(trollius.sleep(0.05))
+            except ssl.SSLError as error:
+                if error.errno in (ssl.SSL_ERROR_WANT_READ, ssl.SSL_ERROR_WANT_WRITE):
+                    _logger.debug('Do handshake %s', error)
+                    yield From(trollius.sleep(0.05))
+                else:
+                    raise
         else:
             _logger.error(_('Unable to handshake.'))
             ssl_socket.close()
