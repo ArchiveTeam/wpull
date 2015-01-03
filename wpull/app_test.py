@@ -1034,8 +1034,10 @@ class PhantomJSMixin(object):
         arg_parser = AppArgumentParser()
         script_filename = os.path.join(os.path.dirname(__file__),
                                        'testing', 'boring_script.py')
+
+        # Change localhost into something else to test proxy
         args = arg_parser.parse_args([
-            self.get_url('/static/simple_javascript.html'),
+            self.get_url('/static/simple_javascript.html').replace('localhost', 'example.invalid'),
             '--warc-file', 'test',
             '--no-warc-compression',
             '-4',
@@ -1049,6 +1051,7 @@ class PhantomJSMixin(object):
             '--no-check-certificate',
             ])
         builder = Builder(args, unit_test=True)
+        builder.factory.class_map['Resolver'] = MockDNSResolver
 
         with cd_tempdir():
             app = builder.build()
@@ -1087,8 +1090,10 @@ class PhantomJSMixin(object):
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_phantomjs_scroll(self):
         arg_parser = AppArgumentParser()
+
+        # Change localhost into something else to test proxy
         args = arg_parser.parse_args([
-            self.get_url('/static/DEUUEAUGH.html'),
+            self.get_url('/static/DEUUEAUGH.html').replace('localhost', 'example.invalid'),
             '-4',
             '--no-robots',
             '--phantomjs',
@@ -1097,6 +1102,7 @@ class PhantomJSMixin(object):
             '--no-check-certificate',
             ])
         builder = Builder(args, unit_test=True)
+        builder.factory.class_map['Resolver'] = MockDNSResolver
 
         with cd_tempdir():
             app = builder.build()
