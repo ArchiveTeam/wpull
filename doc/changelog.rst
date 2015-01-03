@@ -11,6 +11,14 @@ Database Schema:
 * URL ``inline`` column is now an integer.
 
 
+0.1004.2 (2015-01-03)
+=====================
+
+Hotfix release.
+
+* Fixed PhantomJS mode's MITM proxy AttributeError on certificates.
+
+
 0.1004.1 (2015-01-03)
 =====================
 

@@ -150,7 +150,7 @@ class HTTPProxyServer(object):
         ssl_socket = ssl.wrap_socket(
             socket_, server_side=True,
             certfile=self._cert_filename,
-            keyfile=self._cert_key,
+            keyfile=self._key_filename,
             do_handshake_on_connect=False
         )
 
