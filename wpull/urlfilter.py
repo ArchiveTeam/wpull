@@ -166,11 +166,13 @@ class LevelFilter(BaseURLFilter):
         self._depth = max_depth
 
     def test(self, url_info, url_table_record):
-        if url_table_record.inline:
-            return True
-
         if self._depth:
-            return url_table_record.level <= self._depth
+            if url_table_record.inline:
+                # Allow exceeding level to allow fetching html pages with
+                # frames, for example, but no more than that
+                return url_table_record.level <= self._depth + 2
+            else:
+                return url_table_record.level <= self._depth
         else:
             return True
 

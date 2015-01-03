@@ -2,6 +2,9 @@
 What's New
 ==========
 
+* Fixed ``--page-requisites`` exceeding ``--level``.
+
+
 0.1004.1 (2015-01-03)
 =====================
 
