@@ -190,6 +190,7 @@ class TestApp(GoodAppTestCase):
             '--bind-address', '127.0.0.1',
             '--html-parser', 'html5lib',
             '--link-extractors', 'html',
+            '--page-requisites-level', '5',
         ])
         with cd_tempdir():
             builder = Builder(args, unit_test=True)

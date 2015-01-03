@@ -1037,6 +1037,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('download objects embedded in pages')
         )
+        group.add_argument(
+            '--page-requisites-level',
+            metavar='NUMBER',
+            type=self.int_0_inf,
+            default=5,
+            help=_('limit page-requisites recursion depth to NUMBER')
+        )
 #         self.add_argument(
 #             '--strict-comments',
 #             action='store_true',

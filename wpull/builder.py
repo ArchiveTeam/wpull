@@ -480,8 +480,11 @@ class Builder(object):
         if args.tries:
             filters.append(TriesFilter(args.tries))
 
-        if args.level and args.recursive:
-            filters.append(LevelFilter(args.level))
+        if args.level and args.recursive or args.page_requisites_level:
+            filters.append(
+                LevelFilter(args.level,
+                            inline_max_depth=args.page_requisites_level)
+            )
 
         if args.accept_regex or args.reject_regex:
             filters.append(RegexFilter(args.accept_regex, args.reject_regex))

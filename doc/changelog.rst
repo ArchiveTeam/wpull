@@ -3,6 +3,12 @@ What's New
 ==========
 
 * Fixed ``--page-requisites`` exceeding ``--level``.
+* Fixed infinite page requisite recursion when using ``--span-hosts-allow page-requisites``.
+* Added ``--page-requisites-level``. The default max recursion depth on page requisites is now 5.
+
+Database Schema:
+
+* URL ``inline`` column is now an integer.
 
 
 0.1004.1 (2015-01-03)

@@ -493,7 +493,7 @@ class PhantomJSCoprocessorSession(object):
             self._url_item.url_record.top_url,
             None,  # status_code
             self._url_item.url_info.url,  # referrer
-            True,  # inline
+            1,  # inline
             None,  # link_type
             None,  # post_data
             None  # filename
