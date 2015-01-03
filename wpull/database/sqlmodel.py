@@ -51,7 +51,7 @@ class URL(DBBase):
     referrer_record = relationship(
         'URLString', uselist=False, foreign_keys=[referrer_id])
     referrer = association_proxy('referrer_record', 'url')
-    inline = Column(Boolean)
+    inline = Column(Integer)
     link_type = Column(Enum(LinkType.html, LinkType.css, LinkType.javascript))
     post_data = Column(String)
     filename = Column(String)

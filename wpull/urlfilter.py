@@ -162,8 +162,9 @@ class RecursiveFilter(BaseURLFilter):
 
 class LevelFilter(BaseURLFilter):
     '''Allow URLs up to a level of recursion.'''
-    def __init__(self, max_depth):
+    def __init__(self, max_depth, inline_max_depth=5):
         self._depth = max_depth
+        self._inline_max_depth = inline_max_depth
 
     def test(self, url_info, url_table_record):
         if self._depth:
@@ -174,7 +175,10 @@ class LevelFilter(BaseURLFilter):
             else:
                 return url_table_record.level <= self._depth
         else:
-            return True
+            if self._inline_max_depth and url_table_record.inline:
+                return url_table_record.inline <= self._inline_max_depth
+            else:
+                return True
 
 
 class TriesFilter(BaseURLFilter):
