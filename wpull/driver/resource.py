@@ -144,7 +144,7 @@ class PhantomJSResourceTracker(ResourceTracker):
 
         except KeyError:
             # FIXME:
-            _logger.exception('Resource tracking lost a resource.')
+            _logger.debug('Resource tracking lost a resource.', exc_info=1)
 
         else:
             return resource
@@ -158,7 +158,7 @@ class PhantomJSResourceTracker(ResourceTracker):
             self._error.add(resource)
         except KeyError:
             # FIXME:
-            _logger.exception('Resource tracking lost a resource.')
+            _logger.debug('Resource tracking lost a resource.', exc_info=1)
         else:
             return resource
 
