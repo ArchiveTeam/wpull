@@ -47,10 +47,6 @@ class TestPhantomJS(GoodAppTestCase):
             yield From(driver.start())
             yield From(driver.open_page(self.get_url('/')))
             yield From(driver.scroll_to(0, 100))
-            yield From(driver.snapshot('asdf.png'))
-            yield From(driver.snapshot('asdf.pdf'))
-            yield From(driver.snapshot('asdf.html'))
-            page_url = yield From(driver.get_page_url())
 
             for dummy in range(50):
                 if not load_finished:
@@ -59,6 +55,11 @@ class TestPhantomJS(GoodAppTestCase):
                     break
             else:
                 print('Load did not finish!')
+
+            yield From(driver.snapshot('asdf.png'))
+            yield From(driver.snapshot('asdf.pdf'))
+            yield From(driver.snapshot('asdf.html'))
+            page_url = yield From(driver.get_page_url())
 
             yield From(driver.close_page())
             driver.close()
