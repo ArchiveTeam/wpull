@@ -86,9 +86,9 @@ def is_likely_inline(link):
     file_type = mimetypes.guess_type(link, strict=False)[0]
 
     if file_type:
-        prefix_type = file_type.split('/', 1)[0]
+        top_level_type, subtype = file_type.split('/', 1)
 
-        return prefix_type in ('image', 'video', 'audio')
+        return top_level_type in ('image', 'video', 'audio') or subtype == 'javascript'
 
 
 _mimetypes_db = mimetypes.MimeTypes()
@@ -124,6 +124,7 @@ HTML_TAGS = frozenset([
     "tfoot", "th", "thead", "time", "title", "tr", "track",
     "tt", "u", "ul", "var", "video", "wbr"
     ])
+FIRST_PART_TLD_PATTERN = re.compile(r'[^/][a-zA-Z0-9.-]+\.({})/.'.format('|'.join(COMMON_TLD)), re.IGNORECASE)
 
 
 # These "likely link" functions are based from
@@ -209,4 +210,8 @@ def is_unlikely_link(text):
 
     tag_1, dummy, tag_2 = text.partition('.')
     if tag_1 in HTML_TAGS and tag_2 != 'html':
+        return True
+
+    # Forbid things where the first part of the path looks like a domain name
+    if FIRST_PART_TLD_PATTERN.match(text):
         return True

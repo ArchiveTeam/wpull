@@ -21,3 +21,5 @@ link = "cat[]monkey";
 link = "fish$dog"
 link = "rabbit\\ferre\t"
 link = '\u9'
+link = "dragonquery.js"
+link = "www.dragonanalytics.com/dragonquery.js"
