@@ -1203,21 +1203,30 @@ class Builder(object):
         The options must be accepted by the `ssl` module.
 
         Returns:
-            dict
+            SSLContext
         '''
-        ssl_options = {}
+        # Logic is based on tornado.netutil.ssl_options_to_context
+        ssl_context = ssl.SSLContext(self._args.secure_protocol)
 
         if self._args.check_certificate:
-            ssl_options['cert_reqs'] = ssl.CERT_REQUIRED
-            ssl_options['ca_certs'] = self._load_ca_certs()
+            ssl_context.verify_mode = ssl.CERT_REQUIRED
+            ssl_context.load_verify_locations(self._load_ca_certs())
         else:
-            ssl_options['cert_reqs'] = ssl.CERT_NONE
+            ssl_context.verify_mode = ssl.CERT_NONE
 
-        ssl_options['ssl_version'] = self._args.secure_protocol
+        if self._args.strong_crypto:
+            ssl_context.options |= ssl.OP_NO_SSLv2
+            ssl_context.options |= ssl.OP_NO_SSLv3  # POODLE
+
+            if hasattr(ssl, 'OP_NO_COMPRESSION'):
+                ssl_context.options |= ssl.OP_NO_COMPRESSION  # CRIME
+            else:
+                _logger.warning(_('Unable to disable TLS compression.'))
 
         if self._args.certificate:
-            ssl_options['certfile'] = self._args.certificate
-            ssl_options['keyfile'] = self._args.private_key
+            ssl_context.load_cert_chain(
+                self._args.certificate, self._args.private_key
+            )
 
         if self._args.edg_file:
             ssl.RAND_egd(self._args.edg_file)
@@ -1227,7 +1236,7 @@ class Builder(object):
                 # Use 16KB because Wget
                 ssl.RAND_add(in_file.read(15360), 0.0)
 
-        return ssl_options
+        return ssl_context
 
     def _load_ca_certs(self):
         '''Load the Certificate Authority certificates.

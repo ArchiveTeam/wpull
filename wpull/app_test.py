@@ -191,6 +191,7 @@ class TestApp(GoodAppTestCase):
             '--html-parser', 'html5lib',
             '--link-extractors', 'html',
             '--page-requisites-level', '5',
+            '--no-strong-crypto',
         ])
         with cd_tempdir():
             builder = Builder(args, unit_test=True)
