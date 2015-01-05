@@ -96,7 +96,7 @@ Contributions and feedback are greatly appreciated.
 Credits
 =======
 
-Copyright 2013-2014 by Christopher Foo. License GPL v3.
+Copyright 2013-2015 by Christopher Foo and others. License GPL v3.
 
 This project contains third-party source code licensed under different terms:
 
