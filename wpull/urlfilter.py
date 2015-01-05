@@ -167,6 +167,10 @@ class LevelFilter(BaseURLFilter):
         self._inline_max_depth = inline_max_depth
 
     def test(self, url_info, url_table_record):
+        if self._inline_max_depth and url_table_record.inline and \
+                url_table_record.inline > self._inline_max_depth:
+            return False
+
         if self._depth:
             if url_table_record.inline:
                 # Allow exceeding level to allow fetching html pages with
@@ -175,10 +179,7 @@ class LevelFilter(BaseURLFilter):
             else:
                 return url_table_record.level <= self._depth
         else:
-            if self._inline_max_depth and url_table_record.inline:
-                return url_table_record.inline <= self._inline_max_depth
-            else:
-                return True
+            return True
 
 
 class TriesFilter(BaseURLFilter):

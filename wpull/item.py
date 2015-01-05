@@ -195,7 +195,7 @@ class URLItem(object):
         _logger.debug(__('Adding inline URLs {0}', inline_urls))
         self._url_table.add_many(
             inline_urls,
-            inline=self._url_record.inline or 0 + 1,
+            inline=(self._url_record.inline or 0) + 1,
             level=self._url_record.level + 1,
             referrer=self._url_record.url,
             top_url=self._url_record.top_url or self._url_record.url,
@@ -237,7 +237,7 @@ class URLItem(object):
             self._url_record.top_url or self._url_record.url,  # top_url
             None,  # status_code
             self._url_record.url,  # referrer
-            inline,  # inline
+            (self._url_record.inline or 0) + 1 if inline else 0,  # inline
             link_type,  # link_type
             post_data,  # post_data
             None  # filename

@@ -941,6 +941,24 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_page_requisite_level(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/always200/'),
+            '-r',
+            '--page-requisites',
+            '--page-requisites-level', '1',
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(3, builder.factory['Statistics'].files)
+
 
 class SimpleHandler(tornado.web.RequestHandler):
     def get(self):
