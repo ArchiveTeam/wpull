@@ -281,9 +281,11 @@ class Builder(object):
         self._console_log_handler = handler = logging.StreamHandler(stream)
 
         formatter = logging.Formatter('%(levelname)s %(message)s')
+        log_filter = logging.Filter('wpull')
 
         handler.setFormatter(formatter)
         handler.setLevel(self._args.verbosity or logging.INFO)
+        handler.addFilter(log_filter)
         logger.addHandler(handler)
 
     def _setup_console_logger_close(self, app):
