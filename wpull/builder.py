@@ -39,6 +39,8 @@ from wpull.http.stream import Stream as HTTPStream
 from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.driver.phantomjs import PhantomJSPool
+from wpull.options import LOG_QUIET, LOG_VERY_QUIET, LOG_NO_VERBOSE, LOG_VERBOSE, \
+    LOG_DEBUG
 from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
     FTPProcessorInstances
@@ -234,21 +236,28 @@ class Builder(object):
             logging.DEBUG >
             logging.NOTSET
         )
+        assert (
+            LOG_VERY_QUIET >
+            LOG_QUIET >
+            LOG_NO_VERBOSE >
+            LOG_VERBOSE >
+            LOG_DEBUG
+        )
         assert self._args.verbosity
 
         root_logger = logging.getLogger()
         current_level = root_logger.getEffectiveLevel()
-        min_level = logging.ERROR
+        min_level = LOG_VERY_QUIET
 
-        if self._args.verbosity == logging.WARNING:
-            min_level = logging.WARNING
+        if self._args.verbosity == LOG_QUIET:
+            min_level = logging.ERROR
 
-        if self._args.verbosity == logging.INFO \
-           or self._args.warc_file \
-           or self._args.output_file or self._args.append_output:
+        if self._args.verbosity in (LOG_NO_VERBOSE, LOG_VERBOSE) \
+                or self._args.warc_file \
+                or self._args.output_file or self._args.append_output:
             min_level = logging.INFO
 
-        if self._args.verbosity == logging.DEBUG:
+        if self._args.verbosity == LOG_DEBUG:
             min_level = logging.DEBUG
 
         if current_level > min_level:
@@ -635,7 +644,7 @@ class Builder(object):
         assert args.verbosity, \
             'Expect logging level. Got {}.'.format(args.verbosity)
 
-        if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARNING) and args.progress != 'none':
+        if args.verbosity in (LOG_VERBOSE, LOG_DEBUG) and args.progress != 'none':
             stream = self._new_encoded_stream(self._get_stderr())
 
             bar_style = args.progress == 'bar'
