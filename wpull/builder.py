@@ -768,7 +768,19 @@ class Builder(object):
             sitemaps=self._args.sitemaps,
         )
 
-        phantomjs_coprocessor = self._build_phantomjs_coprocessor()
+        if args.phantomjs:
+            proxy_server, proxy_port, proxy_task = self._build_proxy_server()
+            application = self._factory['Application']
+            # XXX: Should we be sticking these into application?
+            # We need to stick them somewhere so the Task doesn't get garbage
+            # collected
+            application.proxy_server = proxy_server
+            application.proxy_task = proxy_task
+
+        if args.phantomjs:
+            phantomjs_coprocessor = self._build_phantomjs_coprocessor(proxy_port)
+        else:
+            phantomjs_coprocessor = None
 
         web_processor_instances = self._factory.new(
             'WebProcessorInstances',
@@ -1104,12 +1116,8 @@ class Builder(object):
 
         return converter
 
-    def _build_phantomjs_coprocessor(self):
+    def _build_phantomjs_coprocessor(self, proxy_port):
         '''Build proxy server and PhantomJS client. controller, coprocessor.'''
-        if not self._args.phantomjs:
-            return
-
-        proxy_server, proxy_port, proxy_task = self._build_proxy_server()
         page_settings = {}
         default_headers = NameValueRecord()
 
@@ -1166,8 +1174,6 @@ class Builder(object):
             root_path=self._args.directory_prefix,
             warc_recorder=self.factory.get('WARCRecorder'),
         )
-
-        phantomjs_coprocessor.proxy_task = proxy_task  # FIXME: stick this somewhere else
 
         return phantomjs_coprocessor
 
