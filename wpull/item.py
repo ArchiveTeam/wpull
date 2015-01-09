@@ -47,10 +47,15 @@ _URLRecordType = collections.namedtuple(
 class LinkType(object):
     '''The type of contents that a link is expected to have.'''
     html = 'html'
-    '''html document.'''
+    '''HTML document.'''
     css = 'css'
-    '''stylesheet.'''
+    '''Stylesheet file. Recursion on links is usually safe.'''
     javascript = 'javascript'
+    '''JavaScript file. Possible to recurse links on this file.'''
+    media = 'media'
+    '''Image or video file. Recursion on this type will not be useful.'''
+    sitemap = 'sitemap'
+    '''A Sitemap.xml file.'''
 
 
 class URLRecord(_URLRecordType):
