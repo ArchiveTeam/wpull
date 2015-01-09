@@ -35,26 +35,48 @@ class URL(DBBase):
         index=True,
         default=Status.todo,
         nullable=False,
+        doc='Status of the completion of the item.'
     )
-    try_count = Column(Integer, nullable=False, default=0)
-    level = Column(Integer, nullable=False, default=0)
+    try_count = Column(
+        Integer, nullable=False, default=0,
+        doc='Number of attempts made in order to process the item.'
+    )
+    level = Column(
+        Integer, nullable=False, default=0,
+        doc='Recursive depth of the item. 0 is root, 1 is child of root, etc.'
+    )
 
     top_url_str_id = Column(
-        Integer, ForeignKey('url_strings.id'))
+        Integer, ForeignKey('url_strings.id'),
+        doc='Root URL.'
+    )
     top_url_record = relationship(
         'URLString', uselist=False, foreign_keys=[top_url_str_id])
     top_url = association_proxy('top_url_record', 'url')
 
-    status_code = Column(Integer)
+    status_code = Column(Integer, doc='HTTP status code or FTP rely code.')
 
-    referrer_id = Column(Integer, ForeignKey('url_strings.id'))
+    referrer_id = Column(
+        Integer, ForeignKey('url_strings.id'),
+        doc='Parent item of this item.'
+    )
     referrer_record = relationship(
         'URLString', uselist=False, foreign_keys=[referrer_id])
     referrer = association_proxy('referrer_record', 'url')
-    inline = Column(Integer)
-    link_type = Column(Enum(LinkType.html, LinkType.css, LinkType.javascript))
-    post_data = Column(String)
-    filename = Column(String)
+    inline = Column(
+        Integer,
+        doc='Depth of the page requisite object. '
+            '0 is the object, 1 is the object\'s dependency, etc.'
+    )
+    link_type = Column(
+        Enum(
+            LinkType.html, LinkType.css, LinkType.javascript, LinkType.media,
+            LinkType.sitemap
+        ),
+        doc='Expected content type of extracted link.'
+    )
+    post_data = Column(String, doc='Additional percent-encoded data for POST.')
+    filename = Column(String, doc='Local filename of the item.')
 
     def to_plain(self):
         return URLRecord(
