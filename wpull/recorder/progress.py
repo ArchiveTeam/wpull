@@ -69,16 +69,22 @@ class BaseProgressRecorderSession(BaseRecorderSession):
         self._flush()
 
     def pre_response(self, response):
-        if hasattr(response, 'status_code'):
-            self._println(response.status_code,
-                          wpull.string.printable_str(response.reason))
-        else:
-            # TODO: abstract these things out
-            self._println('...')
+        # FIXME: FTP and HTTP abstractions aren't working here
+        if response.protocol == 'ftp':
+            self._println()
+            self._print(
+            _('Fetch {url}... ').format(url=response.request.url_info.url),
+            )
+
+        self._println(response.response_code(),
+                      wpull.string.printable_str(response.response_message()))
 
         if hasattr(response, 'fields'):
             content_length = response.fields.get('Content-Length')
             content_type = response.fields.get('Content-Type')
+        elif hasattr(response, 'file_transfer_size'):
+            content_length = response.file_transfer_size
+            content_type = None
         else:
             content_length = None
             content_type = None
@@ -169,10 +175,8 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
     def pre_response(self, response):
         super().pre_response(response)
 
-        if not hasattr(response, 'status_code'):
-            return
-
-        if response.status_code == http.client.PARTIAL_CONTENT:
+        if response.protocol == 'http' and \
+                response.status_code == http.client.PARTIAL_CONTENT:
             match = re.search(
                 r'bytes +([0-9]+)-([0-9]+)/([0-9]+)',
                 response.fields.get('Content-Range', '')
@@ -181,6 +185,9 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
             if match:
                 self._bytes_continued = int(match.group(1))
                 self._total_size = int(match.group(3))
+
+        elif response.protocol == 'ftp' and response.request.restart_value:
+            self._bytes_continued = response.request.restart_value
         else:
             self._total_size = self._content_length
 

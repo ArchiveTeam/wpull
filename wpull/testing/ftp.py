@@ -108,6 +108,7 @@ class FTPSession(object):
                 'NLST': self._cmd_nlst,
                 'LIST': self._cmd_list,
                 'RETR': self._cmd_retr,
+                'SIZE': self._cmd_size,
                 'CWD': self._cmd_cwd,
                 'TYPE': self._cmd_type,
                 'PWD': self._cmd_pwd,
@@ -229,6 +230,19 @@ class FTPSession(object):
             self.data_server.close()
         else:
             self.writer.write(b'550 File error\r\n')
+
+    @trollius.coroutine
+    def _cmd_size(self):
+        info = self.routes.get(self.path)
+
+        if info and info[0] == 'file' and self.path == '/example.txt':
+            self.writer.write(b'213 ')
+            self.writer.write(str(len(info[1])).encode('ascii'))
+            self.writer.write(b'\r\n')
+        elif info and info[0] == 'file' and self.path == '/example2/trash.txt':
+            self.writer.write(b'213 3.14\r\n')
+        else:
+            self.writer.write(b'550 Unknown command\r\n')
 
     @trollius.coroutine
     def _cmd_cwd(self):
