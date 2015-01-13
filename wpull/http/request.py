@@ -182,6 +182,10 @@ class Response(SerializableMixin, DictableMixin, ProtocolResponseMixin):
         self.request = request
         self.encoding = 'latin-1'
 
+    @property
+    def protocol(self):
+        return 'http'
+
     def to_dict(self):
         return {
             'protocol': 'http',

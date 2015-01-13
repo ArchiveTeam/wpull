@@ -56,6 +56,9 @@ class URLPropertyMixin(object):
 
 class ProtocolResponseMixin(object):
     '''Protocol abstraction for response objects.'''
+    @abc.abstractproperty
+    def protocol(self):
+        '''Return the name of the protocol.'''
 
     @abc.abstractmethod
     def response_code(self):

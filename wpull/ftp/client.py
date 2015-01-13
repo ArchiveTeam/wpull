@@ -101,13 +101,14 @@ class Session(BaseSession):
         response = Response()
 
         yield From(self._prepare_fetch(request, response))
+
+        response.file_transfer_size = yield From(self._fetch_size(request))
+
         yield From(self._open_data_stream())
 
         command = Command('RETR', request.url_info.path)
 
-        begin_reply = yield From(self._commander.begin_stream(command))
-
-        response.reply = begin_reply
+        yield From(self._begin_stream(command))
 
         raise Return(response)
 
@@ -131,7 +132,7 @@ class Session(BaseSession):
         list_command = Command('LIST', self._request.url_info.path)
 
         try:
-            begin_reply = yield From(self._commander.begin_stream(mlsd_command))
+            yield From(self._begin_stream(mlsd_command))
             self._listing_type = 'mlsd'
         except FTPServerError as error:
             if error.reply_code in (ReplyCodes.syntax_error_command_unrecognized,
@@ -143,11 +144,10 @@ class Session(BaseSession):
         if not self._listing_type:
             # This code not in exception handler to avoid incorrect
             # exception chaining
-            begin_reply = yield From(self._commander.begin_stream(list_command))
+            yield From(self._begin_stream(list_command))
             self._listing_type = 'list'
 
         _logger.debug('Listing type is %s', self._listing_type)
-        response.reply = begin_reply
 
         raise Return(response)
 
@@ -170,6 +170,16 @@ class Session(BaseSession):
         yield From(self._log_in())
 
         self._response.request = request
+
+    @trollius.coroutine
+    def _begin_stream(self, command):
+        '''Start data stream transfer.'''
+        begin_reply = yield From(self._commander.begin_stream(command))
+
+        self._response.reply = begin_reply
+
+        if self._recorder_session:
+            self._recorder_session.pre_response(self._response)
 
     @trollius.coroutine
     def read_content(self, file=None, rewind=True):
@@ -278,13 +288,24 @@ class Session(BaseSession):
 
         if self._recorder_session:
             self._response.data_address = self._data_connection.address
-            self._recorder_session.pre_response(self._response)
 
             def data_callback(action, data):
                 if action == 'read':
                     self._recorder_session.response_data(data)
 
             self._data_stream.data_observer.add(data_callback)
+
+    @trollius.coroutine
+    def _fetch_size(self, request):
+        '''Return size of file.
+
+        Coroutine.
+        '''
+        try:
+            size = yield From(self._commander.size(request.url_info.path))
+            raise Return(size)
+        except FTPServerError:
+            return
 
     def clean(self):
         if self._connection:

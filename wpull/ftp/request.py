@@ -119,6 +119,7 @@ class Request(URLPropertyMixin):
         data_address (tuple): Address of data connection.
         username (str): Username for login.
         password (str): Password for login.
+        restart_value (int): Optional value for ``REST`` command.
     '''
     def __init__(self, url):
         super().__init__()
@@ -127,6 +128,7 @@ class Request(URLPropertyMixin):
         self.data_address = None
         self.username = None
         self.password = None
+        self.restart_value = None
 
     def to_dict(self):
         return {
@@ -135,6 +137,7 @@ class Request(URLPropertyMixin):
             'url_info': self.url_info.to_dict() if self.url_info else None,
             'username': self.username,
             'password': self.password,
+            'restart_value': self.restart_value,
         }
 
 
@@ -145,12 +148,20 @@ class Response(DictableMixin, ProtocolResponseMixin):
         request (:class:`Request`): The corresponding request.
         body (:class:`.body.Body`): The file.
         reply (:class:`Reply`): The latest Reply.
+        file_transfer_size (int): Size of the file transfer. This corresponds
+            to the number of bytes to be transferred and not necessarily the
+            actual file size.
     '''
     def __init__(self):
         self.request = None
         self.body = None
         self.reply = None
         self.data_address = None
+        self.file_transfer_size = None
+
+    @property
+    def protocol(self):
+        return 'ftp'
 
     def to_dict(self):
         return {
@@ -160,6 +171,7 @@ class Response(DictableMixin, ProtocolResponseMixin):
             'reply': self.reply.to_dict(),
             'response_code': self.reply.code,
             'response_message': self.reply.text,
+            'file_transfer_size': self.file_transfer_size,
         }
 
     def response_code(self):
