@@ -91,6 +91,11 @@ class RawRequest(SerializableMixin, DictableMixin):
         '''Return a copy.'''
         return copy.deepcopy(self)
 
+    def set_continue(self, offset):
+        '''Modify the request into a range request.'''
+        assert offset >= 0, offset
+        self.fields['Range'] = 'bytes={0}-'.format(offset)
+
 
 class Request(RawRequest, URLPropertyMixin):
     '''Represents a higher level of HTTP request.
