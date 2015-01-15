@@ -2,6 +2,9 @@
 What's New
 ==========
 
+0.1005 (2015-01-15)
+===================
+
 * Security: SSLv2/SSLv3 is disabled for ``--secure-protocol=auto``. Added ``--no-strong-crypto`` that re-enables them again if needed.
 * Fixed NameError with PhantomJS proxy on Python 3.2.
 * Fixed PhantomJS stop waiting for page load too early.
