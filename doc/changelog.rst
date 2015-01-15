@@ -5,6 +5,7 @@ What's New
 * Security: SSLv2/SSLv3 is disabled for ``--secure-protocol=auto``. Added ``--no-strong-crypto`` that re-enables them again if needed.
 * Fixed NameError with PhantomJS proxy on Python 3.2.
 * Fixed PhantomJS stop waiting for page load too early.
+* Fixed "Line too long" error and remove uninteresting page errors during PhantomJS.
 * Fixed ``--page-requisites`` exceeding ``--level``.
 * Fixed ``--no-verbose`` not providing informative messages and behaving like ``--quiet``.
 * Fixed infinite page requisite recursion when using ``--span-hosts-allow page-requisites``.

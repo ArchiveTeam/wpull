@@ -251,9 +251,11 @@ class PhantomJS {
             );
         }
 
-        page.onError = function (message, trace) {
-            sendEvent("error", {message: message, trace: trace});
-        }
+        // XXX: trace may be too long of a line and page errors are not
+        // really interesting
+//        page.onError = function (message, trace) {
+//            sendEvent("error", {message: message, trace: trace});
+//        }
 
         page.onFilePicker = function (oldFile) {
             return sendEvent("file_picker", {old_file: oldFile});
