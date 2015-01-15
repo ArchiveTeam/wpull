@@ -47,10 +47,15 @@ _URLRecordType = collections.namedtuple(
 class LinkType(object):
     '''The type of contents that a link is expected to have.'''
     html = 'html'
-    '''html document.'''
+    '''HTML document.'''
     css = 'css'
-    '''stylesheet.'''
+    '''Stylesheet file. Recursion on links is usually safe.'''
     javascript = 'javascript'
+    '''JavaScript file. Possible to recurse links on this file.'''
+    media = 'media'
+    '''Image or video file. Recursion on this type will not be useful.'''
+    sitemap = 'sitemap'
+    '''A Sitemap.xml file.'''
 
 
 class URLRecord(_URLRecordType):
@@ -68,8 +73,13 @@ class URLRecord(_URLRecordType):
             is typically the URL supplied at the start of the program.
         status_code (int): The HTTP status code.
         referrer (str): The parent URL that linked to this URL.
-        inline (bool): Whether this URL was an embedded object (such as an
+        inline (int): Whether this URL was an embedded object (such as an
             image or a stylesheet) of the parent URL.
+
+            The value represents the recursive depth of the object. For
+            example, an iframe is depth 1 and the images in the iframe
+            is depth 2.
+
         link_type (str): Describes the document type. Values are:
 
             * ``html``: HTML document
@@ -190,7 +200,7 @@ class URLItem(object):
         _logger.debug(__('Adding inline URLs {0}', inline_urls))
         self._url_table.add_many(
             inline_urls,
-            inline=True,
+            inline=(self._url_record.inline or 0) + 1,
             level=self._url_record.level + 1,
             referrer=self._url_record.url,
             top_url=self._url_record.top_url or self._url_record.url,
@@ -232,7 +242,7 @@ class URLItem(object):
             self._url_record.top_url or self._url_record.url,  # top_url
             None,  # status_code
             self._url_record.url,  # referrer
-            inline,  # inline
+            (self._url_record.inline or 0) + 1 if inline else 0,  # inline
             link_type,  # link_type
             post_data,  # post_data
             None  # filename

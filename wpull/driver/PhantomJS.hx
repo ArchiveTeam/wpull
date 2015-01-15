@@ -1,12 +1,12 @@
 using StringTools;
 
 class PhantomJS {
-    var system : Dynamic;
-    var webpage : Dynamic;
-    var phantom : Dynamic;
-    var fs : Dynamic;
-    var page : Dynamic;
-    var pollTimer : Dynamic;
+    var system:Dynamic;
+    var webpage:Dynamic;
+    var phantom:Dynamic;
+    var fs:Dynamic;
+    var page:Dynamic;
+    var pollTimer:Dynamic;
 
     public function new() {
         system = untyped __js__("require")("system");
@@ -21,6 +21,9 @@ class PhantomJS {
         var app = new PhantomJS();
     }
 
+    /**
+     * Read an RPC message and reply.
+     */
     private function pollForCommand() {
         sendMessage({event: "poll"});
         var commandMessage = readMessage();
@@ -72,19 +75,28 @@ class PhantomJS {
         });
     }
 
-    private function sendMessage(message : Dynamic) {
+    /**
+     * Send an RPC message.
+     */
+    private function sendMessage(message:Dynamic) {
         var messageString = untyped __js__("JSON").stringify(message);
         system.stdout.write("!RPC ");
         system.stdout.writeLine(messageString);
     }
 
-    private function readMessage() : Dynamic {
+    /**
+     * Read an RPC message.
+     */
+    private function readMessage():Dynamic {
         var messageString = system.stdin.readLine();
         var message = untyped __js__("JSON").parse(messageString.slice(5));
         return message;
     }
 
-    private function sendEvent(eventName: String, ? args : Dynamic) : Dynamic {
+    /**
+     * Send and receive an RPC message for an event.
+     */
+    private function sendEvent(eventName: String, ?args:Dynamic):Dynamic {
         if (!args) {
             args = {};
         }
@@ -99,6 +111,9 @@ class PhantomJS {
         return reply.value;
     }
 
+    /**
+     * Create a new PhantomJS page.
+     */
     private function newPage() {
         if (page) {
             closePage();
@@ -108,12 +123,18 @@ class PhantomJS {
         page.evaluate("function () { document.body.bgColor = 'white'; }");
     }
 
+    /**
+     * Close the page.
+     */
     private function closePage() {
         page.close();
         page = null;
     }
 
-    private function renderPage(path : String) {
+    /**
+     * Make a snapshot of the page to a file.
+     */
+    private function renderPage(path:String) {
         if (path.endsWith(".html")) {
             var file = fs.open(path, "w");
             file.write(page.content);
@@ -123,8 +144,11 @@ class PhantomJS {
         }
     }
 
-    private function setPageSize(viewportWidth : Int, viewportHeight : Int,
-                                 paperWidth : Int, paperHeight: Int) {
+    /**
+     * Set the page viewport and paper size.
+     */
+    private function setPageSize(viewportWidth:Int, viewportHeight:Int,
+                                 paperWidth:Int, paperHeight: Int) {
         page.viewportSize = {
             width: viewportWidth,
             height: viewportHeight
@@ -136,17 +160,26 @@ class PhantomJS {
         };
     }
 
-    private function setPageSettings(settings : Dynamic) {
+    /**
+     * Set the page default settings.
+     */
+    private function setPageSettings(settings:Dynamic) {
         for (name in Reflect.fields(settings)) {
             Reflect.setField(page.settings, name, Reflect.field(settings, name));
         }
     }
 
-    private function setPageCustomHeaders(headers : Dynamic) {
+    /**
+     * Set the page default headers.
+     */
+    private function setPageCustomHeaders(headers:Dynamic) {
         page.customHeaders = headers;
     }
 
-    private function scrollPage(x : Int, y : Int) {
+    /**
+     * Scroll the page to a position.
+     */
+    private function scrollPage(x:Int, y:Int) {
         page.scrollPosition = {left: x, top: y};
         page.evaluate('
             function () {
@@ -157,20 +190,29 @@ class PhantomJS {
         ');
     }
 
-    private function sendClick(x : Int, y : Int, button : String) {
+    /**
+     * Send a mouse click to the page.
+     */
+    private function sendClick(x:Int, y:Int, button:String) {
         page.sendEvent("mousedown", x, y, button);
         page.sendEvent("mouseup", x, y, button);
         page.sendEvent("click", x, y, button);
     }
 
-    private function sendKey(key : Int, modifier : Int) {
+    /**
+     * Send a keyboard event to the page.
+     */
+    private function sendKey(key:Int, modifier:Int) {
         page.sendEvent("keypress", key, null, null, modifier);
         page.sendEvent("keydown", key, null, null, modifier);
         page.sendEvent("keyup", key, null, null, modifier);
     }
 
-    private function isPageDynamic() : Bool {
-        var result : Bool = page.evaluate("
+    /**
+     * Return whether the page contains JavaScript.
+     */
+    private function isPageDynamic():Bool {
+        var result:Bool = page.evaluate("
             function () {
             return document.getElementsByTagName('script').length ||
                 document.querySelector(
@@ -182,6 +224,9 @@ class PhantomJS {
         return result;
     }
 
+    /**
+     * Set up the PhantomJS event callbacks.
+     */
     private function listenEvents() {
         page.onAlert = function (message) {
             sendEvent("alert", {message: message});
@@ -206,9 +251,11 @@ class PhantomJS {
             );
         }
 
-        page.onError = function (message, trace) {
-            sendEvent("error", {message: message, trace: trace});
-        }
+        // XXX: trace may be too long of a line and page errors are not
+        // really interesting
+//        page.onError = function (message, trace) {
+//            sendEvent("error", {message: message, trace: trace});
+//        }
 
         page.onFilePicker = function (oldFile) {
             return sendEvent("file_picker", {old_file: oldFile});
@@ -286,7 +333,10 @@ class PhantomJS {
         }
     }
 
-    private function exit(exitCode : Int = 0) {
+    /**
+     * Quit phantomjs
+     */
+    private function exit(exitCode:Int = 0) {
         if (pollTimer) {
             untyped __js__("clearTimeout")(pollTimer);
             pollTimer = null;

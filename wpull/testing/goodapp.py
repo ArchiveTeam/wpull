@@ -149,6 +149,11 @@ class ContentDispositionHandler(tornado.web.RequestHandler):
         self.write(b'The small pup gnawed a hole in the sock.')
 
 
+class Always200Handler(tornado.web.RequestHandler):
+    def get(self):
+        self.render('always200.html')
+
+
 class GoodApp(tornado.web.Application):
     def __init__(self):
         tornado.web.Application.__init__(self, [
@@ -171,6 +176,7 @@ class GoodApp(tornado.web.Application):
              {'url': '/some_page/'}),
             (r'/basic_auth', BasicAuthHandler),
             (r'/content_disposition', ContentDispositionHandler),
+            (r'/always200/.*', Always200Handler),
         ],
             template_path=os.path.join(os.path.dirname(__file__),
                                        'templates'),

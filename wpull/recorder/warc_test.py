@@ -1,5 +1,8 @@
 import logging
 import os.path
+import subprocess
+import sys
+import re
 
 from wpull.body import Body
 from wpull.database.sqltable import URLTable
@@ -15,6 +18,28 @@ _logger = logging.getLogger(__name__)
 
 
 class TestWARC(BaseRecorderTest):
+
+    def validate_warc(self, filename, ignore_minor_error=False):
+        proc = subprocess.Popen(
+            [sys.executable, '-m', 'warcat', 'verify', filename],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+
+        stdout_data, stderr_data = proc.communicate()
+
+        output = stderr_data + stdout_data
+        output = output.decode('utf8', 'replace')
+
+        if not proc.returncode:
+            return
+
+        if not ignore_minor_error:
+            raise Exception('Validation failed {}'.format(output))
+        else:
+            if re.search(r'(VerifyProblem:.+ True\))|(.+Error:)', output):
+                raise Exception('Validation failed\n{}'.format(output))
+
     def test_warc_recorder(self):
         file_prefix = 'asdf'
         warc_filename = 'asdf.warc'
@@ -124,6 +149,8 @@ class TestWARC(BaseRecorderTest):
 
         self.assertIn(b'KITTEH DOGE', data)
 
+        self.validate_warc(warc_filename)
+
     def test_warc_recorder_ftp(self):
         file_prefix = 'asdf'
         warc_filename = 'asdf.warc'
@@ -189,6 +216,18 @@ class TestWARC(BaseRecorderTest):
         self.assertIn(b'* Closed data connection to ', warc_file_content)
         self.assertIn(b'> GIMMEH example.txt', warc_file_content)
         self.assertIn(b'< 200 OK, no need to yell.', warc_file_content)
+
+        # Ignore Concurrent Record ID not seen yet
+        self.validate_warc(warc_filename, ignore_minor_error=True)
+
+        with open(warc_filename, 'r+b') as in_file:
+            # Intentionally modify the contents
+            in_file.seek(355)
+            in_file.write(b'f')
+
+        with self.assertRaises(Exception):
+            # Sanity check that it actually raises error on bad digest
+            self.validate_warc(warc_filename, ignore_minor_error=True)
 
     def test_warc_recorder_max_size(self):
         file_prefix = 'asdf'
@@ -273,6 +312,10 @@ class TestWARC(BaseRecorderTest):
             meta_file_content = in_file.read()
 
         self.assertIn(b'FINISHED', meta_file_content)
+
+        self.validate_warc('asdf-00000.warc')
+        self.validate_warc('asdf-00001.warc')
+        self.validate_warc('asdf-meta.warc')
 
     def test_warc_recorder_rollback(self):
         warc_filename = 'asdf.warc'

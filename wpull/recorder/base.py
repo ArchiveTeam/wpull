@@ -36,7 +36,7 @@ class BaseRecorderSession(object, metaclass=abc.ABCMeta):
 
     1. begin_control: Control connection opened.
     2. request_control_data: Commands sent to the server.
-    3. response_controL_data: Reply received from the server.
+    3. response_control_data: Reply received from the server.
     4. pre_request/pre_response: Data connection opened.
     5. request_data/response_data: Bytes of the file upload/download.
     6. request/response: File uploaded/downloaded. Data connection closed.

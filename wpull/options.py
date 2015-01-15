@@ -17,6 +17,13 @@ _ = gettext.gettext
 _logger = logging.getLogger(__name__)
 
 
+LOG_VERY_QUIET = logging.CRITICAL
+LOG_QUIET = logging.ERROR
+LOG_NO_VERBOSE = logging.INFO
+LOG_VERBOSE = logging.INFO - 1
+LOG_DEBUG = logging.DEBUG
+
+
 class CommaChoiceListArgs(frozenset):
     '''Specialized frozenset.
 
@@ -283,32 +290,40 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--debug',
             dest='verbosity',
             action='store_const',
-            const=logging.DEBUG,
+            const=LOG_DEBUG,
             help=_('print debugging messages')
-        )
-        verbosity_group.add_argument(
-            '-q',
-            '--quiet',
-            dest='verbosity',
-            action='store_const',
-            const=logging.ERROR,
-            help=_('do not print program messages')
         )
         verbosity_group.add_argument(
             '-v',
             '--verbose',
             dest='verbosity',
             action='store_const',
-            const=logging.INFO,
-            help=_('print informative program messages')
+            const=LOG_VERBOSE,
+            help=_('print informative program messages and detailed progress')
         )
         verbosity_group.add_argument(
             '-nv',
             '--no-verbose',
             dest='verbosity',
             action='store_const',
-            const=logging.WARNING,
-            help=_('print program warning and informative messages only')
+            const=LOG_NO_VERBOSE,
+            help=_('print informative program messages and errors')
+        )
+        verbosity_group.add_argument(
+            '-q',
+            '--quiet',
+            dest='verbosity',
+            action='store_const',
+            const=LOG_QUIET,
+            help=_('print program error messages')
+        )
+        verbosity_group.add_argument(
+            '-qq',
+            '--very-quiet',
+            dest='verbosity',
+            action='store_const',
+            const=LOG_VERY_QUIET,
+            help=_('do not print program messages unless critical')
         )
         group.add_argument(
             '--ascii-print',
@@ -819,6 +834,12 @@ class AppArgumentParser(argparse.ArgumentParser):
         if hasattr(ssl, 'PROTOCOL_SSLv2'):
             self._ssl_version_map['SSLv2'] = ssl.PROTOCOL_SSLv2,
 
+        if hasattr(ssl, 'PROTOCOL_TLSv1_1'):
+            self._ssl_version_map['TLSv1.1'] = ssl.PROTOCOL_TLSv1_1,
+
+        if hasattr(ssl, 'PROTOCOL_TLSv1_2'):
+            self._ssl_version_map['TLSv1.2'] = ssl.PROTOCOL_TLSv1_2,
+
         group = self.add_argument_group('SSL')
         group.add_argument(
             '--secure-protocol',
@@ -838,6 +859,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_false',
             default=True,
             help=_('don’t validate SSL server certificates'),
+        )
+        group.add_argument(
+            '--no-strong-crypto',
+            dest='strong_crypto',
+            action='store_false',
+            default=True,
+            help=_('don’t use secure protocols/ciphers')
         )
         group.add_argument(
             '--certificate',
@@ -1036,6 +1064,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--page-requisites',
             action='store_true',
             help=_('download objects embedded in pages')
+        )
+        group.add_argument(
+            '--page-requisites-level',
+            metavar='NUMBER',
+            type=self.int_0_inf,
+            default=5,
+            help=_('limit page-requisites recursion depth to NUMBER')
         )
 #         self.add_argument(
 #             '--strict-comments',
@@ -1236,7 +1271,10 @@ class AppArgumentParser(argparse.ArgumentParser):
             args.remote_encoding = 'ascii'
 
         if not args.verbosity:
-            args.verbosity = logging.INFO
+            if args.concurrent > 1:
+                args.verbosity = LOG_NO_VERBOSE
+            else:
+                args.verbosity = LOG_VERBOSE
 
         if (args.http_proxy or args.https_proxy) and not \
                 (args.no_secure_proxy_tunnel):

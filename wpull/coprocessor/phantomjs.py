@@ -34,7 +34,8 @@ PhantomJSParams = namedlist.namedtuple(
         ('smart_scroll', True),
         ('snapshot', True),
         ('viewport_size', (1200, 1920)),
-        ('paper_size', (2400, 3840))
+        ('paper_size', (2400, 3840)),
+        ('load_time', 60),
     ]
 )
 '''PhantomJS parameters
@@ -48,6 +49,7 @@ Attributes:
     snapshot (bool): Whether to take snapshot files.
     viewport_size (tuple): Width and height of the page viewport.
     paper_size (tuple): Width and height of the paper size.
+    load_time (float): Maximum time to wait for page load.
 '''
 
 
@@ -265,7 +267,7 @@ class PhantomJSCoprocessorSession(object):
         _logger.debug('Wait load')
 
         # FIXME: should this be a configurable option somewhere
-        timeout = self._params.wait_time * 2
+        timeout = self._params.load_time
         start_time = time.time()
 
         while self._load_state != 'finished' or self._resource_tracker.pending:
@@ -493,7 +495,7 @@ class PhantomJSCoprocessorSession(object):
             self._url_item.url_record.top_url,
             None,  # status_code
             self._url_item.url_info.url,  # referrer
-            True,  # inline
+            1,  # inline
             None,  # link_type
             None,  # post_data
             None  # filename

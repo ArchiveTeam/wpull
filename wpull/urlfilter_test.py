@@ -257,7 +257,7 @@ class TestURLFilter(unittest.TestCase):
     def test_recursive_filter_requisites(self):
         mock_record = MockURLTableRecord()
         mock_record.level = 0
-        mock_record.inline = True
+        mock_record.inline = 1
         url_filter = RecursiveFilter(page_requisites=True)
 
         self.assertTrue(url_filter.test(None, mock_record))
@@ -274,8 +274,42 @@ class TestURLFilter(unittest.TestCase):
         mock_record.level = 6
         self.assertFalse(url_filter.test(None, mock_record))
 
-        mock_record.inline = True
+        url_filter = LevelFilter(5)
+        mock_record.inline = 1
+        mock_record.level = 5
         self.assertTrue(url_filter.test(None, mock_record))
+        mock_record.level = 6
+        self.assertTrue(url_filter.test(None, mock_record))
+        mock_record.level = 7
+        self.assertTrue(url_filter.test(None, mock_record))
+        mock_record.level = 8
+        self.assertFalse(url_filter.test(None, mock_record))
+
+        url_filter = LevelFilter(0)
+        mock_record.inline = 1
+        self.assertTrue(url_filter.test(None, mock_record))
+        mock_record.inline = 2
+        self.assertTrue(url_filter.test(None, mock_record))
+        mock_record.inline = 3
+        self.assertTrue(url_filter.test(None, mock_record))
+        mock_record.inline = 4
+        self.assertTrue(url_filter.test(None, mock_record))
+        mock_record.inline = 5
+        self.assertTrue(url_filter.test(None, mock_record))
+        mock_record.inline = 6
+        self.assertFalse(url_filter.test(None, mock_record))
+
+        mock_record.level = 1
+
+        url_filter = LevelFilter(0, inline_max_depth=0)
+        mock_record.inline = 1000
+        self.assertTrue(url_filter.test(None, mock_record))
+
+        url_filter = LevelFilter(5, inline_max_depth=1)
+        mock_record.inline = 1
+        self.assertTrue(url_filter.test(None, mock_record))
+        mock_record.inline = 2
+        self.assertFalse(url_filter.test(None, mock_record))
 
     def test_tries_filter(self):
         mock_record = MockURLTableRecord()
@@ -291,7 +325,6 @@ class TestURLFilter(unittest.TestCase):
 
     def test_parent_filter(self):
         mock_record = MockURLTableRecord()
-        mock_record.inline = False
         url_filter = ParentFilter()
 
         mock_record.top_url = 'http://example.com/blog/topic2/'
@@ -325,7 +358,7 @@ class TestURLFilter(unittest.TestCase):
             mock_record
         ))
 
-        mock_record.inline = True
+        mock_record.inline = 1
         self.assertTrue(url_filter.test(
             URLInfo.parse('http://example.com/styles.css'),
             mock_record
@@ -371,7 +404,7 @@ class TestURLFilter(unittest.TestCase):
         )
         mock_record = MockURLTableRecord()
         mock_record.url = 'http://1.example.com/'
-        mock_record.inline = True
+        mock_record.inline = 1
 
         self.assertTrue(url_filter.test(
             URLInfo.parse('http://1.example.com/'),

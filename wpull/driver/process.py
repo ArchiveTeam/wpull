@@ -19,12 +19,13 @@ _ = gettext.gettext
 _logger = logging.getLogger(__name__)
 
 
-class RPCProcess(object):
-    '''RPC subprocess wrapper.'''
-    def __init__(self, proc_args, message_callback):
+class Process(object):
+    '''Subprocess wrapper.'''
+    def __init__(self, proc_args, stdout_callback=None, stderr_callback=None):
         self._proc_args = proc_args
+        self._stdout_callback = stdout_callback
+        self._stderr_callback = stderr_callback
         self._process = None
-        self._message_callback = message_callback
         self._stderr_reader = None
         self._stdout_reader = None
 
@@ -50,7 +51,7 @@ class RPCProcess(object):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             *self._proc_args
-            )
+        )
         self._process = yield From(process_future)
 
         self._stderr_reader = trollius.async(self._read_stderr())
@@ -104,17 +105,9 @@ class RPCProcess(object):
                 if not line:
                     break
 
-                if line.startswith(b'!RPC '):
-                    message = json.loads(line[5:].decode('utf-8'))
-                    return_value = self._message_callback(message)
+                if self._stdout_callback:
+                    yield From(self._stdout_callback(line))
 
-                    if return_value is not None:
-                        yield From(self.send_message(return_value))
-                else:
-                    _logger.warning(__(
-                        _('Subprocess: {message}'),
-                        message=line.decode('utf-8', 'replace').rstrip()
-                    ))
         except Exception:
             _logger.exception('Unhandled read stdout exception.')
             raise
@@ -129,13 +122,43 @@ class RPCProcess(object):
                 if not line:
                     break
 
-                _logger.warning(__(
-                    _('Subprocess: {message}'),
-                    message=line.decode('utf-8', 'replace').rstrip()
-                ))
+                if self._stderr_callback:
+                    yield From(self._stderr_callback(line))
+
         except Exception:
             _logger.exception('Unhandled read stderr exception.')
             raise
+
+
+class RPCProcess(Process):
+    '''RPC subprocess wrapper.'''
+    def __init__(self, proc_args, message_callback):
+        super().__init__(proc_args, stdout_callback=self._stdout_callback,
+                         stderr_callback=self._stderr_callback)
+        self._message_callback = message_callback
+
+    @trollius.coroutine
+    def _stdout_callback(self, line):
+        '''Handle stdout message.'''
+        if line.startswith(b'!RPC '):
+            message = json.loads(line[5:].decode('utf-8'))
+            return_value = self._message_callback(message)
+
+            if return_value is not None:
+                yield From(self.send_message(return_value))
+        else:
+            _logger.warning(__(
+                _('Subprocess: {message}'),
+                message=line.decode('utf-8', 'replace').rstrip()
+            ))
+
+    @trollius.coroutine
+    def _stderr_callback(self, line):
+        '''Handle stderr output'''
+        _logger.warning(__(
+            _('Subprocess: {message}'),
+            message=line.decode('utf-8', 'replace').rstrip()
+        ))
 
     @trollius.coroutine
     def send_message(self, message):

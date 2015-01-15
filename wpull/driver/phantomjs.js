@@ -156,9 +156,6 @@ PhantomJS.prototype = {
 		this.page.onConsoleMessage = function(message2,lineNum,sourceId) {
 			_g.sendEvent("console_message",{ message : message2, line_num : lineNum, source_id : sourceId});
 		};
-		this.page.onError = function(message3,trace) {
-			_g.sendEvent("error",{ message : message3, trace : trace});
-		};
 		this.page.onFilePicker = function(oldFile) {
 			return _g.sendEvent("file_picker",{ old_file : oldFile});
 		};
@@ -177,8 +174,8 @@ PhantomJS.prototype = {
 		this.page.onPageCreated = function(newPage) {
 			_g.sendEvent("page_created",{ });
 		};
-		this.page.onPrompt = function(message4,defaultValue) {
-			return _g.sendEvent("prompt",{ message : message4, default_value : defaultValue});
+		this.page.onPrompt = function(message3,defaultValue) {
+			return _g.sendEvent("prompt",{ message : message3, default_value : defaultValue});
 		};
 		this.page.onResourceError = function(resourceError) {
 			_g.sendEvent("resource_error",{ resource_error : resourceError});

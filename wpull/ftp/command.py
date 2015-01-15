@@ -201,3 +201,20 @@ class Commander(object):
         data_stream.close()
 
         raise Return(reply)
+
+    @trollius.coroutine
+    def size(self, filename):
+        '''Get size of file.
+
+        Coroutine.
+        '''
+        yield From(self._control_stream.write_command(Command('SIZE', filename)))
+
+        reply = yield From(self._control_stream.read_reply())
+
+        self.raise_if_not_match('File size', ReplyCodes.file_status, reply)
+
+        try:
+            raise Return(int(reply.text.strip()))
+        except ValueError:
+            return

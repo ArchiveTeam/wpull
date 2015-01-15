@@ -1,6 +1,6 @@
 # encoding=utf-8
 '''Document writers.'''
-# Wpull. Copyright 2013-2014: Christopher Foo. License: GPL v3.
+# Wpull. Copyright 2013-2015: Christopher Foo and others. License: GPL v3.
 import abc
 import base64
 import collections
@@ -239,9 +239,9 @@ class BaseFileWriterSession(BaseWriterSession):
 
     def _process_file_continue_request(self, request):
         '''Modify the request to resume downloading file.'''
-        if os.path.exists(self._filename):
+        if os.path.exists(self._filename) and hasattr(request, 'set_continue'):
             size = os.path.getsize(self._filename)
-            request.fields['Range'] = 'bytes={0}-'.format(size)
+            request.set_continue(size)
 
             _logger.debug(__('Continue file from {0}.', size))
         else:

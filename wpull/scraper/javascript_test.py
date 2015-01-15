@@ -30,6 +30,7 @@ class TestJavascript(unittest.TestCase):
 
         self.assertEqual({
             'http://example.com/script_variable.png',
+            'http://example.com/dragonquery.js',
         },
             inline_urls
         )

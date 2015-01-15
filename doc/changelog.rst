@@ -2,6 +2,25 @@
 What's New
 ==========
 
+0.1005 (2015-01-15)
+===================
+
+* Security: SSLv2/SSLv3 is disabled for ``--secure-protocol=auto``. Added ``--no-strong-crypto`` that re-enables them again if needed.
+* Fixed NameError with PhantomJS proxy on Python 3.2.
+* Fixed PhantomJS stop waiting for page load too early.
+* Fixed "Line too long" error and remove uninteresting page errors during PhantomJS.
+* Fixed ``--page-requisites`` exceeding ``--level``.
+* Fixed ``--no-verbose`` not providing informative messages and behaving like ``--quiet``.
+* Fixed infinite page requisite recursion when using ``--span-hosts-allow page-requisites``.
+* Added ``--page-requisites-level``. The default max recursion depth on page requisites is now 5.
+* Added ``--very-quiet``.
+* ``--no-verbose`` is defaulted when ``--concurrent`` is 2 or greater.
+
+Database Schema:
+
+* URL ``inline`` column is now an integer.
+
+
 0.1004.2 (2015-01-03)
 =====================
 

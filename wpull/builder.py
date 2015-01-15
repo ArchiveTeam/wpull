@@ -39,6 +39,8 @@ from wpull.http.stream import Stream as HTTPStream
 from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.driver.phantomjs import PhantomJSPool
+from wpull.options import LOG_QUIET, LOG_VERY_QUIET, LOG_NO_VERBOSE, LOG_VERBOSE, \
+    LOG_DEBUG
 from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
     FTPProcessorInstances
@@ -234,21 +236,28 @@ class Builder(object):
             logging.DEBUG >
             logging.NOTSET
         )
+        assert (
+            LOG_VERY_QUIET >
+            LOG_QUIET >
+            LOG_NO_VERBOSE >
+            LOG_VERBOSE >
+            LOG_DEBUG
+        )
         assert self._args.verbosity
 
         root_logger = logging.getLogger()
         current_level = root_logger.getEffectiveLevel()
-        min_level = logging.ERROR
+        min_level = LOG_VERY_QUIET
 
-        if self._args.verbosity == logging.WARNING:
-            min_level = logging.WARNING
+        if self._args.verbosity == LOG_QUIET:
+            min_level = logging.ERROR
 
-        if self._args.verbosity == logging.INFO \
-           or self._args.warc_file \
-           or self._args.output_file or self._args.append_output:
+        if self._args.verbosity in (LOG_NO_VERBOSE, LOG_VERBOSE) \
+                or self._args.warc_file \
+                or self._args.output_file or self._args.append_output:
             min_level = logging.INFO
 
-        if self._args.verbosity == logging.DEBUG:
+        if self._args.verbosity == LOG_DEBUG:
             min_level = logging.DEBUG
 
         if current_level > min_level:
@@ -272,9 +281,11 @@ class Builder(object):
         self._console_log_handler = handler = logging.StreamHandler(stream)
 
         formatter = logging.Formatter('%(levelname)s %(message)s')
+        log_filter = logging.Filter('wpull')
 
         handler.setFormatter(formatter)
         handler.setLevel(self._args.verbosity or logging.INFO)
+        handler.addFilter(log_filter)
         logger.addHandler(handler)
 
     def _setup_console_logger_close(self, app):
@@ -480,8 +491,11 @@ class Builder(object):
         if args.tries:
             filters.append(TriesFilter(args.tries))
 
-        if args.level and args.recursive:
-            filters.append(LevelFilter(args.level))
+        if args.level and args.recursive or args.page_requisites_level:
+            filters.append(
+                LevelFilter(args.level,
+                            inline_max_depth=args.page_requisites_level)
+            )
 
         if args.accept_regex or args.reject_regex:
             filters.append(RegexFilter(args.accept_regex, args.reject_regex))
@@ -632,7 +646,7 @@ class Builder(object):
         assert args.verbosity, \
             'Expect logging level. Got {}.'.format(args.verbosity)
 
-        if args.verbosity in (logging.INFO, logging.DEBUG, logging.WARNING) and args.progress != 'none':
+        if args.verbosity in (LOG_VERBOSE, LOG_DEBUG) and args.progress != 'none':
             stream = self._new_encoded_stream(self._get_stderr())
 
             bar_style = args.progress == 'bar'
@@ -754,7 +768,19 @@ class Builder(object):
             sitemaps=self._args.sitemaps,
         )
 
-        phantomjs_coprocessor = self._build_phantomjs_coprocessor()
+        if args.phantomjs:
+            proxy_server, proxy_port, proxy_task = self._build_proxy_server()
+            application = self._factory['Application']
+            # XXX: Should we be sticking these into application?
+            # We need to stick them somewhere so the Task doesn't get garbage
+            # collected
+            application.proxy_server = proxy_server
+            application.proxy_task = proxy_task
+
+        if args.phantomjs:
+            phantomjs_coprocessor = self._build_phantomjs_coprocessor(proxy_port)
+        else:
+            phantomjs_coprocessor = None
 
         web_processor_instances = self._factory.new(
             'WebProcessorInstances',
@@ -1090,12 +1116,8 @@ class Builder(object):
 
         return converter
 
-    def _build_phantomjs_coprocessor(self):
+    def _build_phantomjs_coprocessor(self, proxy_port):
         '''Build proxy server and PhantomJS client. controller, coprocessor.'''
-        if not self._args.phantomjs:
-            return
-
-        proxy_server, proxy_port, proxy_task = self._build_proxy_server()
         page_settings = {}
         default_headers = NameValueRecord()
 
@@ -1153,8 +1175,6 @@ class Builder(object):
             warc_recorder=self.factory.get('WARCRecorder'),
         )
 
-        phantomjs_coprocessor.proxy_task = proxy_task  # FIXME: stick this somewhere else
-
         return phantomjs_coprocessor
 
     def _build_proxy_server(self):
@@ -1200,21 +1220,30 @@ class Builder(object):
         The options must be accepted by the `ssl` module.
 
         Returns:
-            dict
+            SSLContext
         '''
-        ssl_options = {}
+        # Logic is based on tornado.netutil.ssl_options_to_context
+        ssl_context = ssl.SSLContext(self._args.secure_protocol)
 
         if self._args.check_certificate:
-            ssl_options['cert_reqs'] = ssl.CERT_REQUIRED
-            ssl_options['ca_certs'] = self._load_ca_certs()
+            ssl_context.verify_mode = ssl.CERT_REQUIRED
+            ssl_context.load_verify_locations(self._load_ca_certs())
         else:
-            ssl_options['cert_reqs'] = ssl.CERT_NONE
+            ssl_context.verify_mode = ssl.CERT_NONE
 
-        ssl_options['ssl_version'] = self._args.secure_protocol
+        if self._args.strong_crypto:
+            ssl_context.options |= ssl.OP_NO_SSLv2
+            ssl_context.options |= ssl.OP_NO_SSLv3  # POODLE
+
+            if hasattr(ssl, 'OP_NO_COMPRESSION'):
+                ssl_context.options |= ssl.OP_NO_COMPRESSION  # CRIME
+            else:
+                _logger.warning(_('Unable to disable TLS compression.'))
 
         if self._args.certificate:
-            ssl_options['certfile'] = self._args.certificate
-            ssl_options['keyfile'] = self._args.private_key
+            ssl_context.load_cert_chain(
+                self._args.certificate, self._args.private_key
+            )
 
         if self._args.edg_file:
             ssl.RAND_egd(self._args.edg_file)
@@ -1224,7 +1253,7 @@ class Builder(object):
                 # Use 16KB because Wget
                 ssl.RAND_add(in_file.read(15360), 0.0)
 
-        return ssl_options
+        return ssl_context
 
     def _load_ca_certs(self):
         '''Load the Certificate Authority certificates.

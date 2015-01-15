@@ -190,6 +190,8 @@ class TestApp(GoodAppTestCase):
             '--bind-address', '127.0.0.1',
             '--html-parser', 'html5lib',
             '--link-extractors', 'html',
+            '--page-requisites-level', '5',
+            '--no-strong-crypto',
         ])
         with cd_tempdir():
             builder = Builder(args, unit_test=True)
@@ -939,6 +941,24 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_page_requisite_level(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/always200/'),
+            '-r',
+            '--page-requisites',
+            '--page-requisites-level', '1',
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(3, builder.factory['Statistics'].files)
+
 
 class SimpleHandler(tornado.web.RequestHandler):
     def get(self):
@@ -1033,8 +1053,10 @@ class PhantomJSMixin(object):
         arg_parser = AppArgumentParser()
         script_filename = os.path.join(os.path.dirname(__file__),
                                        'testing', 'boring_script.py')
+
+        # Change localhost into something else to test proxy
         args = arg_parser.parse_args([
-            self.get_url('/static/simple_javascript.html'),
+            self.get_url('/static/simple_javascript.html').replace('localhost', 'example.invalid'),
             '--warc-file', 'test',
             '--no-warc-compression',
             '-4',
@@ -1048,6 +1070,7 @@ class PhantomJSMixin(object):
             '--no-check-certificate',
             ])
         builder = Builder(args, unit_test=True)
+        builder.factory.class_map['Resolver'] = MockDNSResolver
 
         with cd_tempdir():
             app = builder.build()
@@ -1086,8 +1109,10 @@ class PhantomJSMixin(object):
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_phantomjs_scroll(self):
         arg_parser = AppArgumentParser()
+
+        # Change localhost into something else to test proxy
         args = arg_parser.parse_args([
-            self.get_url('/static/DEUUEAUGH.html'),
+            self.get_url('/static/DEUUEAUGH.html').replace('localhost', 'example.invalid'),
             '-4',
             '--no-robots',
             '--phantomjs',
@@ -1096,6 +1121,7 @@ class PhantomJSMixin(object):
             '--no-check-certificate',
             ])
         builder = Builder(args, unit_test=True)
+        builder.factory.class_map['Resolver'] = MockDNSResolver
 
         with cd_tempdir():
             app = builder.build()
