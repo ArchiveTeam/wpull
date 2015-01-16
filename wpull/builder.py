@@ -68,6 +68,7 @@ from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, SchemeFilter,
                              SpanHostsFilter, RegexFilter, DirectoryFilter,
                              BackwardFilenameFilter, ParentFilter,
                              FollowFTPFilter)
+from wpull.urlrewrite import URLRewriter
 from wpull.util import ASCIIStreamWriter
 from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
@@ -138,6 +139,7 @@ class Builder(object):
             'URLInfo': URLInfo,
             'URLTable': URLTableHookWrapper,
             'URLTableImplementation': SQLURLTable,
+            'URLRewriter': URLRewriter,
             'Waiter': LinearWaiter,
             'WARCRecorder': WARCRecorder,
             'WebClient': WebClient,
@@ -406,6 +408,7 @@ class Builder(object):
         '''Read the URLs provided by the user.'''
 
         url_string_iter = self._args.urls or ()
+        url_rewriter = self._build_url_rewriter()
 
         if self._args.input_file:
             if self._args.force_html:
@@ -427,7 +430,17 @@ class Builder(object):
                 url_string, default_scheme=default_scheme)
 
             _logger.debug(__('Parsed URL {0}', url_info))
+
+            if url_rewriter:
+                url_info = url_rewriter.rewrite(url_info)
+                _logger.debug(__('Rewritten URL {0}', url_info))
+
             yield url_info
+
+    def _build_url_rewriter(self):
+        '''Build URL rewriter if needed.'''
+        if self._args.escaped_fragment:
+            return self._factory.new('URLRewriter')
 
     def _read_input_file_as_lines(self):
         '''Read lines from input file and return them.'''
@@ -766,6 +779,7 @@ class Builder(object):
             fetch_rule,
             document_scraper=document_scraper,
             sitemaps=self._args.sitemaps,
+            url_rewriter=self._factory.get('URLRewriter'),
         )
 
         if args.phantomjs:

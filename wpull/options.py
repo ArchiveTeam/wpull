@@ -823,6 +823,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=['html', 'css', 'javascript'],
             help=_('specify which link extractors to use')
         )
+        group.add_argument(
+            '--escaped-fragment',
+            action='store_true',
+            help=_('rewrite links with hash fragments to escaped fragments')
+        )
 
     def _add_ssl_args(self):
         self._ssl_version_map = {

@@ -154,6 +154,18 @@ class Always200Handler(tornado.web.RequestHandler):
         self.render('always200.html')
 
 
+class EscapedFragmentHandler(tornado.web.RequestHandler):
+    def get(self):
+        fragment_str = self.get_argument('_escaped_fragment_', None)
+
+        if fragment_str == 'husky-cat':
+            self.render('escaped_fragment_content.html')
+        elif fragment_str:
+            raise HTTPError(404)
+        else:
+            self.render('escaped_fragment.html')
+
+
 class GoodApp(tornado.web.Application):
     def __init__(self):
         tornado.web.Application.__init__(self, [
@@ -177,6 +189,7 @@ class GoodApp(tornado.web.Application):
             (r'/basic_auth', BasicAuthHandler),
             (r'/content_disposition', ContentDispositionHandler),
             (r'/always200/.*', Always200Handler),
+            (r'/escape_from_fragments/', EscapedFragmentHandler),
         ],
             template_path=os.path.join(os.path.dirname(__file__),
                                        'templates'),

@@ -372,12 +372,13 @@ class ProcessingRule(HookableMixin):
         document_scraper (:class:`.scaper.DemuxDocumentScraper`): The document
             scraper.
     '''
-    def __init__(self, fetch_rule, document_scraper=None, sitemaps=False):
+    def __init__(self, fetch_rule, document_scraper=None, sitemaps=False, url_rewriter=None):
         super().__init__()
 
         self._fetch_rule = fetch_rule
         self._document_scraper = document_scraper
         self._sitemaps = sitemaps
+        self._url_rewriter = url_rewriter
 
         self.register_hook('scrape_document')
 
@@ -451,6 +452,7 @@ class ProcessingRule(HookableMixin):
         for url in inline_urls:
             url_info = self.parse_url(url)
             if url_info:
+                url_info = self.rewrite_url(url_info)
                 url_record = url_item.child_url_record(
                     url_info, inline=True
                 )
@@ -460,6 +462,7 @@ class ProcessingRule(HookableMixin):
         for url in linked_urls:
             url_info = self.parse_url(url)
             if url_info:
+                url_info = self.rewrite_url(url_info)
                 url_record = url_item.child_url_record(
                     url_info, link_type=link_type
                 )
@@ -471,3 +474,10 @@ class ProcessingRule(HookableMixin):
             linked_url_infos, link_type=link_type)
 
         return len(inline_url_infos), len(linked_url_infos)
+
+    def rewrite_url(self, url_info):
+        '''Return a rewritten URL such as escaped fragment.'''
+        if self._url_rewriter:
+            return self._url_rewriter.rewrite(url_info)
+        else:
+            return url_info

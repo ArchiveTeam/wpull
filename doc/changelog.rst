@@ -2,6 +2,9 @@
 What's New
 ==========
 
+* Added ``--escaped-fragment`` option.
+
+
 0.1005 (2015-01-15)
 ===================
 
