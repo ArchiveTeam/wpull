@@ -152,6 +152,7 @@ class BaseFileWriterSession(BaseWriterSession):
         self._content_disposition = content_disposition
         self._trust_server_names = trust_server_names
         self._filename = None
+        self._file_continue_requested = False
 
     @classmethod
     def open_file(cls, filename, response, mode='wb+'):
@@ -239,9 +240,10 @@ class BaseFileWriterSession(BaseWriterSession):
 
     def _process_file_continue_request(self, request):
         '''Modify the request to resume downloading file.'''
-        if os.path.exists(self._filename) and hasattr(request, 'set_continue'):
+        if os.path.exists(self._filename):
             size = os.path.getsize(self._filename)
             request.set_continue(size)
+            self._file_continue_requested = True
 
             _logger.debug(__('Continue file from {0}.', size))
         else:
@@ -252,11 +254,14 @@ class BaseFileWriterSession(BaseWriterSession):
             return
 
         if response.request.url_info.scheme == 'ftp':
-            self.open_file(self._filename, response)
+            if self._file_continue_requested:
+                self._process_file_continue_ftp_response(response)
+            else:
+                self.open_file(self._filename, response)
         else:
             code = response.status_code
 
-            if self._file_continuing:
+            if self._file_continue_requested:
                 self._process_file_continue_response(response)
             elif 200 <= code <= 299 or 400 <= code:
                 if self._trust_server_names:
@@ -277,9 +282,25 @@ class BaseFileWriterSession(BaseWriterSession):
         if code == http.client.PARTIAL_CONTENT:
             self.open_file(self._filename, response, mode='ab+')
         else:
-            raise IOError(
-                _('Could not continue file download: {filename}.')
-                .format(filename=self._filename))
+            self._raise_cannot_continue_error()
+
+    def _process_file_continue_ftp_response(self, response):
+        '''Process a restarted content response.'''
+        if response.request.restart_value and response.restart_value:
+            self.open_file(self._filename, response, mode='ab+')
+        else:
+            self._raise_cannot_continue_error()
+
+    def _raise_cannot_continue_error(self):
+        '''Raise an error when server cannot continue a file.'''
+        # XXX: I cannot find where wget refuses to resume a file
+        # when the server does not support range requests. Wget has
+        # enums that appear to define this case, it is checked throughout
+        # the code, but the HTTP function doesn't even use them.
+        # FIXME: unit test is needed for this case
+        raise IOError(
+            _('Server not able to continue file download: {filename}.')
+            .format(filename=self._filename))
 
     def _append_filename_extension(self, response):
         '''Append an HTML/CSS file suffix as needed.'''
@@ -457,7 +478,6 @@ class BasePathNamer(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_filename(self, url_info):
         '''Return the appropriate filename based on given URLInfo.'''
-        pass
 
 
 class PathNamer(BasePathNamer):

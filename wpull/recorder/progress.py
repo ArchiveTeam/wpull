@@ -186,8 +186,9 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
                 self._bytes_continued = int(match.group(1))
                 self._total_size = int(match.group(3))
 
-        elif response.protocol == 'ftp' and response.request.restart_value:
-            self._bytes_continued = response.request.restart_value
+        elif response.protocol == 'ftp' and response.restart_value:
+            self._bytes_continued = response.restart_value
+            self._total_size = self._content_length
         else:
             self._total_size = self._content_length
 

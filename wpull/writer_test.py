@@ -9,6 +9,7 @@ from wpull.app_test import cd_tempdir
 from wpull.builder import Builder
 from wpull.options import AppArgumentParser
 import wpull.testing.async
+from wpull.testing.ftp import FTPTestCase
 from wpull.testing.goodapp import GoodAppTestCase
 from wpull.writer import (url_to_dir_parts, url_to_filename, safe_filename,
                           anti_clobber_dir_path, parse_content_disposition)
@@ -480,3 +481,31 @@ class TestWriterApp(GoodAppTestCase):
             print(list(os.walk('.')))
 
             self.assertTrue(os.path.isfile('index.html'))
+
+
+class TestWriterFTPApp(FTPTestCase):
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_file_continue(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([self.get_url('/example.txt'),
+                                      '--continue', '--debug'])
+
+        with cd_tempdir() as temp_dir:
+            filename = os.path.join(temp_dir, 'example.txt')
+
+            with open(filename, 'wb') as out_file:
+                out_file.write(b'The')
+
+            app = Builder(args, unit_test=True).build()
+            exit_code = yield From(app.run())
+
+            self.assertEqual(0, exit_code)
+
+            with open(filename, 'rb') as in_file:
+                data = in_file.read()
+
+                self.assertEqual(
+                    'The real treasure is in Smaug’s heart 💗.\n'
+                    .encode('utf-8'),
+                    data
+                )
