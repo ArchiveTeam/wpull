@@ -65,6 +65,7 @@ class FTPSession(object):
         self.arg = None
         self.path = '/'
         self.evil_flags = set()
+        self.restart_value = None
 
     @trollius.coroutine
     def process(self):
@@ -109,6 +110,7 @@ class FTPSession(object):
                 'LIST': self._cmd_list,
                 'RETR': self._cmd_retr,
                 'SIZE': self._cmd_size,
+                'REST': self._cmd_rest,
                 'CWD': self._cmd_cwd,
                 'TYPE': self._cmd_type,
                 'PWD': self._cmd_pwd,
@@ -223,7 +225,8 @@ class FTPSession(object):
             self.writer.write(b'227 Use PORT or PASV first\r\n')
         elif info and info[0] == 'file':
             self.writer.write(b'150 Begin data\r\n')
-            self.data_writer.write(info[1])
+            self.data_writer.write(info[1][self.restart_value or 0:])
+            self.restart_value = None
             self.data_writer.close()
             self.data_writer = None
             self.writer.write(b'226 End data\r\n')
@@ -243,6 +246,20 @@ class FTPSession(object):
             self.writer.write(b'213 3.14\r\n')
         else:
             self.writer.write(b'550 Unknown command\r\n')
+
+    @trollius.coroutine
+    def _cmd_rest(self):
+        try:
+            self.restart_value = int(self.arg)
+
+            if self.restart_value < 0 or self.restart_value == 99999:
+                raise ValueError()
+
+            self.writer.write(b'350 Restarting file\r\n')
+        except ValueError:
+            _logger.debug('Invalid restart value')
+            self.restart_value = None
+            self.writer.write(b'550 What?\r\n')
 
     @trollius.coroutine
     def _cmd_cwd(self):

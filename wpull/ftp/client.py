@@ -104,6 +104,13 @@ class Session(BaseSession):
 
         response.file_transfer_size = yield From(self._fetch_size(request))
 
+        if request.restart_value:
+            try:
+                yield From(self._commander.restart(request.restart_value))
+                response.restart_value = request.restart_value
+            except FTPServerError:
+                _logger.debug('Could not restart file.', exc_info=1)
+
         yield From(self._open_data_stream())
 
         command = Command('RETR', request.url_info.path)

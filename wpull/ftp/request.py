@@ -140,6 +140,11 @@ class Request(URLPropertyMixin):
             'restart_value': self.restart_value,
         }
 
+    def set_continue(self, offset):
+        '''Modify the request into a restart request.'''
+        assert offset >= 0, offset
+        self.restart_value = offset
+
 
 class Response(DictableMixin, ProtocolResponseMixin):
     '''FTP response for a file.
@@ -148,9 +153,12 @@ class Response(DictableMixin, ProtocolResponseMixin):
         request (:class:`Request`): The corresponding request.
         body (:class:`.body.Body`): The file.
         reply (:class:`Reply`): The latest Reply.
-        file_transfer_size (int): Size of the file transfer. This corresponds
-            to the number of bytes to be transferred and not necessarily the
-            actual file size.
+        file_transfer_size (int): Size of the file transfer without
+            considering restart. (REST is issued last.)
+
+            This is will be the file size. (STREAM mode is always used.)
+
+        restart_value (int): Offset value of restarted transfer.
     '''
     def __init__(self):
         self.request = None
@@ -158,6 +166,7 @@ class Response(DictableMixin, ProtocolResponseMixin):
         self.reply = None
         self.data_address = None
         self.file_transfer_size = None
+        self.restart_value = None
 
     @property
     def protocol(self):
@@ -172,6 +181,7 @@ class Response(DictableMixin, ProtocolResponseMixin):
             'response_code': self.reply.code,
             'response_message': self.reply.text,
             'file_transfer_size': self.file_transfer_size,
+            'restart_value': self.restart_value,
         }
 
     def response_code(self):
