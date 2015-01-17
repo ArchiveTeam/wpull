@@ -828,6 +828,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('rewrite links with hash fragments to escaped fragments')
         )
+        group.add_argument(
+            '--strip-session-id',
+            action='store_true',
+            help=_('remove session ID tokens from links')
+        )
 
     def _add_ssl_args(self):
         self._ssl_version_map = {

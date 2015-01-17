@@ -3,6 +3,7 @@ What's New
 ==========
 
 * Added ``--escaped-fragment`` option.
+* Added ``--strip-session-id`` option.
 
 
 0.1005 (2015-01-15)

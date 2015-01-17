@@ -52,7 +52,7 @@ To archive a website::
         --wait 0.5 --random-wait --waitretry 600 \
         --page-requisites --recursive --level inf \
         --span-hosts-allow linked-pages,page-requisites \
-        --escaped-fragment \
+        --escaped-fragment --strip-session-id \
         --reject-regex "/login\.php" \
         --tries 3 --retry-connrefused --retry-dns-error \
         --timeout 60 \

@@ -439,8 +439,12 @@ class Builder(object):
 
     def _build_url_rewriter(self):
         '''Build URL rewriter if needed.'''
-        if self._args.escaped_fragment:
-            return self._factory.new('URLRewriter')
+        if self._args.escaped_fragment or self._args.strip_session_id:
+            return self._factory.new(
+                'URLRewriter',
+                hash_fragment=self._args.escaped_fragment,
+                session_id=self._args.strip_session_id
+            )
 
     def _read_input_file_as_lines(self):
         '''Read lines from input file and return them.'''

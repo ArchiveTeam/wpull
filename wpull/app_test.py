@@ -994,6 +994,23 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertEqual(2, builder.factory['Statistics'].files)
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_strip_session_id(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/forum/'),
+            '-r',
+            '--strip-session-id',
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
 
 class SimpleHandler(tornado.web.RequestHandler):
     def get(self):

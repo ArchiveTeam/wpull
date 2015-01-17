@@ -1,4 +1,5 @@
 # encoding=utf-8
+import base64
 import email.utils
 import hashlib
 import http.client
@@ -166,6 +167,12 @@ class EscapedFragmentHandler(tornado.web.RequestHandler):
             self.render('escaped_fragment.html')
 
 
+class ForumHandler(tornado.web.RequestHandler):
+    def get(self):
+        session_id = base64.b16encode(os.urandom(16)).decode('ascii').lower()
+        self.render('sessionid.html', session_id=session_id)
+
+
 class GoodApp(tornado.web.Application):
     def __init__(self):
         tornado.web.Application.__init__(self, [
@@ -190,6 +197,7 @@ class GoodApp(tornado.web.Application):
             (r'/content_disposition', ContentDispositionHandler),
             (r'/always200/.*', Always200Handler),
             (r'/escape_from_fragments/', EscapedFragmentHandler),
+            (r'/forum/', ForumHandler),
         ],
             template_path=os.path.join(os.path.dirname(__file__),
                                        'templates'),
