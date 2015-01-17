@@ -110,18 +110,23 @@ class BaseTextStreamReader(object, metaclass=abc.ABCMeta):
             iterator: Each item is a tuple:
 
             1. str: The text
-            2. bool: Whether the text is a likely a link
+            2. bool (or truthy value): Whether the text is a likely a link.
+               If truthy value may be provided containing additional context
+               of the link.
 
         The links returned are raw text and will require further processing.
         '''
 
-    def iter_links(self, file, encoding=None):
+    def iter_links(self, file, encoding=None, context=False):
         '''Return the links.
 
         This function is a convenience function for calling :meth:`iter_text`
         and returning only the links.
         '''
-        return [item[0] for item in self.iter_text(file, encoding) if item[1]]
+        if context:
+            return [item for item in self.iter_text(file, encoding) if item[1]]
+        else:
+            return [item[0] for item in self.iter_text(file, encoding) if item[1]]
 
 
 class BaseExtractiveReader(object, metaclass=abc.ABCMeta):

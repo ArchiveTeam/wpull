@@ -65,19 +65,22 @@ class BaseTextStreamScraper(BaseScraper, BaseTextStreamReader):
                 new_link = urljoin_safe(base_url, text, allow_fragments=False)
 
                 if new_link:
-                    yield (new_link, True)
+                    yield (new_link, is_link)
                 else:
                     yield (new_link, False)
             else:
                 yield (text, is_link)
 
-    def iter_processed_links(self, file, encoding=None, base_url=None):
+    def iter_processed_links(self, file, encoding=None, base_url=None, context=False):
         '''Return the links.
 
         This function is a convenience function for calling
         :meth:`iter_processed_text` and returning only the links.
         '''
-        return [item[0] for item in self.iter_processed_text(file, encoding, base_url) if item[1]]
+        if context:
+            return [item for item in self.iter_processed_text(file, encoding, base_url) if item[1]]
+        else:
+            return [item[0] for item in self.iter_processed_text(file, encoding, base_url) if item[1]]
 
     def scrape_links(self, text):
         '''Convenience function for scraping from a text string.'''
