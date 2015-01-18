@@ -2,23 +2,81 @@
 import abc
 import collections
 import io
+import namedlist
 
 from wpull.document.base import BaseTextStreamReader, \
     BaseHTMLReader, BaseExtractiveReader
 from wpull.scraper.util import urljoin_safe
 
 
-ScrapedLinkResult = collections.namedtuple(
-    'ScrapedLinkResultType',
-    ['link', 'inline', 'encoding']
+LinkContext = namedlist.namedtuple(
+    'LinkContextType',
+    [
+        'link',
+        ('inline', False),
+        ('linked', False),
+        ('link_type', None),
+        ('extra', None)
+    ]
 )
-'''A named tuple decribing a scraped link.
+'''A named tuple describing a scraped link.
 
 Attributes:
     link (str): The link that was scraped.
     inline (bool): Whether the link is an embeded object.
-    encoding (str): The character encoding of the link.
+    linked (bool): Whether the link links to another page.
+    link_type: A value from :class:`.item.LinkType`.
+    extra: Any extra info.
 '''
+
+
+class ScrapeResult(dict):
+    '''Links scraped from a document.
+
+    This class is subclassed from ``dict`` and contains convenience methods.
+    '''
+    def __init__(self, link_contexts, encoding):
+        super().__init__()
+        self.link_contexts = link_contexts
+        self.encoding = encoding
+
+    @property
+    def link_contexts(self):
+        '''Link Contexts.'''
+        return self['link_contexts']
+
+    @link_contexts.setter
+    def link_contexts(self, value):
+        self['link_contexts'] = value
+
+    @property
+    def encoding(self):
+        '''Character encoding of the document.'''
+        return self['encoding']
+
+    @encoding.setter
+    def encoding(self, value):
+        self['encoding'] = value
+
+    @property
+    def inline_links(self):
+        '''URLs of objects embedded in the document.'''
+        return frozenset(context.link for context in self['link_contexts'] if context.inline)
+
+    @property
+    def linked_links(self):
+        '''URLs of objects linked from the document'''
+        return frozenset(context.link for context in self['link_contexts'] if context.linked)
+
+    @property
+    def inline(self):
+        '''Link Context of objects embedded in the document.'''
+        return frozenset(context for context in self['link_contexts'] if context.inline)
+
+    @property
+    def linked(self):
+        '''Link Context of objects linked from the document'''
+        return frozenset(context for context in self['link_contexts'] if context.linked)
 
 
 class BaseScraper(object):
@@ -32,13 +90,7 @@ class BaseScraper(object):
             response (:class:`http.request.Response`): The response.
 
         Returns:
-            dict, None: Returns a dict or None.
-
-            If a dict is provided, the mandatory values are:
-
-                * ``inline_urls``: URLs of objects embedded in the document
-                * ``linked_urls``': URLs of objects linked from the document
-                *  ``encoding``: the character encoding of the document
+            ScrapeResult, None: LinkContexts and document information.
 
             If None, then the scraper does not support scraping the document.
         '''
@@ -112,13 +164,13 @@ class DemuxDocumentScraper(BaseScraper):
     def scrape(self, request, response):
         '''Iterate the scrapers, returning the first of the results.'''
         for scraper in self._document_scrapers:
-            scrape_info = scraper.scrape(request, response)
+            scrape_result = scraper.scrape(request, response)
 
-            if scrape_info is None:
+            if scrape_result is None:
                 continue
 
-            if scrape_info['inline_urls'] or scrape_info['linked_urls']:
-                return scrape_info
+            if scrape_result.link_contexts:
+                return scrape_result
 
     def scrape_info(self, request, response):
         '''Iterate the scrapers and return a dict of results.
@@ -126,11 +178,11 @@ class DemuxDocumentScraper(BaseScraper):
         Returns:
             dict: A dict where the keys are the scrapers instances and the
             values are the results. That is, a mapping from
-            :class:`BaseDocumentScraper` to :class:`dict`.
+            :class:`BaseDocumentScraper` to :class:`ScrapeResult`.
         '''
         info = {}
         for scraper in self._document_scrapers:
-            scrape_info = scraper.scrape(request, response)
-            info[scraper] = scrape_info
+            scrape_result = scraper.scrape(request, response)
+            info[scraper] = scrape_result
 
         return info

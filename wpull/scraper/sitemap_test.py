@@ -29,9 +29,9 @@ class Mixin(object):
                 b'Sitemap: http://example.com/sitemap00.xml'
             )
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertEqual({
             'http://example.com/sitemap00.xml',
@@ -51,9 +51,9 @@ class Mixin(object):
                 b'dsfju3wrji kjasSItemapsdmjfkl wekie;er :Ads fkj3m /Dk'
             )
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertFalse(linked_urls)
         self.assertFalse(inline_urls)
@@ -77,9 +77,9 @@ class Mixin(object):
             '''
             )
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertEqual({
             'http://www.example.com/sitemap1.xml.gz',
@@ -108,9 +108,9 @@ class Mixin(object):
             '''
             )
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertEqual({
             'http://www.example.com/',
@@ -134,9 +134,9 @@ class Mixin(object):
             '''
             )
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertEqual({
             'http://www.example.com/',

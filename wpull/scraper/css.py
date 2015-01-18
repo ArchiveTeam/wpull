@@ -6,7 +6,8 @@ import logging
 from wpull.backport.logging import BraceMessage as __
 from wpull.document.css import CSSReader
 from wpull.document.util import detect_response_encoding
-from wpull.scraper.base import BaseTextStreamScraper
+from wpull.item import LinkType
+from wpull.scraper.base import BaseTextStreamScraper, LinkContext, ScrapeResult
 import wpull.util
 
 
@@ -34,16 +35,21 @@ class CSSScraper(CSSReader, BaseTextStreamScraper):
         if not self.is_supported(request=request, response=response):
             return
 
-        inline_urls = set()
+        link_contexts = set()
         base_url = request.url_info.url
         encoding = self._encoding_override or \
             detect_response_encoding(response)
 
         try:
             with wpull.util.reset_file_offset(response.body):
-                for link in self.iter_processed_links(response.body, encoding,
-                                                      base_url):
-                    inline_urls.add(link)
+                for link, context in self.iter_processed_links(
+                        response.body, encoding, base_url, context=True):
+                    if context == 'import':
+                        link_type = LinkType.css
+                    else:
+                        link_type = LinkType.media
+
+                    link_contexts.add(LinkContext(link, inline=True, link_type=link_type))
 
         except UnicodeError as error:
             _logger.warning(__(
@@ -51,8 +57,4 @@ class CSSScraper(CSSReader, BaseTextStreamScraper):
                 url=request.url_info.url, error=error
             ))
 
-        return {
-            'inline_urls': inline_urls,
-            'linked_urls': (),
-            'encoding': encoding,
-        }
+        return ScrapeResult(link_contexts, encoding)
