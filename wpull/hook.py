@@ -506,7 +506,4 @@ class HookEnvironment(object):
         if replace:
             url_item.url_table.remove_one(url)
 
-        if inline:
-            url_item.add_inline_url_infos([url_info], **kwargs)
-        else:
-            url_item.add_linked_url_infos([url_info], **kwargs)
+        url_item.add_child_url(url_info.url, inline=inline, **kwargs)

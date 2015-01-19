@@ -187,45 +187,42 @@ class URLItem(object):
         '''Set values for the URL in table.'''
         self._url_table.update_one(self._url, **kwargs)
 
-    def add_inline_url_infos(self, url_infos, link_type=None,
-                             post_data=None):
-        '''Add inline links scraped from the document.
+    def add_child_url(self, url, inline=False, **kwargs):
+        '''Add a single URL as a child of this item.
+
+        See :meth:`add_child_urls` for argument details.
+        '''
+        self.add_child_urls([{'url': url}], inline=inline, **kwargs)
+
+    def add_child_urls(self, urls, inline=False, **kwargs):
+        '''Add links scraped from the document with automatic values.
 
         Args:
-            url_infos (iterable): A list of :class:`.url.URLInfo`
-        Returns:
-            A list of added :class:`.url.URLInfo`.
+            urls: An iterable of `str` or `dict`. When a `str` is provided,
+                it is a URL. When a `dict` is provided, it is a mapping
+                of table column names to values.
+            inline (bool): Whether the URL is an embedded object. This
+                function automatically calculates the value needed for
+                the table column "inline".
+            kwargs: Additional column value to be apllied for all URLs
+                provided.
+
+        This function provides values automatically for:
+
+        * ``inline``
+        * ``level``
+        * ``referrer``
+        * ``top_url``
+
+        See also :meth:`.database.base.BaseSQLURLTable.add_many`.
         '''
-        inline_urls = tuple([info.url for info in url_infos])
-        _logger.debug(__('Adding inline URLs {0}', inline_urls))
         self._url_table.add_many(
-            inline_urls,
-            inline=(self._url_record.inline or 0) + 1,
+            [item if isinstance(item, dict) else {'url': item} for item in urls],
+            inline=(self._url_record.inline or 0) + 1 if inline else None,
             level=self._url_record.level + 1,
             referrer=self._url_record.url,
             top_url=self._url_record.top_url or self._url_record.url,
-            post_data=post_data,
-        )
-
-    def add_linked_url_infos(self, url_infos, link_type=None,
-                             post_data=None):
-        '''Add linked links scraped from the document.
-
-        Args:
-            url_infos (iterable): A list of :class:`.url.URLInfo`
-            encoding (str): The encoding of the document.
-        Returns:
-            A list of added :class:`.url.URLInfo`.
-        '''
-        linked_urls = tuple([info.url for info in url_infos])
-        _logger.debug(__('Adding linked URLs {0}', linked_urls))
-        self._url_table.add_many(
-            linked_urls,
-            level=self._url_record.level + 1,
-            referrer=self._url_record.url,
-            top_url=self._url_record.top_url or self._url_record.url,
-            link_type=link_type,
-            post_data=post_data,
+            **kwargs
         )
 
     def child_url_record(self, url_info, inline=False,
