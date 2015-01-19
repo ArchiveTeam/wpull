@@ -82,12 +82,13 @@ class ScrapeResult(dict):
 class BaseScraper(object):
     '''Base class for scrapers.'''
     @abc.abstractmethod
-    def scrape(self, request, response):
+    def scrape(self, request, response, link_type=None):
         '''Extract the URLs from the document.
 
         Args:
             request (:class:`.http.request.Request`): The request.
-            response (:class:`http.request.Response`): The response.
+            response (:class:`.http.request.Response`): The response.
+            link_type: A value from :class:`.item.LinkType`.
 
         Returns:
             ScrapeResult, None: LinkContexts and document information.
@@ -161,10 +162,10 @@ class DemuxDocumentScraper(BaseScraper):
     def __init__(self, document_scrapers):
         self._document_scrapers = document_scrapers
 
-    def scrape(self, request, response):
+    def scrape(self, request, response, link_type=None):
         '''Iterate the scrapers, returning the first of the results.'''
         for scraper in self._document_scrapers:
-            scrape_result = scraper.scrape(request, response)
+            scrape_result = scraper.scrape(request, response, link_type)
 
             if scrape_result is None:
                 continue
@@ -172,7 +173,7 @@ class DemuxDocumentScraper(BaseScraper):
             if scrape_result.link_contexts:
                 return scrape_result
 
-    def scrape_info(self, request, response):
+    def scrape_info(self, request, response, link_type=None):
         '''Iterate the scrapers and return a dict of results.
 
         Returns:
@@ -182,7 +183,7 @@ class DemuxDocumentScraper(BaseScraper):
         '''
         info = {}
         for scraper in self._document_scrapers:
-            scrape_result = scraper.scrape(request, response)
+            scrape_result = scraper.scrape(request, response, link_type)
             info[scraper] = scrape_result
 
         return info

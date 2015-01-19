@@ -5,6 +5,7 @@ import unittest
 from wpull.body import Body
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
 from wpull.http.request import Request, Response
+from wpull.item import LinkType
 from wpull.scraper.css import CSSScraper
 from wpull.scraper.html import HTMLScraper, ElementWalker
 from wpull.scraper.javascript import JavaScriptScraper
@@ -126,6 +127,25 @@ class Mixin(object):
 
         for url in inline_urls | linked_urls:
             self.assertIsInstance(url, str)
+
+    def test_html_scraper_reject_type(self):
+        element_walker = ElementWalker(
+            css_scraper=CSSScraper(), javascript_scraper=JavaScriptScraper())
+        scraper = HTMLScraper(self.get_html_parser(), element_walker)
+        request = Request('http://example.com/')
+        response = Response(200, 'OK')
+        response.body = Body()
+
+        with wpull.util.reset_file_offset(response.body):
+            html_file_path = os.path.join(ROOT_PATH,
+                                          'testing', 'samples',
+                                          'many_urls.html')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body)
+
+        scrape_result = scraper.scrape(request, response,
+                                       link_type=LinkType.css)
+        self.assertFalse(scrape_result)
 
     def test_html_soup(self):
         element_walker = ElementWalker(

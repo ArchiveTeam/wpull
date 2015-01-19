@@ -5,6 +5,7 @@ import logging
 from wpull.backport.logging import BraceMessage as __
 from wpull.document.sitemap import SitemapReader
 from wpull.document.util import detect_response_encoding
+from wpull.item import LinkType
 import wpull.util
 from wpull.scraper.base import BaseExtractiveScraper, LinkContext, ScrapeResult
 
@@ -19,8 +20,10 @@ class SitemapScraper(SitemapReader, BaseExtractiveScraper):
         super().__init__(html_parser)
         self._encoding_override = encoding_override
 
-    def scrape(self, request, response):
+    def scrape(self, request, response, link_type=None):
         if not self.is_supported(request=request, response=response):
+            return
+        if link_type and link_type != LinkType.sitemap:
             return
 
         base_url = request.url_info.url

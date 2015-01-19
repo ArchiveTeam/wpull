@@ -3,6 +3,7 @@ import unittest
 from wpull.body import Body
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
 from wpull.http.request import Request, Response
+from wpull.item import LinkType
 from wpull.scraper.sitemap import SitemapScraper
 from wpull.util import IS_PYPY
 import wpull.util
@@ -144,6 +145,29 @@ class Mixin(object):
             linked_urls
         )
         self.assertFalse(inline_urls)
+
+    def test_sitemap_scraper_reject_type(self):
+        scraper = SitemapScraper(self.get_html_parser())
+        request = Request('http://example.com/sitemap.xml')
+        response = Response(200, 'OK')
+        response.body = Body()
+
+        with wpull.util.reset_file_offset(response.body):
+            response.body.write(
+                b'''<?xml version="1.0" encoding="UTF-8"?>
+                <sitemapindex
+                xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+                   <sitemap>
+                      <loc>http://www.example.com/sitemap1.xml.gz</loc>
+                      <lastmod>2004-10-01T18:23:17+00:00</lastmod>
+                   </sitemap>
+                </sitemapindex>
+            '''
+            )
+
+        scrape_result = scraper.scrape(request, response,
+                                       link_type=LinkType.css)
+        self.assertFalse(scrape_result)
 
 
 @unittest.skipIf(IS_PYPY, 'Not supported under PyPy')

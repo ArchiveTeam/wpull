@@ -89,8 +89,10 @@ class HTMLScraper(HTMLReader, BaseHTMLScraper):
         else:
             self._ignored_tags = None
 
-    def scrape(self, request, response):
+    def scrape(self, request, response, link_type=None):
         if not self.is_supported(request=request, response=response):
+            return
+        if link_type and link_type != LinkType.html:
             return
 
         base_url = request.url_info.url

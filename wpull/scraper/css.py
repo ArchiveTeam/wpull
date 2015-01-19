@@ -31,8 +31,10 @@ class CSSScraper(CSSReader, BaseTextStreamScraper):
             elif not is_link:
                 yield (text, False)
 
-    def scrape(self, request, response):
+    def scrape(self, request, response, link_type=None):
         if not self.is_supported(request=request, response=response):
+            return
+        if link_type and link_type != LinkType.css:
             return
 
         link_contexts = set()
