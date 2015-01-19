@@ -407,6 +407,13 @@ class ProcessingRule(HookableMixin):
 
     def scrape_document(self, request, response, url_item):
         '''Process document for links.'''
+        try:
+            self.call_hook(
+                'scrape_document', request, response, url_item
+            )
+        except HookDisconnected:
+            pass
+
         if not self._document_scraper:
             return
 
@@ -425,13 +432,6 @@ class ProcessingRule(HookableMixin):
         _logger.debug(__('Candidate URLs: inline={0} linked={1}',
                          num_inline_urls, num_linked_urls
         ))
-
-        try:
-            self.call_hook(
-                'scrape_document', request, response, url_item
-            )
-        except HookDisconnected:
-            pass
 
     def _process_scrape_info(self, scraper, scrape_result, url_item):
         '''Collect the URLs from the scrape info dict.'''
