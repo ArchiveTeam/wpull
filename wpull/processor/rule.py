@@ -417,7 +417,9 @@ class ProcessingRule(HookableMixin):
         if not self._document_scraper:
             return
 
-        demux_info = self._document_scraper.scrape_info(request, response)
+        demux_info = self._document_scraper.scrape_info(
+            request, response, url_item.url_record.link_type
+        )
 
         num_inline_urls = 0
         num_linked_urls = 0

@@ -155,6 +155,11 @@ class Always200Handler(tornado.web.RequestHandler):
         self.render('always200.html')
 
 
+class InfiniteIframeHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render('infinite_iframe.html')
+
+
 class EscapedFragmentHandler(tornado.web.RequestHandler):
     def get(self):
         fragment_str = self.get_argument('_escaped_fragment_', None)
@@ -196,6 +201,7 @@ class GoodApp(tornado.web.Application):
             (r'/basic_auth', BasicAuthHandler),
             (r'/content_disposition', ContentDispositionHandler),
             (r'/always200/.*', Always200Handler),
+            (r'/infinite_iframe/.*', InfiniteIframeHandler),
             (r'/escape_from_fragments/', EscapedFragmentHandler),
             (r'/forum/', ForumHandler),
         ],
