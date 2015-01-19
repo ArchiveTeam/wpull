@@ -21,7 +21,8 @@ class TestDatabase(unittest.TestCase):
             'http://example.com/doge',
         ]
         url_table.add_many(
-            urls, referrer='http://example.com', level=0,
+            [{'url': url} for url in urls],
+            referrer='http://example.com', level=0,
             top_url='http://example.net',
         )
 
@@ -90,7 +91,7 @@ class TestDatabase(unittest.TestCase):
     def test_performance(self):
         url_table = SQLiteURLTable(':memory:')
 
-        urls = ['http://example.com/{}'.format(i) for i in range(1000)]
+        urls = [{'url': 'http://example.com/{}'.format(i)} for i in range(1000)]
 
         time_start = time.time()
         url_table.add_many(urls, level=0, status=Status.todo)
@@ -112,7 +113,8 @@ class TestDatabase(unittest.TestCase):
                 urls.append('http://example.com/{}{}'.format(num, num_2))
 
             url_table.add_many(
-                urls, referrer='http://example.com', level=0,
+                [{'url': url} for url in urls],
+                referrer='http://example.com', level=0,
                 top_url='http://example.net')
 
         time_end = time.time()

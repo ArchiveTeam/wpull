@@ -67,7 +67,8 @@ class BaseSQLURLTable(BaseURLTable):
         if not new_urls:
             return ()
 
-        url_strings = list(new_urls)
+        assert isinstance(new_urls[0], dict), type(new_urls[0])
+        url_strings = list(item['url'] for item in new_urls)
 
         if referrer:
             url_strings.append(referrer)
@@ -96,8 +97,12 @@ class BaseSQLURLTable(BaseURLTable):
 
             all_row_values = []
 
-            for url in new_urls:
-                row_values = {'url': url}
+            for item in new_urls:
+                assert 'url' in item
+                assert 'referrer' not in item
+                assert 'top_url' not in item
+
+                row_values = item
 
                 if referrer:
                     row_values['referrer'] = referrer

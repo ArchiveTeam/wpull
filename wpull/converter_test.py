@@ -78,10 +78,10 @@ class Mixin(object):
             new_css_filename = os.path.join(temp_dir, 'styles.css-new')
 
             url_table.add_many([
-                'http://example.com/styles.css',
-                'http://example.com/image.png',
-                'http://example.com/cat.jpg',
-                'http://example.com/cat.jpg',
+                {'url': 'http://example.com/styles.css'},
+                {'url': 'http://example.com/image.png'},
+                {'url': 'http://example.com/cat.jpg'},
+                {'url': 'http://example.com/cat.jpg'},
             ])
             url_table.update_one(
                 'http://example.com/styles.css',
@@ -123,12 +123,12 @@ class Mixin(object):
             ferret_filename = os.path.join(temp_dir, 'ferret.jpg')
 
             url_table.add_many([
-                'http://example.com/styles.css',
-                'http://example.com/image.png',
-                'http://example.com/cat.jpg',
-                'http://example.com/fox.jpg',
-                'http://example.com/ferret.jpg',
-                'http://example.com/tubes.html',
+                {'url': 'http://example.com/styles.css'},
+                {'url': 'http://example.com/image.png'},
+                {'url': 'http://example.com/cat.jpg'},
+                {'url': 'http://example.com/fox.jpg'},
+                {'url': 'http://example.com/ferret.jpg'},
+                {'url': 'http://example.com/tubes.html'},
             ])
             url_table.update_one(
                 'http://example.com/styles.css',
@@ -191,12 +191,12 @@ class Mixin(object):
             ferret_filename = os.path.join(temp_dir, 'ferret.jpg')
 
             url_table.add_many([
-                'http://example.com/styles.css',
-                'http://example.com/image.png',
-                'http://example.com/cat.jpg',
-                'http://example.com/fox.jpg',
-                'http://example.com/ferret.jpg',
-                'http://example.com/tubes.html',
+                {'url': 'http://example.com/styles.css'},
+                {'url': 'http://example.com/image.png'},
+                {'url': 'http://example.com/cat.jpg'},
+                {'url': 'http://example.com/fox.jpg'},
+                {'url': 'http://example.com/ferret.jpg'},
+                {'url': 'http://example.com/tubes.html'},
             ])
             url_table.update_one(
                 'http://example.com/styles.css',

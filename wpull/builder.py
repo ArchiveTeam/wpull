@@ -203,7 +203,9 @@ class Builder(object):
         self._warn_unsafe_options()
         self._warn_silly_options()
 
-        url_table.add_many([url_info.url for url_info in self._url_infos])
+        url_table.add_many(
+            [{'url': url_info.url} for url_info in self._url_infos]
+        )
 
         return self._factory['Application']
 
@@ -460,13 +462,11 @@ class Builder(object):
 
     def _read_input_file_as_html(self):
         '''Read input file as HTML and return the links.'''
-        scrape_info = self._factory['HTMLScraper'].scrape_file(
+        scrape_result = self._factory['HTMLScraper'].scrape_file(
             self._args.input_file,
             encoding=self._args.local_encoding or 'utf-8'
         )
-        links = itertools.chain(
-            scrape_info['inline_urls'], scrape_info['linked_urls']
-        )
+        links = [context.link for context in scrape_result.link_contexts]
 
         return links
 
