@@ -1014,10 +1014,10 @@ class Builder(object):
             family = Resolver.PREFER_IPv4
 
         if self._factory.class_map['Resolver'] is NotImplemented:
-            if args.dns_resolver == 'python':
-                self._factory.class_map['Resolver'] = PythonResolver
-            else:
+            if args.always_getaddrinfo:
                 self._factory.class_map['Resolver'] = Resolver
+            else:
+                self._factory.class_map['Resolver'] = PythonResolver
 
         return self._factory.new(
             'Resolver',

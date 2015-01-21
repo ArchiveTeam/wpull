@@ -5,7 +5,7 @@ What's New
 * Fixed inability to fetch URLs with hostnames starting/ending with hyphen.
 * Added ``--escaped-fragment`` option.
 * Added ``--strip-session-id`` option.
-* Added ``--dns-resolver`` option.
+* Added ``--no-skip-getaddrinfo`` option.
 
 
 0.1005 (2015-01-15)
