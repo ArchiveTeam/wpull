@@ -264,9 +264,15 @@ class PythonResolver(Resolver):
             )
 
         if self._family == socket.AF_INET:
-            yield From(query_ipv4())
+            try:
+                yield From(query_ipv4())
+            except DNSNotFound:
+                pass
         elif self._family == socket.AF_INET6:
-            yield From(query_ipv6())
+            try:
+                yield From(query_ipv6())
+            except DNSNotFound:
+                pass
         else:
             try:
                 yield From(query_ipv4())
