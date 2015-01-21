@@ -1,11 +1,9 @@
 # encoding=utf-8
 '''DNS resolution.'''
-import abc
 import itertools
 import logging
 import random
 import socket
-import errno
 
 from trollius import From, Return
 import trollius
@@ -20,7 +18,7 @@ from wpull.hook import HookableMixin, HookDisconnected
 _logger = logging.getLogger(__name__)
 
 
-class BaseResolver(HookableMixin, metaclass=abc.ABCMeta):
+class Resolver(HookableMixin):
     '''Asynchronous resolver with cache and timeout.
 
     Args:
@@ -152,7 +150,6 @@ class BaseResolver(HookableMixin, metaclass=abc.ABCMeta):
         else:
             raise Return(results)
 
-    @abc.abstractmethod
     @trollius.coroutine
     def _getaddrinfo_implementation(self, host, port):
         '''The resolver implementation.
@@ -168,6 +165,36 @@ class BaseResolver(HookableMixin, metaclass=abc.ABCMeta):
 
         Coroutine.
         '''
+        if self._family in (self.PREFER_IPv4, self.PREFER_IPv6):
+            family_flags = socket.AF_UNSPEC
+        else:
+            family_flags = self._family
+
+        try:
+            results = yield From(
+                trollius.get_event_loop().getaddrinfo(
+                    host, port, family=family_flags
+                )
+            )
+        except socket.error as error:
+            if error.errno in (
+                    socket.EAI_FAIL,
+                    socket.EAI_NODATA,
+                    socket.EAI_NONAME):
+                raise DNSNotFound(
+                    'DNS resolution failed: {error}'.format(error=error)
+                ) from error
+            else:
+                raise NetworkError(
+                    'DNS resolution error: {error}'.format(error=error)
+                ) from error
+
+        results = list([(result[0], result[4]) for result in results])
+
+        if self._family in (self.PREFER_IPv4, self.PREFER_IPv6):
+            results = self.sort_results(results, self._family)
+
+        raise Return(results)
 
     def _get_cache(self, host, port, family):
         '''Return the address from cache.
@@ -205,47 +232,7 @@ class BaseResolver(HookableMixin, metaclass=abc.ABCMeta):
             return list(itertools.chain(ipv4_results, ipv6_results))
 
 
-class Resolver(BaseResolver):
-    '''Resolver using the C library resolver.
-
-    This class uses :meth:`socket.getaddrinfo`.
-    '''
-
-    @trollius.coroutine
-    def _getaddrinfo_implementation(self, host, port):
-        if self._family in (self.PREFER_IPv4, self.PREFER_IPv6):
-            family_flags = socket.AF_UNSPEC
-        else:
-            family_flags = self._family
-
-        try:
-            results = yield From(
-                trollius.get_event_loop().getaddrinfo(
-                    host, port, family=family_flags
-                )
-            )
-        except socket.error as error:
-            if error.errno in (
-                    socket.EAI_FAIL,
-                    socket.EAI_NODATA,
-                    socket.EAI_NONAME):
-                raise DNSNotFound(
-                    'DNS resolution failed: {error}'.format(error=error)
-                ) from error
-            else:
-                raise NetworkError(
-                    'DNS resolution error: {error}'.format(error=error)
-                ) from error
-
-        results = list([(result[0], result[4]) for result in results])
-
-        if self._family in (self.PREFER_IPv4, self.PREFER_IPv6):
-            results = self.sort_results(results, self._family)
-
-        raise Return(results)
-
-
-class PythonResolver(BaseResolver):
+class PythonResolver(Resolver):
     '''Resolver using dnspython.'''
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -289,8 +276,11 @@ class PythonResolver(BaseResolver):
             try:
                 yield From(query_ipv6())
             except DNSNotFound:
-                if not results:
-                    raise
+                pass
+
+        if not results:
+            # Maybe defined in hosts file or mDNS
+            results = yield From(super()._getaddrinfo_implementation(host, port))
 
         raise Return(results)
 
