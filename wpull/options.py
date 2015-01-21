@@ -550,6 +550,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             help=_('use different resolved IP addresses on requests'),
         )
         group.add_argument(
+            '--dns-resolver',
+            choices=['c', 'python'],
+            default='python',
+            help=_('DNS library for resolving DNS queries'),
+        )
+        group.add_argument(
             '--restrict-file-names',
             metavar='MODES',
             type=self.comma_choice_list,

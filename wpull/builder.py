@@ -25,7 +25,7 @@ from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
 from wpull.database.sqltable import URLTable as SQLURLTable, GenericSQLURLTable
 from wpull.database.wrap import URLTableHookWrapper
 from wpull.debug import DebugConsoleHandler
-from wpull.dns import Resolver
+from wpull.dns import Resolver, PythonResolver
 from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.ftp.client import Client as FTPClient
@@ -130,7 +130,7 @@ class Builder(object):
             'ProgressRecorder': ProgressRecorder,
             'RedirectTracker': RedirectTracker,
             'Request': Request,
-            'Resolver': Resolver,
+            'Resolver': NotImplemented,
             'ResultRule': ResultRule,
             'RobotsTxtChecker': RobotsTxtChecker,
             'RobotsTxtPool': RobotsTxtPool,
@@ -1012,6 +1012,12 @@ class Builder(object):
             family = Resolver.PREFER_IPv6
         else:
             family = Resolver.PREFER_IPv4
+
+        if self._factory.class_map['Resolver'] is NotImplemented:
+            if args.dns_resolver == 'python':
+                self._factory.class_map['Resolver'] = PythonResolver
+            else:
+                self._factory.class_map['Resolver'] = Resolver
 
         return self._factory.new(
             'Resolver',
