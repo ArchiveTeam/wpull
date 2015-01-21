@@ -149,18 +149,6 @@ class BaseResolver(HookableMixin, metaclass=abc.ABCMeta):
             results = yield From(trollius.wait_for(future, self._timeout))
         except trollius.TimeoutError as error:
             raise NetworkError('DNS resolve timed out.') from error
-        except socket.error as error:
-            if error.errno in (
-                    socket.EAI_FAIL,
-                    socket.EAI_NODATA,
-                    socket.EAI_NONAME):
-                raise DNSNotFound(
-                    'DNS resolution failed: {error}'.format(error=error)
-                ) from error
-            else:
-                raise NetworkError(
-                    'DNS resolution error: {error}'.format(error=error)
-                ) from error
         else:
             raise Return(results)
 
@@ -230,11 +218,25 @@ class Resolver(BaseResolver):
         else:
             family_flags = self._family
 
-        results = yield From(
-            trollius.get_event_loop().getaddrinfo(
-                host, port, family=family_flags
+        try:
+            results = yield From(
+                trollius.get_event_loop().getaddrinfo(
+                    host, port, family=family_flags
+                )
             )
-        )
+        except socket.error as error:
+            if error.errno in (
+                    socket.EAI_FAIL,
+                    socket.EAI_NODATA,
+                    socket.EAI_NONAME):
+                raise DNSNotFound(
+                    'DNS resolution failed: {error}'.format(error=error)
+                ) from error
+            else:
+                raise NetworkError(
+                    'DNS resolution error: {error}'.format(error=error)
+                ) from error
+
         results = list([(result[0], result[4]) for result in results])
 
         if self._family in (self.PREFER_IPv4, self.PREFER_IPv6):
@@ -279,14 +281,18 @@ class PythonResolver(BaseResolver):
         elif self._family == socket.AF_INET6:
             yield From(query_ipv6())
         else:
-            yield From(query_ipv4())
+            try:
+                yield From(query_ipv4())
+            except DNSNotFound:
+                pass
+
             try:
                 yield From(query_ipv6())
-            except socket.error:
+            except DNSNotFound:
                 if not results:
                     raise
 
-        return results
+        raise Return(results)
 
     def _query(self, host, query_type):
         try:
@@ -297,6 +303,12 @@ class PythonResolver(BaseResolver):
         except dns.resolver.NXDOMAIN as error:
             # dnspython doesn't raise an instance with a message, so use the
             # class name instead.
-            raise socket.error(socket.EAI_NONAME, error.__class__.__name__)
+            raise DNSNotFound(
+                'DNS resolution failed: {error}'
+                .format(error=error.__class__.__name__)
+            ) from error
         except dns.exception.DNSException as error:
-            raise socket.error(errno.EPROTO, error.__class.__.__name__)
+            raise NetworkError(
+                'DNS resolution error: {error}'
+                .format(error=error.__class.__.__name__)
+            ) from error
