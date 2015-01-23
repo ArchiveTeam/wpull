@@ -15,22 +15,22 @@ class BandwidthMeter(object):
             to be connection stalled.
     '''
     def __init__(self, sample_size=20, sample_min_time=0.15, stall_time=5.0):
-        self._bytes_transfered = 0
+        self._bytes_transferred = 0
         self._samples = collections.deque(maxlen=sample_size)
         self._last_feed_time = time.time()
         self._sample_min_time = sample_min_time
         self._stall_time = stall_time
         self._stalled = False
-        self._collected_bytes_transfered = 0
+        self._collected_bytes_transferred = 0
 
     @property
-    def bytes_transfered(self):
-        '''Return the number of bytes tranfered
+    def bytes_transferred(self):
+        '''Return the number of bytes transferred
 
         Returns:
             int
         '''
-        return self._bytes_transfered
+        return self._bytes_transferred
 
     @property
     def stalled(self):
@@ -53,8 +53,8 @@ class BandwidthMeter(object):
             data_len (int): The number of bytes transfered since the last
                 call to :func:`feed`.
         '''
-        self._bytes_transfered += data_len
-        self._collected_bytes_transfered += data_len
+        self._bytes_transferred += data_len
+        self._collected_bytes_transferred += data_len
 
         time_now = time.time()
         time_diff = time_now - self._last_feed_time
@@ -68,8 +68,8 @@ class BandwidthMeter(object):
             self._stalled = True
             return
 
-        self._samples.append((time_diff, self._collected_bytes_transfered))
-        self._collected_bytes_transfered = 0
+        self._samples.append((time_diff, self._collected_bytes_transferred))
+        self._collected_bytes_transferred = 0
 
     def speed(self):
         '''Return the current transfer speed.
