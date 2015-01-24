@@ -23,6 +23,7 @@ from wpull.bandwidth import BandwidthLimiter
 from wpull.connection import Connection, ConnectionPool, SSLConnection
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
+from wpull.coprocessor.proxy import ProxyCoprocessor
 from wpull.database.sqltable import URLTable as SQLURLTable, GenericSQLURLTable
 from wpull.database.wrap import URLTableHookWrapper
 from wpull.debug import DebugConsoleHandler
@@ -129,6 +130,7 @@ class Builder(object):
             'ProcessingRule': ProcessingRule,
             'Processor': DelegateProcessor,
             'ProxyAdapter': ProxyAdapter,
+            'ProxyCoprocessor': ProxyCoprocessor,
             'ProgressRecorder': ProgressRecorder,
             'RedirectTracker': RedirectTracker,
             'Request': Request,
@@ -1218,16 +1220,9 @@ class Builder(object):
         )
 
         cookie_jar = self.factory.get('CookieJarWrapper')
-
-        if cookie_jar:
-            def request_callback(request):
-                cookie_jar.add_cookie_header(request)
-
-            def response_callback(request, response):
-                cookie_jar.extract_cookies(response, request)
-
-            proxy_server.request_callback = request_callback
-            proxy_server.response_callback = response_callback
+        proxy_coprocessor = self.factory.new(
+            'ProxyCoprocessor', proxy_server, cookie_jar=cookie_jar
+        )
 
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
 
