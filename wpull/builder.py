@@ -19,6 +19,7 @@ import trollius
 
 from wpull.app import Application
 from wpull.backport.logging import BraceMessage as __
+from wpull.bandwidth import BandwidthLimiter
 from wpull.connection import Connection, ConnectionPool, SSLConnection
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
@@ -98,6 +99,7 @@ class Builder(object):
         self._factory = Factory({
             'Application': Application,
             'BatchDocumentConverter': BatchDocumentConverter,
+            'BandwidthLimiter': BandwidthLimiter,
             'HTTPClient': HTTPClient,
             'CookieJar': CookieJar,
             'CookieJarWrapper': CookieJarWrapper,
@@ -974,11 +976,18 @@ class Builder(object):
         if args.timeout:
             connect_timeout = read_timeout = args.timeout
 
+        if args.limit_rate:
+            bandwidth_limiter = self.factory.new('BandwidthLimiter',
+                                                 args.limit_rate)
+        else:
+            bandwidth_limiter = None
+
         connection_factory = functools.partial(
             Connection,
             timeout=read_timeout,
             connect_timeout=connect_timeout,
             bind_host=self._args.bind_address,
+            bandwidth_limiter=bandwidth_limiter,
         )
 
         ssl_connection_factory = functools.partial(

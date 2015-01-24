@@ -6,6 +6,7 @@ What's New
 * Added ``--escaped-fragment`` option.
 * Added ``--strip-session-id`` option.
 * Added ``--no-skip-getaddrinfo`` option.
+* Added ``--limit-rate`` option.
 
 
 0.1005 (2015-01-15)

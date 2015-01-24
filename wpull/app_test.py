@@ -193,6 +193,7 @@ class TestApp(GoodAppTestCase):
             '--page-requisites-level', '5',
             '--no-strong-crypto',
             '--no-skip-getaddrinfo',
+            '--limit-rate', '1m',
         ])
         with cd_tempdir():
             builder = Builder(args, unit_test=True)

@@ -531,12 +531,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='ADDRESS',
             help=_('bind to ADDRESS on the local host'),
         )
-#         self.add_argument(
-#             '--limit-rate',
-#             metavar='RATE',
-#             type=self.int_bytes,
-#             help=_('limit download bandwidth to RATE'),
-#         )
+        self.add_argument(
+            '--limit-rate',
+            metavar='RATE',
+            type=self.int_bytes,
+            help=_('limit download bandwidth to RATE'),
+        )
         group.add_argument(
             '--no-dns-cache',
             action='store_false',

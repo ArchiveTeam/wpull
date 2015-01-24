@@ -310,11 +310,12 @@ class Connection(object):
         connect_timeout (float): Time in seconds before a connect operation
             times out.
         bind_host (str): Host name for binding the socket interface.
+        bandwidth_limiter (class:`.bandwidth.BandwidthLimiter`): Bandwidth
+            limiter for connection speed limiting.
 
     Attributes:
         reader: Stream Reader instance.
         writer: Stream Writer instance.
-        bandwidth_limiter: BandwidthLimiter instance.
         address: 2-item tuple containing the IP address.
         host (str): Host name.
         port (int): Port number.
@@ -323,7 +324,7 @@ class Connection(object):
             ``CONNECT`` request.
     '''
     def __init__(self, address, hostname=None, timeout=None,
-                 connect_timeout=None, bind_host=None):
+                 connect_timeout=None, bind_host=None, bandwidth_limiter=None):
         assert len(address) >= 2, 'Expect str & port. Got {}.'.format(address)
         assert '.' in address[0] or ':' in address[0], \
             'Expect numerical address. Got {}.'.format(address[0])
@@ -333,14 +334,12 @@ class Connection(object):
         self._timeout = timeout
         self._connect_timeout = connect_timeout
         self._bind_host = bind_host
+        self._bandwidth_limiter = bandwidth_limiter
         self.reader = None
         self.writer = None
         self._close_timer = None
         self._state = ConnectionState.ready
         self._tunneled = False
-
-        # TODO: implement bandwidth limiting
-        self.bandwidth_limiter = None
 
     @property
     def address(self):
@@ -467,6 +466,14 @@ class Connection(object):
                 close_timeout=self._timeout,
                 name='Read')
         )
+
+        if self._bandwidth_limiter:
+            self._bandwidth_limiter.feed(len(data))
+
+            sleep_time = self._bandwidth_limiter.sleep_time()
+            if sleep_time:
+                _logger.debug('Sleep %s', sleep_time)
+                yield From(trollius.sleep(sleep_time))
 
         raise Return(data)
 
