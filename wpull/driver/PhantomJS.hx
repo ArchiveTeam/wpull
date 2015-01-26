@@ -28,6 +28,14 @@ class PhantomJS {
         app.run();
     }
 
+    function logStderrLine(message:String) {
+        if (system.stderr != null) {
+            return system.stderr.writeLine(message);
+        } else {
+            return system.stdout.writeLine(message);
+        }
+    }
+
     /**
      * Do the entire process pipeline.
      */
@@ -44,7 +52,7 @@ class PhantomJS {
      */
     function setUpErrorHandler() {
         phantom.onError = function (message:String, traceArray:Array<Dynamic>) {
-            system.stderr.writeLine(message);
+            logStderrLine(message);
 
             for (traceLine in traceArray) {
                 var source:String;
@@ -60,7 +68,7 @@ class PhantomJS {
                     functionName = Reflect.field(traceLine, "function");
                 }
 
-                system.stderr.writeLine('  $source:${traceLine.line} $functionName');
+                logStderrLine('  $source:${traceLine.line} $functionName');
             }
         }
     }
@@ -243,7 +251,8 @@ class PhantomJS {
             event: eventName,
             value: eventData
         });
-        eventLogFile.writeLine(line);
+        eventLogFile.write(line);
+        eventLogFile.write('\n');
     }
 
     /**
@@ -259,7 +268,8 @@ class PhantomJS {
             event: eventName,
             value: eventData
         });
-        actionLogFile.writeLine(line);
+        actionLogFile.write(line);
+        actionLogFile.write('\n');
     }
 
     /**

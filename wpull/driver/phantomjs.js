@@ -24,7 +24,10 @@ PhantomJS.main = function() {
 	app.run();
 };
 PhantomJS.prototype = {
-	run: function() {
+	logStderrLine: function(message) {
+		if(this.system.stderr != null) return this.system.stderr.writeLine(message); else return this.system.stdout.writeLine(message);
+	}
+	,run: function() {
 		this.setUpErrorHandler();
 		this.loadConfig();
 		this.createPage();
@@ -34,7 +37,7 @@ PhantomJS.prototype = {
 	,setUpErrorHandler: function() {
 		var _g = this;
 		this.phantom.onError = function(message,traceArray) {
-			_g.system.stderr.writeLine(message);
+			_g.logStderrLine(message);
 			var _g1 = 0;
 			while(_g1 < traceArray.length) {
 				var traceLine = traceArray[_g1];
@@ -43,7 +46,7 @@ PhantomJS.prototype = {
 				var functionName = "";
 				if(traceLine.file != null) source = traceLine.file; else source = traceLine.sourceURL;
 				if(Reflect.field(traceLine,"function") != null) functionName = Reflect.field(traceLine,"function");
-				_g.system.stderr.writeLine("  " + source + ":" + Std.string(traceLine.line) + " " + functionName);
+				_g.logStderrLine("  " + source + ":" + Std.string(traceLine.line) + " " + functionName);
 			}
 		};
 	}
@@ -142,12 +145,14 @@ PhantomJS.prototype = {
 	,logEvent: function(eventName,eventData) {
 		if(this.eventLogFile == null) return;
 		var line = JSON.stringify({ timestamp : new Date().getTime() / 1000.0, event : eventName, value : eventData});
-		this.eventLogFile.writeLine(line);
+		this.eventLogFile.write(line);
+		this.eventLogFile.write("\n");
 	}
 	,logAction: function(eventName,eventData) {
 		if(this.actionLogFile == null) return;
 		var line = JSON.stringify({ timestamp : new Date().getTime() / 1000.0, event : eventName, value : eventData});
-		this.actionLogFile.writeLine(line);
+		this.actionLogFile.write(line);
+		this.actionLogFile.write("\n");
 	}
 	,loadUrl: function() {
 		var _g = this;
