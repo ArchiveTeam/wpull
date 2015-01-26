@@ -31,7 +31,7 @@ class TestPhantomJS(GoodAppTestCase):
             snapshot_paths=['test.png', 'test.pdf', 'test.html'],
             event_log_filename='event.log',
             action_log_filename='action.log',
-            wait_time=0.1,
+            wait_time=0.2,
             custom_headers={
                 'X-Doge': 'Wow'
             },

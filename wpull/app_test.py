@@ -1191,7 +1191,7 @@ class PhantomJSMixin(object):
             '-4',
             '--no-robots',
             '--phantomjs',
-            '--phantomjs-wait', '0.1',
+            '--phantomjs-wait', '0.2',
             '--phantomjs-scroll', '20',
             '--no-check-certificate',
             ])
