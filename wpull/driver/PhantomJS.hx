@@ -14,6 +14,7 @@ class PhantomJS {
     var eventLogFile:Dynamic;
     var actionLogFile:Dynamic;
     var activityCounter = 0;
+    var pendingResourcesAfterLoad = 0;
     var pageLoaded = false;
 
     public function new() {
@@ -209,6 +210,9 @@ class PhantomJS {
                 resource_error: resourceError,
             });
             activityCounter += 1;
+            if (pageLoaded) {
+                pendingResourcesAfterLoad -= 1;
+            }
         }
 
         page.onResourceReceived = function (response) {
@@ -216,6 +220,9 @@ class PhantomJS {
                 response: response
             });
             activityCounter += 1;
+            if (pageLoaded) {
+                pendingResourcesAfterLoad -= 1;
+            }
         }
 
         page.onResourceRequested = function (requestData, networkRequest) {
@@ -224,6 +231,9 @@ class PhantomJS {
                 network_request: networkRequest
             });
             activityCounter += 1;
+            if (pageLoaded) {
+                pendingResourcesAfterLoad += 1;
+            }
         }
 
         page.onResourceTimeout = function (request) {
@@ -231,6 +241,9 @@ class PhantomJS {
                 request: request
             });
             activityCounter += 1;
+            if (pageLoaded) {
+                pendingResourcesAfterLoad -= 1;
+            }
         }
 
         page.onUrlChanged = function (targetUrl) {
@@ -337,6 +350,10 @@ class PhantomJS {
         return result;
     }
 
+    function getPageContentHeight():Int {
+        return page.evaluate("function() { return document.body.scrollHeight; }");
+    }
+
     /**
      * Scroll the page to the bottom and then back to top.
      */
@@ -345,12 +362,27 @@ class PhantomJS {
         var scrollDelay:Int = cast(Reflect.field(config, 'wait_time') * 1000, Int);
         var numScrolls:Int = Reflect.field(config, 'num_scrolls');
         var smartScroll:Bool = Reflect.field(config, 'smart_scroll');
+        var startDate:Date = null;
 
         // Try to get rid of any stupid "sign up now" overlays.
         var clickX:Int = page.viewportSize.width;
         var clickY:Int = page.viewportSize.height;
         logAction('click', [clickX, clickY]);
         sendClick(clickX, clickY);
+
+        function pollForPendingLoad() {
+            if (startDate == null) {
+                startDate = Date.now();
+            }
+
+            var duration = Date.now().getTime() - startDate.getTime();
+
+            if (pendingResourcesAfterLoad > 0 && duration < 60000) {
+                Browser.window.setTimeout(pollForPendingLoad, 100);
+            } else {
+                loadFinishedCallback2();
+            }
+        }
 
         function cleanupScroll() {
             logAction("set_scroll_left", 0);
@@ -359,7 +391,7 @@ class PhantomJS {
             setPagePosition(0, 0);
             sendKey(page.event.key.Home);
 
-            loadFinishedCallback2();
+            pollForPendingLoad();
         }
 
         function actualScroll() {
@@ -374,7 +406,16 @@ class PhantomJS {
             sendKey(page.event.key.PageDown);
 
             Browser.window.setTimeout(function () {
-                if (smartScroll && beforeActivityCount == activityCounter) {
+                var pageHeight = getPageContentHeight();
+
+                if (pageHeight == null) {
+                    pageHeight = 0;
+                }
+
+                trace('before=$beforeActivityCount activityCounter=$activityCounter');
+                trace('currentY=$currentY pageHeight=$pageHeight');
+
+                if (smartScroll && beforeActivityCount == activityCounter && currentY >= pageHeight) {
                     cleanupScroll();
                     return;
                 }

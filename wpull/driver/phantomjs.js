@@ -12,6 +12,7 @@ HxOverrides.substr = function(s,pos,len) {
 };
 var PhantomJS = function() {
 	this.pageLoaded = false;
+	this.pendingResourcesAfterLoad = 0;
 	this.activityCounter = 0;
 	this.system = require("system");
 	this.webpage = require("webpage");
@@ -125,18 +126,22 @@ PhantomJS.prototype = {
 		this.page.onResourceError = function(resourceError) {
 			_g.logEvent("resource_error",{ resource_error : resourceError});
 			_g.activityCounter += 1;
+			if(_g.pageLoaded) _g.pendingResourcesAfterLoad -= 1;
 		};
 		this.page.onResourceReceived = function(response) {
 			_g.logEvent("resource_received",{ response : response});
 			_g.activityCounter += 1;
+			if(_g.pageLoaded) _g.pendingResourcesAfterLoad -= 1;
 		};
 		this.page.onResourceRequested = function(requestData,networkRequest) {
 			_g.logEvent("resource_requested",{ request_data : requestData, network_request : networkRequest});
 			_g.activityCounter += 1;
+			if(_g.pageLoaded) _g.pendingResourcesAfterLoad += 1;
 		};
 		this.page.onResourceTimeout = function(request) {
 			_g.logEvent("resource_timeout",{ request : request});
 			_g.activityCounter += 1;
+			if(_g.pageLoaded) _g.pendingResourcesAfterLoad -= 1;
 		};
 		this.page.onUrlChanged = function(targetUrl) {
 			_g.logEvent("url_changed",{ target_url : targetUrl});
@@ -178,6 +183,9 @@ PhantomJS.prototype = {
 		var result = this.page.evaluate("\n            function () {\n            return document.getElementsByTagName('script').length ||\n                document.querySelector(\n                    '[onload],[onunload],[onabortonclick],[ondblclick],' +\n                    '[onmousedown],[onmousemove],[onmouseout],[onmouseover],' +\n                    '[onmouseup],[onkeydown],[onkeypress],[onkeyup]');\n            }\n        ");
 		return result;
 	}
+	,getPageContentHeight: function() {
+		return this.page.evaluate("function() { return document.body.scrollHeight; }");
+	}
 	,scrollPage: function() {
 		var _g = this;
 		var currentY = 0;
@@ -185,16 +193,25 @@ PhantomJS.prototype = {
 		scrollDelay = js.Boot.__cast(Reflect.field(this.config,"wait_time") * 1000 , Int);
 		var numScrolls = Reflect.field(this.config,"num_scrolls");
 		var smartScroll = Reflect.field(this.config,"smart_scroll");
+		var startDate = null;
 		var clickX = this.page.viewportSize.width;
 		var clickY = this.page.viewportSize.height;
 		this.logAction("click",[clickX,clickY]);
 		this.sendClick(clickX,clickY);
+		var pollForPendingLoad;
+		var pollForPendingLoad1 = null;
+		pollForPendingLoad1 = function() {
+			if(startDate == null) startDate = new Date();
+			var duration = new Date().getTime() - startDate.getTime();
+			if(_g.pendingResourcesAfterLoad > 0 && duration < 60000) window.setTimeout(pollForPendingLoad1,100); else _g.loadFinishedCallback2();
+		};
+		pollForPendingLoad = pollForPendingLoad1;
 		var cleanupScroll = function() {
 			_g.logAction("set_scroll_left",0);
 			_g.logAction("set_scroll_top",0);
 			_g.setPagePosition(0,0);
 			_g.sendKey(_g.page.event.key.Home);
-			_g.loadFinishedCallback2();
+			pollForPendingLoad();
 		};
 		var actualScroll;
 		var actualScroll1 = null;
@@ -207,7 +224,11 @@ PhantomJS.prototype = {
 			_g.setPagePosition(0,currentY);
 			_g.sendKey(_g.page.event.key.PageDown);
 			window.setTimeout(function() {
-				if(smartScroll && beforeActivityCount == _g.activityCounter) {
+				var pageHeight = _g.getPageContentHeight();
+				if(pageHeight == null) pageHeight = 0;
+				console.log("before=" + beforeActivityCount + " activityCounter=" + _g.activityCounter);
+				console.log("currentY=" + currentY + " pageHeight=" + pageHeight);
+				if(smartScroll && beforeActivityCount == _g.activityCounter && currentY >= pageHeight) {
 					cleanupScroll();
 					return;
 				}
