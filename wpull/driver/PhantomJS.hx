@@ -1,4 +1,8 @@
+import haxe.Json;
+import js.Browser;
+
 using StringTools;
+
 
 class PhantomJS {
     var system:Dynamic;
@@ -6,212 +10,261 @@ class PhantomJS {
     var phantom:Dynamic;
     var fs:Dynamic;
     var page:Dynamic;
-    var pollTimer:Dynamic;
+    var config:Dynamic;
+    var eventLogFile:Dynamic;
+    var actionLogFile:Dynamic;
+    var activityCounter = 0;
 
     public function new() {
         system = untyped __js__("require")("system");
         webpage = untyped __js__("require")("webpage");
         phantom = untyped __js__("phantom");
         fs = untyped __js__("require")("fs");
-
-        pollTimer = untyped __js__("setInterval")(pollForCommand, 100);
     }
 
     public static function main() {
         var app = new PhantomJS();
+        app.run();
     }
 
     /**
-     * Read an RPC message and reply.
+     * Do the entire process pipeline.
      */
-    private function pollForCommand() {
-        sendMessage({event: "poll"});
-        var commandMessage = readMessage();
-        var replyValue = null;
+    public function run() {
+        loadConfig();
+        createPage();
+        listenPageEvents();
+        loadUrl();
+    }
 
-        switch commandMessage.command {
-            case "new_page":
-                newPage();
-            case "open_url":
-                page.open(commandMessage.url);
-                listenEvents();
-            case "close_page":
-                page.close();
-                page = null;
-            case "set_page_size":
-                setPageSize(
-                    commandMessage.viewport_width,
-                    commandMessage.viewport_height,
-                    commandMessage.paper_width,
-                    commandMessage.paper_height
-                );
-            case "render_page":
-                renderPage(commandMessage.path);
-            case "set_page_custom_headers":
-                setPageCustomHeaders(commandMessage.headers);
-            case "set_page_settings":
-                setPageSettings(commandMessage.settings);
-            case "scroll_page":
-                scrollPage(commandMessage.x, commandMessage.y);
-            case "exit":
-                exit(commandMessage.exit_code);
-            case "get_page_url":
-                replyValue = page.url;
-            case "click":
-                sendClick(commandMessage.x, commandMessage.y, commandMessage.button);
-            case "key":
-                sendKey(commandMessage.key, commandMessage.modifier);
-            case "is_page_dynamic":
-                replyValue = isPageDynamic();
-            case null:
-                return;
-            default:
-                trace("Unknown command");
+    /**
+     * Load the launch configuration.
+     */
+    function loadConfig() {
+        if (system.args.length != 2) {
+            throw "Missing launch configuration.";
         }
 
-        sendMessage({
-            event: "reply", value: replyValue,
-            reply_id: commandMessage.message_id
-        });
+        var configContent = fs.read(system.args[1]);
+        config = Json.parse(configContent);
+
+        openLogFiles();
     }
 
     /**
-     * Send an RPC message.
+     * Open the event and action log files.
      */
-    private function sendMessage(message:Dynamic) {
-        var messageString = untyped __js__("JSON").stringify(message);
-        system.stdout.write("!RPC ");
-        system.stdout.writeLine(messageString);
-    }
+    function openLogFiles() {
+        var eventLogFilename:String = Reflect.field(config, "event_log_filename");
+        var actionLogFilename:String = Reflect.field(config, "action_log_filename");
 
-    /**
-     * Read an RPC message.
-     */
-    private function readMessage():Dynamic {
-        var messageString = system.stdin.readLine();
-        var message = untyped __js__("JSON").parse(messageString.slice(5));
-        return message;
-    }
-
-    /**
-     * Send and receive an RPC message for an event.
-     */
-    private function sendEvent(eventName: String, ?args:Dynamic):Dynamic {
-        if (!args) {
-            args = {};
+        if (eventLogFilename != null) {
+            eventLogFile = fs.open(eventLogFilename, "w");
         }
 
-        var message = args;
-        args.event = eventName;
-
-        sendMessage(message);
-
-        var reply = readMessage();
-
-        return reply.value;
+        if (actionLogFilename != null) {
+            actionLogFile = fs.open(actionLogFilename, "w");
+        }
     }
 
     /**
-     * Create a new PhantomJS page.
+     * Create the page and set up the page settings.
      */
-    private function newPage() {
-        if (page) {
-            closePage();
-        }
-
+    function createPage() {
         page = webpage.create();
+
         page.evaluate("function () { document.body.bgColor = 'white'; }");
-    }
-
-    /**
-     * Close the page.
-     */
-    private function closePage() {
-        page.close();
-        page = null;
-    }
-
-    /**
-     * Make a snapshot of the page to a file.
-     */
-    private function renderPage(path:String) {
-        if (path.endsWith(".html")) {
-            var file = fs.open(path, "w");
-            file.write(page.content);
-            file.close();
-        } else {
-            page.render(path);
-        }
-    }
-
-    /**
-     * Set the page viewport and paper size.
-     */
-    private function setPageSize(viewportWidth:Int, viewportHeight:Int,
-                                 paperWidth:Int, paperHeight: Int) {
         page.viewportSize = {
-            width: viewportWidth,
-            height: viewportHeight
+            width: Reflect.field(config, 'viewport_width'),
+            height: Reflect.field(config, 'viewport_height')
         };
+
+        var paperWidth:Int = Reflect.field(config, 'paper_width');
+        var paperHeight:Int = Reflect.field(config, 'paper_height');
+
         page.paperSize = {
             width: '$paperWidth px',
             height: '$paperHeight px',
             border: "0px"
         };
+
+        page.customHeaders = Reflect.field(config, 'custom_headers');
     }
 
     /**
-     * Set the page default settings.
+     * Set up the page event callbacks.
      */
-    private function setPageSettings(settings:Dynamic) {
-        for (name in Reflect.fields(settings)) {
-            Reflect.setField(page.settings, name, Reflect.field(settings, name));
+    function listenPageEvents() {
+        page.onAlert = function (message) {
+            logEvent("alert", {message: message});
+        }
+
+        page.onClosing = function (closingPage) {
+            logEvent("closing");
+        }
+
+        page.onConfirm = function (message) {
+            logEvent("confirm", {message: message});
+            return false;
+        }
+
+        page.onConsoleMessage = function (message, lineNum, sourceId) {
+            logEvent(
+                "console_message",
+                {
+                    message: message,
+                    line_num: lineNum,
+                    source_id: sourceId,
+                }
+            );
+        }
+
+        page.onError = function (message, trace) {
+            logEvent("error", {message: message, trace: trace});
+        }
+
+        page.onFilePicker = function (oldFile) {
+            logEvent("file_picker", {old_file: oldFile});
+            return null;
+        }
+
+        page.onInitialized = function () {
+            logEvent("initialized");
+        }
+
+        page.onLoadFinished = function (status) {
+            logEvent("load_finished", {status: status});
+            activityCounter += 1;
+        }
+
+        page.onLoadStarted = function () {
+            logEvent("load_started");
+            activityCounter += 1;
+        }
+
+        page.onNavigationRequested = function (url, type, willNavigate, main) {
+            logEvent("navigation_requested", {
+                'url': url,
+                'type': type,
+                'will_navigate': willNavigate,
+                'main': main
+            });
+        }
+
+        page.onPageCreated = function (newPage) {
+            logEvent("page_created", {});
+        }
+
+        page.onPrompt = function (message, defaultValue) {
+            logEvent("prompt", {
+                message: message,
+                default_value: defaultValue,
+            });
+            return null;
+        }
+
+        page.onResourceError = function (resourceError) {
+            logEvent("resource_error", {
+                resource_error: resourceError,
+            });
+            activityCounter += 1;
+        }
+
+        page.onResourceReceived = function (response) {
+            logEvent("resource_received", {
+                response: response
+            });
+            activityCounter += 1;
+        }
+
+        page.onResourceRequested = function (requestData, networkRequest) {
+            logEvent("resource_requested", {
+                request_data: requestData,
+                network_request: networkRequest
+            });
+            activityCounter += 1;
+        }
+
+        page.onResourceTimeout = function (request) {
+            logEvent("resource_timeout", {
+                request: request
+            });
+            activityCounter += 1;
+        }
+
+        page.onUrlChanged = function (targetUrl) {
+            logEvent("url_changed", {target_url: targetUrl});
         }
     }
 
     /**
-     * Set the page default headers.
+     * Write a page event to the log.
      */
-    private function setPageCustomHeaders(headers:Dynamic) {
-        page.customHeaders = headers;
+    function logEvent(eventName:String, ?eventData:Dynamic) {
+        if (eventLogFile == null) {
+            return;
+        }
+
+        var line = Json.stringify({
+            timestamp: Date.now().getTime() / 1000.0,
+            event: eventName,
+            value: eventData
+        });
+        eventLogFile.writeLine(line);
     }
 
     /**
-     * Scroll the page to a position.
+     * Write a page manipulation action to the log.
      */
-    private function scrollPage(x:Int, y:Int) {
-        page.scrollPosition = {left: x, top: y};
-        page.evaluate('
-            function () {
-                if (window) {
-                    window.scrollTo($x, $y);
-                }
-            }
-        ');
+    function logAction(eventName:String, ?eventData:Dynamic) {
+        if (actionLogFile == null) {
+            return;
+        }
+
+        var line = Json.stringify({
+            timestamp: Date.now().getTime() / 1000.0,
+            event: eventName,
+            value: eventData
+        });
+        actionLogFile.writeLine(line);
     }
 
     /**
-     * Send a mouse click to the page.
+     * Load the URL.
      */
-    private function sendClick(x:Int, y:Int, button:String) {
-        page.sendEvent("mousedown", x, y, button);
-        page.sendEvent("mouseup", x, y, button);
-        page.sendEvent("click", x, y, button);
+    function loadUrl() {
+        page.open(
+            Reflect.field(config, "url"),
+            loadFinishedCallback
+        );
     }
 
     /**
-     * Send a keyboard event to the page.
+     * Callback when page has loaded.
      */
-    private function sendKey(key:Int, modifier:Int) {
-        page.sendEvent("keypress", key, null, null, modifier);
-        page.sendEvent("keydown", key, null, null, modifier);
-        page.sendEvent("keyup", key, null, null, modifier);
+    function loadFinishedCallback() {
+        if (isPageDynamic()) {
+            scrollPage();
+        } else {
+            loadFinishedCallback2();
+        }
     }
 
     /**
-     * Return whether the page contains JavaScript.
+     * Callback when page was scrolled.
      */
-    private function isPageDynamic():Bool {
+    function loadFinishedCallback2() {
+        if (Reflect.field(config, 'snapshot')) {
+            makeSnapshots();
+        }
+
+        close();
+    }
+
+    /**
+     * Return whether the page uses JavaScript.
+     */
+    function isPageDynamic():Bool {
         var result:Bool = page.evaluate("
             function () {
             return document.getElementsByTagName('script').length ||
@@ -225,122 +278,133 @@ class PhantomJS {
     }
 
     /**
-     * Set up the PhantomJS event callbacks.
+     * Scroll the page to the bottom and then back to top.
      */
-    private function listenEvents() {
-        page.onAlert = function (message) {
-            sendEvent("alert", {message: message});
+    function scrollPage() {
+        var currentY = 0;
+        var scrollDelay:Int = cast(Reflect.field(config, 'wait_time'), Int) * 1000;
+        var numScrolls:Int = Reflect.field(config, 'num_scrolls');
+        var smartScroll:Bool = Reflect.field(config, 'smart_scroll');
+
+        // Try to get rid of any stupid "sign up now" overlays.
+        var clickX:Int = page.viewportSize.width;
+        var clickY:Int = page.viewportSize.height;
+        logAction('click', [clickX, clickY]);
+        sendClick(clickX, clickY);
+
+        function cleanupScroll() {
+            logAction("set_scroll_left", 0);
+            logAction("set_scroll_top", 0);
+
+            setPagePosition(0, 0);
+            sendKey(page.event.key.Home);
+
+            loadFinishedCallback2();
         }
 
-        page.onClosing = function (closingPage) {
-            sendEvent("closing");
-        }
+        function actualScroll() {
+            var beforeActivityCount = activityCounter;
+            currentY += 768;
 
-        page.onConfirm = function (message) {
-            return sendEvent("confirm", {message: message});
-        }
+            logAction("set_scroll_left", 0);
+            logAction("set_scroll_top", currentY);
 
-        page.onConsoleMessage = function (message, lineNum, sourceId) {
-            sendEvent(
-                "console_message",
-                {
-                    message: message,
-                    line_num: lineNum,
-                    source_id: sourceId,
+            setPagePosition(0, currentY);
+            sendKey(page.event.key.PageDown);
+
+            Browser.window.setTimeout(function () {
+                if (smartScroll && beforeActivityCount == activityCounter) {
+                    cleanupScroll();
+                    return;
                 }
-            );
-        }
 
-        // XXX: trace may be too long of a line and page errors are not
-        // really interesting
-//        page.onError = function (message, trace) {
-//            sendEvent("error", {message: message, trace: trace});
-//        }
+                numScrolls -= 1;
 
-        page.onFilePicker = function (oldFile) {
-            return sendEvent("file_picker", {old_file: oldFile});
-        }
+                if (numScrolls > 0) {
+                    actualScroll();
+                } else {
+                    cleanupScroll();
+                }
+            }, scrollDelay);
+        };
 
-        page.onInitialized = function () {
-            sendEvent("initialized");
-        }
-
-        page.onLoadFinished = function (status) {
-            sendEvent("load_finished", {status: status});
-        }
-
-        page.onLoadStarted = function () {
-            sendEvent("load_started");
-        }
-
-        page.onNavigationRequested = function (url, type, willNavigate, main) {
-            sendEvent("navigation_requested", {
-                'url': url,
-                'type': type,
-                'will_navigate': willNavigate,
-                'main': main
-            });
-        }
-
-        page.onPageCreated = function (newPage) {
-            sendEvent("page_created", {});
-        }
-
-        page.onPrompt = function (message, defaultValue) {
-            return sendEvent("prompt", {
-                message: message,
-                default_value: defaultValue,
-            });
-        }
-
-        page.onResourceError = function (resourceError) {
-            sendEvent("resource_error", {
-                resource_error: resourceError,
-            });
-        }
-
-        page.onResourceReceived = function (response) {
-            sendEvent("resource_received", {
-                response: response
-            });
-        }
-
-        page.onResourceRequested = function (requestData, networkRequest) {
-            var reply = sendEvent("resource_requested", {
-                request_data: requestData,
-                network_request: networkRequest
-            });
-
-            if (!reply) {
-                return;
-            }
-
-            if (cast(reply, String) == 'abort') {
-                networkRequest.abort();
-            } else if (reply) {
-                networkRequest.changeUrl(reply);
-            }
-        }
-
-        page.onResourceTimeout = function (request) {
-            sendEvent("resource_timeout", {
-                request: request
-            });
-        }
-
-        page.onUrlChanged = function (targetUrl) {
-            sendEvent("url_changed", {target_url: targetUrl});
-        }
+        actualScroll();
     }
 
     /**
-     * Quit phantomjs
+     * Scroll the page to a position.
      */
-    private function exit(exitCode:Int = 0) {
-        if (pollTimer) {
-            untyped __js__("clearTimeout")(pollTimer);
-            pollTimer = null;
+    function setPagePosition(x:Int, y:Int) {
+        page.scrollPosition = {left: x, top: y};
+        page.evaluate('
+            function () {
+                if (window) {
+                    window.scrollTo($x, $y);
+                }
+            }
+        ');
+    }
+
+    /**
+     * Send a mouse click to the page.
+     */
+    function sendClick(x:Int, y:Int, button:String = "left") {
+        page.sendEvent("mousedown", x, y, button);
+        page.sendEvent("mouseup", x, y, button);
+        page.sendEvent("click", x, y, button);
+    }
+
+    /**
+     * Send a keyboard event to the page.
+     */
+    function sendKey(key:Int, modifier:Int = 0) {
+        page.sendEvent("keypress", key, null, null, modifier);
+        page.sendEvent("keydown", key, null, null, modifier);
+        page.sendEvent("keyup", key, null, null, modifier);
+    }
+
+    /*
+     * Render the snapshot files.
+     */
+    function makeSnapshots() {
+        var paths:Array<String> = Reflect.field(config, "snapshot_paths");
+
+        for (path in paths) {
+            renderPage(path);
         }
-        phantom.exit(exitCode);
+    }
+
+    /*
+     * Render page and save to given path.
+     */
+    function renderPage(path:String) {
+        if (path.endsWith(".html")) {
+            var file = fs.open(path, "w");
+            file.write(page.content);
+            file.close();
+        } else {
+            page.render(path);
+        }
+    }
+
+    /*
+     * Clean up and exit.
+     */
+    function close() {
+        page.close();
+
+        if (actionLogFile != null) {
+            actionLogFile.flush();
+            // FIXME: Segfault on at least 1.9.8
+            // actionLogFile.close();
+        }
+
+        if (eventLogFile != null) {
+            eventLogFile.flush();
+            // FIXME: Segfault on at least 1.9.8
+            // eventLogFile.close();
+        }
+
+        phantom.exit();
     }
 }
