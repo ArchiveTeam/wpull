@@ -30,7 +30,7 @@ PhantomJSParams = namedlist.namedtuple(
         ('snapshot', True),
         ('viewport_size', (1200, 1920)),
         ('paper_size', (2400, 3840)),
-        ('load_time', 60),
+        ('load_time', 900),
         ('custom_headers', {}),
         ('page_settings', {}),
     ]
@@ -188,9 +188,16 @@ class PhantomJSCoprocessorSession(object):
 
         with contextlib.closing(driver):
             yield From(driver.start())
-            yield From(trollius.wait_for(
-                driver.process.wait(), self._params.load_time
-            ))
+
+            # FIXME: we don't account that things might be scrolling and
+            # downloading so it might not be a good idea to timeout like
+            # this
+            if self._params.load_time:
+                yield From(trollius.wait_for(
+                    driver.process.wait(), self._params.load_time
+                ))
+            else:
+                yield From(driver.process.wait())
 
             if driver.process.returncode != 0:
                 raise PhantomJSCrashed(

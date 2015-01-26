@@ -1185,6 +1185,7 @@ class Builder(object):
             snapshot=self._args.phantomjs_snapshot,
             custom_headers=default_headers,
             page_settings=page_settings,
+            load_time=self._args.phantomjs_max_time,
         )
 
         extra_args = [

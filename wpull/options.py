@@ -1240,9 +1240,15 @@ class AppArgumentParser(argparse.ArgumentParser):
             help=_('path of PhantomJS executable')
         )
         group.add_argument(
+            '--phantomjs-max-time',
+            default=900,
+            type=self.int_0_inf,
+            help=_('maximum duration of PhantomJS session')
+        )
+        group.add_argument(
             '--phantomjs-scroll',
             type=int,
-            default=10,
+            default=20,
             metavar='NUM',
             help=_('scroll the page up to NUM times'),
         )
