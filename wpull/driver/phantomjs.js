@@ -194,7 +194,7 @@ PhantomJS.prototype = {
 			_g.logAction("set_scroll_top",0);
 			_g.setPagePosition(0,0);
 			_g.sendKey(_g.page.event.key.Home);
-			window.setTimeout($bind(_g,_g.loadFinishedCallback2),scrollDelay);
+			_g.loadFinishedCallback2();
 		};
 		var actualScroll;
 		var actualScroll1 = null;
