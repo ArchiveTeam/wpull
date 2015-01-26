@@ -1,4 +1,5 @@
 '''PhantomJS page loading and scrolling.'''
+import contextlib
 import copy
 import gettext
 import json
@@ -6,7 +7,6 @@ import logging
 import os
 import tempfile
 import io
-import time
 
 import namedlist
 import trollius
@@ -15,12 +15,7 @@ from trollius import From, Return
 from wpull.backport.logging import BraceMessage as __
 from wpull.document.html import HTMLReader
 from wpull.body import Body
-from wpull.driver.phantomjs import PhantomJSRPCError
-from wpull.driver.resource import PhantomJSResourceTracker
-from wpull.driver.scroller import Scroller
-from wpull.errors import ServerError
-from wpull.http.request import Request, Response
-from wpull.item import URLRecord, Status
+from wpull.driver.phantomjs import PhantomJSDriverParams
 from wpull.namevalue import NameValueRecord
 from wpull.warc import WARCRecord
 import wpull.url
@@ -36,6 +31,8 @@ PhantomJSParams = namedlist.namedtuple(
         ('viewport_size', (1200, 1920)),
         ('paper_size', (2400, 3840)),
         ('load_time', 60),
+        ('custom_headers', {}),
+        ('page_settings', {}),
     ]
 )
 '''PhantomJS parameters
@@ -50,6 +47,8 @@ Attributes:
     viewport_size (tuple): Width and height of the page viewport.
     paper_size (tuple): Width and height of the paper size.
     load_time (float): Maximum time to wait for page load.
+    custom_headers (dict): Default HTTP headers.
+    page_settings (dict): Page settings.
 '''
 
 
@@ -57,27 +56,27 @@ _logger = logging.getLogger(__name__)
 _ = gettext.gettext
 
 
+class PhantomJSCrashed(Exception):
+    '''PhantomJS exited with non-zero code.'''
+
+
 class PhantomJSCoprocessor(object):
     '''PhantomJS coprocessor.
 
     Args:
-        phantomjs_pool (:class:`.driver.phantomjs.PhantomJSPool`): PhantomJS
-            pool.
+        phantomjs_driver_factory: Callback function that accepts ``params``
+            argument and returns
+            an instance of :class:`.driver.PhantomJSDrive
         processing_rule (:class:`.processor.rule.ProcessingRule`): Processing
             rule.
-        statistics (:class:`.stats.Statistics`): Statistics.
-        fetch_rule (:class:`.processor.rule.FetchRule`): Fetch rule.
         warc_recorder: WARC recorder.
         root_dir (str): Root directory path for temp files.
     '''
-    def __init__(self, phantomjs_pool, processing_rule, statistics,
-                 fetch_rule, result_rule, phantomjs_params,
+    def __init__(self, phantomjs_driver_factory, processing_rule,
+                 phantomjs_params,
                  warc_recorder=None, root_path='.'):
-        self._phantomjs_pool = phantomjs_pool
+        self._phantomjs_driver_factory = phantomjs_driver_factory
         self._processing_rule = processing_rule
-        self._statistics = statistics
-        self._fetch_rule = fetch_rule
-        self._result_rule = result_rule
         self._phantomjs_params = phantomjs_params
         self._warc_recorder = warc_recorder
         self._root_path = root_path
@@ -100,14 +99,17 @@ class PhantomJSCoprocessor(object):
 
         self._file_writer_session = file_writer_session
 
-        # FIXME: this is a quick hack for handling time outs. See #137.
+        # FIXME: this is a quick hack for crashes. See #137.
         attempts = int(os.environ.get('WPULL_PHANTOMJS_TRIES', 5))
 
         for dummy in range(attempts):
             try:
                 yield From(self._run_driver(url_item, request, response))
-            except PhantomJSRPCError as error:
-                _logger.exception(__('PhantomJS Error: {}', error))
+            except trollius.TimeoutError:
+                _logger.warning(_('Waiting for page load timed out.'))
+                break
+            except PhantomJSCrashed as error:
+                _logger.exception(__('PhantomJS crashed: {}', error))
             else:
                 break
         else:
@@ -121,196 +123,131 @@ class PhantomJSCoprocessor(object):
         '''Start PhantomJS processing.'''
         _logger.debug('Started PhantomJS processing.')
 
-        with self._phantomjs_pool.session() as driver:
-            session = PhantomJSCoprocessorSession(
-                driver, self._fetch_rule, self._result_rule,
-                url_item,
-                self._phantomjs_params, warc_recorder=self._warc_recorder
-            )
-            yield From(driver.start())
-            yield From(session.fetch(request.url_info.url))
-            yield From(session.wait_load())
-
-            if self._phantomjs_params.num_scrolls:
-                if self._phantomjs_params.smart_scroll:
-                    is_dynamic = yield From(driver.is_page_dynamic())
-
-                    if is_dynamic:
-                        yield From(session.scroll_page())
-                else:
-                    yield From(session.scroll_page())
-
-                yield From(session.wait_load())
-
-            yield From(self._take_snapshots(session))
-            yield From(self._scrape_document(session, request, response, url_item))
-
-        _logger.debug('Ended PhantomJS processing.')
-
-    @trollius.coroutine
-    def _take_snapshots(self, session, infix='snapshot'):
-        '''Make snapshot files.'''
-        for snapshot_type in self._phantomjs_params.snapshot_types or ():
-            path = self._file_writer_session.extra_resource_path(
-                '.{infix}.{file_type}'.format(infix=infix, file_type=snapshot_type)
-            )
-
-            if not path:
-                temp_fd, temp_path = tempfile.mkstemp(
-                        dir=self._root_path, prefix='phnsh',
-                        suffix='.{}'.format(snapshot_type)
-                    )
-                os.close(temp_fd)
-                path = temp_path
-            else:
-                temp_path = None
-
-            try:
-                yield From(session.take_snapshot(path))
-            finally:
-                if temp_path and os.path.exists(temp_path):
-                    os.remove(temp_path)
-
-    @trollius.coroutine
-    def _scrape_document(self, session, request, response, url_item):
-        '''Extract links from the DOM.'''
-        temp_fd, temp_path = tempfile.mkstemp(
-            dir=self._root_path, prefix='phnsc',
-            suffix='.html'
+        session = PhantomJSCoprocessorSession(
+            self._phantomjs_driver_factory, self._root_path,
+            self._processing_rule, self._file_writer_session,
+            request, response,
+            url_item, self._phantomjs_params, self._warc_recorder
         )
-        os.close(temp_fd)
 
-        yield From(session.take_snapshot(temp_path, add_warc=False))
-
-        mock_response = self._new_mock_response(response, temp_path)
-
-        self._processing_rule.scrape_document(request, mock_response, url_item)
-
-        if mock_response.body:
-            mock_response.body.close()
-
-        if temp_path and os.path.exists(temp_path):
-            os.remove(temp_path)
+        with contextlib.closing(session):
+            yield From(session.run())
 
         _logger.debug('Ended PhantomJS processing.')
-
-    def _new_mock_response(self, response, file_path):
-        '''Return a new mock Response with the content.'''
-        mock_response = copy.copy(response)
-
-        mock_response.body = Body(open(file_path, 'rb'))
-        mock_response.fields = NameValueRecord()
-
-        for name, value in response.fields.get_all():
-            mock_response.fields.add(name, value)
-
-        mock_response.fields['Content-Type'] = 'text/html; charset="utf-8"'
-
-        return mock_response
 
 
 class PhantomJSCoprocessorSession(object):
     '''PhantomJS coprocessor session.'''
-    def __init__(self, driver, fetch_rule, result_rule, url_item, params, warc_recorder=None):
-        self._driver = driver
-        self._fetch_rule = fetch_rule
-        self._result_rule = result_rule
+    def __init__(self, phantomjs_driver_factory, root_path,
+                 processing_rule, file_writer_session,
+                 request, response,
+                 url_item, params, warc_recorder):
+        self._phantomjs_driver_factory = phantomjs_driver_factory
+        self._root_path = root_path
+        self._processing_rule = processing_rule
+        self._file_writer_session = file_writer_session
+        self._request = request
+        self._response = response
         self._url_item = url_item
         self._params = params
         self._warc_recorder = warc_recorder
-
-        self._resource_tracker = PhantomJSResourceTracker()
-        self._scroller = Scroller(
-            driver, self._resource_tracker,
-            scroll_height=self._params.viewport_size[1],
-            wait_time=self._params.wait_time,
-            num_scrolls=self._params.num_scrolls,
-            smart_scroll=self._params.smart_scroll
-        )
-        self._scroller.action_callback = self._log_action
-
-        self._actions = []
-        self._action_warc_record = None
-        self._load_state = 'not_started'
-
-        driver.page_event_handlers['load_started'] = self._load_started_cb
-        driver.page_event_handlers['load_finished'] = self._load_finished_cb
-        driver.page_event_handlers['resource_requested'] = self._resource_requested_cb
-        driver.page_event_handlers['resource_received'] = self._resource_received_cb
-        driver.page_event_handlers['resource_error'] = self._resource_error_cb
-        driver.page_event_handlers['resource_timeout'] = self._resource_timeout_cb
-        driver.page_event_handlers['error'] = self._error_cb
+        self._temp_filenames = []
 
     @trollius.coroutine
-    def fetch(self, url):
-        '''Load the page with the given URL.'''
+    def run(self):
+        tempfile.NamedTemporaryFile(prefix='wpull-snp')
+
+        scrape_snapshot_path = self._get_temp_path('phantom', suffix='.html')
+        action_log_path = self._get_temp_path('phantom-action', suffix='.txt')
+        event_log_path = self._get_temp_path('phantom-event', suffix='.txt')
+        snapshot_paths = [scrape_snapshot_path]
+        snapshot_paths.extend(self._get_snapshot_paths())
+        url = self._url_item.url_record.url
+
+        driver_params = PhantomJSDriverParams(
+            url=url,
+            snapshot_paths=snapshot_paths,
+            wait_time=self._params.wait_time,
+            num_scrolls=self._params.num_scrolls,
+            smart_scroll=self._params.smart_scroll,
+            snapshot=self._params.snapshot,
+            viewport_size=self._params.viewport_size,
+            paper_size=self._params.paper_size,
+            event_log_filename=event_log_path,
+            action_log_filename=action_log_path,
+            custom_headers=self._params.custom_headers,
+            page_settings=self._params.page_settings,
+        )
+
+        driver = self._phantomjs_driver_factory(params=driver_params)
+
         _logger.info(__(
             _('PhantomJS fetching ‘{url}’.'),
             url=url
         ))
 
-        yield From(self._driver.open_page(
-            url,
-            viewport_size=self._params.viewport_size,
-            paper_size=self._params.paper_size
-        ))
+        with contextlib.closing(driver):
+            yield From(driver.start())
+            yield From(trollius.wait_for(
+                driver.process.wait(), self._params.load_time
+            ))
 
-    @trollius.coroutine
-    def wait_load(self):
-        '''Wait for the page to load.
-
-        This function polls the Resource Tracker until nothing is left
-        pending.
-
-        Coroutine.
-        '''
-        _logger.debug('Wait load')
-
-        # FIXME: should this be a configurable option somewhere
-        timeout = self._params.load_time
-        start_time = time.time()
-
-        while self._load_state != 'finished' or self._resource_tracker.pending:
-            yield From(trollius.sleep(0.1))
-
-            if time.time() - start_time > timeout:
-                _logger.warning(_('Waiting for page load timed out.'))
-                break
-
-        _logger.debug('Wait over')
-
-    @trollius.coroutine
-    def scroll_page(self):
-        '''Scroll the page to the bottom and record actions'''
-        # Try to get rid of any stupid "sign up now" overlays.
-        click_x, click_y = self._params.viewport_size
-        self._log_action('click', [click_x, click_y])
-        yield From(self._driver.send_click(click_x, click_y))
-
-        yield From(self._scroller.scroll_to_bottom())
+            if driver.process.returncode != 0:
+                raise PhantomJSCrashed(
+                    'PhantomJS exited with code {}'
+                    .format(driver.process.returncode)
+                )
 
         if self._warc_recorder:
-            url = yield From(self._driver.get_page_url())
-            self._add_warc_action_log(url)
+            self._add_warc_action_log(action_log_path, url)
+            for path in snapshot_paths:
+                self._add_warc_snapshot(path, url)
 
-    def _log_action(self, name, value):
-        '''Add a action to the action log.'''
-        _logger.debug(__('Action: {0} {1}', name, value))
+        _logger.info(__(
+            _('PhantomJS fetched ‘{url}’.'),
+            url=url
+        ))
 
-        self._actions.append({
-            'event': name,
-            'value': value,
-            'timestamp': time.time(),
-        })
+    def _get_temp_path(self, hint, suffix='.tmp'):
+        temp_fd, temp_path = tempfile.mkstemp(
+            dir=self._root_path, prefix='wpull-{}'.format(hint), suffix=suffix
+        )
+        os.close(temp_fd)
+        self._temp_filenames.append(temp_path)
 
-    def _add_warc_action_log(self, url):
-        '''Add the acton log to the WARC file.'''
+        return temp_path
+
+    def _get_snapshot_paths(self, infix='snapshot'):
+        for snapshot_type in self._params.snapshot_types or ():
+            path = self._file_writer_session.extra_resource_path(
+                '.{infix}.{file_type}'
+                .format(infix=infix, file_type=snapshot_type)
+            )
+
+            if not path:
+                temp_fd, temp_path = tempfile.mkstemp(
+                    dir=self._root_path, prefix='phnsh',
+                    suffix='.{}'.format(snapshot_type)
+                )
+                os.close(temp_fd)
+                path = temp_path
+                self._temp_filenames.append(temp_path)
+
+            yield path
+
+    def _add_warc_action_log(self, path, url):
+        '''Add the action log to the WARC file.'''
         _logger.debug('Adding action log record.')
 
+        actions = []
+        with open(path, 'r', encoding='utf-8', errors='replace') as file:
+            for line in file:
+                actions.append(json.loads(line))
+
         log_data = json.dumps(
-            {'actions': self._actions},
+            {'actions': actions},
             indent=4,
-            ).encode('utf-8')
+        ).encode('utf-8')
 
         self._action_warc_record = record = WARCRecord()
         record.set_common_fields('metadata', 'application/json')
@@ -321,40 +258,17 @@ class PhantomJSCoprocessorSession(object):
         self._warc_recorder.set_length_and_maybe_checksums(record)
         self._warc_recorder.write_record(record)
 
-    @trollius.coroutine
-    def take_snapshot(self, path, add_warc=True):
-        '''Take a snapshot and record it.
-
-        Coroutine.
-        '''
-        extension = os.path.splitext(path)[1]
-
-        assert extension in ('.pdf', '.png', '.html'), (path, extension)
-
-        _logger.debug(__('Saving snapshot to {0}.', path))
-
-        dir_path = os.path.abspath(os.path.dirname(path))
-
-        if not os.path.exists(dir_path):
-            os.makedirs(dir_path)
-
-        yield From(self._scroller.scroll_to_top())
-        yield From(self._driver.snapshot(path))
-
-        url = yield From(self._driver.get_page_url())
-
-        if self._warc_recorder and add_warc:
-            mime_type = {
-                '.pdf': 'application/pdf',
-                '.html': 'text/html',
-                '.png': 'image/png',
-                }[extension]
-
-            self._add_warc_snapshot(path, mime_type, url)
-
-    def _add_warc_snapshot(self, filename, content_type, url):
+    def _add_warc_snapshot(self, filename, url):
         '''Add the snaphot to the WARC file.'''
         _logger.debug('Adding snapshot record.')
+
+        extension = os.path.splitext(filename)[1]
+        content_type = {
+            '.pdf': 'application/pdf',
+            '.html': 'text/html',
+            '.png': 'image/png',
+            '.gif': 'image/gif'
+            }[extension]
 
         record = WARCRecord()
         record.set_common_fields('resource', content_type)
@@ -371,168 +285,35 @@ class PhantomJSCoprocessorSession(object):
             self._warc_recorder.set_length_and_maybe_checksums(record)
             self._warc_recorder.write_record(record)
 
-    def _load_started_cb(self, message):
-        '''Page is loading.'''
-        _logger.debug('Load started.')
-        self._load_state = 'started'
-
-    def _load_finished_cb(self, message):
-        '''Page loaded.'''
-        _logger.debug('Load finished')
-        self._load_state = 'finished'
-
-    def _resource_requested_cb(self, message):
-        '''Allow or abort request.'''
-        request_data = message['request_data']
-        _logger.debug(__('Resource requested {}', request_data['url']))
-
-        url_info = wpull.url.parse_url_or_log(request_data['url'])
-
-        if not url_info:
-            return
-
-        # FIXME: things are not fetched as expected
-        # TODO: always allow data URLs.
-        # resource_url_record = self._new_url_record(url_info)
-        # should_fetch = self._fetch_rule.check_generic_request(
-        #     url_info, resource_url_record)[0]
-
-        self._resource_tracker.process_request(request_data)
-
-        if True:
-        # if should_fetch:
-            url = request_data['url']
-
-            _logger.info(__(
-                _('PhantomJS fetching ‘{url}’.'),
-                url=url
-            ))
-        else:
-            _logger.debug('Aborting.')
-            return 'abort'
-
-    def _resource_received_cb(self, message):
-        '''Process response.'''
-        response = message['response']
-
-        resource = self._resource_tracker.process_response(response)
-
-        if response['stage'] != 'end':
-            return
-
-        # TODO: url_item, filename
-        # if resource and resource.request:
-        #     converted_request = convert_phantomjs_request(resource.request)
-        #     converted_response = convert_phantomjs_response(response)
-        #     converted_response.request = converted_request
-        #     self._result_rule.handle_document(
-        #         converted_request, converted_response, url_item, filename
-        #     )
-
-        url = response['url']
-
-        _logger.info(__(
-            _('PhantomJS fetched ‘{url}’: {status_code} {reason}. '
-              'Length: {content_length} [{content_type}].'),
-            url=url,
-            status_code=response['status'],
-            reason=response['statusText'],
-            content_length=response.get('bodySize'),
-            content_type=response.get('contentType'),
-            ))
-
-    def _resource_error_cb(self, message):
-        '''Resource errored.'''
-        resource_error = message['resource_error']
-
-        resource = self._resource_tracker.process_error(resource_error)
-
-        _logger.error(__(
-            _('PhantomJS fetching ‘{url}’ encountered an error: {error}'),
-            url=resource_error['url'],
-            error=resource_error['errorString']
-        ))
-
-        # TODO: url_item
-        # if resource and resource.request:
-        #     converted_request = convert_phantomjs_request(resource.request)
-        #     error = ServerError(resource_error['errorString'])
-        #     self._result_rule.handle_error(converted_request, error, url_item)
-
-
-    def _resource_timeout_cb(self, message):
-        '''Resource timed out.'''
-        request = message['request']
-
-        self._resource_tracker.process_error(request)
-
-        _logger.error(__(
-            _('PhantomJS fetching ‘{url}’ encountered an error: {error}'),
-            url=request['url'],
-            error=request['errorString']
-        ))
-
-        converted_request = convert_phantomjs_request(request)
-        error = ServerError(request['errorString'])
-        url_info = converted_request.url_info
-        self._result_rule.handle_error(converted_request, error, url_info)
-
-    def _error_cb(self, message):
-        '''JavaScript error.'''
-        _logger.error(__(
-            _('PhantomJSError: {message} {trace}'),
-            message=message['message'],
-            trace=message['trace']
-        ))
-
-    def _new_url_record(self, url_info):
-        '''Return a URL Record for the request.'''
-        return URLRecord(
-            url_info.url,
-            Status.in_progress,
-            0,  # try_count
-            self._url_item.url_record.level + 1,
-            self._url_item.url_record.top_url,
-            None,  # status_code
-            self._url_item.url_info.url,  # referrer
-            1,  # inline
-            None,  # link_type
-            None,  # post_data
-            None  # filename
+    def _scrape_document(self):
+        '''Extract links from the DOM.'''
+        mock_response = self._new_mock_response(
+            self._response, self._get_temp_path('phantom', '.html')
         )
 
+        self._processing_rule.scrape_document(
+            self._request, mock_response, self._url_item
+        )
 
-def convert_phantomjs_request(request_data):
-    '''Convert a dict into a Request.'''
-    url_info = wpull.url.parse_url_or_log(request_data['url'])
+        if mock_response.body:
+            mock_response.body.close()
 
-    if not url_info:
-        return
+    def _new_mock_response(self, response, file_path):
+        '''Return a new mock Response with the content.'''
+        mock_response = copy.copy(response)
 
-    request = Request()
-    request.method = request_data['method']
-    request.url_info = url_info
+        mock_response.body = Body(open(file_path, 'rb'))
+        mock_response.fields = NameValueRecord()
 
-    for header in request_data['headers']:
-        request.fields.add(header['name'], header['value'])
+        for name, value in response.fields.get_all():
+            mock_response.fields.add(name, value)
 
-    return request
+        mock_response.fields['Content-Type'] = 'text/html; charset="utf-8"'
 
+        return mock_response
 
-def convert_phantomjs_response(response):
-    '''Convert a dict into a Response.'''
-    url_info = wpull.url.parse_url_or_log(response['url'])
-
-    if not url_info:
-        return
-
-    converted_response = Response(
-        status_code=response['status'],
-        reason=response['statusText'],
-    )
-    converted_response.url_info = url_info
-
-    for header in response['headers']:
-        converted_response.fields.add(header['name'], header['value'])
-
-    return converted_response
+    def close(self):
+        '''Clean up.'''
+        for path in self._temp_filenames:
+            if os.path.exists(path):
+                os.remove(path)
