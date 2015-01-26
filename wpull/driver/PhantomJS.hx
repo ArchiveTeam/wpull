@@ -359,7 +359,7 @@ class PhantomJS {
             setPagePosition(0, 0);
             sendKey(page.event.key.Home);
 
-            loadFinishedCallback2();
+            Browser.window.setTimeout(loadFinishedCallback2, scrollDelay);
         }
 
         function actualScroll() {
