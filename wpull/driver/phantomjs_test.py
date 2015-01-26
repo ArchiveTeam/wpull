@@ -31,6 +31,13 @@ class TestPhantomJS(GoodAppTestCase):
             snapshot_paths=['test.png', 'test.pdf', 'test.html'],
             event_log_filename='event.log',
             action_log_filename='action.log',
+            wait_time=0.1,
+            custom_headers={
+                'X-Doge': 'Wow'
+            },
+            page_settings={
+                'resourceTimeout': 1000
+            }
         )
 
         driver = PhantomJSDriver(params=params)

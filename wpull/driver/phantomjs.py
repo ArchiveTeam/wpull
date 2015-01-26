@@ -28,8 +28,27 @@ PhantomJSDriverParams = namedlist.namedtuple(
         ('event_log_filename', None),
         ('action_log_filename', None),
         ('custom_headers', {}),
+        ('page_settings', {}),
     ]
 )
+'''PhantomJS Driver parameters
+
+Attributes:
+    url (str): URL of page to fetch.
+    snapshot_type (list): List of filenames. Accepted extensions are html,
+        pdf, png, gif.
+    wait_time (float): Time between page scrolls.
+    num_scrolls (int): Maximum number of scrolls.
+    smart_scroll (bool): Whether to stop scrolling if number of
+        requests & responses do not change.
+    snapshot (bool): Whether to take snapshot files.
+    viewport_size (tuple): Width and height of the page viewport.
+    paper_size (tuple): Width and height of the paper size.
+    event_log_filename (str): Path to save page events.
+    action_log_filename (str): Path to save page action manipulation events.
+    custom_headers (dict): Custom HTTP request headers.
+    page_settings (dict): Page settings.
+'''
 
 
 class PhantomJSDriver(Process):
@@ -53,9 +72,12 @@ class PhantomJSDriver(Process):
         )
 
         args = [exe_path] + (extra_args or []) + [script_path, self._config_file.name]
-        super().__init__(args)
+        super().__init__(args, stderr_callback=self._stderr_callback)
 
         self._params = params
+
+    def _stderr_callback(self, line):
+        _logger.warning(line.decode('utf-8', 'replace').rstrip())
 
     @trollius.coroutine
     def start(self, use_atexit=True):
@@ -78,7 +100,8 @@ class PhantomJSDriver(Process):
             'viewport_height': self._params.viewport_size[1],
             'paper_width': self._params.paper_size[0],
             'paper_height': self._params.paper_size[1],
-            'custom_headers': self._params.custom_headers
+            'custom_headers': self._params.custom_headers,
+            'page_settings': self._params.page_settings,
         }
 
         if self._params.event_log_filename:

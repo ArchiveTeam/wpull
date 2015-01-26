@@ -95,7 +95,7 @@ class Process(object):
 
     @trollius.coroutine
     def _read_stdout(self):
-        '''Continously read the stdout for messages.'''
+        '''Continuously read the stdout for messages.'''
         try:
             while self._process.returncode is None:
                 line = yield From(self._process.stdout.readline())
@@ -114,7 +114,7 @@ class Process(object):
 
     @trollius.coroutine
     def _read_stderr(self):
-        '''Continously read stderr for error messages.'''
+        '''Continuously read stderr for error messages.'''
         try:
             while self._process.returncode is None:
                 line = yield From(self._process.stderr.readline())

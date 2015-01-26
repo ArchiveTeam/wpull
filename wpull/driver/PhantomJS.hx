@@ -14,6 +14,7 @@ class PhantomJS {
     var eventLogFile:Dynamic;
     var actionLogFile:Dynamic;
     var activityCounter = 0;
+    var pageLoaded = false;
 
     public function new() {
         system = untyped __js__("require")("system");
@@ -31,10 +32,37 @@ class PhantomJS {
      * Do the entire process pipeline.
      */
     public function run() {
+        setUpErrorHandler();
         loadConfig();
         createPage();
         listenPageEvents();
         loadUrl();
+    }
+
+    /**
+     * Set up error handler which logs to stderr
+     */
+    function setUpErrorHandler() {
+        phantom.onError = function (message:String, traceArray:Array<Dynamic>) {
+            system.stderr.writeLine(message);
+
+            for (traceLine in traceArray) {
+                var source:String;
+                var functionName:String = "";
+
+                if (traceLine.file != null) {
+                    source = traceLine.file;
+                } else {
+                    source = traceLine.sourceURL;
+                }
+
+                if (Reflect.field(traceLine, "function") != null) {
+                    functionName = Reflect.field(traceLine, "function");
+                }
+
+                system.stderr.writeLine('  $source:${traceLine.line} $functionName');
+            }
+        }
     }
 
     /**
@@ -89,6 +117,11 @@ class PhantomJS {
         };
 
         page.customHeaders = Reflect.field(config, 'custom_headers');
+
+        var settings = Reflect.field(config, 'page_settings');
+        for (name in Reflect.fields(settings)) {
+            Reflect.setField(page.settings, name, Reflect.field(settings, name));
+        }
     }
 
     /**
@@ -233,16 +266,33 @@ class PhantomJS {
      * Load the URL.
      */
     function loadUrl() {
-        page.open(
-            Reflect.field(config, "url"),
-            loadFinishedCallback
-        );
+        var url:String = Reflect.field(config, "url");
+
+        trace('Load URL $url.');
+        page.open(url, function () { pageLoaded = true; });
+        // For PhantomJS, we need to poll so that the callback isn't in
+        // the page scope but in here scope. If we don't do this,
+        // errors don't bubble up and weird security access errors occurs.
+        pollPageLoad();
+    }
+
+    /**
+     * Pool for page loaded.
+     */
+    function pollPageLoad() {
+        if (pageLoaded) {
+            loadFinishedCallback();
+        } else {
+            Browser.window.setTimeout(pollPageLoad, 100);
+        }
     }
 
     /**
      * Callback when page has loaded.
      */
     function loadFinishedCallback() {
+        trace("Load finished.");
+
         if (isPageDynamic()) {
             scrollPage();
         } else {
@@ -282,7 +332,7 @@ class PhantomJS {
      */
     function scrollPage() {
         var currentY = 0;
-        var scrollDelay:Int = cast(Reflect.field(config, 'wait_time'), Int) * 1000;
+        var scrollDelay:Int = cast(Reflect.field(config, 'wait_time') * 1000, Int);
         var numScrolls:Int = Reflect.field(config, 'num_scrolls');
         var smartScroll:Bool = Reflect.field(config, 'smart_scroll');
 
@@ -306,6 +356,7 @@ class PhantomJS {
             var beforeActivityCount = activityCounter;
             currentY += 768;
 
+            trace('Scroll page $currentY. numScrolls=$numScrolls.');
             logAction("set_scroll_left", 0);
             logAction("set_scroll_top", currentY);
 
@@ -370,6 +421,7 @@ class PhantomJS {
         var paths:Array<String> = Reflect.field(config, "snapshot_paths");
 
         for (path in paths) {
+            trace('Making snapshot $path');
             renderPage(path);
         }
     }
@@ -391,17 +443,18 @@ class PhantomJS {
      * Clean up and exit.
      */
     function close() {
+        trace("Closing.");
         page.close();
 
         if (actionLogFile != null) {
             actionLogFile.flush();
-            // FIXME: Segfault on at least 1.9.8
+            // XXX: Segfault on at least 1.9.8
             // actionLogFile.close();
         }
 
         if (eventLogFile != null) {
             eventLogFile.flush();
-            // FIXME: Segfault on at least 1.9.8
+            // XXX: Segfault on at least 1.9.8
             // eventLogFile.close();
         }
 

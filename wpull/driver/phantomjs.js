@@ -11,6 +11,7 @@ HxOverrides.substr = function(s,pos,len) {
 	return s.substr(pos,len);
 };
 var PhantomJS = function() {
+	this.pageLoaded = false;
 	this.activityCounter = 0;
 	this.system = require("system");
 	this.webpage = require("webpage");
@@ -24,10 +25,27 @@ PhantomJS.main = function() {
 };
 PhantomJS.prototype = {
 	run: function() {
+		this.setUpErrorHandler();
 		this.loadConfig();
 		this.createPage();
 		this.listenPageEvents();
 		this.loadUrl();
+	}
+	,setUpErrorHandler: function() {
+		var _g = this;
+		this.phantom.onError = function(message,traceArray) {
+			_g.system.stderr.writeLine(message);
+			var _g1 = 0;
+			while(_g1 < traceArray.length) {
+				var traceLine = traceArray[_g1];
+				++_g1;
+				var source;
+				var functionName = "";
+				if(traceLine.file != null) source = traceLine.file; else source = traceLine.sourceURL;
+				if(Reflect.field(traceLine,"function") != null) functionName = Reflect.field(traceLine,"function");
+				_g.system.stderr.writeLine("  " + source + ":" + Std.string(traceLine.line) + " " + functionName);
+			}
+		};
 	}
 	,loadConfig: function() {
 		if(this.system.args.length != 2) throw "Missing launch configuration.";
@@ -49,6 +67,14 @@ PhantomJS.prototype = {
 		var paperHeight = Reflect.field(this.config,"paper_height");
 		this.page.paperSize = { width : "" + paperWidth + " px", height : "" + paperHeight + " px", border : "0px"};
 		this.page.customHeaders = Reflect.field(this.config,"custom_headers");
+		var settings = Reflect.field(this.config,"page_settings");
+		var _g = 0;
+		var _g1 = Reflect.fields(settings);
+		while(_g < _g1.length) {
+			var name = _g1[_g];
+			++_g;
+			Reflect.setField(this.page.settings,name,Reflect.field(settings,name));
+		}
 	}
 	,listenPageEvents: function() {
 		var _g = this;
@@ -124,9 +150,19 @@ PhantomJS.prototype = {
 		this.actionLogFile.writeLine(line);
 	}
 	,loadUrl: function() {
-		this.page.open(Reflect.field(this.config,"url"),$bind(this,this.loadFinishedCallback));
+		var _g = this;
+		var url = Reflect.field(this.config,"url");
+		console.log("Load URL " + url + ".");
+		this.page.open(url,function() {
+			_g.pageLoaded = true;
+		});
+		this.pollPageLoad();
+	}
+	,pollPageLoad: function() {
+		if(this.pageLoaded) this.loadFinishedCallback(); else window.setTimeout($bind(this,this.pollPageLoad),100);
 	}
 	,loadFinishedCallback: function() {
+		console.log("Load finished.");
 		if(this.isPageDynamic()) this.scrollPage(); else this.loadFinishedCallback2();
 	}
 	,loadFinishedCallback2: function() {
@@ -141,7 +177,7 @@ PhantomJS.prototype = {
 		var _g = this;
 		var currentY = 0;
 		var scrollDelay;
-		scrollDelay = js.Boot.__cast(Reflect.field(this.config,"wait_time") , Int) * 1000;
+		scrollDelay = js.Boot.__cast(Reflect.field(this.config,"wait_time") * 1000 , Int);
 		var numScrolls = Reflect.field(this.config,"num_scrolls");
 		var smartScroll = Reflect.field(this.config,"smart_scroll");
 		var clickX = this.page.viewportSize.width;
@@ -160,6 +196,7 @@ PhantomJS.prototype = {
 		actualScroll1 = function() {
 			var beforeActivityCount = _g.activityCounter;
 			currentY += 768;
+			console.log("Scroll page " + currentY + ". numScrolls=" + numScrolls + ".");
 			_g.logAction("set_scroll_left",0);
 			_g.logAction("set_scroll_top",currentY);
 			_g.setPagePosition(0,currentY);
@@ -198,6 +235,7 @@ PhantomJS.prototype = {
 		while(_g < paths.length) {
 			var path = paths[_g];
 			++_g;
+			console.log("Making snapshot " + path);
 			this.renderPage(path);
 		}
 	}
@@ -209,6 +247,7 @@ PhantomJS.prototype = {
 		} else this.page.render(path);
 	}
 	,close: function() {
+		console.log("Closing.");
 		this.page.close();
 		if(this.actionLogFile != null) this.actionLogFile.flush();
 		if(this.eventLogFile != null) this.eventLogFile.flush();
@@ -224,6 +263,19 @@ Reflect.field = function(o,field) {
 	} catch( e ) {
 		return null;
 	}
+};
+Reflect.setField = function(o,field,value) {
+	o[field] = value;
+};
+Reflect.fields = function(o) {
+	var a = [];
+	if(o != null) {
+		var hasOwnProperty = Object.prototype.hasOwnProperty;
+		for( var f in o ) {
+		if(f != "__id__" && f != "hx__closures__" && hasOwnProperty.call(o,f)) a.push(f);
+		}
+	}
+	return a;
 };
 var Std = function() { };
 Std.__name__ = true;
