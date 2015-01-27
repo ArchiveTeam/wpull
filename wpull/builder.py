@@ -25,6 +25,7 @@ from wpull.connection import Connection, ConnectionPool, SSLConnection
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
 from wpull.coprocessor.proxy import ProxyCoprocessor
+from wpull.coprocessor.youtubedl import YoutubeDlCoprocessor
 from wpull.database.sqltable import URLTable as SQLURLTable, GenericSQLURLTable
 from wpull.database.wrap import URLTableHookWrapper
 from wpull.debug import DebugConsoleHandler
@@ -151,6 +152,7 @@ class Builder(object):
             'WebProcessor': WebProcessor,
             'WebProcessorFetchParams': WebProcessorFetchParams,
             'WebProcessorInstances': WebProcessorInstances,
+            'YoutubeDlCoprocessor': YoutubeDlCoprocessor,
         })
         self._url_infos = None
         self._ca_certs_file = None
@@ -791,7 +793,7 @@ class Builder(object):
             url_rewriter=self._factory.get('URLRewriter'),
         )
 
-        if args.phantomjs or args.proxy_server:
+        if args.phantomjs or args.youtube_dl or args.proxy_server:
             proxy_server, proxy_port, proxy_task = self._build_proxy_server()
             application = self._factory['Application']
             # XXX: Should we be sticking these into application?
@@ -805,6 +807,11 @@ class Builder(object):
         else:
             phantomjs_coprocessor = None
 
+        if args.youtube_dl:
+            youtube_dl_coprocessor = self._build_youtube_dl_coprocessor(proxy_port)
+        else:
+            youtube_dl_coprocessor = None
+
         web_processor_instances = self._factory.new(
             'WebProcessorInstances',
             fetch_rule=fetch_rule,
@@ -813,6 +820,7 @@ class Builder(object):
             file_writer=file_writer,
             statistics=self._factory['Statistics'],
             phantomjs_coprocessor=phantomjs_coprocessor,
+            youtube_dl_coprocessor=youtube_dl_coprocessor,
         )
 
         web_processor_fetch_params = self._factory.new(
@@ -1190,7 +1198,8 @@ class Builder(object):
         )
 
         extra_args = [
-            '--proxy', 'localhost:{0}'.format(proxy_port),
+            '--proxy',
+            '{}:{}'.format(self._args.proxy_server_address, proxy_port),
             '--ignore-ssl-errors=true'
         ]
 
@@ -1210,6 +1219,17 @@ class Builder(object):
         )
 
         return phantomjs_coprocessor
+
+    def _build_youtube_dl_coprocessor(self, proxy_port):
+        '''Build youtube-dl coprocessor.'''
+        coprocessor = self.factory.new(
+            'YoutubeDlCoprocessor',
+            self._args.youtube_dl_exe,
+            (self._args.proxy_server_address, proxy_port)
+        )
+
+        return coprocessor
+
 
     def _build_proxy_server(self):
         '''Build MITM proxy server.'''

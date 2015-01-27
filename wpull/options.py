@@ -201,6 +201,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         self._add_accept_args()
         self._add_proxy_server_args()
         self._add_phantomjs_args()
+        self._add_youtube_dl_args()
 
     def _add_startup_args(self):
         group = self.add_argument_group(_('startup'))
@@ -1289,6 +1290,20 @@ class AppArgumentParser(argparse.ArgumentParser):
             dest='phantomjs_smart_scroll',
             default=True,
             help=_('always scroll the page to maximum scroll count option'),
+        )
+
+    def _add_youtube_dl_args(self):
+        group = self.add_argument_group(_('PhantomJS'))
+        group.add_argument(
+            '--youtube-dl',
+            action='store_true',
+            help=_('use youtube-dl for downloading videos'),
+            )
+        group.add_argument(
+            '--youtube-dl-exe',
+            metavar='PATH',
+            default='youtube-dl',
+            help=_('path of youtube-dl executable')
         )
 
     def _post_parse_args(self, args):
