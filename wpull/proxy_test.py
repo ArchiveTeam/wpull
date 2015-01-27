@@ -47,12 +47,12 @@ class TestProxy(wpull.testing.goodapp.GoodAppTestCase):
             print(request)
             cookie_jar_wrapper.add_cookie_header(request)
 
-        def response_callback(request, response):
+        def pre_response_callback(request, response):
             print(response)
             cookie_jar_wrapper.extract_cookies(response, request)
 
         proxy.request_callback = request_callback
-        proxy.response_callback = response_callback
+        proxy.pre_response_callback = pre_response_callback
 
         yield From(trollius.start_server(proxy, sock=proxy_socket))
 
