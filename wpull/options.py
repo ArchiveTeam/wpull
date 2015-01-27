@@ -199,6 +199,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         self._add_warc_args()
         self._add_recursive_args()
         self._add_accept_args()
+        self._add_proxy_server_args()
         self._add_phantomjs_args()
 
     def _add_startup_args(self):
@@ -1219,6 +1220,27 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_false',
             default=True,
             help=_('don’t implicitly allow span hosts for redirects'),
+        )
+
+    def _add_proxy_server_args(self):
+        group = self.add_argument_group(_('proxy server'))
+        group.add_argument(
+            '--proxy-server',
+            action='store_true',
+            help=_('run HTTP proxy server for capturing requests'),
+        )
+        group.add_argument(
+            '--proxy-server-address',
+            default='localhost',
+            metavar='ADDRESS',
+            help=_('bind the proxy server to ADDRESS')
+        )
+        group.add_argument(
+            '--proxy-server-port',
+            type=int,
+            default=0,
+            metavar='PORT',
+            help=_('bind the proxy server port to PORT')
         )
 
     def _add_phantomjs_args(self):

@@ -14,6 +14,7 @@ import sys
 import tempfile
 
 import tornado.testing
+import tornado.netutil
 import tornado.web
 import trollius
 
@@ -790,7 +791,7 @@ class Builder(object):
             url_rewriter=self._factory.get('URLRewriter'),
         )
 
-        if args.phantomjs:
+        if args.phantomjs or args.proxy_server:
             proxy_server, proxy_port, proxy_task = self._build_proxy_server()
             application = self._factory['Application']
             # XXX: Should we be sticking these into application?
@@ -1226,9 +1227,15 @@ class Builder(object):
             cookie_jar=cookie_jar
         )
 
-        proxy_socket, proxy_port = tornado.testing.bind_unused_port()
+        proxy_socket = tornado.netutil.bind_sockets(
+            self._args.proxy_server_port,
+            address=self._args.proxy_server_address
+        )[0]
+        proxy_port = proxy_socket.getsockname()[1]
 
-        proxy_task = trollius.async(trollius.start_server(proxy_server, sock=proxy_socket))
+        proxy_task = trollius.async(
+            trollius.start_server(proxy_server, sock=proxy_socket)
+        )
 
         return proxy_server, proxy_port, proxy_task
 
