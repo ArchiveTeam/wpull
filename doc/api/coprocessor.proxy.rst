@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`driver.resource` Module
-=============================
+:mod:`coprocessor.proxy` Module
+===============================
 
-.. automodule:: wpull.driver.resource
+.. automodule:: wpull.coprocessor.proxy
     :members:
     :show-inheritance:
     :private-members:
