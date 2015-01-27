@@ -103,3 +103,11 @@ class Session(object):
         _logger.info(line.decode('utf-8', 'replace').rstrip())
 
 
+def get_version(exe_path='youtube-dl'):
+    '''Get the version string of youtube-dl.'''
+    process = subprocess.Popen(
+        [exe_path, '--version'],
+        stdout=subprocess.PIPE
+    )
+    version_string = process.communicate()[0]
+    return version_string.decode().strip()

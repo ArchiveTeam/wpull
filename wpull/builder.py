@@ -643,6 +643,11 @@ class Builder(object):
                     wpull.driver.phantomjs.get_version(exe_path=args.phantomjs_exe)
                 )
 
+            if args.youtube_dl:
+                software_string += ' youtube-dl/{0}'.format(
+                    wpull.coprocessor.youtubedl.get_version(exe_path=args.youtube_dl_exe)
+                )
+
             url_table = self._factory['URLTable'] if args.warc_dedup else None
 
             recorders.append(
@@ -1221,14 +1226,18 @@ class Builder(object):
 
     def _build_youtube_dl_coprocessor(self, proxy_port):
         '''Build youtube-dl coprocessor.'''
+
+        # Test early for executable
+        wpull.coprocessor.youtubedl.get_version(self._args.youtube_dl_exe)
+
         coprocessor = self.factory.new(
             'YoutubeDlCoprocessor',
             self._args.youtube_dl_exe,
-            (self._args.proxy_server_address, proxy_port)
+            (self._args.proxy_server_address, proxy_port),
+            self._args.directory_prefix,
         )
 
         return coprocessor
-
 
     def _build_proxy_server(self):
         '''Build MITM proxy server.'''

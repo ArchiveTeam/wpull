@@ -1,5 +1,7 @@
 # encoding=utf-8
+import glob
 from http import cookiejar
+import re
 from tempfile import TemporaryDirectory
 import contextlib
 import gzip
@@ -1033,6 +1035,46 @@ class TestApp(GoodAppTestCase):
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_youtube_dl(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            'https://www.youtube.com/watch?v=tPEE9ZwTmy0',
+            '--warc-file', 'test',
+            '--no-warc-compression',
+            '--youtube-dl',
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+            self.assertEqual(0, exit_code)
+            # TODO: proxy doesn't account for files yet
+            # self.assertEqual(1, builder.factory['Statistics'].files)
+
+            print(list(os.walk('.')))
+
+            with open('test.warc', 'rb') as warc_file:
+                data = warc_file.read()
+
+                self.assertTrue(b'youtube-dl/' in data, 'include version')
+                self.assertTrue(re.search(b'Fetched.*googlevideo\.com/videoplayback', data))
+
+            video_files = tuple(glob.glob('*.mp4') + glob.glob('*.webm'))
+            self.assertTrue(video_files)
+
+            annotations = tuple(glob.glob('*.annotation*'))
+            self.assertTrue(annotations)
+
+            info_json = tuple(glob.glob('*.info.json'))
+            self.assertTrue(info_json)
+
+            # FIXME: version 2015.01.25 doesn't have thumbnail?
+            # thumbnails = tuple(glob.glob('*.jpg'))
+            # self.assertTrue(thumbnails)
 
 
 class SimpleHandler(tornado.web.RequestHandler):
