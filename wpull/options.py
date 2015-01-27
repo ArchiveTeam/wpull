@@ -421,11 +421,6 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=argparse.FileType('wb'),
             help=_('stream every document into FILE'),
         )
-#         self.add_argument(
-#             '--truncate-document',
-#             action='store_true',
-#             help=_('clear the output document after downloading'),
-#         )
         clobber_group = group.add_mutually_exclusive_group()
         clobber_group.add_argument(
             '-nc',
