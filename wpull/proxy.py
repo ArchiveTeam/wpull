@@ -178,7 +178,7 @@ class Session(object):
         )
 
         # FIXME: this isn't how to START TLS
-        for dummy in range(20):
+        for dummy in range(1200):
             try:
                 ssl_socket.do_handshake()
                 break

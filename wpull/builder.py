@@ -40,7 +40,7 @@ from wpull.http.robots import RobotsTxtChecker
 from wpull.http.stream import Stream as HTTPStream
 from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
-from wpull.driver.phantomjs import PhantomJSPool
+from wpull.driver.phantomjs import PhantomJSDriver
 from wpull.options import LOG_QUIET, LOG_VERY_QUIET, LOG_NO_VERBOSE, LOG_VERBOSE, \
     LOG_DEBUG
 from wpull.processor.delegate import DelegateProcessor
@@ -124,7 +124,7 @@ class Builder(object):
             'JavaScriptScraper': JavaScriptScraper,
             'OutputDocumentRecorder': OutputDocumentRecorder,
             'PathNamer': PathNamer,
-            'PhantomJSPool': PhantomJSPool,
+            'PhantomJSDriver': PhantomJSDriver,
             'PhantomJSCoprocessor': PhantomJSCoprocessor,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
             'ProcessingRule': ProcessingRule,
@@ -1183,6 +1183,9 @@ class Builder(object):
             num_scrolls=self._args.phantomjs_scroll,
             smart_scroll=self._args.phantomjs_smart_scroll,
             snapshot=self._args.phantomjs_snapshot,
+            custom_headers=default_headers,
+            page_settings=page_settings,
+            load_time=self._args.phantomjs_max_time,
         )
 
         extra_args = [
@@ -1190,21 +1193,16 @@ class Builder(object):
             '--ignore-ssl-errors=true'
         ]
 
-        phantomjs_pool = self._factory.new(
-            'PhantomJSPool',
+        phantomjs_driver_factory = functools.partial(
+            self._factory.class_map['PhantomJSDriver'],
             exe_path=self._args.phantomjs_exe,
-            default_headers=default_headers,
-            page_settings=page_settings,
             extra_args=extra_args,
         )
 
         phantomjs_coprocessor = self._factory.new(
             'PhantomJSCoprocessor',
-            phantomjs_pool,
+            phantomjs_driver_factory,
             self._factory['ProcessingRule'],
-            self._factory['Statistics'],
-            self._factory['FetchRule'],
-            self._factory['ResultRule'],
             phantomjs_params,
             root_path=self._args.directory_prefix,
             warc_recorder=self.factory.get('WARCRecorder'),

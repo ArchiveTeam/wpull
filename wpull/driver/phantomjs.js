@@ -11,108 +11,67 @@ HxOverrides.substr = function(s,pos,len) {
 	return s.substr(pos,len);
 };
 var PhantomJS = function() {
+	this.pageLoaded = false;
+	this.pendingResourcesAfterLoad = 0;
+	this.activityCounter = 0;
 	this.system = require("system");
 	this.webpage = require("webpage");
 	this.phantom = phantom;
 	this.fs = require("fs");
-	this.pollTimer = setInterval($bind(this,this.pollForCommand),100);
 };
 PhantomJS.__name__ = true;
 PhantomJS.main = function() {
 	var app = new PhantomJS();
+	app.run();
 };
 PhantomJS.prototype = {
-	pollForCommand: function() {
-		this.sendMessage({ event : "poll"});
-		var commandMessage = this.readMessage();
-		var replyValue = null;
-		var _g = commandMessage.command;
-		if(_g == null) return; else switch(_g) {
-		case "new_page":
-			this.newPage();
-			break;
-		case "open_url":
-			this.page.open(commandMessage.url);
-			this.listenEvents();
-			break;
-		case "close_page":
-			this.page.close();
-			this.page = null;
-			break;
-		case "set_page_size":
-			this.setPageSize(commandMessage.viewport_width,commandMessage.viewport_height,commandMessage.paper_width,commandMessage.paper_height);
-			break;
-		case "render_page":
-			this.renderPage(commandMessage.path);
-			break;
-		case "set_page_custom_headers":
-			this.setPageCustomHeaders(commandMessage.headers);
-			break;
-		case "set_page_settings":
-			this.setPageSettings(commandMessage.settings);
-			break;
-		case "scroll_page":
-			this.scrollPage(commandMessage.x,commandMessage.y);
-			break;
-		case "exit":
-			this.exit(commandMessage.exit_code);
-			break;
-		case "get_page_url":
-			replyValue = this.page.url;
-			break;
-		case "click":
-			this.sendClick(commandMessage.x,commandMessage.y,commandMessage.button);
-			break;
-		case "key":
-			this.sendKey(commandMessage.key,commandMessage.modifier);
-			break;
-		case "is_page_dynamic":
-			replyValue = this.isPageDynamic();
-			break;
-		default:
-			console.log("Unknown command");
-		}
-		this.sendMessage({ event : "reply", value : replyValue, reply_id : commandMessage.message_id});
+	logStderrLine: function(message) {
+		if(this.system.stderr != null) return this.system.stderr.writeLine(message); else return this.system.stdout.writeLine(message);
 	}
-	,sendMessage: function(message) {
-		var messageString = JSON.stringify(message);
-		this.system.stdout.write("!RPC ");
-		this.system.stdout.writeLine(messageString);
+	,run: function() {
+		this.setUpErrorHandler();
+		this.loadConfig();
+		this.createPage();
+		this.listenPageEvents();
+		this.loadUrl();
 	}
-	,readMessage: function() {
-		var messageString = this.system.stdin.readLine();
-		var message = JSON.parse(messageString.slice(5));
-		return message;
+	,setUpErrorHandler: function() {
+		var _g = this;
+		this.phantom.onError = function(message,traceArray) {
+			_g.logStderrLine(message);
+			var _g1 = 0;
+			while(_g1 < traceArray.length) {
+				var traceLine = traceArray[_g1];
+				++_g1;
+				var source;
+				var functionName = "";
+				if(traceLine.file != null) source = traceLine.file; else source = traceLine.sourceURL;
+				if(Reflect.field(traceLine,"function") != null) functionName = Reflect.field(traceLine,"function");
+				_g.logStderrLine("  " + source + ":" + Std.string(traceLine.line) + " " + functionName);
+			}
+		};
 	}
-	,sendEvent: function(eventName,args) {
-		if(!args) args = { };
-		var message = args;
-		args.event = eventName;
-		this.sendMessage(message);
-		var reply = this.readMessage();
-		return reply.value;
+	,loadConfig: function() {
+		if(this.system.args.length != 2) throw "Missing launch configuration.";
+		var configContent = this.fs.read(this.system.args[1]);
+		this.config = JSON.parse(configContent);
+		this.openLogFiles();
 	}
-	,newPage: function() {
-		if(this.page) this.closePage();
+	,openLogFiles: function() {
+		var eventLogFilename = Reflect.field(this.config,"event_log_filename");
+		var actionLogFilename = Reflect.field(this.config,"action_log_filename");
+		if(eventLogFilename != null) this.eventLogFile = this.fs.open(eventLogFilename,"w");
+		if(actionLogFilename != null) this.actionLogFile = this.fs.open(actionLogFilename,"w");
+	}
+	,createPage: function() {
 		this.page = this.webpage.create();
 		this.page.evaluate("function () { document.body.bgColor = 'white'; }");
-	}
-	,closePage: function() {
-		this.page.close();
-		this.page = null;
-	}
-	,renderPage: function(path) {
-		if(StringTools.endsWith(path,".html")) {
-			var file = this.fs.open(path,"w");
-			file.write(this.page.content);
-			file.close();
-		} else this.page.render(path);
-	}
-	,setPageSize: function(viewportWidth,viewportHeight,paperWidth,paperHeight) {
-		this.page.viewportSize = { width : viewportWidth, height : viewportHeight};
+		this.page.viewportSize = { width : Reflect.field(this.config,"viewport_width"), height : Reflect.field(this.config,"viewport_height")};
+		var paperWidth = Reflect.field(this.config,"paper_width");
+		var paperHeight = Reflect.field(this.config,"paper_height");
 		this.page.paperSize = { width : "" + paperWidth + " px", height : "" + paperHeight + " px", border : "0px"};
-	}
-	,setPageSettings: function(settings) {
+		this.page.customHeaders = Reflect.field(this.config,"custom_headers");
+		var settings = Reflect.field(this.config,"page_settings");
 		var _g = 0;
 		var _g1 = Reflect.fields(settings);
 		while(_g < _g1.length) {
@@ -121,87 +80,205 @@ PhantomJS.prototype = {
 			Reflect.setField(this.page.settings,name,Reflect.field(settings,name));
 		}
 	}
-	,setPageCustomHeaders: function(headers) {
-		this.page.customHeaders = headers;
+	,listenPageEvents: function() {
+		var _g = this;
+		this.page.onAlert = function(message) {
+			_g.logEvent("alert",{ message : message});
+		};
+		this.page.onClosing = function(closingPage) {
+			_g.logEvent("closing");
+		};
+		this.page.onConfirm = function(message1) {
+			_g.logEvent("confirm",{ message : message1});
+			return false;
+		};
+		this.page.onConsoleMessage = function(message2,lineNum,sourceId) {
+			_g.logEvent("console_message",{ message : message2, line_num : lineNum, source_id : sourceId});
+		};
+		this.page.onError = function(message3,trace) {
+			_g.logEvent("error",{ message : message3, trace : trace});
+		};
+		this.page.onFilePicker = function(oldFile) {
+			_g.logEvent("file_picker",{ old_file : oldFile});
+			return null;
+		};
+		this.page.onInitialized = function() {
+			_g.logEvent("initialized");
+		};
+		this.page.onLoadFinished = function(status) {
+			_g.logEvent("load_finished",{ status : status});
+			_g.activityCounter += 1;
+		};
+		this.page.onLoadStarted = function() {
+			_g.logEvent("load_started");
+			_g.activityCounter += 1;
+		};
+		this.page.onNavigationRequested = function(url,type,willNavigate,main) {
+			_g.logEvent("navigation_requested",{ url : url, type : type, will_navigate : willNavigate, main : main});
+		};
+		this.page.onPageCreated = function(newPage) {
+			_g.logEvent("page_created",{ });
+		};
+		this.page.onPrompt = function(message4,defaultValue) {
+			_g.logEvent("prompt",{ message : message4, default_value : defaultValue});
+			return null;
+		};
+		this.page.onResourceError = function(resourceError) {
+			_g.logEvent("resource_error",{ resource_error : resourceError});
+			_g.activityCounter += 1;
+			if(_g.pageLoaded) _g.pendingResourcesAfterLoad -= 1;
+		};
+		this.page.onResourceReceived = function(response) {
+			_g.logEvent("resource_received",{ response : response});
+			_g.activityCounter += 1;
+			if(_g.pageLoaded && response.stage == "end") _g.pendingResourcesAfterLoad -= 1;
+		};
+		this.page.onResourceRequested = function(requestData,networkRequest) {
+			_g.logEvent("resource_requested",{ request_data : requestData, network_request : networkRequest});
+			_g.activityCounter += 1;
+			if(_g.pageLoaded) _g.pendingResourcesAfterLoad += 1;
+		};
+		this.page.onResourceTimeout = function(request) {
+			_g.logEvent("resource_timeout",{ request : request});
+			_g.activityCounter += 1;
+			if(_g.pageLoaded) _g.pendingResourcesAfterLoad -= 1;
+		};
+		this.page.onUrlChanged = function(targetUrl) {
+			_g.logEvent("url_changed",{ target_url : targetUrl});
+		};
 	}
-	,scrollPage: function(x,y) {
-		this.page.scrollPosition = { left : x, top : y};
-		this.page.evaluate("\n            function () {\n                if (window) {\n                    window.scrollTo(" + x + ", " + y + ");\n                }\n            }\n        ");
+	,logEvent: function(eventName,eventData) {
+		if(this.eventLogFile == null) return;
+		var line = JSON.stringify({ timestamp : new Date().getTime() / 1000.0, event : eventName, value : eventData});
+		this.eventLogFile.write(line);
+		this.eventLogFile.write("\n");
 	}
-	,sendClick: function(x,y,button) {
-		this.page.sendEvent("mousedown",x,y,button);
-		this.page.sendEvent("mouseup",x,y,button);
-		this.page.sendEvent("click",x,y,button);
+	,logAction: function(eventName,eventData) {
+		if(this.actionLogFile == null) return;
+		var line = JSON.stringify({ timestamp : new Date().getTime() / 1000.0, event : eventName, value : eventData});
+		this.actionLogFile.write(line);
+		this.actionLogFile.write("\n");
 	}
-	,sendKey: function(key,modifier) {
-		this.page.sendEvent("keypress",key,null,null,modifier);
-		this.page.sendEvent("keydown",key,null,null,modifier);
-		this.page.sendEvent("keyup",key,null,null,modifier);
+	,loadUrl: function() {
+		var _g = this;
+		var url = Reflect.field(this.config,"url");
+		console.log("Load URL " + url + ".");
+		this.page.open(url,function() {
+			_g.pageLoaded = true;
+		});
+		this.pollPageLoad();
+	}
+	,pollPageLoad: function() {
+		if(this.pageLoaded) this.loadFinishedCallback(); else window.setTimeout($bind(this,this.pollPageLoad),100);
+	}
+	,loadFinishedCallback: function() {
+		console.log("Load finished.");
+		if(this.isPageDynamic()) this.scrollPage(); else this.loadFinishedCallback2();
+	}
+	,loadFinishedCallback2: function() {
+		if(Reflect.field(this.config,"snapshot")) this.makeSnapshots();
+		this.close();
 	}
 	,isPageDynamic: function() {
 		var result = this.page.evaluate("\n            function () {\n            return document.getElementsByTagName('script').length ||\n                document.querySelector(\n                    '[onload],[onunload],[onabortonclick],[ondblclick],' +\n                    '[onmousedown],[onmousemove],[onmouseout],[onmouseover],' +\n                    '[onmouseup],[onkeydown],[onkeypress],[onkeyup]');\n            }\n        ");
 		return result;
 	}
-	,listenEvents: function() {
-		var _g = this;
-		this.page.onAlert = function(message) {
-			_g.sendEvent("alert",{ message : message});
-		};
-		this.page.onClosing = function(closingPage) {
-			_g.sendEvent("closing");
-		};
-		this.page.onConfirm = function(message1) {
-			return _g.sendEvent("confirm",{ message : message1});
-		};
-		this.page.onConsoleMessage = function(message2,lineNum,sourceId) {
-			_g.sendEvent("console_message",{ message : message2, line_num : lineNum, source_id : sourceId});
-		};
-		this.page.onFilePicker = function(oldFile) {
-			return _g.sendEvent("file_picker",{ old_file : oldFile});
-		};
-		this.page.onInitialized = function() {
-			_g.sendEvent("initialized");
-		};
-		this.page.onLoadFinished = function(status) {
-			_g.sendEvent("load_finished",{ status : status});
-		};
-		this.page.onLoadStarted = function() {
-			_g.sendEvent("load_started");
-		};
-		this.page.onNavigationRequested = function(url,type,willNavigate,main) {
-			_g.sendEvent("navigation_requested",{ url : url, type : type, will_navigate : willNavigate, main : main});
-		};
-		this.page.onPageCreated = function(newPage) {
-			_g.sendEvent("page_created",{ });
-		};
-		this.page.onPrompt = function(message3,defaultValue) {
-			return _g.sendEvent("prompt",{ message : message3, default_value : defaultValue});
-		};
-		this.page.onResourceError = function(resourceError) {
-			_g.sendEvent("resource_error",{ resource_error : resourceError});
-		};
-		this.page.onResourceReceived = function(response) {
-			_g.sendEvent("resource_received",{ response : response});
-		};
-		this.page.onResourceRequested = function(requestData,networkRequest) {
-			var reply = _g.sendEvent("resource_requested",{ request_data : requestData, network_request : networkRequest});
-			if(!reply) return;
-			if(js.Boot.__cast(reply , String) == "abort") networkRequest.abort(); else if(reply) networkRequest.changeUrl(reply);
-		};
-		this.page.onResourceTimeout = function(request) {
-			_g.sendEvent("resource_timeout",{ request : request});
-		};
-		this.page.onUrlChanged = function(targetUrl) {
-			_g.sendEvent("url_changed",{ target_url : targetUrl});
-		};
+	,getPageContentHeight: function() {
+		return this.page.evaluate("function() { return document.body.scrollHeight; }");
 	}
-	,exit: function(exitCode) {
-		if(exitCode == null) exitCode = 0;
-		if(this.pollTimer) {
-			clearTimeout(this.pollTimer);
-			this.pollTimer = null;
+	,scrollPage: function() {
+		var _g = this;
+		var currentY = 0;
+		var scrollDelay;
+		scrollDelay = js.Boot.__cast(Reflect.field(this.config,"wait_time") * 1000 , Int);
+		var numScrolls = Reflect.field(this.config,"num_scrolls");
+		var smartScroll = Reflect.field(this.config,"smart_scroll");
+		var startDate = null;
+		var clickX = this.page.viewportSize.width;
+		var clickY = this.page.viewportSize.height;
+		this.logAction("click",[clickX,clickY]);
+		this.sendClick(clickX,clickY);
+		var pollForPendingLoad;
+		var pollForPendingLoad1 = null;
+		pollForPendingLoad1 = function() {
+			if(startDate == null) startDate = new Date();
+			var duration = new Date().getTime() - startDate.getTime();
+			console.log("pendingResourcesAfterLoad=" + _g.pendingResourcesAfterLoad);
+			if(_g.pendingResourcesAfterLoad > 0 && duration < 60000) window.setTimeout(pollForPendingLoad1,100); else _g.loadFinishedCallback2();
+		};
+		pollForPendingLoad = pollForPendingLoad1;
+		var cleanupScroll = function() {
+			_g.logAction("set_scroll_left",0);
+			_g.logAction("set_scroll_top",0);
+			_g.setPagePosition(0,0);
+			_g.sendKey(_g.page.event.key.Home);
+			pollForPendingLoad();
+		};
+		var actualScroll;
+		var actualScroll1 = null;
+		actualScroll1 = function() {
+			var beforeActivityCount = _g.activityCounter;
+			currentY += 768;
+			console.log("Scroll page " + currentY + ". numScrolls=" + numScrolls + ".");
+			_g.logAction("set_scroll_left",0);
+			_g.logAction("set_scroll_top",currentY);
+			_g.setPagePosition(0,currentY);
+			_g.sendKey(_g.page.event.key.PageDown);
+			window.setTimeout(function() {
+				var pageHeight = _g.getPageContentHeight();
+				if(pageHeight == null) pageHeight = 0;
+				console.log("before=" + beforeActivityCount + " activityCounter=" + _g.activityCounter);
+				console.log("currentY=" + currentY + " pageHeight=" + pageHeight);
+				if(smartScroll && beforeActivityCount == _g.activityCounter && currentY >= pageHeight) {
+					cleanupScroll();
+					return;
+				}
+				numScrolls -= 1;
+				if(numScrolls > 0) actualScroll1(); else cleanupScroll();
+			},scrollDelay);
+		};
+		actualScroll = actualScroll1;
+		actualScroll();
+	}
+	,setPagePosition: function(x,y) {
+		this.page.scrollPosition = { left : x, top : y};
+		this.page.evaluate("\n            function () {\n                if (window) {\n                    window.scrollTo(" + x + ", " + y + ");\n                }\n            }\n        ");
+	}
+	,sendClick: function(x,y,button) {
+		if(button == null) button = "left";
+		this.page.sendEvent("mousedown",x,y,button);
+		this.page.sendEvent("mouseup",x,y,button);
+		this.page.sendEvent("click",x,y,button);
+	}
+	,sendKey: function(key,modifier) {
+		if(modifier == null) modifier = 0;
+		this.page.sendEvent("keypress",key,null,null,modifier);
+		this.page.sendEvent("keydown",key,null,null,modifier);
+		this.page.sendEvent("keyup",key,null,null,modifier);
+	}
+	,makeSnapshots: function() {
+		var paths = Reflect.field(this.config,"snapshot_paths");
+		var _g = 0;
+		while(_g < paths.length) {
+			var path = paths[_g];
+			++_g;
+			console.log("Making snapshot " + path);
+			this.renderPage(path);
 		}
-		this.phantom.exit(exitCode);
+	}
+	,renderPage: function(path) {
+		if(StringTools.endsWith(path,".html")) {
+			var file = this.fs.open(path,"w");
+			file.write(this.page.content);
+			file.close();
+		} else this.page.render(path);
+	}
+	,close: function() {
+		console.log("Closing.");
+		this.page.close();
+		if(this.actionLogFile != null) this.actionLogFile.flush();
+		if(this.eventLogFile != null) this.eventLogFile.flush();
+		this.phantom.exit();
 	}
 	,__class__: PhantomJS
 };
@@ -362,6 +439,8 @@ function $bind(o,m) { if( m == null ) return null; if( m.__id__ == null ) m.__id
 String.prototype.__class__ = String;
 String.__name__ = true;
 Array.__name__ = true;
+Date.prototype.__class__ = Date;
+Date.__name__ = ["Date"];
 var Int = { __name__ : ["Int"]};
 var Dynamic = { __name__ : ["Dynamic"]};
 var Float = Number;
