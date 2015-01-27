@@ -31,12 +31,15 @@ class HTTPProxyServer(object):
 
     Attributes:
         request_callback: A callback function that accepts a Request.
+        pre_response_callback: A callback function that accepts a Request and
+            Response
         response_callback: A callback function that accepts a Request and
             Response
     '''
     def __init__(self, http_client):
         self._http_client = http_client
         self.request_callback = None
+        self.pre_response_callback = None
         self.response_callback = None
 
     @trollius.coroutine
@@ -47,7 +50,8 @@ class HTTPProxyServer(object):
         try:
             session = Session(
                 self._http_client, reader, writer,
-                self.request_callback, self.response_callback
+                self.request_callback,
+                self.pre_response_callback, self.response_callback
             )
             yield From(session())
         except Exception as error:
@@ -68,11 +72,12 @@ class HTTPProxyServer(object):
 class Session(object):
     '''Proxy session.'''
     def __init__(self, http_client, reader, writer, request_callback,
-                 response_callback):
+                 pre_response_callback, response_callback):
         self._http_client = http_client
         self._reader = self._original_reader = reader
         self._writer = self._original_writer = writer
         self._request_callback = request_callback
+        self._pre_response_callback = pre_response_callback
         self._response_callback = response_callback
 
         self._cert_filename = wpull.util.get_package_filename('proxy.crt')
@@ -130,12 +135,15 @@ class Session(object):
 
                 response = yield From(session.fetch(request))
 
-                if self._response_callback:
-                    self._response_callback(request, response)
+                if self._pre_response_callback:
+                    self._pre_response_callback(request, response)
 
                 self._writer.write(response.to_bytes())
                 yield From(self._writer.drain())
                 yield From(session.read_content(file=self._writer, raw=True))
+
+                if self._response_callback:
+                    self._response_callback(request, response)
 
             _logger.debug('Response done.')
 
