@@ -220,7 +220,7 @@ class PhantomJS {
                 response: response
             });
             activityCounter += 1;
-            if (pageLoaded) {
+            if (pageLoaded && response.stage == "end") {
                 pendingResourcesAfterLoad -= 1;
             }
         }
@@ -376,6 +376,8 @@ class PhantomJS {
             }
 
             var duration = Date.now().getTime() - startDate.getTime();
+
+            trace('pendingResourcesAfterLoad=$pendingResourcesAfterLoad');
 
             if (pendingResourcesAfterLoad > 0 && duration < 60000) {
                 Browser.window.setTimeout(pollForPendingLoad, 100);

@@ -131,7 +131,7 @@ PhantomJS.prototype = {
 		this.page.onResourceReceived = function(response) {
 			_g.logEvent("resource_received",{ response : response});
 			_g.activityCounter += 1;
-			if(_g.pageLoaded) _g.pendingResourcesAfterLoad -= 1;
+			if(_g.pageLoaded && response.stage == "end") _g.pendingResourcesAfterLoad -= 1;
 		};
 		this.page.onResourceRequested = function(requestData,networkRequest) {
 			_g.logEvent("resource_requested",{ request_data : requestData, network_request : networkRequest});
@@ -203,6 +203,7 @@ PhantomJS.prototype = {
 		pollForPendingLoad1 = function() {
 			if(startDate == null) startDate = new Date();
 			var duration = new Date().getTime() - startDate.getTime();
+			console.log("pendingResourcesAfterLoad=" + _g.pendingResourcesAfterLoad);
 			if(_g.pendingResourcesAfterLoad > 0 && duration < 60000) window.setTimeout(pollForPendingLoad1,100); else _g.loadFinishedCallback2();
 		};
 		pollForPendingLoad = pollForPendingLoad1;
