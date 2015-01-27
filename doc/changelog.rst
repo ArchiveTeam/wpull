@@ -7,6 +7,8 @@ What's New
 * Added ``--strip-session-id`` option.
 * Added ``--no-skip-getaddrinfo`` option.
 * Added ``--limit-rate`` option.
+* Added ``--phantomjs-max-time`` option.
+* Improved PhantomJS stability.
 
 
 0.1005 (2015-01-15)
