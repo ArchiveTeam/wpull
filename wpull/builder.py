@@ -1219,7 +1219,11 @@ class Builder(object):
 
         cookie_jar = self.factory.get('CookieJarWrapper')
         proxy_coprocessor = self.factory.new(
-            'ProxyCoprocessor', proxy_server, cookie_jar=cookie_jar
+            'ProxyCoprocessor',
+            proxy_server,
+            self.factory['FetchRule'],
+            self.factory['ResultRule'],
+            cookie_jar=cookie_jar
         )
 
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
