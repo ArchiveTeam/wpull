@@ -1036,6 +1036,7 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
+    @unittest.skip('not a good idea to test continuously on external servers')
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_youtube_dl(self):
         arg_parser = AppArgumentParser()
