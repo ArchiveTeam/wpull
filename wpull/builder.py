@@ -794,13 +794,12 @@ class Builder(object):
         )
 
         if args.phantomjs or args.youtube_dl or args.proxy_server:
-            proxy_server, proxy_port, proxy_task = self._build_proxy_server()
+            proxy_server, proxy_event_loop_server, proxy_port = self._build_proxy_server()
             application = self._factory['Application']
             # XXX: Should we be sticking these into application?
             # We need to stick them somewhere so the Task doesn't get garbage
             # collected
-            application.proxy_server = proxy_server
-            application.proxy_task = proxy_task
+            application.servers.append(proxy_event_loop_server)
 
         if args.phantomjs:
             phantomjs_coprocessor = self._build_phantomjs_coprocessor(proxy_port)
@@ -1253,11 +1252,11 @@ class Builder(object):
         )[0]
         proxy_port = proxy_socket.getsockname()[1]
 
-        proxy_task = trollius.async(
+        proxy_event_loop_server = trollius.get_event_loop().run_until_complete(
             trollius.start_server(proxy_server, sock=proxy_socket)
         )
 
-        return proxy_server, proxy_port, proxy_task
+        return proxy_server, proxy_event_loop_server, proxy_port
 
     def _build_robots_txt_checker(self):
         '''Build robots.txt checker.'''

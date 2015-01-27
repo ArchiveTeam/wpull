@@ -54,6 +54,7 @@ class Application(HookableMixin):
         self._exit_code = 0
         self._statistics = None
         self.stop_observer = wpull.observer.Observer()
+        self.servers = []
 
         self.register_hook('exit_status', 'finishing_statistics')
 
@@ -144,6 +145,7 @@ class Application(HookableMixin):
         except HookDisconnected:
             pass
 
+        yield From(self._close_servers())
         self._print_stats()
         self._convert_documents()
         self.stop_observer.notify()
@@ -248,3 +250,13 @@ class Application(HookableMixin):
         '''Perform clean up actions.'''
         self._builder.factory['WebProcessor'].close()
         self._builder.factory['URLTable'].close()
+
+    def _close_servers(self):
+        '''Close and wait for servers to close.
+
+        Coroutine.
+        '''
+        for server in self.servers:
+            _logger.debug(__('Closing server {}', server))
+            server.close()
+            yield From(server.wait_closed())
