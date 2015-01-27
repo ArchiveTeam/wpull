@@ -257,6 +257,9 @@ class Application(HookableMixin):
         Coroutine.
         '''
         for server in self.servers:
+            if isinstance(server, trollius.Task):
+                server = yield From(server)
+
             _logger.debug(__('Closing server {}', server))
             server.close()
             yield From(server.wait_closed())
