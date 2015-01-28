@@ -8,6 +8,7 @@ What's New
 * Added ``--no-skip-getaddrinfo`` option.
 * Added ``--limit-rate`` option.
 * Added ``--phantomjs-max-time`` option.
+* Added ``--youtube-dl`` option.
 * Improved PhantomJS stability.
 
 

@@ -17,7 +17,7 @@ Features:
 * Graceful stopping and resuming
 * Python & Lua scripting support
 * Modular, extensible, & asynchronous API
-* PhantomJS integration
+* PhantomJS & youtube-dl integration
 
 **Currently in beta quality! Some features are not implemented yet and the API
 is not considered stable.**
