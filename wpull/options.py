@@ -199,7 +199,9 @@ class AppArgumentParser(argparse.ArgumentParser):
         self._add_warc_args()
         self._add_recursive_args()
         self._add_accept_args()
+        self._add_proxy_server_args()
         self._add_phantomjs_args()
+        self._add_youtube_dl_args()
 
     def _add_startup_args(self):
         group = self.add_argument_group(_('startup'))
@@ -1221,6 +1223,27 @@ class AppArgumentParser(argparse.ArgumentParser):
             help=_('don’t implicitly allow span hosts for redirects'),
         )
 
+    def _add_proxy_server_args(self):
+        group = self.add_argument_group(_('proxy server'))
+        group.add_argument(
+            '--proxy-server',
+            action='store_true',
+            help=_('run HTTP proxy server for capturing requests'),
+        )
+        group.add_argument(
+            '--proxy-server-address',
+            default='localhost',
+            metavar='ADDRESS',
+            help=_('bind the proxy server to ADDRESS')
+        )
+        group.add_argument(
+            '--proxy-server-port',
+            type=int,
+            default=0,
+            metavar='PORT',
+            help=_('bind the proxy server port to PORT')
+        )
+
     def _add_phantomjs_args(self):
         group = self.add_argument_group(_('PhantomJS'))
         group.add_argument(
@@ -1267,6 +1290,20 @@ class AppArgumentParser(argparse.ArgumentParser):
             dest='phantomjs_smart_scroll',
             default=True,
             help=_('always scroll the page to maximum scroll count option'),
+        )
+
+    def _add_youtube_dl_args(self):
+        group = self.add_argument_group(_('PhantomJS'))
+        group.add_argument(
+            '--youtube-dl',
+            action='store_true',
+            help=_('use youtube-dl for downloading videos'),
+            )
+        group.add_argument(
+            '--youtube-dl-exe',
+            metavar='PATH',
+            default='youtube-dl',
+            help=_('path of youtube-dl executable')
         )
 
     def _post_parse_args(self, args):

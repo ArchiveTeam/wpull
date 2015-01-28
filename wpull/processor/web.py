@@ -52,6 +52,7 @@ WebProcessorInstances = namedlist.namedtuple(
         ('file_writer', NullWriter()),
         ('statistics', Statistics()),
         ('phantomjs_coprocessor', None),
+        ('youtube_dl_coprocessor', None),
     ]
 )
 '''WebProcessorInstances
@@ -63,6 +64,7 @@ Args:
     file_writer (:class`.writer.BaseWriter`): The file writer.
     phantomjs_coprocessor (:class:`.coprocessor.phantomjs.PhantomJSCoprocessor`): The PhantomJS
         corprocessor.
+    youtube_dl_coprocessor (:class:`.coprocessor.youtubedl.YoutubeDlCoprocessor`): youtube-dl coprocessor.
 '''
 
 
@@ -324,11 +326,7 @@ class WebProcessorSession(BaseProcessorSession):
             self._log_response(request, response)
             action = self._handle_response(request, response)
 
-            phantomjs_coprocessor = self._processor.instances.phantomjs_coprocessor
-            if phantomjs_coprocessor:
-                yield From(phantomjs_coprocessor.process(
-                    self._url_item, request, response, self._file_writer_session
-                ))
+            yield From(self._run_coprocessors(request, response))
 
             response.body.close()
 
@@ -466,3 +464,18 @@ class WebProcessorSession(BaseProcessorSession):
         '''
         if hasattr(instance, 'body'):
             instance.body.close()
+
+    def _run_coprocessors(self, request, response):
+        phantomjs_coprocessor = self._processor.instances.phantomjs_coprocessor
+
+        if phantomjs_coprocessor:
+            yield From(phantomjs_coprocessor.process(
+                self._url_item, request, response, self._file_writer_session
+            ))
+
+        youtube_dl_coprocessor = self._processor.instances.youtube_dl_coprocessor
+
+        if youtube_dl_coprocessor:
+            yield From(youtube_dl_coprocessor.process(
+                self._url_item, request, response, self._file_writer_session
+            ))

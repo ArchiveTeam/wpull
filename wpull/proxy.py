@@ -124,6 +124,8 @@ class Session(object):
                 self._reject_request('Upgrade not supported')
                 return
 
+            _logger.debug(__('Got request 2 {0}', request))
+
             if self._request_callback:
                 self._request_callback(request)
 

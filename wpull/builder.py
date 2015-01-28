@@ -14,6 +14,7 @@ import sys
 import tempfile
 
 import tornado.testing
+import tornado.netutil
 import tornado.web
 import trollius
 
@@ -24,6 +25,7 @@ from wpull.connection import Connection, ConnectionPool, SSLConnection
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
 from wpull.coprocessor.proxy import ProxyCoprocessor
+from wpull.coprocessor.youtubedl import YoutubeDlCoprocessor
 from wpull.database.sqltable import URLTable as SQLURLTable, GenericSQLURLTable
 from wpull.database.wrap import URLTableHookWrapper
 from wpull.debug import DebugConsoleHandler
@@ -150,6 +152,7 @@ class Builder(object):
             'WebProcessor': WebProcessor,
             'WebProcessorFetchParams': WebProcessorFetchParams,
             'WebProcessorInstances': WebProcessorInstances,
+            'YoutubeDlCoprocessor': YoutubeDlCoprocessor,
         })
         self._url_infos = None
         self._ca_certs_file = None
@@ -640,6 +643,11 @@ class Builder(object):
                     wpull.driver.phantomjs.get_version(exe_path=args.phantomjs_exe)
                 )
 
+            if args.youtube_dl:
+                software_string += ' youtube-dl/{0}'.format(
+                    wpull.coprocessor.youtubedl.get_version(exe_path=args.youtube_dl_exe)
+                )
+
             url_table = self._factory['URLTable'] if args.warc_dedup else None
 
             recorders.append(
@@ -790,19 +798,23 @@ class Builder(object):
             url_rewriter=self._factory.get('URLRewriter'),
         )
 
-        if args.phantomjs:
-            proxy_server, proxy_port, proxy_task = self._build_proxy_server()
+        if args.phantomjs or args.youtube_dl or args.proxy_server:
+            proxy_server, proxy_server_task, proxy_port = self._build_proxy_server()
             application = self._factory['Application']
             # XXX: Should we be sticking these into application?
             # We need to stick them somewhere so the Task doesn't get garbage
             # collected
-            application.proxy_server = proxy_server
-            application.proxy_task = proxy_task
+            application.servers.append(proxy_server_task)
 
         if args.phantomjs:
             phantomjs_coprocessor = self._build_phantomjs_coprocessor(proxy_port)
         else:
             phantomjs_coprocessor = None
+
+        if args.youtube_dl:
+            youtube_dl_coprocessor = self._build_youtube_dl_coprocessor(proxy_port)
+        else:
+            youtube_dl_coprocessor = None
 
         web_processor_instances = self._factory.new(
             'WebProcessorInstances',
@@ -812,6 +824,7 @@ class Builder(object):
             file_writer=file_writer,
             statistics=self._factory['Statistics'],
             phantomjs_coprocessor=phantomjs_coprocessor,
+            youtube_dl_coprocessor=youtube_dl_coprocessor,
         )
 
         web_processor_fetch_params = self._factory.new(
@@ -1189,7 +1202,8 @@ class Builder(object):
         )
 
         extra_args = [
-            '--proxy', 'localhost:{0}'.format(proxy_port),
+            '--proxy',
+            '{}:{}'.format(self._args.proxy_server_address, proxy_port),
             '--ignore-ssl-errors=true'
         ]
 
@@ -1210,6 +1224,21 @@ class Builder(object):
 
         return phantomjs_coprocessor
 
+    def _build_youtube_dl_coprocessor(self, proxy_port):
+        '''Build youtube-dl coprocessor.'''
+
+        # Test early for executable
+        wpull.coprocessor.youtubedl.get_version(self._args.youtube_dl_exe)
+
+        coprocessor = self.factory.new(
+            'YoutubeDlCoprocessor',
+            self._args.youtube_dl_exe,
+            (self._args.proxy_server_address, proxy_port),
+            self._args.directory_prefix,
+        )
+
+        return coprocessor
+
     def _build_proxy_server(self):
         '''Build MITM proxy server.'''
         proxy_server = self._factory.new(
@@ -1226,11 +1255,17 @@ class Builder(object):
             cookie_jar=cookie_jar
         )
 
-        proxy_socket, proxy_port = tornado.testing.bind_unused_port()
+        proxy_socket = tornado.netutil.bind_sockets(
+            self._args.proxy_server_port,
+            address=self._args.proxy_server_address
+        )[0]
+        proxy_port = proxy_socket.getsockname()[1]
 
-        proxy_task = trollius.async(trollius.start_server(proxy_server, sock=proxy_socket))
+        proxy_server_task = trollius.async(
+            trollius.start_server(proxy_server, sock=proxy_socket)
+        )
 
-        return proxy_server, proxy_port, proxy_task
+        return proxy_server, proxy_server_task, proxy_port
 
     def _build_robots_txt_checker(self):
         '''Build robots.txt checker.'''
