@@ -1234,7 +1234,8 @@ class Builder(object):
             'YoutubeDlCoprocessor',
             self._args.youtube_dl_exe,
             (self._args.proxy_server_address, proxy_port),
-            self._args.directory_prefix,
+            root_path=self._args.directory_prefix,
+            user_agent = self._args.user_agent or self.default_user_agent
         )
 
         return coprocessor

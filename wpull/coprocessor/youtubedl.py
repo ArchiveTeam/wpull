@@ -17,10 +17,12 @@ _ = gettext.gettext
 
 
 class YoutubeDlCoprocessor(object):
-    def __init__(self, youtube_dl_path, proxy_address, root_path='.'):
+    def __init__(self, youtube_dl_path, proxy_address, root_path='.',
+                 user_agent=None):
         self._youtube_dl_path = youtube_dl_path
         self._proxy_address = proxy_address
         self._root_path = root_path
+        self._user_agent = user_agent
 
     @trollius.coroutine
     def process(self, url_item, request, response, file_writer_session):
@@ -32,7 +34,7 @@ class YoutubeDlCoprocessor(object):
 
         session = Session(
             self._proxy_address, self._youtube_dl_path, self._root_path,
-            url_item, file_writer_session
+            url_item, file_writer_session, self._user_agent
         )
 
         url = url_item.url_info.url
@@ -46,12 +48,13 @@ class YoutubeDlCoprocessor(object):
 
 class Session(object):
     def __init__(self, proxy_address, youtube_dl_path, root_path, url_item,
-                 file_writer_session):
+                 file_writer_session, user_agent):
         self._proxy_address = proxy_address
         self._youtube_dl_path = youtube_dl_path
         self._root_path = root_path
         self._url_item = url_item
         self._file_writer_session = file_writer_session
+        self._user_agent = user_agent
         self._temp_dir = None
 
     @trollius.coroutine
@@ -71,6 +74,9 @@ class Session(object):
             '--output', self._get_output_template(),
             url
         ]
+
+        if self._user_agent:
+            args.extend(['--user-agent', self._user_agent])
 
         youtube_dl_process = Process(
             args,
