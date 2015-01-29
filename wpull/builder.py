@@ -804,7 +804,7 @@ class Builder(object):
             # XXX: Should we be sticking these into application?
             # We need to stick them somewhere so the Task doesn't get garbage
             # collected
-            application.servers.append(proxy_server_task)
+            application.add_server_task(proxy_server_task)
 
         if args.phantomjs:
             phantomjs_coprocessor = self._build_phantomjs_coprocessor(proxy_port)
