@@ -235,6 +235,15 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='FILE',
             help=_('load Lua hook script from FILE')
         )
+        group.add_argument(
+            '--plugin-script',
+            metavar='FILE',
+            help=_('load plugin script from FILE')
+        )
+        group.add_argument(
+            '--plugin-args',
+            help=_('arguments for the plugin')
+        )
         database_group = group.add_mutually_exclusive_group()
         database_group.add_argument(
             '--database',

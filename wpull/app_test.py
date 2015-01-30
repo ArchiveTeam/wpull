@@ -502,6 +502,23 @@ class TestApp(GoodAppTestCase):
         self.assertGreater(10.0, stats.duration)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_plugin_script(self):
+        arg_parser = AppArgumentParser()
+        filename = os.path.join(
+            os.path.dirname(__file__), 'testing', 'plugin_script.py'
+        )
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--plugin-script', filename,
+            ])
+        with cd_tempdir():
+            builder = Builder(args, unit_test=True)
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(42, exit_code)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_iri_handling(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([

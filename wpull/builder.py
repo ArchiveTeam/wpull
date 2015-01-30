@@ -33,7 +33,7 @@ from wpull.dns import Resolver, PythonResolver
 from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.ftp.client import Client as FTPClient
-from wpull.hook import HookEnvironment
+from wpull.hook import HookEnvironment, PluginEnvironment
 from wpull.http.client import Client as HTTPClient
 from wpull.http.proxy import ProxyAdapter
 from wpull.http.redirect import RedirectTracker
@@ -175,10 +175,14 @@ class Builder(object):
         Returns:
             Application: An instance of :class:`.app.Application`.
         '''
+        self._setup_logging()
+
+        if self._args.plugin_script:
+            self._initialize_plugin()
+
         self._factory.new('Application', self)
 
         self._build_html_parser()
-        self._setup_logging()
         self._setup_console_logger()
         self._setup_file_logger()
         self._setup_debug_console()
@@ -225,6 +229,23 @@ class Builder(object):
         app = self.build()
         exit_code = app.run_sync()
         return exit_code
+
+    def _initialize_plugin(self):
+        '''Load the plugin script.'''
+        filename = self._args.plugin_script
+        _logger.info(__(
+            _('Using Python hook script {filename}.'),
+            filename=filename
+        ))
+
+        plugin_environment = PluginEnvironment(
+            self._factory, self, self._args.plugin_args
+        )
+
+        with open(filename, 'rb') as in_file:
+            code = compile(in_file.read(), filename, 'exec')
+            context = {'wpull_plugin': plugin_environment}
+            exec(code, context, context)
 
     def _new_encoded_stream(self, stream):
         '''Return a stream writer.'''

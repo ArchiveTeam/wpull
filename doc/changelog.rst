@@ -9,6 +9,7 @@ What's New
 * Added ``--limit-rate`` option.
 * Added ``--phantomjs-max-time`` option.
 * Added ``--youtube-dl`` option.
+* Added ``--plugin-script`` option.
 * Improved PhantomJS stability.
 
 

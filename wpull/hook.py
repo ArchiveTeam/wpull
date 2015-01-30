@@ -507,3 +507,17 @@ class HookEnvironment(object):
             url_item.url_table.remove_one(url)
 
         url_item.add_child_url(url_info.url, inline=inline, **kwargs)
+
+
+class PluginEnvironment(object):
+    '''Plugin environment for customizing classes.
+
+    Attributes:
+        factory (:class:`.factory.Factory`): The factory ready to be modified.
+        builder (:class:`.builder.Builder`): Application builder.
+        plugin_args (str): Additional arguments for the plugin.
+    '''
+    def __init__(self, factory, builder, plugin_args):
+        self.factory = factory
+        self.builder = builder
+        self.plugin_args = plugin_args
