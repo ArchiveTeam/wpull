@@ -47,6 +47,7 @@ class HTTPProxyServer(object):
         '''Handle a request
 
         Coroutine.'''
+        _logger.debug('New proxy connection.')
         try:
             session = Session(
                 self._http_client, reader, writer,
@@ -67,6 +68,7 @@ class HTTPProxyServer(object):
                 raise
 
         writer.close()
+        _logger.debug('Proxy connection closed.')
 
 
 class Session(object):

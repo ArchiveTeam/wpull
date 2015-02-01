@@ -164,11 +164,13 @@ PhantomJS.prototype = {
 		var url = Reflect.field(this.config,"url");
 		console.log("Load URL " + url + ".");
 		this.page.open(url,function() {
+			console.log("Page loaded!");
 			_g.pageLoaded = true;
 		});
 		this.pollPageLoad();
 	}
 	,pollPageLoad: function() {
+		console.log("Polling for load.");
 		if(this.pageLoaded) this.loadFinishedCallback(); else window.setTimeout($bind(this,this.pollPageLoad),100);
 	}
 	,loadFinishedCallback: function() {

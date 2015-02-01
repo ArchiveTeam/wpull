@@ -292,7 +292,10 @@ class PhantomJS {
         var url:String = Reflect.field(config, "url");
 
         trace('Load URL $url.');
-        page.open(url, function () { pageLoaded = true; });
+        page.open(url, function () {
+            trace("Page loaded!");
+            pageLoaded = true;
+        });
         // For PhantomJS, we need to poll so that the callback isn't in
         // the page scope but in here scope. If we don't do this,
         // errors don't bubble up and weird security access errors occurs.
@@ -303,6 +306,8 @@ class PhantomJS {
      * Pool for page loaded.
      */
     function pollPageLoad() {
+        trace("Polling for load.");
+
         if (pageLoaded) {
             loadFinishedCallback();
         } else {
