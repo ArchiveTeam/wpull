@@ -173,12 +173,19 @@ class Session(object):
     def _start_tls(self):
         '''Start SSL protocol on the socket.'''
         socket_ = self._writer.get_extra_info('socket')
-        trollius.get_event_loop().remove_reader(socket_.fileno())
+
+        try:
+            trollius.get_event_loop().remove_reader(socket_.fileno())
+        except ValueError as error:
+            raise trollius.ConnectionAbortedError() from error
 
         self._writer.write(b'HTTP/1.1 200 Connection established\r\n\r\n')
         yield From(self._writer.drain())
 
-        trollius.get_event_loop().remove_writer(socket_.fileno())
+        try:
+            trollius.get_event_loop().remove_writer(socket_.fileno())
+        except ValueError as error:
+            raise trollius.ConnectionAbortedError() from error
 
         ssl_socket = ssl.wrap_socket(
             socket_, server_side=True,
