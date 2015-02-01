@@ -2,6 +2,9 @@
 What's New
 ==========
 
+0.1006 (2015-02-01)
+===================
+
 * Fixed inability to fetch URLs with hostnames starting/ending with hyphen.
 * Fixed "Invalid file descriptor" error in proxy server.
 * Fixed FTP listing dates mistakenly parsed as future date within the same month.
