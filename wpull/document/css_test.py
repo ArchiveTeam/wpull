@@ -44,6 +44,25 @@ class TestCSS(unittest.TestCase):
         response.fields['Content-Type'] = 'image/png'
         self.assertFalse(CSSReader.is_response(response))
 
+    def test_css_links_simple(self):
+        css_data = b'''@import url('wow.css');
+            body { background: url('cool.png') }
+        '''
+        reader = CSSReader()
+        links = set()
+
+        for link in reader.iter_links(
+                io.BytesIO(css_data), encoding='ascii', context=True):
+            links.add(link)
+
+        self.assertEqual(
+            {
+                ('wow.css', 'import'),
+                ('cool.png', 'url')
+            },
+            links
+        )
+
     def test_css_read_links_big(self):
         css_data = b'\n'.join(
             [

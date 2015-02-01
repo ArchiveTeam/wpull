@@ -2,6 +2,22 @@
 What's New
 ==========
 
+0.1006 (2015-02-01)
+===================
+
+* Fixed inability to fetch URLs with hostnames starting/ending with hyphen.
+* Fixed "Invalid file descriptor" error in proxy server.
+* Fixed FTP listing dates mistakenly parsed as future date within the same month.
+* Added ``--escaped-fragment`` option.
+* Added ``--strip-session-id`` option.
+* Added ``--no-skip-getaddrinfo`` option.
+* Added ``--limit-rate`` option.
+* Added ``--phantomjs-max-time`` option.
+* Added ``--youtube-dl`` option.
+* Added ``--plugin-script`` option.
+* Improved PhantomJS stability.
+
+
 0.1005 (2015-01-15)
 ===================
 

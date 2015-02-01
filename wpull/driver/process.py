@@ -95,7 +95,7 @@ class Process(object):
 
     @trollius.coroutine
     def _read_stdout(self):
-        '''Continously read the stdout for RPC messages.'''
+        '''Continuously read the stdout for messages.'''
         try:
             while self._process.returncode is None:
                 line = yield From(self._process.stdout.readline())
@@ -114,7 +114,7 @@ class Process(object):
 
     @trollius.coroutine
     def _read_stderr(self):
-        '''Continously read stderr for error messages.'''
+        '''Continuously read stderr for error messages.'''
         try:
             while self._process.returncode is None:
                 line = yield From(self._process.stderr.readline())
@@ -128,42 +128,3 @@ class Process(object):
         except Exception:
             _logger.exception('Unhandled read stderr exception.')
             raise
-
-
-class RPCProcess(Process):
-    '''RPC subprocess wrapper.'''
-    def __init__(self, proc_args, message_callback):
-        super().__init__(proc_args, stdout_callback=self._stdout_callback,
-                         stderr_callback=self._stderr_callback)
-        self._message_callback = message_callback
-
-    @trollius.coroutine
-    def _stdout_callback(self, line):
-        '''Handle stdout message.'''
-        if line.startswith(b'!RPC '):
-            message = json.loads(line[5:].decode('utf-8'))
-            return_value = self._message_callback(message)
-
-            if return_value is not None:
-                yield From(self.send_message(return_value))
-        else:
-            _logger.warning(__(
-                _('Subprocess: {message}'),
-                message=line.decode('utf-8', 'replace').rstrip()
-            ))
-
-    @trollius.coroutine
-    def _stderr_callback(self, line):
-        '''Handle stderr output'''
-        _logger.warning(__(
-            _('Subprocess: {message}'),
-            message=line.decode('utf-8', 'replace').rstrip()
-        ))
-
-    @trollius.coroutine
-    def send_message(self, message):
-        '''Send a RPC message.'''
-        self._process.stdin.write(b'!RPC ')
-        self._process.stdin.write(json.dumps(message).encode('utf-8'))
-        self._process.stdin.write(b'\n')
-        yield From(self._process.stdin.drain())

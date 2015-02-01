@@ -7,12 +7,12 @@ import socket
 
 from trollius import From, Return
 import trollius
+import dns.resolver
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.cache import FIFOCache
 from wpull.errors import DNSNotFound, NetworkError
 from wpull.hook import HookableMixin, HookDisconnected
-import wpull.string
 
 
 _logger = logging.getLogger(__name__)
@@ -147,6 +147,35 @@ class Resolver(HookableMixin):
             results = yield From(trollius.wait_for(future, self._timeout))
         except trollius.TimeoutError as error:
             raise NetworkError('DNS resolve timed out.') from error
+        else:
+            raise Return(results)
+
+    @trollius.coroutine
+    def _getaddrinfo_implementation(self, host, port):
+        '''The resolver implementation.
+
+        Returns:
+            list: A list of tuples.
+
+            Each tuple contains:
+
+            1. Family (``AF_INET`` or ``AF_INET6``).
+            2. Address (tuple): At least two values which are
+               IP address and port.
+
+        Coroutine.
+        '''
+        if self._family in (self.PREFER_IPv4, self.PREFER_IPv6):
+            family_flags = socket.AF_UNSPEC
+        else:
+            family_flags = self._family
+
+        try:
+            results = yield From(
+                trollius.get_event_loop().getaddrinfo(
+                    host, port, family=family_flags
+                )
+            )
         except socket.error as error:
             if error.errno in (
                     socket.EAI_FAIL,
@@ -159,23 +188,7 @@ class Resolver(HookableMixin):
                 raise NetworkError(
                     'DNS resolution error: {error}'.format(error=error)
                 ) from error
-        else:
-            raise Return(results)
 
-    @trollius.coroutine
-    def _getaddrinfo_implementation(self, host, port):
-        '''Call getaddrinfo.'''
-
-        if self._family in (self.PREFER_IPv4, self.PREFER_IPv6):
-            family_flags = socket.AF_UNSPEC
-        else:
-            family_flags = self._family
-
-        results = yield From(
-            trollius.get_event_loop().getaddrinfo(
-                host, port, family=family_flags
-            )
-        )
         results = list([(result[0], result[4]) for result in results])
 
         if self._family in (self.PREFER_IPv4, self.PREFER_IPv6):
@@ -217,3 +230,81 @@ class Resolver(HookableMixin):
             return list(itertools.chain(ipv6_results, ipv4_results))
         else:
             return list(itertools.chain(ipv4_results, ipv6_results))
+
+
+class PythonResolver(Resolver):
+    '''Resolver using dnspython.'''
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._resolver = dns.resolver.Resolver()
+
+        if self._timeout:
+            self._resolver.timeout = self._timeout
+
+    @trollius.coroutine
+    def _getaddrinfo_implementation(self, host, port):
+        event_loop = trollius.get_event_loop()
+
+        results = []
+
+        def query_ipv4():
+            answers = yield From(event_loop.run_in_executor(
+                None, self._query, host, 'A'
+            ))
+            results.extend(
+                (socket.AF_INET, (answer.address, port)) for answer in answers
+            )
+
+        def query_ipv6():
+            answers = yield From(event_loop.run_in_executor(
+                None, self._query, host, 'AAAA'
+            ))
+            results.extend(
+                (socket.AF_INET6, (answer.address, port)) for answer in answers
+            )
+
+        if self._family == socket.AF_INET:
+            try:
+                yield From(query_ipv4())
+            except DNSNotFound:
+                pass
+        elif self._family == socket.AF_INET6:
+            try:
+                yield From(query_ipv6())
+            except DNSNotFound:
+                pass
+        else:
+            try:
+                yield From(query_ipv4())
+            except DNSNotFound:
+                pass
+
+            try:
+                yield From(query_ipv6())
+            except DNSNotFound:
+                pass
+
+        if not results:
+            # Maybe defined in hosts file or mDNS
+            results = yield From(super()._getaddrinfo_implementation(host, port))
+
+        raise Return(results)
+
+    def _query(self, host, query_type):
+        try:
+            answer_bundle = self._resolver.query(
+                host, query_type, raise_on_no_answer=False
+            )
+            return answer_bundle.rrset or ()
+        except dns.resolver.NXDOMAIN as error:
+            # dnspython doesn't raise an instance with a message, so use the
+            # class name instead.
+            raise DNSNotFound(
+                'DNS resolution failed: {error}'
+                .format(error=error.__class__.__name__)
+            ) from error
+        except dns.exception.DNSException as error:
+            raise NetworkError(
+                'DNS resolution error: {error}'
+                .format(error=error.__class.__.__name__)
+            ) from error

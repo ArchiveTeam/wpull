@@ -31,27 +31,30 @@ class HTTPProxyServer(object):
 
     Attributes:
         request_callback: A callback function that accepts a Request.
+        pre_response_callback: A callback function that accepts a Request and
+            Response
         response_callback: A callback function that accepts a Request and
             Response
     '''
     def __init__(self, http_client):
         self._http_client = http_client
         self.request_callback = None
+        self.pre_response_callback = None
         self.response_callback = None
-
-        self._cert_filename = wpull.util.get_package_filename('proxy.crt')
-        self._key_filename = wpull.util.get_package_filename('proxy.key')
-
-        assert os.path.isfile(self._cert_filename), self._cert_filename
-        assert os.path.isfile(self._key_filename), self._key_filename
 
     @trollius.coroutine
     def __call__(self, reader, writer):
         '''Handle a request
 
         Coroutine.'''
+        _logger.debug('New proxy connection.')
         try:
-            yield From(self._process_connection(reader, writer))
+            session = Session(
+                self._http_client, reader, writer,
+                self.request_callback,
+                self.pre_response_callback, self.response_callback
+            )
+            yield From(session())
         except Exception as error:
             if not isinstance(error, StopIteration):
                 if isinstance(error, (trollius.ConnectionAbortedError,
@@ -60,41 +63,40 @@ class HTTPProxyServer(object):
                     _logger.debug('Proxy error', exc_info=True)
                 else:
                     _logger.exception('Proxy error')
+                writer.close()
             else:
                 raise
 
         writer.close()
+        _logger.debug('Proxy connection closed.')
+
+
+class Session(object):
+    '''Proxy session.'''
+    def __init__(self, http_client, reader, writer, request_callback,
+                 pre_response_callback, response_callback):
+        self._http_client = http_client
+        self._reader = self._original_reader = reader
+        self._writer = self._original_writer = writer
+        self._request_callback = request_callback
+        self._pre_response_callback = pre_response_callback
+        self._response_callback = response_callback
+
+        self._cert_filename = wpull.util.get_package_filename('proxy.crt')
+        self._key_filename = wpull.util.get_package_filename('proxy.key')
+
+        assert os.path.isfile(self._cert_filename), self._cert_filename
+        assert os.path.isfile(self._key_filename), self._key_filename
+
+        self._is_ssl_tunnel = False
 
     @trollius.coroutine
-    def _process_connection(self, reader, writer):
+    def __call__(self):
         '''Process a connection session.'''
         _logger.debug('Begin session.')
 
-        @trollius.coroutine
-        def read_request():
-            request = Request()
-
-            for dummy in range(100):
-                line = yield From(reader.readline())
-
-                _logger.debug(__('Got line {0}', line))
-
-                if line[-1:] != b'\n':
-                    return
-
-                if not line.strip():
-                    break
-
-                request.parse(line)
-            else:
-                raise ProtocolError('Request has too many headers.')
-
-            raise Return(request)
-
-        is_ssl_tunnel = False
-
         while True:
-            request = yield From(read_request())
+            request = yield From(self._read_request_header())
 
             if not request:
                 return
@@ -102,14 +104,18 @@ class HTTPProxyServer(object):
             _logger.debug(__('Got request {0}', request))
 
             if request.method == 'CONNECT':
-                reader, writer = yield From(self._start_tls(reader, writer))
-                is_ssl_tunnel = True
-                request = yield From(read_request())
+                if self._is_ssl_tunnel:
+                    self._reject_request('Cannot CONNECT within CONNECT')
+                    return
+
+                yield From(self._start_tls())
+                self._is_ssl_tunnel = True
+                request = yield From(self._read_request_header())
 
                 if not request:
                     return
 
-            if is_ssl_tunnel and request.url.startswith('http://'):
+            if self._is_ssl_tunnel and request.url.startswith('http://'):
                 request.url = request.url.replace('http://', 'https://', 1)
 
             if 'Upgrade' in request.fields.get('Connection', ''):
@@ -117,37 +123,71 @@ class HTTPProxyServer(object):
                     _('Connection Upgrade not supported for {}'),
                     request.url
                 ))
+                self._reject_request('Upgrade not supported')
                 return
 
-            if self.request_callback:
-                self.request_callback(request)
+            _logger.debug(__('Got request 2 {0}', request))
+
+            if self._request_callback:
+                self._request_callback(request)
 
             _logger.debug('Begin response.')
 
             with self._http_client.session() as session:
                 if 'Content-Length' in request.fields:
-                    request.body = reader
+                    request.body = self._reader
 
                 response = yield From(session.fetch(request))
 
-                if self.response_callback:
-                    self.response_callback(request, response)
+                if self._pre_response_callback:
+                    self._pre_response_callback(request, response)
 
-                writer.write(response.to_bytes())
-                yield From(writer.drain())
-                yield From(session.read_content(file=writer, raw=True))
+                self._writer.write(response.to_bytes())
+                yield From(self._writer.drain())
+                yield From(session.read_content(file=self._writer, raw=True))
+
+                if self._response_callback:
+                    self._response_callback(request, response)
 
             _logger.debug('Response done.')
 
-    def _start_tls(self, reader, writer):
+    @trollius.coroutine
+    def _read_request_header(self):
+        request = Request()
+
+        for dummy in range(100):
+            line = yield From(self._reader.readline())
+
+            _logger.debug(__('Got line {0}', line))
+
+            if line[-1:] != b'\n':
+                return
+
+            if not line.strip():
+                break
+
+            request.parse(line)
+        else:
+            raise ProtocolError('Request has too many headers.')
+
+        raise Return(request)
+
+    def _start_tls(self):
         '''Start SSL protocol on the socket.'''
-        socket_ = writer.get_extra_info('socket')
-        trollius.get_event_loop().remove_reader(socket_.fileno())
+        socket_ = self._writer.get_extra_info('socket')
 
-        writer.write(b'HTTP/1.1 200 Connection established\r\n\r\n')
-        yield From(writer.drain())
+        try:
+            trollius.get_event_loop().remove_reader(socket_.fileno())
+        except ValueError as error:
+            raise trollius.ConnectionAbortedError() from error
 
-        trollius.get_event_loop().remove_writer(socket_.fileno())
+        self._writer.write(b'HTTP/1.1 200 Connection established\r\n\r\n')
+        yield From(self._writer.drain())
+
+        try:
+            trollius.get_event_loop().remove_writer(socket_.fileno())
+        except ValueError as error:
+            raise trollius.ConnectionAbortedError() from error
 
         ssl_socket = ssl.wrap_socket(
             socket_, server_side=True,
@@ -157,7 +197,7 @@ class HTTPProxyServer(object):
         )
 
         # FIXME: this isn't how to START TLS
-        for dummy in range(20):
+        for dummy in range(1200):
             try:
                 ssl_socket.do_handshake()
                 break
@@ -179,7 +219,16 @@ class HTTPProxyServer(object):
             lambda: protocol, sock=ssl_socket))
         writer = trollius.StreamWriter(transport, protocol, reader, loop)
 
-        raise Return((reader, writer))
+        self._reader = reader
+        self._writer = writer
+
+    def _reject_request(self, message='Request Not Allowed'):
+        '''Send HTTP 501 and close the connection.'''
+        self._writer.write(
+            'HTTP/1.1 501 {}\r\n'.format(message).encode('ascii', 'replace')
+        )
+        self._writer.write(b'\r\n')
+        self._writer.close()
 
 if __name__ == '__main__':
     from wpull.http.client import Client

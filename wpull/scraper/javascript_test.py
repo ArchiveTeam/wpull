@@ -4,6 +4,7 @@ import unittest
 
 from wpull.body import Body
 from wpull.http.request import Request, Response
+from wpull.item import LinkType
 from wpull.scraper.javascript import JavaScriptScraper
 import wpull.util
 
@@ -24,9 +25,9 @@ class TestJavascript(unittest.TestCase):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertEqual({
             'http://example.com/script_variable.png',
@@ -52,6 +53,22 @@ class TestJavascript(unittest.TestCase):
             linked_urls
         )
 
+    def test_javascript_reject_type(self):
+        scraper = JavaScriptScraper()
+        request = Request('http://example.com/script.js')
+        response = Response(200, 'OK')
+        response.body = Body()
+
+        with wpull.util.reset_file_offset(response.body):
+            html_file_path = os.path.join(ROOT_PATH,
+                                          'testing', 'samples', 'script.js')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body)
+
+        scrape_result = scraper.scrape(request, response,
+                                       link_type=LinkType.css)
+        self.assertFalse(scrape_result)
+
     def test_javascript_heavy_inline_monstrosity(self):
         scraper = JavaScriptScraper()
         request = Request('http://example.com/test.js')
@@ -66,9 +83,9 @@ class TestJavascript(unittest.TestCase):
                 in_file.seek(0x147)
                 shutil.copyfileobj(in_file, response.body)
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertIn(
             'http://cdn.bulbagarden.net/upload/archive/a/a4/'

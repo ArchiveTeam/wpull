@@ -128,9 +128,9 @@ class TestEngine(AsyncTestCase):
         statistics = Statistics()
 
         url_table.add_many([
-            'http://example.........com/invalidurl',
-            'http://www.example.comáb©：ðéf',
-            'correct horse battery staple',
+            {'url': 'http://example.........com/invalidurl'},
+            {'url': 'http://www.example.comáb©：ðéf'},
+            {'url': 'correct horse battery staple'},
         ])
 
         engine = Engine(url_table, processor, statistics)

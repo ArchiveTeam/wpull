@@ -1,5 +1,7 @@
 # encoding=utf-8
+import glob
 from http import cookiejar
+import re
 from tempfile import TemporaryDirectory
 import contextlib
 import gzip
@@ -192,6 +194,8 @@ class TestApp(GoodAppTestCase):
             '--link-extractors', 'html',
             '--page-requisites-level', '5',
             '--no-strong-crypto',
+            '--no-skip-getaddrinfo',
+            '--limit-rate', '1m',
         ])
         with cd_tempdir():
             builder = Builder(args, unit_test=True)
@@ -496,6 +500,23 @@ class TestApp(GoodAppTestCase):
 
         # duration should be virtually 0 but account for slowness on travis ci
         self.assertGreater(10.0, stats.duration)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_plugin_script(self):
+        arg_parser = AppArgumentParser()
+        filename = os.path.join(
+            os.path.dirname(__file__), 'testing', 'plugin_script.py'
+        )
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--plugin-script', filename,
+            ])
+        with cd_tempdir():
+            builder = Builder(args, unit_test=True)
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(42, exit_code)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_iri_handling(self):
@@ -945,7 +966,7 @@ class TestApp(GoodAppTestCase):
     def test_page_requisite_level(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            self.get_url('/always200/'),
+            self.get_url('/infinite_iframe/'),
             '-r',
             '--page-requisites',
             '--page-requisites-level', '1',
@@ -957,7 +978,121 @@ class TestApp(GoodAppTestCase):
             exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
-        self.assertEqual(3, builder.factory['Statistics'].files)
+        self.assertEqual(2, builder.factory['Statistics'].files)
+
+    # FIXME: not entirely working yet in JS scraper
+    # it still grabs too much
+    @unittest.skip('not entirely working yet in JS scraper')
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_link_type(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/always200/'),
+            '-r',
+            '--page-requisites',
+            '--page-requisites-level', '2',
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(4, builder.factory['Statistics'].files)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_escaped_fragment_input_url(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/escape_from_fragments/#!husky-cat'),
+            '--escaped-fragment'
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+            self.assertEqual(0, exit_code)
+            self.assertEqual(1, builder.factory['Statistics'].files)
+
+            self.assertTrue(os.path.exists('index.html?_escaped_fragment_=husky-cat'))
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_escaped_fragment_recursive(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/escape_from_fragments/'),
+            '-r',
+            '--escaped-fragment'
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(2, builder.factory['Statistics'].files)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_strip_session_id(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/forum/'),
+            '-r',
+            '--strip-session-id',
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
+    @unittest.skip('not a good idea to test continuously on external servers')
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_youtube_dl(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            'https://www.youtube.com/watch?v=tPEE9ZwTmy0',
+            '--warc-file', 'test',
+            '--no-warc-compression',
+            '--youtube-dl',
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+            self.assertEqual(0, exit_code)
+            # TODO: proxy doesn't account for files yet
+            # self.assertEqual(1, builder.factory['Statistics'].files)
+
+            print(list(os.walk('.')))
+
+            with open('test.warc', 'rb') as warc_file:
+                data = warc_file.read()
+
+                self.assertTrue(b'youtube-dl/' in data, 'include version')
+                self.assertTrue(re.search(b'Fetched.*googlevideo\.com/videoplayback', data))
+
+            video_files = tuple(glob.glob('*.mp4') + glob.glob('*.webm'))
+            self.assertTrue(video_files)
+
+            annotations = tuple(glob.glob('*.annotation*'))
+            self.assertTrue(annotations)
+
+            info_json = tuple(glob.glob('*.info.json'))
+            self.assertTrue(info_json)
+
+            # FIXME: version 2015.01.25 doesn't have thumbnail?
+            # thumbnails = tuple(glob.glob('*.jpg'))
+            # self.assertTrue(thumbnails)
 
 
 class SimpleHandler(tornado.web.RequestHandler):
@@ -1116,7 +1251,7 @@ class PhantomJSMixin(object):
             '-4',
             '--no-robots',
             '--phantomjs',
-            '--phantomjs-wait', '0.1',
+            '--phantomjs-wait', '0.4',
             '--phantomjs-scroll', '20',
             '--no-check-certificate',
             ])

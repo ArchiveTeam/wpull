@@ -62,4 +62,7 @@ class CSSReader(BaseDocumentDetector, BaseTextStreamReader):
         regex_stream = RegexStream(stream, self.URL_REGEX)
 
         for match, text in regex_stream.stream():
-            yield (text, bool(match))
+            if match:
+                yield (text, 'import' if match.group(3) else 'url')
+            else:
+                yield (text, False)

@@ -200,9 +200,11 @@ def guess_datetime_format(lines, threshold=5):
     return (date_format, day_period)
 
 
-def parse_datetime(text, date_format=None, is_day_period=None):
+def parse_datetime(text, date_format=None, is_day_period=None,
+                   datetime_now=None):
     '''Parse datetime string into datetime object.'''
-    datetime_now = datetime.datetime.utcnow()
+    datetime_now = datetime_now or \
+        datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
     year = datetime_now.year
     month = datetime_now.month
     day = datetime_now.day
@@ -212,6 +214,7 @@ def parse_datetime(text, date_format=None, is_day_period=None):
     date_ok = False
     start_index = float('+inf')
     end_index = float('-inf')
+    ambiguous_year = False
 
     text = unicodedata.normalize('NFKD', text).lower()
 
@@ -257,13 +260,11 @@ def parse_datetime(text, date_format=None, is_day_period=None):
             month = parse_month(month_str)
             day = int(match.group(2))
             year_str = match.group(3)
-            if year_str:
-                if len(year_str) == 4:
-                    year = int(year_str)
 
-            if year == datetime_now.year and month > datetime_now.month:
-                # Sometimes year is not shown within 6 months
-                year -= 1
+            if year_str and len(year_str) == 4:
+                year = int(year_str)
+            else:
+                ambiguous_year = True
 
             start_index = min(start_index, match.start())
             end_index = max(end_index, match.end())
@@ -290,9 +291,16 @@ def parse_datetime(text, date_format=None, is_day_period=None):
             end_index = max(end_index, match.end())
 
     if date_ok:
-        return (datetime.datetime(year, month, day, hour, minute, second,
-                                  tzinfo=datetime.timezone.utc),
-                start_index, end_index)
+        guess_date = datetime.datetime(year, month, day, hour, minute, second,
+                                       tzinfo=datetime.timezone.utc)
+
+        if ambiguous_year and guess_date > datetime_now:
+            # Sometimes year is not shown within 6 months
+            # Year is shown for dates in the future
+            guess_date = guess_date.replace(year=year - 1)
+
+        return guess_date, start_index, end_index
+
     else:
         raise ValueError('Failed to parse date from {}'.format(repr(text)))
 

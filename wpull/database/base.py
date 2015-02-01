@@ -4,12 +4,10 @@ import abc
 
 class DatabaseError(Exception):
     '''Any database error.'''
-    pass
 
 
 class NotFound(DatabaseError):
     '''Item not found in the table.'''
-    pass
 
 
 class BaseURLTable(object, metaclass=abc.ABCMeta):
@@ -52,7 +50,8 @@ class BaseURLTable(object, metaclass=abc.ABCMeta):
         '''Add the URLs to the table.
 
         Args:
-            urls: An iterable of URL strings
+            urls: An iterable of `dict` column-value mapping. Each
+                map must contain a ``url`` key.
             kwargs: Additional values to be saved for all the URLs
 
         Returns:

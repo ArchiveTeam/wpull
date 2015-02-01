@@ -9,7 +9,8 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.document.html import HTMLReader
 from wpull.document.htmlparse.element import Element
 from wpull.document.util import detect_response_encoding
-from wpull.scraper.base import BaseHTMLScraper
+from wpull.item import LinkType
+from wpull.scraper.base import BaseHTMLScraper, ScrapeResult, LinkContext
 from wpull.scraper.util import urljoin_safe, clean_link_soup, parse_refresh, \
     is_likely_inline, is_likely_link, is_unlikely_link
 from wpull.url import percent_decode
@@ -24,7 +25,8 @@ LinkInfo = collections.namedtuple(
     'LinkInfoType',
     [
         'element', 'tag', 'attrib', 'link',
-        'inline', 'linked', 'base_link', 'value_type'
+        'inline', 'linked', 'base_link', 'value_type',
+        'link_type'
     ]
 )
 '''Information about a link in a lxml document.
@@ -47,6 +49,8 @@ Attributes:
         * ``refresh``: The link was found in a refresh meta string.
         * ``script``: The link was found in JavaScript text.
         * ``srcset``: The link was found in a ``srcset`` attribute.
+
+    link_type: A value from :class:`item.LinkInfo`.
 '''
 
 
@@ -85,23 +89,24 @@ class HTMLScraper(HTMLReader, BaseHTMLScraper):
         else:
             self._ignored_tags = None
 
-    def scrape(self, request, response):
+    def scrape(self, request, response, link_type=None):
         if not self.is_supported(request=request, response=response):
+            return
+        if link_type and link_type != LinkType.html:
             return
 
         base_url = request.url_info.url
         content_file = response.body
         encoding = self._encoding_override \
             or detect_response_encoding(response, is_html=True)
-        linked_urls = set()
-        inline_urls = set()
+        link_contexts = set()
 
         try:
             with wpull.util.reset_file_offset(content_file):
                 elements = self.iter_elements(content_file, encoding=encoding)
 
                 result_meta_info = self._process_elements(
-                    elements, response, base_url, linked_urls, inline_urls
+                    elements, response, base_url, link_contexts
                 )
 
         except (UnicodeError, self._html_parser.parser_error) as error:
@@ -112,17 +117,15 @@ class HTMLScraper(HTMLReader, BaseHTMLScraper):
             result_meta_info = {}
 
         if result_meta_info.get('robots_no_follow'):
-            linked_urls.clear()
+            link_contexts.discard(frozenset(
+                context for context in link_contexts if context.linked
+            ))
 
-        return {
-            'inline_urls': inline_urls,
-            'linked_urls': linked_urls,
-            'base_url': base_url,
-            'encoding': encoding,
-        }
+        scrape_result = ScrapeResult(link_contexts, encoding)
+        scrape_result['base_url'] = base_url
+        return scrape_result
 
-    def _process_elements(self, elements, response, base_url, linked_urls,
-                          inline_urls):
+    def _process_elements(self, elements, response, base_url, link_contexts):
         robots_check_needed = self._robots
         robots_no_follow = False
         inject_refresh = True
@@ -148,10 +151,11 @@ class HTMLScraper(HTMLReader, BaseHTMLScraper):
 
                 if link:
                     link_info = LinkInfo(
-                        None, '_refresh', None,
-                        link,
-                        False, True,
-                        None, 'refresh'
+                        element=None, tag='_refresh', attrib=None,
+                        link=link,
+                        inline=False, linked=True,
+                        base_link=None, value_type='refresh',
+                        link_type=None
                     )
                     link_infos = itertools.chain(link_infos, [link_info])
 
@@ -189,10 +193,13 @@ class HTMLScraper(HTMLReader, BaseHTMLScraper):
                 )
 
                 if url:
-                    if link_info.inline:
-                        inline_urls.add(url)
-                    if link_info.linked:
-                        linked_urls.add(url)
+                    link_contexts.add(LinkContext(
+                        url,
+                        inline=link_info.inline,
+                        linked=link_info.linked,
+                        link_type=link_info.link_type,
+                        extra=link_info,
+                    ))
 
         return {'robots_no_follow': robots_no_follow}
 
@@ -203,8 +210,7 @@ class HTMLScraper(HTMLReader, BaseHTMLScraper):
         '''
         elements = self.iter_elements(file, encoding=encoding)
 
-        linked_urls = set()
-        inline_urls = set()
+        link_contexts = set()
 
         link_infos = self._element_walker.iter_links(elements)
 
@@ -229,17 +235,17 @@ class HTMLScraper(HTMLReader, BaseHTMLScraper):
                 url = clean_link_soup(link_info.link)
 
             if url:
-                if link_info.inline:
-                    inline_urls.add(url)
-                if link_info.linked:
-                    linked_urls.add(url)
+                link_contexts.add(LinkContext(
+                    url,
+                    inline=link_info.inline,
+                    linked=link_info.linked,
+                    link_type=link_info.link_type,
+                    extra=link_info
+                ))
 
-        return {
-            'inline_urls': inline_urls,
-            'linked_urls': linked_urls,
-            'base_url': base_url,
-            'encoding': encoding,
-        }
+        scrape_result = ScrapeResult(link_contexts, encoding)
+        scrape_result['base_url'] = base_url
+        return scrape_result
 
     def _is_accepted(self, element_tag):
         '''Return if the link is accepted by the filters.'''
@@ -290,6 +296,8 @@ class ElementWalker(object):
         'th': {'background': ATTR_INLINE},
     }
     '''Mapping of element tag names to attributes containing links.'''
+    DYNAMIC_ATTRIBUTES = ('onkey', 'oncli', 'onmou')
+    '''Attributes that contain JavaScript.'''
 
     '''Iterate elements looking for links.
 
@@ -348,11 +356,12 @@ class ElementWalker(object):
         if 'style' in attrib and self.css_scraper:
             for link in self.css_scraper.scrape_links(attrib['style']):
                 yield LinkInfo(
-                    element, element.tag, 'style',
-                    link,
-                    True, False,
-                    None,
-                    'css'
+                    element=element, tag=element.tag, attrib='style',
+                    link=link,
+                    inline=True, linked=False,
+                    base_link=None,
+                    value_type='css',
+                    link_type=None
                 )
 
     @classmethod
@@ -360,11 +369,12 @@ class ElementWalker(object):
         '''Get the element text as a link.'''
         if element.text:
             yield LinkInfo(
-                element, element.tag, None,
-                element.text,
-                False, True,
-                None,
-                'plain'
+                element=element, tag=element.tag, attrib=None,
+                link=element.text,
+                inline=False, linked=True,
+                base_link=None,
+                value_type='plain',
+                link_type=None
             )
 
     def iter_links_link_element(self, element):
@@ -374,15 +384,25 @@ class ElementWalker(object):
         standard scraping rules.
         '''
         rel = element.attrib.get('rel', '')
-        inline = 'stylesheet' in rel or 'icon' in rel
+        stylesheet = 'stylesheet' in rel
+        icon = 'icon' in rel
+        inline = stylesheet or icon
+
+        if stylesheet:
+            link_type = LinkType.css
+        elif icon:
+            link_type = LinkType.media
+        else:
+            link_type = None
 
         for attrib_name, link in self.iter_links_by_attrib(element):
             yield LinkInfo(
-                element, element.tag, attrib_name,
-                link,
-                inline, not inline,
-                None,
-                'plain'
+                element=element, tag=element.tag, attrib=attrib_name,
+                link=link,
+                inline=inline, linked=not inline,
+                base_link=None,
+                value_type='plain',
+                link_type=link_type
             )
 
     @classmethod
@@ -399,11 +419,12 @@ class ElementWalker(object):
 
                 if link:
                     yield LinkInfo(
-                        element, element.tag, 'http-equiv',
-                        link,
-                        False, True,
-                        None,
-                        'refresh'
+                        element=element, tag=element.tag, attrib='http-equiv',
+                        link=link,
+                        inline=False, linked=True,
+                        base_link=None,
+                        value_type='refresh',
+                        link_type=None
                     )
 
     @classmethod
@@ -417,32 +438,35 @@ class ElementWalker(object):
         if base_link:
             # lxml returns codebase as inline
             yield LinkInfo(
-                element, element.tag, 'codebase',
-                base_link,
-                True, False,
-                None,
-                'plain'
+                element=element, tag=element.tag, attrib='codebase',
+                link=base_link,
+                inline=True, linked=False,
+                base_link=None,
+                value_type='plain',
+                link_type=None
             )
 
         for attribute in ('code', 'src', 'classid', 'data'):
             if attribute in element.attrib:
                 yield LinkInfo(
-                    element, element.tag, attribute,
-                    element.attrib.get(attribute),
-                    True, False,
-                    base_link,
-                    'plain'
+                    element=element, tag=element.tag, attrib=attribute,
+                    link=element.attrib.get(attribute),
+                    inline=True, linked=False,
+                    base_link=base_link,
+                    value_type='plain',
+                    link_type=None
                 )
 
         if 'archive' in element.attrib:
             for match in re.finditer(r'[^ ]+', element.attrib.get('archive')):
                 value = match.group(0)
                 yield LinkInfo(
-                    element, element.tag, 'archive',
-                    value,
-                    True, False,
-                    base_link,
-                    'list'
+                    element=element, tag=element.tag, attrib='archive',
+                    link=value,
+                    inline=True, linked=False,
+                    base_link=base_link,
+                    value_type='list',
+                    link_type=None
                 )
 
     @classmethod
@@ -452,11 +476,12 @@ class ElementWalker(object):
 
         if valuetype.lower() == 'ref' and 'value' in element.attrib:
             yield LinkInfo(
-                element, element.tag, 'value',
-                element.attrib.get('value'),
-                True, False,
-                None,
-                'plain'
+                element=element, tag=element.tag, attrib='value',
+                link=element.attrib.get('value'),
+                inline=True, linked=False,
+                base_link=None,
+                value_type='plain',
+                link_type=None
             )
 
     def iter_links_style_element(self, element):
@@ -465,11 +490,12 @@ class ElementWalker(object):
             link_iter = self.css_scraper.scrape_links(element.text)
             for link in link_iter:
                 yield LinkInfo(
-                    element, element.tag, None,
-                    link,
-                    True, False,
-                    None,
-                    'css'
+                    element=element, tag=element.tag, attrib=None,
+                    link=link,
+                    inline=True, linked=False,
+                    base_link=None,
+                    value_type='css',
+                    link_type=LinkType.media
                 )
 
     def iter_links_script_element(self, element):
@@ -481,11 +507,12 @@ class ElementWalker(object):
                 inline = is_likely_inline(link)
 
                 yield LinkInfo(
-                    element, element.tag, None,
-                    link,
-                    inline, not inline,
-                    None,
-                    'script'
+                    element=element, tag=element.tag, attrib=None,
+                    link=link,
+                    inline=inline, linked=not inline,
+                    base_link=None,
+                    value_type='script',
+                    link_type=None
                 )
 
         for link in self.iter_links_plain_element(element):
@@ -502,11 +529,12 @@ class ElementWalker(object):
                 linked = not inline
 
             yield LinkInfo(
-                element, element.tag, attrib_name,
-                link,
-                inline, linked,
-                None,
-                'plain'
+                element=element, tag=element.tag, attrib=attrib_name,
+                link=link,
+                inline=inline, linked=linked,
+                base_link=None,
+                value_type='plain',
+                link_type=None
             )
 
     def iter_links_by_attrib(self, element):
@@ -524,7 +552,7 @@ class ElementWalker(object):
                     yield attrib_name, attrib_value
 
             elif self.javascript_scraper and \
-                    attrib_name[:5] in ('onkey', 'oncli', 'onmou'):
+                    attrib_name[:5] in self.DYNAMIC_ATTRIBUTES:
                 for link in self.iter_links_by_js_attrib(attrib_name,
                                                          attrib_value):
                     yield link

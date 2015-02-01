@@ -3,6 +3,7 @@ import unittest
 from wpull.body import Body
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
 from wpull.http.request import Request, Response
+from wpull.item import LinkType
 from wpull.scraper.sitemap import SitemapScraper
 from wpull.util import IS_PYPY
 import wpull.util
@@ -29,9 +30,9 @@ class Mixin(object):
                 b'Sitemap: http://example.com/sitemap00.xml'
             )
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertEqual({
             'http://example.com/sitemap00.xml',
@@ -51,9 +52,9 @@ class Mixin(object):
                 b'dsfju3wrji kjasSItemapsdmjfkl wekie;er :Ads fkj3m /Dk'
             )
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertFalse(linked_urls)
         self.assertFalse(inline_urls)
@@ -77,9 +78,9 @@ class Mixin(object):
             '''
             )
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertEqual({
             'http://www.example.com/sitemap1.xml.gz',
@@ -108,9 +109,9 @@ class Mixin(object):
             '''
             )
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertEqual({
             'http://www.example.com/',
@@ -134,9 +135,9 @@ class Mixin(object):
             '''
             )
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertEqual({
             'http://www.example.com/',
@@ -144,6 +145,29 @@ class Mixin(object):
             linked_urls
         )
         self.assertFalse(inline_urls)
+
+    def test_sitemap_scraper_reject_type(self):
+        scraper = SitemapScraper(self.get_html_parser())
+        request = Request('http://example.com/sitemap.xml')
+        response = Response(200, 'OK')
+        response.body = Body()
+
+        with wpull.util.reset_file_offset(response.body):
+            response.body.write(
+                b'''<?xml version="1.0" encoding="UTF-8"?>
+                <sitemapindex
+                xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+                   <sitemap>
+                      <loc>http://www.example.com/sitemap1.xml.gz</loc>
+                      <lastmod>2004-10-01T18:23:17+00:00</lastmod>
+                   </sitemap>
+                </sitemapindex>
+            '''
+            )
+
+        scrape_result = scraper.scrape(request, response,
+                                       link_type=LinkType.css)
+        self.assertFalse(scrape_result)
 
 
 @unittest.skipIf(IS_PYPY, 'Not supported under PyPy')

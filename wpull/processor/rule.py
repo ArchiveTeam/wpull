@@ -372,12 +372,13 @@ class ProcessingRule(HookableMixin):
         document_scraper (:class:`.scaper.DemuxDocumentScraper`): The document
             scraper.
     '''
-    def __init__(self, fetch_rule, document_scraper=None, sitemaps=False):
+    def __init__(self, fetch_rule, document_scraper=None, sitemaps=False, url_rewriter=None):
         super().__init__()
 
         self._fetch_rule = fetch_rule
         self._document_scraper = document_scraper
         self._sitemaps = sitemaps
+        self._url_rewriter = url_rewriter
 
         self.register_hook('scrape_document')
 
@@ -400,21 +401,32 @@ class ProcessingRule(HookableMixin):
                 )
             )
 
-            url_item.add_linked_url_infos(extra_url_infos)
+            url_item.add_child_urls(
+                [url_info.url for url_info in extra_url_infos]
+            )
 
     def scrape_document(self, request, response, url_item):
         '''Process document for links.'''
+        try:
+            self.call_hook(
+                'scrape_document', request, response, url_item
+            )
+        except HookDisconnected:
+            pass
+
         if not self._document_scraper:
             return
 
-        demux_info = self._document_scraper.scrape_info(request, response)
+        demux_info = self._document_scraper.scrape_info(
+            request, response, url_item.url_record.link_type
+        )
 
         num_inline_urls = 0
         num_linked_urls = 0
 
-        for scraper, scrape_info in demux_info.items():
+        for scraper, scrape_result in demux_info.items():
             new_inline, new_linked = self._process_scrape_info(
-                scraper, scrape_info, url_item
+                scraper, scrape_result, url_item
             )
             num_inline_urls += new_inline
             num_linked_urls += new_linked
@@ -423,51 +435,41 @@ class ProcessingRule(HookableMixin):
                          num_inline_urls, num_linked_urls
         ))
 
-        try:
-            self.call_hook(
-                'scrape_document', request, response, url_item
-            )
-        except HookDisconnected:
-            pass
-
-    def _process_scrape_info(self, scraper, scrape_info, url_item):
+    def _process_scrape_info(self, scraper, scrape_result, url_item):
         '''Collect the URLs from the scrape info dict.'''
-        if not scrape_info:
+        if not scrape_result:
             return 0, 0
 
-        if isinstance(scraper, CSSScraper):
-            link_type = LinkType.css
-        elif isinstance(scraper, HTMLScraper):
-            link_type = LinkType.html
+        urls_to_be_added = []
+        num_inline = 0
+        num_linked = 0
+
+        for link_context in scrape_result.link_contexts:
+            url_info = self.parse_url(link_context.link)
+
+            if url_info:
+                url_info = self.rewrite_url(url_info)
+                url_record = url_item.child_url_record(
+                    url_info, inline=link_context.inline
+                )
+                if self._fetch_rule.check_generic_request(url_info, url_record)[0]:
+                    urls_to_be_added.append({
+                        'url': url_info.url,
+                        'inline': link_context.inline,
+                        'link_type': link_context.link_type
+                    })
+                    if link_context.inline:
+                        num_inline += 1
+                    else:
+                        num_linked += 1
+
+        url_item.add_child_urls(urls_to_be_added)
+
+        return num_inline, num_linked
+
+    def rewrite_url(self, url_info):
+        '''Return a rewritten URL such as escaped fragment.'''
+        if self._url_rewriter:
+            return self._url_rewriter.rewrite(url_info)
         else:
-            link_type = None
-
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
-
-        inline_url_infos = set()
-        linked_url_infos = set()
-
-        for url in inline_urls:
-            url_info = self.parse_url(url)
-            if url_info:
-                url_record = url_item.child_url_record(
-                    url_info, inline=True
-                )
-                if self._fetch_rule.check_generic_request(url_info, url_record)[0]:
-                    inline_url_infos.add(url_info)
-
-        for url in linked_urls:
-            url_info = self.parse_url(url)
-            if url_info:
-                url_record = url_item.child_url_record(
-                    url_info, link_type=link_type
-                )
-                if self._fetch_rule.check_generic_request(url_info, url_record)[0]:
-                    linked_url_infos.add(url_info)
-
-        url_item.add_inline_url_infos(inline_url_infos)
-        url_item.add_linked_url_infos(
-            linked_url_infos, link_type=link_type)
-
-        return len(inline_url_infos), len(linked_url_infos)
+            return url_info

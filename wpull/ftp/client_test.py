@@ -50,6 +50,40 @@ class TestClient(FTPTestCase):
                 self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_fetch_file_restart(self):
+        client = Client()
+        file = io.BytesIO()
+
+        with client.session() as session:
+            request = Request(self.get_url('/example.txt'))
+            request.set_continue(10)
+            response = yield From(session.fetch(request))
+            self.assertEqual(10, response.restart_value)
+            yield From(session.read_content(file))
+
+        self.assertEqual(
+            'reasure is in Smaug’s heart 💗.\n'.encode('utf-8'),
+            response.body.content()
+        )
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_fetch_file_restart_not_supported(self):
+        client = Client()
+        file = io.BytesIO()
+
+        with client.session() as session:
+            request = Request(self.get_url('/example.txt'))
+            request.set_continue(99999)  # Magic value in the test server
+            response = yield From(session.fetch(request))
+            self.assertFalse(response.restart_value)
+            yield From(session.read_content(file))
+
+        self.assertEqual(
+            'The real treasure is in Smaug’s heart 💗.\n'.encode('utf-8'),
+            response.body.content()
+        )
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_fetch_listing(self):
         client = Client()
         file = io.BytesIO()

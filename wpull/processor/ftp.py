@@ -216,13 +216,15 @@ class FTPProcessorSession(BaseProcessorSession):
     def _add_listing_links(self, response):
         '''Add links from file listing response.'''
         base_url = self._url_item.url_info.url
-        linked_url_infos = set()
+        urls_to_add = set()
 
         for file_entry in response.files:
             if file_entry.type == 'dir':
                 linked_url = urljoin_safe(base_url, file_entry.name + '/')
             elif file_entry.type in ('file', None):
                 linked_url = urljoin_safe(base_url, file_entry.name)
+            else:
+                linked_url = None
 
             if linked_url:
                 linked_url_info = parse_url_or_log(linked_url)
@@ -234,9 +236,9 @@ class FTPProcessorSession(BaseProcessorSession):
                         linked_url_info, linked_url_record)[0]
 
                     if verdict:
-                        linked_url_infos.add(linked_url_info)
+                        urls_to_add.add(linked_url_info.url)
 
-        self._url_item.add_linked_url_infos(linked_url_infos)
+        self._url_item.add_child_urls(urls_to_add)
 
     def _log_response(self, request, response):
         '''Log response.'''

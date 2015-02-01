@@ -15,6 +15,7 @@ from wpull.errors import ServerError, ExitStatus, ProtocolError, \
     SSLVerificationError, DNSNotFound, ConnectionRefused, NetworkError
 from wpull.hook import HookableMixin, HookDisconnected, HookStop
 import wpull.string
+import wpull.observer
 
 
 _logger = logging.getLogger(__name__)
@@ -54,6 +55,8 @@ class Application(HookableMixin):
         self._exit_code = 0
         self._statistics = None
         self.stop_observer = wpull.observer.Observer()
+        self._server_tasks = []
+        self._servers = []
 
         self.register_hook('exit_status', 'finishing_statistics')
 
@@ -109,6 +112,8 @@ class Application(HookableMixin):
 
     @trollius.coroutine
     def run(self):
+        yield From(self._start_servers())
+
         self._statistics = self._builder.factory['Statistics']
         self._statistics.start()
 
@@ -144,6 +149,7 @@ class Application(HookableMixin):
         except HookDisconnected:
             pass
 
+        yield From(self._close_servers())
         self._print_stats()
         self._convert_documents()
         self.stop_observer.notify()
@@ -248,3 +254,27 @@ class Application(HookableMixin):
         '''Perform clean up actions.'''
         self._builder.factory['WebProcessor'].close()
         self._builder.factory['URLTable'].close()
+
+    def add_server_task(self, task):
+        '''Add a server task.'''
+        self._server_tasks.append(task)
+
+    @trollius.coroutine
+    def _start_servers(self):
+        '''Start servers.
+
+        Coroutine.
+        '''
+        for task in self._server_tasks:
+            server = yield From(task)
+            self._servers.append(server)
+
+    def _close_servers(self):
+        '''Close and wait for servers to close.
+
+        Coroutine.
+        '''
+        for server in self._servers:
+            _logger.debug(__('Closing server {}', server))
+            server.close()
+            yield From(server.wait_closed())

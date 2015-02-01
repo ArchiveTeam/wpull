@@ -305,7 +305,7 @@ class Stream(object):
 
         content_data = self._flush_decompressor()
 
-        if file:
+        if file and content_data:
             file.write(content_data)
 
             if file_is_async:
@@ -361,7 +361,8 @@ class Stream(object):
         trailer_data = yield From(reader.read_trailer())
 
         self._data_observer.notify('response_body', trailer_data)
-        if raw:
+
+        if file and raw:
             file.write(trailer_data)
 
             if file_is_async:

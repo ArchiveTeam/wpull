@@ -5,6 +5,7 @@ import unittest
 from wpull.body import Body
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
 from wpull.http.request import Request, Response
+from wpull.item import LinkType
 from wpull.scraper.css import CSSScraper
 from wpull.scraper.html import HTMLScraper, ElementWalker
 from wpull.scraper.javascript import JavaScriptScraper
@@ -40,11 +41,11 @@ class Mixin(object):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
-        self.assertEqual('utf-8', scrape_info['encoding'])
+        self.assertEqual('utf-8', scrape_result.encoding)
 
         self.assertEqual({
             'http://example.com/style_import_url.css',
@@ -127,6 +128,25 @@ class Mixin(object):
         for url in inline_urls | linked_urls:
             self.assertIsInstance(url, str)
 
+    def test_html_scraper_reject_type(self):
+        element_walker = ElementWalker(
+            css_scraper=CSSScraper(), javascript_scraper=JavaScriptScraper())
+        scraper = HTMLScraper(self.get_html_parser(), element_walker)
+        request = Request('http://example.com/')
+        response = Response(200, 'OK')
+        response.body = Body()
+
+        with wpull.util.reset_file_offset(response.body):
+            html_file_path = os.path.join(ROOT_PATH,
+                                          'testing', 'samples',
+                                          'many_urls.html')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body)
+
+        scrape_result = scraper.scrape(request, response,
+                                       link_type=LinkType.css)
+        self.assertFalse(scrape_result)
+
     def test_html_soup(self):
         element_walker = ElementWalker(
             css_scraper=CSSScraper(), javascript_scraper=JavaScriptScraper())
@@ -142,9 +162,9 @@ class Mixin(object):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertEqual(
             {'http://example.com/ABOUTM~1.JPG'},
@@ -174,11 +194,11 @@ class Mixin(object):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
-        self.assertEqual('shift_jis', scrape_info['encoding'])
+        self.assertEqual('shift_jis', scrape_result.encoding)
 
         self.assertEqual(
             set(),
@@ -205,11 +225,11 @@ class Mixin(object):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
-        self.assertEqual('koi8-r', scrape_info['encoding'])
+        self.assertEqual('koi8-r', scrape_result.encoding)
 
         self.assertEqual(
             set(),
@@ -235,11 +255,11 @@ class Mixin(object):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
-        self.assertEqual('utf-8', scrape_info['encoding'])
+        self.assertEqual('utf-8', scrape_result.encoding)
 
         self.assertEqual({
             'http://cdn.example.com/stylesheet1.css',
@@ -272,9 +292,9 @@ class Mixin(object):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertEqual(
             {
@@ -305,9 +325,9 @@ class Mixin(object):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertEqual(
             {
@@ -337,11 +357,11 @@ class Mixin(object):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
-        self.assertEqual('utf-16-le', scrape_info['encoding'])
+        self.assertEqual('utf-16-le', scrape_result.encoding)
 
         self.assertEqual(
             {
@@ -381,9 +401,9 @@ class Mixin(object):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertIn(
             'http://example.com/copyright_2001_2006_rtype.gif',
@@ -470,11 +490,11 @@ class Mixin(object):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
 
-        scrape_info = scraper.scrape(request, response)
+        scrape_result = scraper.scrape(request, response)
 
-        self.assertTrue(scrape_info)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        self.assertTrue(scrape_result)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
         self.assertFalse(
             inline_urls
         )

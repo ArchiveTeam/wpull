@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`driver.scroller` Module
-=============================
+:mod:`coprocessor.youtubedl` Module
+===================================
 
-.. automodule:: wpull.driver.scroller
+.. automodule:: wpull.coprocessor.youtubedl
     :members:
     :show-inheritance:
     :private-members:

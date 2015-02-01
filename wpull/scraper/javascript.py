@@ -7,7 +7,8 @@ import logging
 from wpull.backport.logging import BraceMessage as __
 from wpull.document.javascript import JavaScriptReader
 from wpull.document.util import detect_response_encoding
-from wpull.scraper.base import BaseTextStreamScraper
+from wpull.item import LinkType
+from wpull.scraper.base import BaseTextStreamScraper, LinkContext, ScrapeResult
 from wpull.scraper.util import is_likely_inline, is_likely_link, \
     is_unlikely_link, urljoin_safe
 import wpull.util
@@ -49,12 +50,13 @@ class JavaScriptScraper(JavaScriptReader, BaseTextStreamScraper):
             else:
                 yield (text, False)
 
-    def scrape(self, request, response):
+    def scrape(self, request, response, link_type=None):
         if not self.is_supported(request=request, response=response):
             return
+        if link_type and link_type != LinkType.javascript:
+            return
 
-        inline_urls = set()
-        linked_urls = set()
+        link_contexts = set()
         base_url = request.url_info.url
         encoding = self._encoding_override or \
             detect_response_encoding(response)
@@ -63,10 +65,10 @@ class JavaScriptScraper(JavaScriptReader, BaseTextStreamScraper):
             with wpull.util.reset_file_offset(response.body):
                 for link in self.iter_processed_links(response.body, encoding,
                                                       base_url):
-                    if is_likely_inline(link):
-                        inline_urls.add(link)
-                    else:
-                        linked_urls.add(link)
+                    inline = is_likely_inline(link)
+                    link_contexts.add(
+                        LinkContext(link, inline=inline, linked=not inline)
+                    )
 
         except UnicodeError as error:
             _logger.warning(__(
@@ -74,8 +76,4 @@ class JavaScriptScraper(JavaScriptReader, BaseTextStreamScraper):
                 url=request.url_info.url, error=error
             ))
 
-        return {
-            'inline_urls': inline_urls,
-            'linked_urls': linked_urls,
-            'encoding': encoding,
-        }
+        return ScrapeResult(link_contexts, encoding)

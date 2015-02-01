@@ -218,3 +218,15 @@ class Commander(object):
             raise Return(int(reply.text.strip()))
         except ValueError:
             return
+
+    @trollius.coroutine
+    def restart(self, offset):
+        '''Send restart command.
+
+        Coroutine.
+        '''
+        yield From(self._control_stream.write_command(Command('REST', str(offset))))
+
+        reply = yield From(self._control_stream.read_reply())
+
+        self.raise_if_not_match('Restart', ReplyCodes.requested_file_action_pending_further_information, reply)

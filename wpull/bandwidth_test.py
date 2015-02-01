@@ -2,7 +2,7 @@
 import time
 import unittest
 
-from wpull.bandwidth import BandwidthMeter
+from wpull.bandwidth import BandwidthMeter, BandwidthLimiter
 
 
 class TestNetwork(unittest.TestCase):
@@ -11,7 +11,17 @@ class TestNetwork(unittest.TestCase):
 
         self.assertEqual(0, meter.speed())
 
-        time.sleep(0.2)
-        meter.feed(1000)
+        meter.feed(1000, feed_time=time.time() + 0.2)
 
         self.assertTrue(meter.speed())
+
+    def test_bandwidth_limit(self):
+        meter = BandwidthLimiter(rate_limit=100)
+
+        self.assertEqual(0, meter.sleep_time())
+
+        meter.feed(1000, feed_time=time.time() + 1.0)
+
+        self.assertAlmostEqual(9.0, meter.sleep_time(), delta=0.2)
+
+

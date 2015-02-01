@@ -14,22 +14,26 @@ import sys
 import tempfile
 
 import tornado.testing
+import tornado.netutil
 import tornado.web
 import trollius
 
 from wpull.app import Application
 from wpull.backport.logging import BraceMessage as __
+from wpull.bandwidth import BandwidthLimiter
 from wpull.connection import Connection, ConnectionPool, SSLConnection
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
+from wpull.coprocessor.proxy import ProxyCoprocessor
+from wpull.coprocessor.youtubedl import YoutubeDlCoprocessor
 from wpull.database.sqltable import URLTable as SQLURLTable, GenericSQLURLTable
 from wpull.database.wrap import URLTableHookWrapper
 from wpull.debug import DebugConsoleHandler
-from wpull.dns import Resolver
+from wpull.dns import Resolver, PythonResolver
 from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.ftp.client import Client as FTPClient
-from wpull.hook import HookEnvironment
+from wpull.hook import HookEnvironment, PluginEnvironment
 from wpull.http.client import Client as HTTPClient
 from wpull.http.proxy import ProxyAdapter
 from wpull.http.redirect import RedirectTracker
@@ -38,7 +42,7 @@ from wpull.http.robots import RobotsTxtChecker
 from wpull.http.stream import Stream as HTTPStream
 from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
-from wpull.driver.phantomjs import PhantomJSPool
+from wpull.driver.phantomjs import PhantomJSDriver
 from wpull.options import LOG_QUIET, LOG_VERY_QUIET, LOG_NO_VERBOSE, LOG_VERBOSE, \
     LOG_DEBUG
 from wpull.processor.delegate import DelegateProcessor
@@ -68,6 +72,7 @@ from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, SchemeFilter,
                              SpanHostsFilter, RegexFilter, DirectoryFilter,
                              BackwardFilenameFilter, ParentFilter,
                              FollowFTPFilter)
+from wpull.urlrewrite import URLRewriter
 from wpull.util import ASCIIStreamWriter
 from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
@@ -97,6 +102,7 @@ class Builder(object):
         self._factory = Factory({
             'Application': Application,
             'BatchDocumentConverter': BatchDocumentConverter,
+            'BandwidthLimiter': BandwidthLimiter,
             'HTTPClient': HTTPClient,
             'CookieJar': CookieJar,
             'CookieJarWrapper': CookieJarWrapper,
@@ -120,16 +126,17 @@ class Builder(object):
             'JavaScriptScraper': JavaScriptScraper,
             'OutputDocumentRecorder': OutputDocumentRecorder,
             'PathNamer': PathNamer,
-            'PhantomJSPool': PhantomJSPool,
+            'PhantomJSDriver': PhantomJSDriver,
             'PhantomJSCoprocessor': PhantomJSCoprocessor,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
             'ProcessingRule': ProcessingRule,
             'Processor': DelegateProcessor,
             'ProxyAdapter': ProxyAdapter,
+            'ProxyCoprocessor': ProxyCoprocessor,
             'ProgressRecorder': ProgressRecorder,
             'RedirectTracker': RedirectTracker,
             'Request': Request,
-            'Resolver': Resolver,
+            'Resolver': NotImplemented,
             'ResultRule': ResultRule,
             'RobotsTxtChecker': RobotsTxtChecker,
             'RobotsTxtPool': RobotsTxtPool,
@@ -138,12 +145,14 @@ class Builder(object):
             'URLInfo': URLInfo,
             'URLTable': URLTableHookWrapper,
             'URLTableImplementation': SQLURLTable,
+            'URLRewriter': URLRewriter,
             'Waiter': LinearWaiter,
             'WARCRecorder': WARCRecorder,
             'WebClient': WebClient,
             'WebProcessor': WebProcessor,
             'WebProcessorFetchParams': WebProcessorFetchParams,
             'WebProcessorInstances': WebProcessorInstances,
+            'YoutubeDlCoprocessor': YoutubeDlCoprocessor,
         })
         self._url_infos = None
         self._ca_certs_file = None
@@ -166,10 +175,14 @@ class Builder(object):
         Returns:
             Application: An instance of :class:`.app.Application`.
         '''
+        self._setup_logging()
+
+        if self._args.plugin_script:
+            self._initialize_plugin()
+
         self._factory.new('Application', self)
 
         self._build_html_parser()
-        self._setup_logging()
         self._setup_console_logger()
         self._setup_file_logger()
         self._setup_debug_console()
@@ -201,7 +214,9 @@ class Builder(object):
         self._warn_unsafe_options()
         self._warn_silly_options()
 
-        url_table.add_many([url_info.url for url_info in self._url_infos])
+        url_table.add_many(
+            [{'url': url_info.url} for url_info in self._url_infos]
+        )
 
         return self._factory['Application']
 
@@ -214,6 +229,23 @@ class Builder(object):
         app = self.build()
         exit_code = app.run_sync()
         return exit_code
+
+    def _initialize_plugin(self):
+        '''Load the plugin script.'''
+        filename = self._args.plugin_script
+        _logger.info(__(
+            _('Using Python hook script {filename}.'),
+            filename=filename
+        ))
+
+        plugin_environment = PluginEnvironment(
+            self._factory, self, self._args.plugin_args
+        )
+
+        with open(filename, 'rb') as in_file:
+            code = compile(in_file.read(), filename, 'exec')
+            context = {'wpull_plugin': plugin_environment}
+            exec(code, context, context)
 
     def _new_encoded_stream(self, stream):
         '''Return a stream writer.'''
@@ -406,6 +438,7 @@ class Builder(object):
         '''Read the URLs provided by the user.'''
 
         url_string_iter = self._args.urls or ()
+        url_rewriter = self._build_url_rewriter()
 
         if self._args.input_file:
             if self._args.force_html:
@@ -427,7 +460,21 @@ class Builder(object):
                 url_string, default_scheme=default_scheme)
 
             _logger.debug(__('Parsed URL {0}', url_info))
+
+            if url_rewriter:
+                url_info = url_rewriter.rewrite(url_info)
+                _logger.debug(__('Rewritten URL {0}', url_info))
+
             yield url_info
+
+    def _build_url_rewriter(self):
+        '''Build URL rewriter if needed.'''
+        if self._args.escaped_fragment or self._args.strip_session_id:
+            return self._factory.new(
+                'URLRewriter',
+                hash_fragment=self._args.escaped_fragment,
+                session_id=self._args.strip_session_id
+            )
 
     def _read_input_file_as_lines(self):
         '''Read lines from input file and return them.'''
@@ -443,13 +490,11 @@ class Builder(object):
 
     def _read_input_file_as_html(self):
         '''Read input file as HTML and return the links.'''
-        scrape_info = self._factory['HTMLScraper'].scrape_file(
+        scrape_result = self._factory['HTMLScraper'].scrape_file(
             self._args.input_file,
             encoding=self._args.local_encoding or 'utf-8'
         )
-        links = itertools.chain(
-            scrape_info['inline_urls'], scrape_info['linked_urls']
-        )
+        links = [context.link for context in scrape_result.link_contexts]
 
         return links
 
@@ -619,6 +664,11 @@ class Builder(object):
                     wpull.driver.phantomjs.get_version(exe_path=args.phantomjs_exe)
                 )
 
+            if args.youtube_dl:
+                software_string += ' youtube-dl/{0}'.format(
+                    wpull.coprocessor.youtubedl.get_version(exe_path=args.youtube_dl_exe)
+                )
+
             url_table = self._factory['URLTable'] if args.warc_dedup else None
 
             recorders.append(
@@ -766,21 +816,26 @@ class Builder(object):
             fetch_rule,
             document_scraper=document_scraper,
             sitemaps=self._args.sitemaps,
+            url_rewriter=self._factory.get('URLRewriter'),
         )
 
-        if args.phantomjs:
-            proxy_server, proxy_port, proxy_task = self._build_proxy_server()
+        if args.phantomjs or args.youtube_dl or args.proxy_server:
+            proxy_server, proxy_server_task, proxy_port = self._build_proxy_server()
             application = self._factory['Application']
             # XXX: Should we be sticking these into application?
             # We need to stick them somewhere so the Task doesn't get garbage
             # collected
-            application.proxy_server = proxy_server
-            application.proxy_task = proxy_task
+            application.add_server_task(proxy_server_task)
 
         if args.phantomjs:
             phantomjs_coprocessor = self._build_phantomjs_coprocessor(proxy_port)
         else:
             phantomjs_coprocessor = None
+
+        if args.youtube_dl:
+            youtube_dl_coprocessor = self._build_youtube_dl_coprocessor(proxy_port)
+        else:
+            youtube_dl_coprocessor = None
 
         web_processor_instances = self._factory.new(
             'WebProcessorInstances',
@@ -790,6 +845,7 @@ class Builder(object):
             file_writer=file_writer,
             statistics=self._factory['Statistics'],
             phantomjs_coprocessor=phantomjs_coprocessor,
+            youtube_dl_coprocessor=youtube_dl_coprocessor,
         )
 
         web_processor_fetch_params = self._factory.new(
@@ -956,11 +1012,18 @@ class Builder(object):
         if args.timeout:
             connect_timeout = read_timeout = args.timeout
 
+        if args.limit_rate:
+            bandwidth_limiter = self.factory.new('BandwidthLimiter',
+                                                 args.limit_rate)
+        else:
+            bandwidth_limiter = None
+
         connection_factory = functools.partial(
             Connection,
             timeout=read_timeout,
             connect_timeout=connect_timeout,
             bind_host=self._args.bind_address,
+            bandwidth_limiter=bandwidth_limiter,
         )
 
         ssl_connection_factory = functools.partial(
@@ -994,6 +1057,12 @@ class Builder(object):
             family = Resolver.PREFER_IPv6
         else:
             family = Resolver.PREFER_IPv4
+
+        if self._factory.class_map['Resolver'] is NotImplemented:
+            if args.always_getaddrinfo:
+                self._factory.class_map['Resolver'] = Resolver
+            else:
+                self._factory.class_map['Resolver'] = PythonResolver
 
         return self._factory.new(
             'Resolver',
@@ -1148,34 +1217,49 @@ class Builder(object):
             num_scrolls=self._args.phantomjs_scroll,
             smart_scroll=self._args.phantomjs_smart_scroll,
             snapshot=self._args.phantomjs_snapshot,
+            custom_headers=default_headers,
+            page_settings=page_settings,
+            load_time=self._args.phantomjs_max_time,
         )
 
         extra_args = [
-            '--proxy', 'localhost:{0}'.format(proxy_port),
+            '--proxy',
+            '{}:{}'.format(self._args.proxy_server_address, proxy_port),
             '--ignore-ssl-errors=true'
         ]
 
-        phantomjs_pool = self._factory.new(
-            'PhantomJSPool',
+        phantomjs_driver_factory = functools.partial(
+            self._factory.class_map['PhantomJSDriver'],
             exe_path=self._args.phantomjs_exe,
-            default_headers=default_headers,
-            page_settings=page_settings,
             extra_args=extra_args,
         )
 
         phantomjs_coprocessor = self._factory.new(
             'PhantomJSCoprocessor',
-            phantomjs_pool,
+            phantomjs_driver_factory,
             self._factory['ProcessingRule'],
-            self._factory['Statistics'],
-            self._factory['FetchRule'],
-            self._factory['ResultRule'],
             phantomjs_params,
             root_path=self._args.directory_prefix,
             warc_recorder=self.factory.get('WARCRecorder'),
         )
 
         return phantomjs_coprocessor
+
+    def _build_youtube_dl_coprocessor(self, proxy_port):
+        '''Build youtube-dl coprocessor.'''
+
+        # Test early for executable
+        wpull.coprocessor.youtubedl.get_version(self._args.youtube_dl_exe)
+
+        coprocessor = self.factory.new(
+            'YoutubeDlCoprocessor',
+            self._args.youtube_dl_exe,
+            (self._args.proxy_server_address, proxy_port),
+            root_path=self._args.directory_prefix,
+            user_agent = self._args.user_agent or self.default_user_agent
+        )
+
+        return coprocessor
 
     def _build_proxy_server(self):
         '''Build MITM proxy server.'''
@@ -1185,22 +1269,25 @@ class Builder(object):
         )
 
         cookie_jar = self.factory.get('CookieJarWrapper')
+        proxy_coprocessor = self.factory.new(
+            'ProxyCoprocessor',
+            proxy_server,
+            self.factory['FetchRule'],
+            self.factory['ResultRule'],
+            cookie_jar=cookie_jar
+        )
 
-        if cookie_jar:
-            def request_callback(request):
-                cookie_jar.add_cookie_header(request)
+        proxy_socket = tornado.netutil.bind_sockets(
+            self._args.proxy_server_port,
+            address=self._args.proxy_server_address
+        )[0]
+        proxy_port = proxy_socket.getsockname()[1]
 
-            def response_callback(request, response):
-                cookie_jar.extract_cookies(response, request)
+        proxy_server_task = trollius.async(
+            trollius.start_server(proxy_server, sock=proxy_socket)
+        )
 
-            proxy_server.request_callback = request_callback
-            proxy_server.response_callback = response_callback
-
-        proxy_socket, proxy_port = tornado.testing.bind_unused_port()
-
-        proxy_task = trollius.async(trollius.start_server(proxy_server, sock=proxy_socket))
-
-        return proxy_server, proxy_port, proxy_task
+        return proxy_server, proxy_server_task, proxy_port
 
     def _build_robots_txt_checker(self):
         '''Build robots.txt checker.'''

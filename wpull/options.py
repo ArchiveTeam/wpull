@@ -199,7 +199,9 @@ class AppArgumentParser(argparse.ArgumentParser):
         self._add_warc_args()
         self._add_recursive_args()
         self._add_accept_args()
+        self._add_proxy_server_args()
         self._add_phantomjs_args()
+        self._add_youtube_dl_args()
 
     def _add_startup_args(self):
         group = self.add_argument_group(_('startup'))
@@ -232,6 +234,15 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--lua-script',
             metavar='FILE',
             help=_('load Lua hook script from FILE')
+        )
+        group.add_argument(
+            '--plugin-script',
+            metavar='FILE',
+            help=_('load plugin script from FILE')
+        )
+        group.add_argument(
+            '--plugin-args',
+            help=_('arguments for the plugin')
         )
         database_group = group.add_mutually_exclusive_group()
         database_group.add_argument(
@@ -421,11 +432,6 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=argparse.FileType('wb'),
             help=_('stream every document into FILE'),
         )
-#         self.add_argument(
-#             '--truncate-document',
-#             action='store_true',
-#             help=_('clear the output document after downloading'),
-#         )
         clobber_group = group.add_mutually_exclusive_group()
         clobber_group.add_argument(
             '-nc',
@@ -531,12 +537,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='ADDRESS',
             help=_('bind to ADDRESS on the local host'),
         )
-#         self.add_argument(
-#             '--limit-rate',
-#             metavar='RATE',
-#             type=self.int_bytes,
-#             help=_('limit download bandwidth to RATE'),
-#         )
+        self.add_argument(
+            '--limit-rate',
+            metavar='RATE',
+            type=self.int_bytes,
+            help=_('limit download bandwidth to RATE'),
+        )
         group.add_argument(
             '--no-dns-cache',
             action='store_false',
@@ -548,6 +554,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--rotate-dns',
             action='store_true',
             help=_('use different resolved IP addresses on requests'),
+        )
+        group.add_argument(
+            '--no-skip-getaddrinfo',
+            dest='always_getaddrinfo',
+            action='store_true',
+            help=_("always use the OS's name resolver interface"),
         )
         group.add_argument(
             '--restrict-file-names',
@@ -822,6 +834,16 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=self.comma_choice_list,
             default=['html', 'css', 'javascript'],
             help=_('specify which link extractors to use')
+        )
+        group.add_argument(
+            '--escaped-fragment',
+            action='store_true',
+            help=_('rewrite links with hash fragments to escaped fragments')
+        )
+        group.add_argument(
+            '--strip-session-id',
+            action='store_true',
+            help=_('remove session ID tokens from links')
         )
 
     def _add_ssl_args(self):
@@ -1210,6 +1232,27 @@ class AppArgumentParser(argparse.ArgumentParser):
             help=_('don’t implicitly allow span hosts for redirects'),
         )
 
+    def _add_proxy_server_args(self):
+        group = self.add_argument_group(_('proxy server'))
+        group.add_argument(
+            '--proxy-server',
+            action='store_true',
+            help=_('run HTTP proxy server for capturing requests'),
+        )
+        group.add_argument(
+            '--proxy-server-address',
+            default='localhost',
+            metavar='ADDRESS',
+            help=_('bind the proxy server to ADDRESS')
+        )
+        group.add_argument(
+            '--proxy-server-port',
+            type=int,
+            default=0,
+            metavar='PORT',
+            help=_('bind the proxy server port to PORT')
+        )
+
     def _add_phantomjs_args(self):
         group = self.add_argument_group(_('PhantomJS'))
         group.add_argument(
@@ -1224,9 +1267,15 @@ class AppArgumentParser(argparse.ArgumentParser):
             help=_('path of PhantomJS executable')
         )
         group.add_argument(
+            '--phantomjs-max-time',
+            default=900,
+            type=self.int_0_inf,
+            help=_('maximum duration of PhantomJS session')
+        )
+        group.add_argument(
             '--phantomjs-scroll',
             type=int,
-            default=10,
+            default=20,
             metavar='NUM',
             help=_('scroll the page up to NUM times'),
         )
@@ -1250,6 +1299,20 @@ class AppArgumentParser(argparse.ArgumentParser):
             dest='phantomjs_smart_scroll',
             default=True,
             help=_('always scroll the page to maximum scroll count option'),
+        )
+
+    def _add_youtube_dl_args(self):
+        group = self.add_argument_group(_('PhantomJS'))
+        group.add_argument(
+            '--youtube-dl',
+            action='store_true',
+            help=_('use youtube-dl for downloading videos'),
+            )
+        group.add_argument(
+            '--youtube-dl-exe',
+            metavar='PATH',
+            default='youtube-dl',
+            help=_('path of youtube-dl executable')
         )
 
     def _post_parse_args(self, args):

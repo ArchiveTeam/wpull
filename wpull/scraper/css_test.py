@@ -4,6 +4,7 @@ import unittest
 
 from wpull.body import Body
 from wpull.http.request import Request, Response
+from wpull.item import LinkType
 from wpull.scraper.css import CSSScraper
 import wpull.util
 
@@ -50,9 +51,9 @@ class TestCSS(unittest.TestCase):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertEqual({
             'http://example.com/mobile.css',
@@ -61,6 +62,22 @@ class TestCSS(unittest.TestCase):
             inline_urls
         )
         self.assertFalse(linked_urls)
+
+    def test_css_scraper_reject_type(self):
+        scraper = CSSScraper()
+        request = Request('http://example.com/styles.css')
+        response = Response(200, 'OK')
+        response.body = Body()
+
+        with wpull.util.reset_file_offset(response.body):
+            html_file_path = os.path.join(ROOT_PATH,
+                                          'testing', 'samples', 'styles.css')
+            with open(html_file_path, 'rb') as in_file:
+                shutil.copyfileobj(in_file, response.body)
+
+        scrape_result = scraper.scrape(request, response,
+                                       link_type=LinkType.html)
+        self.assertFalse(scrape_result)
 
     def test_css_scraper_mojibake(self):
         scraper = CSSScraper()
@@ -74,9 +91,9 @@ class TestCSS(unittest.TestCase):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertEqual({
             'http://example.com/文字化け.png',
@@ -98,9 +115,9 @@ class TestCSS(unittest.TestCase):
             with open(html_file_path, 'rb') as in_file:
                 shutil.copyfileobj(in_file, response.body)
 
-        scrape_info = scraper.scrape(request, response)
-        inline_urls = scrape_info['inline_urls']
-        linked_urls = scrape_info['linked_urls']
+        scrape_result = scraper.scrape(request, response)
+        inline_urls = scrape_result.inline_links
+        linked_urls = scrape_result.linked_links
 
         self.assertEqual({
             'http://example.com/Кракозябры.png',

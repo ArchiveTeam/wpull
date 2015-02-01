@@ -26,9 +26,11 @@ The following are optional:
 
 * `Lunatic Python (bastibe version)
   <https://github.com/bastibe/lunatic-python>`_ for Lua support
+* `Manhole <https://pypi.python.org/pypi/manhole>`_ for a REPL debugging socket
 * `PhantomJS <http://phantomjs.org/>`_ for capturing interactive
   JavaScript pages
-* `Manhole <https://pypi.python.org/pypi/manhole>`_ for a REPL debugging socket
+* `youtube-dl <https://rg3.github.io/youtube-dl/>`_ for downloading complex
+  video streaming sites
 
 For installing Wpull, it is recommended to use `pip installer
 <http://www.pip-installer.org/>`_.

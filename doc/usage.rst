@@ -24,17 +24,19 @@ To download the About page of Google.com::
 
 To archive a website::
 
-    wpull billy.blogsite.example --warc-file blogsite-billy \
-    --no-check-certificate \
-    --no-robots --user-agent "InconspiuousWebBrowser/1.0" \
-    --wait 0.5 --random-wait --waitretry 600 \
-    --page-requisites --recursive --level inf \
-    --span-hosts --domains blogsitecdn.example,cloudspeeder.example \
-    --hostnames billy.blogsite.example \
-    --reject-regex "/login\.php"  \
-    --tries inf --retry-connrefused --retry-dns-error \
-    --delete-after --database blogsite-billy.db \
-    --quiet --output-file blogsite-billy.log
+    wpull billy.blogsite.example \
+        --warc-file blogsite-billy \
+        --no-check-certificate \
+        --no-robots --user-agent "InconspiuousWebBrowser/1.0" \
+        --wait 0.5 --random-wait --waitretry 600 \
+        --page-requisites --recursive --level inf \
+        --span-hosts-allow linked-pages,page-requisites \
+        --escaped-fragment --strip-session-id \
+        --reject-regex "/login\.php" \
+        --tries 3 --retry-connrefused --retry-dns-error \
+        --timeout 60 \
+        --delete-after --database blogsite-billy.db \
+        --quiet --output-file blogsite-billy.log
 
 
 Wpull can also be invoked using::
@@ -63,18 +65,37 @@ the same behavior as the previous run.
    file manually or use the additional option ``--warc-append``.
 
 
-PhantomJS Integration (Experimental)
-====================================
+Proxied Services
+================
 
-``--phantomjs`` will enable PhantomJS integration. If a HTML document is encountered, Wpull will open the URL in PhantomJS. The requests will go through an HTTP proxy to Wpull's HTTP client (which can be recorded with ``--warc-file``).
+Wpull is able to use an HTTP proxy server to capture traffic from third-party programs such as PhantomJS.
+The requests will go through the proxy to Wpull's HTTP client (which can be recorded with ``--warc-file``).
 
-After the page is loaded, Wpull will try to scroll the page as specified by ``--phantomjs-scroll``. Then, the HTML source is scraped for URLs as normal. HTML and PDF snapshots are taken by default.
+.. warning:: Wpull uses the HTTP proxy insecurely on localhost.
+
+    It is possible for another user, on the same machine as Wpull, to send bogus requests to the HTTP proxy. Wpull, however, does *not* expose the HTTP proxy outside to the net by default.
+
+
+PhantomJS Integration
++++++++++++++++++++++
+
+**PhantomJS support is currently experimental.**
+
+``--phantomjs`` will enable PhantomJS integration.
+
+If a HTML document is encountered, Wpull will open the URL in PhantomJS. After the page is loaded, Wpull will try to scroll the page as specified by ``--phantomjs-scroll``. Then, the HTML DOM source is scraped for URLs as normal. HTML and PDF snapshots are taken by default.
 
 Currently, Wpull will *not do anything else* to manipulate the page such as clicking on links. As a consequence, Wpull with PhantomJS is *not* a complete solution for dynamic web pages yet!
 
-The filename of the PhantomJS executable must be on the PATH environment variable.
 
-.. warning:: Wpull uses an HTTP proxy insecurely with PhantomJS on localhost.
+youtube-dl Integration
+++++++++++++++++++++++
 
-    It is possible for another user, on the same machine as Wpull, to send bogus requests to the HTTP proxy. Wpull, however, does *not* expose the HTTP proxy outside to the net.
+**youtube-dl support is currently experimental.**
+
+``--youtube-dl`` will enable youtube-dl integration. 
+
+If a HTML document is encountered, Wpull will run youtube-dl on the URL.
+
+It is not recommended to use recursion because it may fetch redundant amounts of data.
 

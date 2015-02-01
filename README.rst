@@ -17,7 +17,7 @@ Features:
 * Graceful stopping and resuming
 * Python & Lua scripting support
 * Modular, extensible, & asynchronous API
-* PhantomJS integration
+* PhantomJS & youtube-dl integration
 
 **Currently in beta quality! Some features are not implemented yet and the API
 is not considered stable.**
@@ -45,17 +45,19 @@ To download the About page of Google.com::
 
 To archive a website::
 
-    wpull billy.blogsite.example --warc-file blogsite-billy \
-    --no-check-certificate \
-    --no-robots --user-agent "InconspiuousWebBrowser/1.0" \
-    --wait 0.5 --random-wait --waitretry 600 \
-    --page-requisites --recursive --level inf \
-    --span-hosts --domains blogsitecdn.example,cloudspeeder.example \
-    --hostnames billy.blogsite.example \
-    --reject-regex "/login\.php"  \
-    --tries inf --retry-connrefused --retry-dns-error \
-    --delete-after --database blogsite-billy.db \
-    --quiet --output-file blogsite-billy.log
+    wpull billy.blogsite.example \
+        --warc-file blogsite-billy \
+        --no-check-certificate \
+        --no-robots --user-agent "InconspiuousWebBrowser/1.0" \
+        --wait 0.5 --random-wait --waitretry 600 \
+        --page-requisites --recursive --level inf \
+        --span-hosts-allow linked-pages,page-requisites \
+        --escaped-fragment --strip-session-id \
+        --reject-regex "/login\.php" \
+        --tries 3 --retry-connrefused --retry-dns-error \
+        --timeout 60 \
+        --delete-after --database blogsite-billy.db \
+        --quiet --output-file blogsite-billy.log
 
 To see all options::
 
