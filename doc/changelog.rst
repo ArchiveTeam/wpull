@@ -4,6 +4,7 @@ What's New
 
 * Fixed inability to fetch URLs with hostnames starting/ending with hyphen.
 * Fixed "Invalid file descriptor" error in proxy server.
+* Fixed FTP listing dates mistakenly parsed as future date within the same month.
 * Added ``--escaped-fragment`` option.
 * Added ``--strip-session-id`` option.
 * Added ``--no-skip-getaddrinfo`` option.
