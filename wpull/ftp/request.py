@@ -173,6 +173,7 @@ class Response(DictableMixin, ProtocolResponseMixin):
         return 'ftp'
 
     def to_dict(self):
+        # TODO: check if body.to_dict() exists
         return {
             'protocol': 'ftp',
             'request': self.request.to_dict(),

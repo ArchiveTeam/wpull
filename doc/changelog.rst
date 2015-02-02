@@ -2,6 +2,9 @@
 What's New
 ==========
 
+* Fixed ``AttributeError`` in proxy when using PhantomJS and ``pre_response`` scripting hook.
+
+
 0.1006 (2015-02-01)
 ===================
 

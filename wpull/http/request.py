@@ -34,6 +34,7 @@ class RawRequest(SerializableMixin, DictableMixin):
         self.encoding = 'latin-1'
 
     def to_dict(self):
+        # TODO: check if body.to_dict() exists
         return {
             'protocol': 'http',
             'method': self.method,

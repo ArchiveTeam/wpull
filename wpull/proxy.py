@@ -139,6 +139,11 @@ class Session(object):
 
                 response = yield From(session.fetch(request))
 
+                # XXX: scripting hook tries to call to_dict() on body.
+                # we set it to None so it doesn't error
+                if request.body:
+                    request.body = None
+
                 if self._pre_response_callback:
                     self._pre_response_callback(request, response)
 
