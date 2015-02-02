@@ -210,7 +210,8 @@ class Session(object):
         else:
             _logger.error(_('Unable to handshake.'))
             ssl_socket.close()
-            raise Return(False)
+            self._reject_request('Could not start TLS')
+            raise trollius.ConnectionAbortedError('Could not start TLS')
 
         loop = trollius.get_event_loop()
         reader = trollius.StreamReader(loop=loop)
