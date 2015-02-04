@@ -183,3 +183,16 @@ def close_on_error(close_func):
         if not isinstance(error, StopIteration):
             close_func()
         raise
+
+
+def get_exception_message(instance):
+    '''Try to get the exception message or the class name.'''
+    args = getattr(instance, 'args', None)
+
+    if args:
+        return str(instance)
+
+    try:
+        return type(instance).__name__
+    except AttributeError:
+        return str(instance)
