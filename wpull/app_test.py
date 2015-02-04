@@ -1241,7 +1241,10 @@ class PhantomJSMixin(object):
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    # Give extra time since it is slow on PyPy & Travis CI for some reason
+    @wpull.testing.async.async_test(
+        timeout=DEFAULT_TIMEOUT * 3 if IS_PYPY else DEFAULT_TIMEOUT
+    )
     def test_app_phantomjs_scroll(self):
         arg_parser = AppArgumentParser()
 
