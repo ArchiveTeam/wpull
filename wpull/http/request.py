@@ -21,7 +21,7 @@ class RawRequest(SerializableMixin, DictableMixin):
             ``HTTP/1.0``.
         fields (:class:`.namevalue.NameValueRecord`): The fields in
             the HTTP header.
-        body (:class:`.conversation.Body`): An optional payload.
+        body (:class:`.body.Body` or file-like): An optional payload.
         encoding (str): The encoding of the status line.
     '''
     def __init__(self, method=None, resource_path=None, version='HTTP/1.1'):
@@ -34,14 +34,13 @@ class RawRequest(SerializableMixin, DictableMixin):
         self.encoding = 'latin-1'
 
     def to_dict(self):
-        # TODO: check if body.to_dict() exists
         return {
             'protocol': 'http',
             'method': self.method,
             'version': self.version,
             'resource_path': self.resource_path,
             'fields': list(self.fields.get_all()),
-            'body': self.body.to_dict() if self.body else None,
+            'body': self.call_to_dict_or_none(self.body),
             'encoding': self.encoding,
         }
 
@@ -169,7 +168,7 @@ class Response(SerializableMixin, DictableMixin, ProtocolResponseMixin):
             ``HTTP/1.1``.
         fields (:class:`.namevalue.NameValueRecord`): The fields in
             the HTTP headers (and trailer, if present).
-        body (:class:`.conversation.Body`): The optional payload (without
+        body (:class:`.body.Body` or file-like): The optional payload (without
             and transfer or content encoding).
         request: The corresponding request.
         encoding (str): The encoding of the status line.
@@ -201,7 +200,7 @@ class Response(SerializableMixin, DictableMixin, ProtocolResponseMixin):
             'response_message': self.reason,
             'version': self.version,
             'fields': list(self.fields.get_all()),
-            'body': self.body.to_dict() if self.body else None,
+            'body': self.call_to_dict_or_none(self.body),
             'request': self.request.to_dict() if self.request else None,
             'encoding': self.encoding,
         }

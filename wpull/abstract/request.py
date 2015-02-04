@@ -9,6 +9,12 @@ class DictableMixin(object):
     def to_dict(self):
         '''Convert to a dict suitable for JSON.'''
 
+    @classmethod
+    def call_to_dict_or_none(cls, instance):
+        '''Call ``to_dict`` or return ``None``.'''
+        if hasattr(instance, 'to_dict'):
+            return instance.to_dict()
+
 
 class SerializableMixin(object):
     '''Serialize and unserialize methods.'''
