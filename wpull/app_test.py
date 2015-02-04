@@ -728,7 +728,7 @@ class TestApp(GoodAppTestCase):
     def test_immediate_robots_error(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            'http://mordor.invalid:1',
+            'http://127.0.0.1:1',
             self.get_url('/'),
             '--recursive',
             '--tries', '1',
