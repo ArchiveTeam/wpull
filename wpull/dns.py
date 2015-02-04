@@ -13,6 +13,7 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.cache import FIFOCache
 from wpull.errors import DNSNotFound, NetworkError
 from wpull.hook import HookableMixin, HookDisconnected
+import wpull.util
 
 
 _logger = logging.getLogger(__name__)
@@ -301,10 +302,10 @@ class PythonResolver(Resolver):
             # class name instead.
             raise DNSNotFound(
                 'DNS resolution failed: {error}'
-                .format(error=error.__class__.__name__)
+                .format(error=wpull.util.get_exception_message(error))
             ) from error
         except dns.exception.DNSException as error:
             raise NetworkError(
                 'DNS resolution error: {error}'
-                .format(error=error.__class.__.__name__)
+                .format(error=wpull.util.get_exception_message(error))
             ) from error
