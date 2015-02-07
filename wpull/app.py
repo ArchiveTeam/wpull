@@ -93,6 +93,7 @@ class Application(HookableMixin):
 
         def forceful_stop_callback():
             _logger.info(_('Forcing immediate stop...'))
+            logging.raiseExceptions = False
             self._event_loop.stop()
 
         self._event_loop.add_signal_handler(signal.SIGINT,

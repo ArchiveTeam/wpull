@@ -4,6 +4,7 @@ What's New
 
 * Fixed ``AttributeError`` in proxy when using PhantomJS and ``pre_response`` scripting hook.
 * Fixed early program end when server returns error fetching robots.txt.
+* Fixed uninteresting errors outputted if program is forcefully closed.
 
 
 0.1006 (2015-02-01)
