@@ -4,17 +4,14 @@
 
 class ServerError(ValueError):
     '''Server issued an error.'''
-    pass
 
 
 class ProtocolError(ValueError):
     '''A protocol was not followed.'''
-    pass
 
 
 class SSLVerificationError(OSError):
     '''A problem occurred validating SSL certificates.'''
-    pass
 
 
 SSLVerficationError = SSLVerificationError
@@ -22,35 +19,35 @@ SSLVerficationError = SSLVerificationError
 
 class NetworkError(OSError):
     '''A networking error.'''
-    pass
 
 
 class ConnectionRefused(NetworkError):
     '''Server was online, but nothing was being served.'''
-    pass
 
 
 class DNSNotFound(NetworkError):
     '''Server's IP address could not be located.'''
-    pass
 
 
 class NetworkTimedOut(NetworkError):
     '''Connection read/write timed out.'''
-    pass
+
+
+# TODO: use AuthenticationError
 
 
 class ExitStatus(object):
     '''Program exit status codes.
 
     Attributes:
-        generic_error (1): A serious error occurred.
-        parser_error (2): A document failed to parse.
+        generic_error (1): An unclassified serious or fatal error occurred.
+        parser_error (2): A local document or configuration file could not
+            be parsed.
         file_io_error (3): A problem with reading/writing a file occurred.
         network_failure (4): A problem with the network occurred such as a DNS
             resolver error or a connection was refused.
         ssl_verification_error (5): A server's SSL/TLS certificate was invalid.
-        authentication_failure (7): A problem with a username or password.
+        authentication_failure (6): A problem with a username or password.
         protocol_error (7): A problem with communicating with a server
             occurred.
         server_error (8): The server had problems fulfilling our requests.

@@ -15,7 +15,8 @@ from wpull.errors import NetworkError, ProtocolError, ServerError, \
 from wpull.hook import HookableMixin, Actions
 from wpull.http.web import LoopType
 from wpull.namevalue import NameValueRecord
-from wpull.processor.base import BaseProcessor, BaseProcessorSession
+from wpull.processor.base import BaseProcessor, BaseProcessorSession, \
+    REMOTE_ERRORS
 from wpull.processor.rule import FetchRule, ResultRule
 from wpull.stats import Statistics
 from wpull.writer import NullWriter
@@ -224,7 +225,7 @@ class WebProcessorSession(BaseProcessorSession):
             request = self._new_initial_request(with_body=False)
             verdict = (yield From(self._should_fetch_reason_with_robots(
                 request, self._url_item.url_record)))[0]
-        except (NetworkError, ProtocolError) as error:
+        except REMOTE_ERRORS as error:
             _logger.error(__(
                 _('Fetching robots.txt for ‘{url}’ '
                   'encountered an error: {error}'),
@@ -312,7 +313,7 @@ class WebProcessorSession(BaseProcessorSession):
         except HookPreResponseBreak:
             _logger.debug('Hook pre-response break.')
             raise Return(True)
-        except (NetworkError, ProtocolError, ServerError, SSLVerificationError) as error:
+        except REMOTE_ERRORS as error:
             self._log_error(request, error)
 
             action = self._result_rule.handle_error(

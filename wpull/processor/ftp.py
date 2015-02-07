@@ -12,7 +12,8 @@ from wpull.errors import NetworkError, ProtocolError, ServerError, \
     SSLVerificationError
 from wpull.ftp.request import Request, ListingResponse, Response
 from wpull.hook import Actions
-from wpull.processor.base import BaseProcessor, BaseProcessorSession
+from wpull.processor.base import BaseProcessor, BaseProcessorSession, \
+    REMOTE_ERRORS
 from wpull.processor.rule import ResultRule, FetchRule
 from wpull.scraper.util import urljoin_safe
 from wpull.url import parse_url_or_log
@@ -198,7 +199,7 @@ class FTPProcessorSession(BaseProcessorSession):
             if response:
                 response.body.close()
 
-        except (NetworkError, ProtocolError, ServerError, SSLVerificationError) as error:
+        except REMOTE_ERRORS as error:
             self._log_error(request, error)
 
             action = self._result_rule.handle_error(
