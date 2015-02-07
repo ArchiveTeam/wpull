@@ -266,6 +266,7 @@ class Application(HookableMixin):
         Coroutine.
         '''
         for task in self._server_tasks:
+            _logger.debug(__('Starting task {}', task))
             server = yield From(task)
             self._servers.append(server)
 
