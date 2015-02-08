@@ -178,6 +178,14 @@ class ForumHandler(tornado.web.RequestHandler):
         self.render('sessionid.html', session_id=session_id)
 
 
+class ReferrerHandler(tornado.web.RequestHandler):
+    def get(self):
+        if self.request.headers.get('referer') != 'http://left.shark/':
+            raise HTTPError(401)
+
+        self.render('page2.html')
+
+
 class GoodApp(tornado.web.Application):
     def __init__(self):
         tornado.web.Application.__init__(self, [
@@ -204,6 +212,7 @@ class GoodApp(tornado.web.Application):
             (r'/infinite_iframe/.*', InfiniteIframeHandler),
             (r'/escape_from_fragments/', EscapedFragmentHandler),
             (r'/forum/', ForumHandler),
+            (r'/referrer/.*', ReferrerHandler),
         ],
             template_path=os.path.join(os.path.dirname(__file__),
                                        'templates'),
