@@ -163,8 +163,8 @@ PhantomJS.prototype = {
 		var _g = this;
 		var url = Reflect.field(this.config,"url");
 		console.log("Load URL " + url + ".");
-		this.page.open(url,function() {
-			console.log("Page loaded!");
+		this.page.open(url,function(status) {
+			console.log("Page loaded! " + status + ".");
 			_g.pageLoaded = true;
 		});
 		this.pollPageLoad();
