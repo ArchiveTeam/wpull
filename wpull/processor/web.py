@@ -15,7 +15,8 @@ from wpull.errors import NetworkError, ProtocolError, ServerError, \
 from wpull.hook import HookableMixin, Actions
 from wpull.http.web import LoopType
 from wpull.namevalue import NameValueRecord
-from wpull.processor.base import BaseProcessor, BaseProcessorSession
+from wpull.processor.base import BaseProcessor, BaseProcessorSession, \
+    REMOTE_ERRORS
 from wpull.processor.rule import FetchRule, ResultRule
 from wpull.stats import Statistics
 from wpull.writer import NullWriter
@@ -180,17 +181,26 @@ class WebProcessorSession(BaseProcessorSession):
         return request
 
     def _populate_common_request(self, request):
-        '''Populate the Request with common fields.
-
-        This function adds the referrer URL.
-        '''
+        '''Populate the Request with common fields.'''
         url_record = self._url_item.url_record
 
-        if url_record.referrer:
-            request.fields['Referer'] = url_record.referrer
+        # Note that referrer may have already been set by the --referer option
+        if url_record.referrer and not request.fields.get('Referer'):
+            self._add_referrer(request, url_record, self._url_item.url_info)
 
         if self._fetch_rule.http_login:
             request.username, request.password = self._fetch_rule.http_login
+
+    @classmethod
+    def _add_referrer(cls, request, url_record, url_info):
+        '''Add referrer URL to request.'''
+        # Prohibit leak of referrer from HTTPS to HTTP
+        # rfc7231 section 5.5.2.
+        if url_record.referrer.startswith('https://') and \
+                url_info.scheme == 'http':
+            return
+
+        request.fields['Referer'] = url_record.referrer
 
     @trollius.coroutine
     def process(self):
@@ -224,7 +234,7 @@ class WebProcessorSession(BaseProcessorSession):
             request = self._new_initial_request(with_body=False)
             verdict = (yield From(self._should_fetch_reason_with_robots(
                 request, self._url_item.url_record)))[0]
-        except (NetworkError, ProtocolError) as error:
+        except REMOTE_ERRORS as error:
             _logger.error(__(
                 _('Fetching robots.txt for ‘{url}’ '
                   'encountered an error: {error}'),
@@ -312,7 +322,7 @@ class WebProcessorSession(BaseProcessorSession):
         except HookPreResponseBreak:
             _logger.debug('Hook pre-response break.')
             raise Return(True)
-        except (NetworkError, ProtocolError, ServerError, SSLVerificationError) as error:
+        except REMOTE_ERRORS as error:
             self._log_error(request, error)
 
             action = self._result_rule.handle_error(

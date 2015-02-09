@@ -151,7 +151,7 @@ class Response(DictableMixin, ProtocolResponseMixin):
 
     Attributes:
         request (:class:`Request`): The corresponding request.
-        body (:class:`.body.Body`): The file.
+        body (:class:`.body.Body` or a file-like): The file.
         reply (:class:`Reply`): The latest Reply.
         file_transfer_size (int): Size of the file transfer without
             considering restart. (REST is issued last.)
@@ -175,11 +175,11 @@ class Response(DictableMixin, ProtocolResponseMixin):
     def to_dict(self):
         return {
             'protocol': 'ftp',
-            'request': self.request.to_dict(),
-            'body': self.body.to_dict() if self.body else None,
-            'reply': self.reply.to_dict(),
-            'response_code': self.reply.code,
-            'response_message': self.reply.text,
+            'request': self.request.to_dict() if self.request else None,
+            'body': self.call_to_dict_or_none(self.body),
+            'reply': self.reply.to_dict() if self.reply else None,
+            'response_code': self.reply.code if self.reply else None,
+            'response_message': self.reply.text if self.reply else None,
             'file_transfer_size': self.file_transfer_size,
             'restart_value': self.restart_value,
         }

@@ -2,6 +2,16 @@
 What's New
 ==========
 
+0.1006.1 (2015-02-09)
+=====================
+
+* Security: Fixed ``Referer`` HTTP header field leaking from HTTPS to HTTP.
+* Fixed ``AttributeError`` in proxy when using PhantomJS and ``pre_response`` scripting hook.
+* Fixed early program end when server returns error fetching robots.txt.
+* Fixed uninteresting errors outputted if program is forcefully closed.
+* Fixed ``--referer`` option not applied to subsequent requests.
+
+
 0.1006 (2015-02-01)
 ===================
 

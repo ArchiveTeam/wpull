@@ -728,7 +728,7 @@ class TestApp(GoodAppTestCase):
     def test_immediate_robots_error(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            'http://mordor.invalid:1',
+            'http://127.0.0.1:1',
             self.get_url('/'),
             '--recursive',
             '--tries', '1',
@@ -1053,6 +1053,42 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_referer_option(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/referrer/'),
+            '-r',
+            '--referer', 'http://left.shark/'
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(2, builder.factory['Statistics'].files)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_referer_option_negative(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/referrer/'),
+            '-r',
+            '--referer', 'http://superinformation.highway/',
+            '--tries', '1',
+            '--waitretry', '.1'
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
+
     @unittest.skip('not a good idea to test continuously on external servers')
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_youtube_dl(self):
@@ -1241,7 +1277,12 @@ class PhantomJSMixin(object):
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    # FIXME: for some reason, it never makes a connection to the proxy under
+    # PyPy and Travis CI. eg: https://travis-ci.org/chfoo/wpull/jobs/49829901
+    @unittest.skipIf(IS_PYPY, 'Broken under Travis CI')
+    @wpull.testing.async.async_test(
+        timeout=DEFAULT_TIMEOUT * 3 if IS_PYPY else DEFAULT_TIMEOUT
+    )
     def test_app_phantomjs_scroll(self):
         arg_parser = AppArgumentParser()
 

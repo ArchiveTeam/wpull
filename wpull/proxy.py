@@ -139,6 +139,11 @@ class Session(object):
 
                 response = yield From(session.fetch(request))
 
+                # XXX: scripting hook tries to call to_dict() on body.
+                # we set it to None so it doesn't error
+                if request.body:
+                    request.body = None
+
                 if self._pre_response_callback:
                     self._pre_response_callback(request, response)
 
@@ -210,7 +215,8 @@ class Session(object):
         else:
             _logger.error(_('Unable to handshake.'))
             ssl_socket.close()
-            raise Return(False)
+            self._reject_request('Could not start TLS')
+            raise trollius.ConnectionAbortedError('Could not start TLS')
 
         loop = trollius.get_event_loop()
         reader = trollius.StreamReader(loop=loop)

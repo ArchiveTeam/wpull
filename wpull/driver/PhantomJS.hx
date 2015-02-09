@@ -292,8 +292,8 @@ class PhantomJS {
         var url:String = Reflect.field(config, "url");
 
         trace('Load URL $url.');
-        page.open(url, function () {
-            trace("Page loaded!");
+        page.open(url, function (status) {
+            trace('Page loaded! $status.');
             pageLoaded = true;
         });
         // For PhantomJS, we need to poll so that the callback isn't in

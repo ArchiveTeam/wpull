@@ -2,6 +2,7 @@
 
 import copy
 import unittest
+from wpull.body import Body
 
 from wpull.errors import ProtocolError
 from wpull.http.request import Request, Response
@@ -182,3 +183,30 @@ class TestRequest(unittest.TestCase):
         self.assertEqual(200, response_dict['response_code'])
         self.assertEqual('OK', response_dict['reason'])
         self.assertEqual('OK', response_dict['response_message'])
+
+    def test_to_dict_body(self):
+        request = Request()
+        request.body = Body()
+        request_dict = request.to_dict()
+
+        self.assertTrue(request_dict['body'])
+        request.body.close()
+
+        request = Request()
+        request.body = NotImplemented
+        request_dict = request.to_dict()
+
+        self.assertFalse(request_dict['body'])
+
+        response = Response()
+        response.body = Body()
+        response_dict = response.to_dict()
+
+        self.assertTrue(response_dict['body'])
+        response.body.close()
+
+        response = Response()
+        response.body = NotImplemented
+        response_dict = response.to_dict()
+
+        self.assertFalse(response_dict['body'])

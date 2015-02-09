@@ -7,10 +7,21 @@ import logging
 import trollius
 
 from wpull.backport.logging import BraceMessage as __
+from wpull.errors import ServerError, ProtocolError, SSLVerificationError, \
+    NetworkError
 
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
+
+
+REMOTE_ERRORS = (
+    ServerError,
+    ProtocolError,
+    SSLVerificationError,
+    NetworkError,
+)
+'''List of error classes that are errors that occur with a server.'''
 
 
 class BaseProcessor(object, metaclass=abc.ABCMeta):
