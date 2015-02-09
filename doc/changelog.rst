@@ -2,6 +2,9 @@
 What's New
 ==========
 
+* Fixed malformed URLs printed to logs without sanitation.
+
+
 0.1006.1 (2015-02-09)
 =====================
 
