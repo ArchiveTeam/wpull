@@ -70,7 +70,7 @@ class LineParser(object):
         '''Parse lines from a NLST format.'''
         entries = []
         for line in lines:
-            entries.append(FileEntry(line, None, None, None))
+            entries.append(FileEntry(line))
         return entries
 
     def parse_msdos(self, lines):
@@ -123,6 +123,8 @@ class LineParser(object):
                         file_type = 'dir'
                     elif field[0] == '-':
                         file_type = 'file'
+                    elif field[0] == 'l':
+                        file_type = 'symlink'
                     else:
                         file_type = 'other'
                     break
@@ -149,10 +151,16 @@ class LineParser(object):
 
             file_size = int(line[:start_index].rstrip().rpartition(' ')[-1])
 
-            filename = line[end_index:].partition('->')[0].strip()
+            filename = line[end_index:].strip()
+
+            if file_type == 'symlink':
+                filename, sep, symlink_dest = filename.partition(' -> ')
+            else:
+                symlink_dest = None
 
             entries.append(
-                FileEntry(filename, file_type, file_size, datetime_obj))
+                FileEntry(filename, file_type, file_size, datetime_obj,
+                          symlink_dest))
 
         return entries
 
