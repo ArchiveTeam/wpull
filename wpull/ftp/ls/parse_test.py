@@ -98,10 +98,10 @@ class TestParse(unittest.TestCase):
 
         self.assertEqual(
             [
-                FileEntry('dog.txt', None, None, None),
-                FileEntry('cat.txt', None, None, None),
-                FileEntry('bird.txt', None, None, None),
-                FileEntry('fish.txt', None, None, None),
+                FileEntry('dog.txt'),
+                FileEntry('cat.txt'),
+                FileEntry('bird.txt'),
+                FileEntry('fish.txt'),
             ],
             results
         )

@@ -1,19 +1,28 @@
 '''Listing parser.'''
-import collections
 import re
+
+import namedlist
 
 from wpull.ftp.ls.date import parse_datetime
 
 
-FileEntry = collections.namedtuple(
-    'FileEntryType', ['name', 'type', 'size', 'date'])
+FileEntry = namedlist.namedtuple(
+    'FileEntryType',
+    [
+        'name',
+        ('type', None),
+        ('size', None),
+        ('date', None),
+        ('dest', None)
+    ])
 '''A row in a listing.
 
 Attributes:
     name (str): Filename.
-    type (str): ``file``, ``dir``, ``other``, ``None``
+    type (str): ``file``, ``dir``, ``symlink``, ``other``, ``None``
     size (int): Size of file.
     date (:class:`datetime.datetime`): A datetime object in UTC.
+    dest (str): Destination filename for symlinks.
 '''
 
 
