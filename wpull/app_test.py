@@ -1219,6 +1219,7 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase):
 
 
 class PhantomJSMixin(object):
+    @unittest.skipIf(IS_PYPY, 'Broken under Travis CI')
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_phantomjs(self):
         arg_parser = AppArgumentParser()
