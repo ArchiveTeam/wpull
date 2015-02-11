@@ -222,7 +222,7 @@ class FTPProcessorSession(BaseProcessorSession):
         for file_entry in response.files:
             if file_entry.type == 'dir':
                 linked_url = urljoin_safe(base_url, file_entry.name + '/')
-            elif file_entry.type in ('file', None):
+            elif file_entry.type in ('file', 'symlink', None):
                 linked_url = urljoin_safe(base_url, file_entry.name)
             else:
                 linked_url = None

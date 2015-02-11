@@ -44,8 +44,12 @@ class FTPSession(object):
                   'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example1\r\n'
                   'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example2\r\n'
                   '-rw-r--r-- 1 smaug smaug 42 Apr 01 00:00 example.txt\r\n'
+                  'lrwxrwxrwx 1 smaug smaug 4 Apr 01 00:00 readme.txt -> example.txt\r\n'
                  ).encode('utf-8')),
             '/example.txt':
+                ('file',
+                 'The real treasure is in Smaug’s heart 💗.\n'.encode('utf-8')),
+            '/readme.txt':
                 ('file',
                  'The real treasure is in Smaug’s heart 💗.\n'.encode('utf-8')),
             '/empty':
