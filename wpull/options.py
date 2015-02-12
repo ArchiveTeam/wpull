@@ -977,9 +977,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--retr-symlinks',
             default='on',
             nargs='?',
-            # TODO: support making symlinks?
-            # choices=BOOLEAN_VALUES,
-            choices=BOOLEAN_TRUE_VALUES,
+            choices=BOOLEAN_VALUES,
             help=_('if disabled, preserve symlinks and run with security risks')
         )
 

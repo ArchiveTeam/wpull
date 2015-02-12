@@ -869,7 +869,8 @@ class Builder(object):
 
         fetch_params = self._factory.new(
             'FTPProcessorFetchParams',
-            remove_listing=self._args.remove_listing
+            remove_listing=self._args.remove_listing,
+            retr_symlinks=self._args.retr_symlinks,
         )
 
         instances = self._factory.new(
@@ -1462,6 +1463,11 @@ class Builder(object):
             _logger.warning(
                 _('The use of unsafe options may lead to unexpected behavior '
                     'or file corruption.'))
+
+        if not self._args.retr_symlinks:
+            _logger.warning(
+                _('The --retr-symlinks=off option is a security risk.')
+            )
 
     def _get_stderr(self):
         '''Return stderr or something else if under unit testing.'''

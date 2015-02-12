@@ -36,6 +36,8 @@ class FTPSession(object):
         self.data_reader = None
         self.data_writer = None
         self._current_username = None
+        # NOTE: Do not add any symlink directory traversal attacks since
+        # unit tests will be testing symlink support!
         self.routes = {
             '/':
                 ('dir',

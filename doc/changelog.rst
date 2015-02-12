@@ -3,7 +3,7 @@ What's New
 ==========
 
 * Fixed malformed URLs printed to logs without sanitation.
-* Added ``--retr-symlinks=on``.
+* Added ``--retr-symlinks``.
 
 
 0.1006.1 (2015-02-09)

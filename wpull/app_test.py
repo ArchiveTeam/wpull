@@ -1537,6 +1537,7 @@ class TestAppFTP(FTPTestCase):
             self.assertTrue(os.path.exists('.listing'))
             self.assertTrue(os.path.exists('example.txt'))
             self.assertTrue(os.path.exists('readme.txt'))
+            self.assertFalse(os.path.islink('readme.txt'))
             self.assertTrue(os.path.exists('example1/.listing'))
             self.assertTrue(os.path.exists('example2/.listing'))
             self.assertTrue(os.path.exists('mywarc.warc.gz'))
@@ -1548,6 +1549,31 @@ class TestAppFTP(FTPTestCase):
                 self.assertIn('The real treasure is in Smaug’s heart 💗.\n'
                               .encode('utf-8'),
                               data)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_retr_symlinks_off(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '-r',
+            '--level', '1',
+            '--tries', '1',
+            '--no-host-directories',
+            '--retr-symlinks=off',
+        ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+            self.assertEqual(0, exit_code)
+
+            print(os.listdir())
+
+            self.assertTrue(os.path.exists('example.txt'))
+            self.assertTrue(os.path.exists('readme.txt'))
+            self.assertTrue(os.path.islink('readme.txt'))
 
 
 @trollius.coroutine
