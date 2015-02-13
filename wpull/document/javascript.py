@@ -1,12 +1,12 @@
 import codecs
-import json
 import re
+import io
 
 from wpull.document.base import BaseTextStreamReader, \
-    BaseDocumentDetector
-import wpull.string
+    BaseDocumentDetector, VeryFalse
 from wpull.regexstream import RegexStream
-import io
+import wpull.string
+import wpull.util
 
 
 class JavaScriptReader(BaseDocumentDetector, BaseTextStreamReader):
@@ -37,6 +37,11 @@ class JavaScriptReader(BaseDocumentDetector, BaseTextStreamReader):
         if 'javascript' in response.fields.get('content-type', '').lower():
             return True
 
+        if response.body:
+            # script mistakenly served as HTML
+            if 'html' in response.fields.get('content-type', '').lower():
+                return cls.is_file(response.body)
+
     @classmethod
     def is_file(cls, file):
         '''Return whether the file is likely JS.'''
@@ -44,9 +49,9 @@ class JavaScriptReader(BaseDocumentDetector, BaseTextStreamReader):
             wpull.util.peek_file(file)).lower()
 
         if b'<html' in peeked_data:
-            return False
+            return VeryFalse
 
-        if re.search(br'var|function|setTimeout|jQuery\(',
+        if re.search(br'var|function|settimeout|jquery\(',
                      peeked_data):
             return True
 

@@ -1,3 +1,6 @@
+import unittest
+from wpull.document.base import VeryFalse
+
 CODEC_NAMES = (
     'ascii',
     'big5',
@@ -101,3 +104,9 @@ EBCDIC = (
     'cp1026',
     'cp1140',
 )
+
+
+class TestBase(unittest.TestCase):
+    def test_very_false(self):
+        self.assertFalse(VeryFalse)
+        self.assertTrue(VeryFalse is VeryFalse)
