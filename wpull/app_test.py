@@ -980,9 +980,6 @@ class TestApp(GoodAppTestCase):
         self.assertEqual(0, exit_code)
         self.assertEqual(2, builder.factory['Statistics'].files)
 
-    # FIXME: not entirely working yet in JS scraper
-    # it still grabs too much
-    @unittest.skip('not entirely working yet in JS scraper')
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_link_type(self):
         arg_parser = AppArgumentParser()
@@ -999,7 +996,7 @@ class TestApp(GoodAppTestCase):
             exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
-        self.assertEqual(4, builder.factory['Statistics'].files)
+        self.assertEqual(3, builder.factory['Statistics'].files)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_escaped_fragment_input_url(self):

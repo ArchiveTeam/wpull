@@ -487,24 +487,36 @@ class ElementWalker(object):
     def iter_links_style_element(self, element):
         '''Iterate a ``style`` element.'''
         if self.css_scraper and element.text:
-            link_iter = self.css_scraper.scrape_links(element.text)
-            for link in link_iter:
+            link_iter = self.css_scraper.scrape_links(element.text,
+                                                      context=True)
+            for link, context in link_iter:
+                if context == 'import':
+                    link_type = LinkType.css
+                else:
+                    link_type = LinkType.media
+
                 yield LinkInfo(
                     element=element, tag=element.tag, attrib=None,
                     link=link,
                     inline=True, linked=False,
                     base_link=None,
                     value_type='css',
-                    link_type=LinkType.media
+                    link_type=link_type
                 )
 
     def iter_links_script_element(self, element):
         '''Iterate a ``script`` element.'''
         if self.javascript_scraper and element.text:
-            link_iter = self.javascript_scraper.scrape_links(element.text)
+            link_iter = self.javascript_scraper.scrape_links(element.text,
+                                                             context=True)
 
-            for link in link_iter:
+            for link, context in link_iter:
                 inline = is_likely_inline(link)
+
+                if context is True:
+                    link_type = None
+                else:
+                    link_type = context
 
                 yield LinkInfo(
                     element=element, tag=element.tag, attrib=None,
@@ -512,7 +524,7 @@ class ElementWalker(object):
                     inline=inline, linked=not inline,
                     base_link=None,
                     value_type='script',
-                    link_type=None
+                    link_type=link_type
                 )
 
         for link in self.iter_links_plain_element(element):
