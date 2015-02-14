@@ -12,7 +12,7 @@ from wpull.document.util import detect_response_encoding
 from wpull.item import LinkType
 from wpull.scraper.base import BaseHTMLScraper, ScrapeResult, LinkContext
 from wpull.scraper.util import urljoin_safe, clean_link_soup, parse_refresh, \
-    is_likely_inline, is_likely_link, is_unlikely_link
+    is_likely_inline, is_likely_link, is_unlikely_link, identify_link_type
 from wpull.url import percent_decode
 import wpull.util
 
@@ -361,20 +361,21 @@ class ElementWalker(object):
                     inline=True, linked=False,
                     base_link=None,
                     value_type='css',
-                    link_type=None
+                    link_type=LinkType.media,
                 )
 
     @classmethod
     def iter_links_element_text(cls, element):
         '''Get the element text as a link.'''
         if element.text:
+            link_type = identify_link_type(element.text)
             yield LinkInfo(
                 element=element, tag=element.tag, attrib=None,
                 link=element.text,
                 inline=False, linked=True,
                 base_link=None,
                 value_type='plain',
-                link_type=None
+                link_type=link_type
             )
 
     def iter_links_link_element(self, element):
@@ -416,6 +417,7 @@ class ElementWalker(object):
 
             if content_value:
                 link = parse_refresh(content_value)
+                link_type = identify_link_type(link)
 
                 if link:
                     yield LinkInfo(
@@ -424,7 +426,7 @@ class ElementWalker(object):
                         inline=False, linked=True,
                         base_link=None,
                         value_type='refresh',
-                        link_type=None
+                        link_type=link_type
                     )
 
     @classmethod
@@ -437,36 +439,39 @@ class ElementWalker(object):
 
         if base_link:
             # lxml returns codebase as inline
+            link_type = element.attrib.get(base_link)
             yield LinkInfo(
                 element=element, tag=element.tag, attrib='codebase',
                 link=base_link,
                 inline=True, linked=False,
                 base_link=None,
                 value_type='plain',
-                link_type=None
+                link_type=link_type
             )
 
         for attribute in ('code', 'src', 'classid', 'data'):
             if attribute in element.attrib:
+                link_type = identify_link_type(element.attrib.get(attribute))
                 yield LinkInfo(
                     element=element, tag=element.tag, attrib=attribute,
                     link=element.attrib.get(attribute),
                     inline=True, linked=False,
                     base_link=base_link,
                     value_type='plain',
-                    link_type=None
+                    link_type=link_type
                 )
 
         if 'archive' in element.attrib:
             for match in re.finditer(r'[^ ]+', element.attrib.get('archive')):
                 value = match.group(0)
+                link_type = identify_link_type(value)
                 yield LinkInfo(
                     element=element, tag=element.tag, attrib='archive',
                     link=value,
                     inline=True, linked=False,
                     base_link=base_link,
                     value_type='list',
-                    link_type=None
+                    link_type=link_type
                 )
 
     @classmethod
@@ -475,13 +480,15 @@ class ElementWalker(object):
         valuetype = element.attrib.get('valuetype', '')
 
         if valuetype.lower() == 'ref' and 'value' in element.attrib:
+            link_type = identify_link_type(element.attrib.get('value'))
+
             yield LinkInfo(
                 element=element, tag=element.tag, attrib='value',
                 link=element.attrib.get('value'),
                 inline=True, linked=False,
                 base_link=None,
                 value_type='plain',
-                link_type=None
+                link_type=link_type
             )
 
     def iter_links_style_element(self, element):
@@ -540,13 +547,15 @@ class ElementWalker(object):
                 inline = is_likely_inline(link)
                 linked = not inline
 
+            link_type = identify_link_type(link)
+
             yield LinkInfo(
                 element=element, tag=element.tag, attrib=attrib_name,
                 link=link,
                 inline=inline, linked=linked,
                 base_link=None,
                 value_type='plain',
-                link_type=None
+                link_type=link_type
             )
 
     def iter_links_by_attrib(self, element):

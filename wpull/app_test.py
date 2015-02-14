@@ -996,7 +996,7 @@ class TestApp(GoodAppTestCase):
             exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
-        self.assertEqual(3, builder.factory['Statistics'].files)
+        self.assertEqual(4, builder.factory['Statistics'].files)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_escaped_fragment_input_url(self):

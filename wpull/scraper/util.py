@@ -235,6 +235,8 @@ def identify_link_type(filename):
         return LinkType.javascript
     elif mime_type == 'text/html' or mime_type.endswith('xml'):
         return LinkType.html
-    elif mime_type.startswith('video') or mime_type.startswith('image') or \
-            mime_type.startswith('audio'):
+    elif mime_type.startswith('video') or \
+            mime_type.startswith('image') or \
+            mime_type.startswith('audio') or \
+            mime_type.endswith('shockwave-flash'):
         return LinkType.media

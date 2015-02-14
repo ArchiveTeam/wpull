@@ -3,7 +3,7 @@ What's New
 ==========
 
 * Fixed malformed URLs printed to logs without sanitation.
-* Improved link recursion heuristics when extracting from JavaScript.
+* Improved link recursion heuristics when extracting from JavaScript and HTML.
 * Added ``--retr-symlinks``.
 
 
