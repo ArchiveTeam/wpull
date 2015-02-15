@@ -3,6 +3,7 @@ What's New
 ==========
 
 * Fixed malformed URLs printed to logs without sanitation.
+* Fixed AttributeError crash on FTP servers that support MLSD.
 * Improved link recursion heuristics when extracting from JavaScript and HTML.
 * Added ``--retr-symlinks``.
 

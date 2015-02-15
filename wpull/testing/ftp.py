@@ -41,7 +41,7 @@ class FTPSession(object):
         self.routes = {
             '/':
                 ('dir',
-                 b'junk\nexample1\nexample2\nexample.txt\n',
+                 b'junk\nexample1\nexample2\nexample.txt\nreadme.txt\n',
                  ('drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 junk\r\n'
                   'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example1\r\n'
                   'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example2\r\n'
@@ -63,7 +63,9 @@ class FTPSession(object):
             '/example2':
                 ('dir', b'secrets.txt',
                  ('02-09-2010  03:00PM                      13 trash.txt\r\n'
-                 ).encode('utf-8')),
+                 ).encode('utf-8'),
+                 b'type=file; trash.txt\n'
+                ),
             '/example2/trash.txt':
                 ('file', b'hello dragon!'),
         }
@@ -114,6 +116,7 @@ class FTPSession(object):
                 'PASV': self._cmd_pasv,
                 'NLST': self._cmd_nlst,
                 'LIST': self._cmd_list,
+                'MLSD': self._cmd_mlsd,
                 'RETR': self._cmd_retr,
                 'SIZE': self._cmd_size,
                 'REST': self._cmd_rest,
@@ -215,6 +218,33 @@ class FTPSession(object):
 
             if info and info[0] == 'dir':
                 self.data_writer.write(info[2])
+
+            self.data_writer.close()
+            self.data_writer = None
+            self.writer.write(b'226 End listings\r\n')
+            self.data_server.close()
+
+    @trollius.coroutine
+    def _cmd_mlsd(self):
+        yield From(self._wait_data_writer())
+
+        info = self.routes.get(self.path)
+
+        if info and len(info) != 4:
+            self.writer.write(b'500 What?\r\n')
+            return
+
+        if not self.data_writer:
+            self.writer.write(b'227 Use PORT or PASV first\r\n')
+        else:
+            self.writer.write(b'125 Begin listings\r\n')
+
+            info = self.routes.get(self.path)
+
+            _logger.debug('Info: %s', info)
+
+            if info and info[0] == 'dir':
+                self.data_writer.write(info[3])
 
             self.data_writer.close()
             self.data_writer = None

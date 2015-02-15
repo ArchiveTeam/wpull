@@ -250,10 +250,14 @@ class Session(BaseSession):
             elif self._listing_type == 'mlsd':
                 self._response.body.seek(0)
 
-                listings = wpull.ftp.util.parse_machine_listing(
+                machine_listings = wpull.ftp.util.parse_machine_listing(
                     self._response.body.read().decode('latin-1'),
                     convert=True, strict=False
                 )
+                listings = list(
+                    wpull.ftp.util.machine_listings_to_file_entries(
+                        machine_listings
+                    ))
             else:
                 self._response.body.seek(0)
 
