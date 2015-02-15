@@ -1,6 +1,8 @@
 '''FTP client.'''
 import io
 import logging
+import weakref
+import functools
 
 from trollius import From, Return
 import trollius
@@ -25,12 +27,18 @@ class Client(BaseClient):
 
     The session object is :class:`Session`.
     '''
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._login_table = weakref.WeakKeyDictionary()
+
     def _session_class(self):
-        return Session
+        return functools.partial(Session, login_table=self._login_table)
 
 
 class Session(BaseSession):
     def __init__(self, **kwargs):
+        self._login_table = kwargs.pop('login_table')
+
         super().__init__(**kwargs)
 
         self._connection = None
@@ -41,9 +49,6 @@ class Session(BaseSession):
         self._data_stream = None
         self._data_connection = None
         self._listing_type = None
-
-        # TODO: maybe keep track of sessions among connections to avoid
-        # having to login over and over again
 
     @trollius.coroutine
     def _init_stream(self):
@@ -80,8 +85,15 @@ class Session(BaseSession):
         username = self._request.url_info.username or self._request.username or 'anonymous'
         password = self._request.url_info.password or self._request.password or '-wpull@'
 
-        yield From(self._commander.reconnect())
+        cached_login = self._login_table.get(self._connection)
+
+        if cached_login and cached_login == (username, password):
+            _logger.debug('Reusing existing login.')
+            return
+
         yield From(self._commander.login(username, password))
+
+        self._login_table[self._connection] = (username, password)
 
     @trollius.coroutine
     def fetch(self, request):
@@ -172,8 +184,15 @@ class Session(BaseSession):
         request.address = self._connection.address
 
         if self._recorder_session:
-            self._recorder_session.begin_control(request)
+            connection_reused = not self._connection.closed()
+            self._recorder_session.begin_control(
+                request, connection_reused=connection_reused
+            )
 
+        if self._connection.closed():
+            self._login_table.pop(self._connection, None)
+
+        yield From(self._commander.reconnect())
         yield From(self._log_in())
 
         self._response.request = request
@@ -321,7 +340,9 @@ class Session(BaseSession):
     def clean(self):
         if self._connection:
             if self._recorder_session:
-                self._recorder_session.end_control(self._response)
+                self._recorder_session.end_control(
+                    self._response, connection_closed=self._connection.closed()
+                )
 
             self._connection_pool.check_in(self._connection)
 
@@ -335,3 +356,4 @@ class Session(BaseSession):
     def close(self):
         if self._connection:
             self._connection.close()
+            self._login_table.pop(self._connection, None)

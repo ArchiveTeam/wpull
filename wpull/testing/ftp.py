@@ -36,6 +36,7 @@ class FTPSession(object):
         self.data_reader = None
         self.data_writer = None
         self._current_username = None
+        self._current_password = None
         # NOTE: Do not add any symlink directory traversal attacks since
         # unit tests will be testing symlink support!
         self.routes = {
@@ -61,7 +62,7 @@ class FTPSession(object):
             '/example1/loopy':
                 ('symlink', '/'),
             '/example2':
-                ('dir', b'secrets.txt',
+                ('dir', b'trash.txt',
                  ('02-09-2010  03:00PM                      13 trash.txt\r\n'
                  ).encode('utf-8'),
                  b'type=file; trash.txt\n'
@@ -133,7 +134,11 @@ class FTPSession(object):
             if not func:
                 self.writer.write(b'500 Unknown command\r\n')
             else:
-                yield From(func())
+                if self.command not in ('USER', 'PASS') and \
+                        not self._current_password:
+                    self.writer.write(b'530 Login required\r\n')
+                else:
+                    yield From(func())
 
     @trollius.coroutine
     def _cmd_user(self):
@@ -144,8 +149,10 @@ class FTPSession(object):
     def _cmd_pass(self):
         if self._current_username == 'anonymous':
             self.writer.write(b'230 Log in OK\r\n')
+            self._current_password = self.arg
         elif self._current_username == 'smaug' and self.arg == 'gold1':
             self.writer.write(b'230 Welcome!\r\n')
+            self._current_password = self.arg
         else:
             self.writer.write(b'530 Password incorrect\r\n')
 
@@ -267,6 +274,9 @@ class FTPSession(object):
             self.data_writer = None
             self.writer.write(b'226 End data\r\n')
             self.data_server.close()
+
+            if self.path == '/example2/trash.txt':
+                self.writer.close()
         else:
             self.writer.write(b'550 File error\r\n')
 
