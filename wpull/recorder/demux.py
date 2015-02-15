@@ -62,13 +62,13 @@ class DemuxRecorderSession(BaseRecorderSession):
         for session in self._sessions:
             session.response_data(data)
 
-    def begin_control(self, request):
+    def begin_control(self, request, connection_reused=False):
         for session in self._sessions:
-            session.begin_control(request)
+            session.begin_control(request, connection_reused=connection_reused)
 
-    def end_control(self, response):
+    def end_control(self, response, connection_closed=False):
         for session in self._sessions:
-            session.end_control(response)
+            session.end_control(response, connection_closed=connection_closed)
 
     def request_control_data(self, data):
         for session in self._sessions:

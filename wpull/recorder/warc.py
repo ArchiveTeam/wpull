@@ -428,14 +428,16 @@ class WARCRecorderSessionDelegate(BaseWARCRecorderSession):
     def response_data(self, data):
         self._child_session.response_data(data)
 
-    def begin_control(self, request):
+    def begin_control(self, request, connection_reused=False):
         if not self._child_session:
             self._child_session = FTPWARCRecorderSession(
                 self._recorder, temp_dir=self._temp_dir,
                 url_table=self._url_table
             )
 
-        self._child_session.begin_control(request)
+        self._child_session.begin_control(
+            request, connection_reused=connection_reused
+        )
 
     def request_control_data(self, data):
         self._child_session.request_control_data(data)
@@ -443,8 +445,10 @@ class WARCRecorderSessionDelegate(BaseWARCRecorderSession):
     def response_control_data(self, data):
         self._child_session.response_control_data(data)
 
-    def end_control(self, response):
-        self._child_session.end_control(response)
+    def end_control(self, response, connection_closed=False):
+        self._child_session.end_control(
+            response, connection_closed=connection_closed
+        )
 
 
 class HTTPWARCRecorderSession(BaseWARCRecorderSession):
@@ -558,7 +562,7 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
         if self._response_record and self._response_record.block_file:
             self._response_record.block_file.close()
 
-    def begin_control(self, request):
+    def begin_control(self, request, connection_reused=False):
         self._request = request
         self._control_record = record = WARCRecord()
 
@@ -570,17 +574,25 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
 
         hostname, port = self._request_hostname_port()
 
+        if connection_reused:
+            connection_string = 'Reusing control connection to {hostname}:{port}'
+        else:
+            connection_string = 'Opening control connection to {hostname}:{port}'
+
         self._write_control_event(
-            'Opening control connection to {hostname}:{port}'
-            .format(hostname=hostname, port=port)
+            connection_string.format(hostname=hostname, port=port)
         )
 
-    def end_control(self, response):
+    def end_control(self, response, connection_closed=False):
         hostname, port = self._request_hostname_port()
 
+        if connection_closed:
+            connection_string = 'Closed control connection to {hostname}:{port}'
+        else:
+            connection_string = 'Kept control connection to {hostname}:{port}'
+
         self._write_control_event(
-            'Closed control connection to {hostname}:{port}'
-            .format(hostname=hostname, port=port)
+            connection_string.format(hostname=hostname, port=port)
         )
 
         self._control_record.block_file.seek(0)
