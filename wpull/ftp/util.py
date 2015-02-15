@@ -3,6 +3,7 @@ import re
 
 from wpull.errors import ServerError
 import datetime
+from wpull.ftp.ls.listing import FileEntry
 
 
 class ReplyCodes(object):
@@ -176,3 +177,14 @@ def convert_machine_list_time_val(text):
 
     return datetime.datetime(year, month, day, hour, minute, second,
                              tzinfo=datetime.timezone.utc)
+
+
+def machine_listings_to_file_entries(listings):
+    '''Convert results from parsing machine listings to FileEntry list.'''
+    for listing in listings:
+        yield FileEntry(
+            listing['name'],
+            type=listing.get('type'),
+            size=listing.get('size'),
+            date=listing.get('modify')
+        )

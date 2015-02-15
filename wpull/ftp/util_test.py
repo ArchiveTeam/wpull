@@ -1,9 +1,10 @@
 import datetime
 import textwrap
 import unittest
+from wpull.ftp.ls.listing import FileEntry
 
 from wpull.ftp.util import parse_address, reply_code_tuple, \
-    parse_machine_listing
+    parse_machine_listing, machine_listings_to_file_entries
 
 
 SAMPLE_LISTING_1 = textwrap.dedent('''\
@@ -98,4 +99,20 @@ class TestUtil(unittest.TestCase):
             ValueError,
             parse_machine_listing,
             'size=123;perm=asdf'
+        )
+
+    def test_convert_machine_listing_to_file_entry(self):
+        results = tuple(machine_listings_to_file_entries(
+            parse_machine_listing(SAMPLE_LISTING_1)
+        ))
+
+        self.assertEqual(
+            FileEntry(
+                'capmux.tar.z',
+                type='file',
+                size= 25730,
+                date=datetime.datetime(1994, 7, 28, 9, 58, 54,
+                                       tzinfo=datetime.timezone.utc)
+            ),
+            results[3]
         )
