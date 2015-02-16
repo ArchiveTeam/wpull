@@ -116,4 +116,8 @@ def get_version(exe_path='youtube-dl'):
         stdout=subprocess.PIPE
     )
     version_string = process.communicate()[0]
-    return version_string.decode().strip()
+    version_string = version_string.decode().strip()
+
+    assert ' ' not in version_string, version_string
+
+    return version_string
