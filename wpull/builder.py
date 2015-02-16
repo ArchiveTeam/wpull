@@ -31,6 +31,7 @@ from wpull.database.wrap import URLTableHookWrapper
 from wpull.debug import DebugConsoleHandler
 from wpull.dns import Resolver, PythonResolver
 from wpull.driver.phantomjs import PhantomJSDriver
+from wpull.driver.slimerjs import SlimerJSDriver
 from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.ftp.client import Client as FTPClient
@@ -80,6 +81,7 @@ from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
                           AntiClobberFileWriter)
 import wpull.coprocessor.youtubedl
 import wpull.driver.phantomjs
+import wpull.driver.slimerjs
 import wpull.version
 
 
@@ -142,6 +144,7 @@ class Builder(object):
             'RobotsTxtChecker': RobotsTxtChecker,
             'RobotsTxtPool': RobotsTxtPool,
             'SitemapScraper': SitemapScraper,
+            'SlimerJSDriver': SlimerJSDriver,
             'Statistics': Statistics,
             'URLInfo': URLInfo,
             'URLTable': URLTableHookWrapper,
@@ -665,6 +668,11 @@ class Builder(object):
                     wpull.driver.phantomjs.get_version(exe_path=args.phantomjs_exe)
                 )
 
+            if args.slimerjs:
+                software_string += ' SlimerJS/{0}'.format(
+                    wpull.driver.slimerjs.get_version(exe_path=args.slimerjs_exe)
+                )
+
             if args.youtube_dl:
                 software_string += ' youtube-dl/{0}'.format(
                     wpull.coprocessor.youtubedl.get_version(exe_path=args.youtube_dl_exe)
@@ -820,7 +828,7 @@ class Builder(object):
             url_rewriter=self._factory.get('URLRewriter'),
         )
 
-        if args.phantomjs or args.youtube_dl or args.proxy_server:
+        if args.phantomjs or args.slimerjs or args.youtube_dl or args.proxy_server:
             proxy_server, proxy_server_task, proxy_port = self._build_proxy_server()
             application = self._factory['Application']
             # XXX: Should we be sticking these into application?
@@ -828,7 +836,7 @@ class Builder(object):
             # collected
             application.add_server_task(proxy_server_task)
 
-        if args.phantomjs:
+        if args.phantomjs or args.slimerjs:
             phantomjs_coprocessor = self._build_phantomjs_coprocessor(proxy_port)
         else:
             phantomjs_coprocessor = None
@@ -1212,7 +1220,10 @@ class Builder(object):
             or self.default_user_agent
 
         # Test early for executable
-        wpull.driver.phantomjs.get_version(self._args.phantomjs_exe)
+        if self._args.phantomjs:
+            wpull.driver.phantomjs.get_version(self._args.phantomjs_exe)
+        else:
+            wpull.driver.slimerjs.get_version(self._args.slimerjs_exe)
 
         phantomjs_params = PhantomJSParams(
             wait_time=self._args.phantomjs_wait,
@@ -1230,11 +1241,19 @@ class Builder(object):
             '--ignore-ssl-errors=true'
         ]
 
-        phantomjs_driver_factory = functools.partial(
-            self._factory.class_map['PhantomJSDriver'],
-            exe_path=self._args.phantomjs_exe,
-            extra_args=extra_args,
-        )
+        if self._args.phantomjs:
+            phantomjs_driver_factory = functools.partial(
+                self._factory.class_map['PhantomJSDriver'],
+                exe_path=self._args.phantomjs_exe,
+                extra_args=extra_args,
+            )
+        else:
+            phantomjs_driver_factory = functools.partial(
+                self._factory.class_map['SlimerJSDriver'],
+                exe_path=self._args.slimerjs_exe,
+                extra_args=extra_args,
+                root_dir=self._args.directory_prefix
+            )
 
         phantomjs_coprocessor = self._factory.new(
             'PhantomJSCoprocessor',

@@ -1262,16 +1262,28 @@ class AppArgumentParser(argparse.ArgumentParser):
 
     def _add_phantomjs_args(self):
         group = self.add_argument_group(_('PhantomJS'))
-        group.add_argument(
+        enable_group = group.add_mutually_exclusive_group()
+        enable_group.add_argument(
             '--phantomjs',
             action='store_true',
             help=_('use PhantomJS for loading dynamic pages'),
+        )
+        enable_group.add_argument(
+            '--slimerjs',
+            action='store_true',
+            help=_('use SlimerJS for loading dynamic pages'),
         )
         group.add_argument(
             '--phantomjs-exe',
             metavar='PATH',
             default='phantomjs',
             help=_('path of PhantomJS executable')
+        )
+        group.add_argument(
+            '--slimerjs-exe',
+            metavar='PATH',
+            default='slimerjs',
+            help=_('path of SlimerJS executable')
         )
         group.add_argument(
             '--phantomjs-max-time',
