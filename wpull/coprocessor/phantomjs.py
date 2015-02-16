@@ -152,6 +152,7 @@ class PhantomJSCoprocessorSession(object):
         self._params = params
         self._warc_recorder = warc_recorder
         self._temp_filenames = []
+        self._action_warc_record = None
 
     @trollius.coroutine
     def run(self):

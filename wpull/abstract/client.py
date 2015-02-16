@@ -95,6 +95,8 @@ class BaseSession(object, metaclass=abc.ABCMeta):
         self._connection_pool = connection_pool
         self._recorder_session = recorder_session
         self._proxy_adapter = proxy_adapter
+        self._request = None
+        self._connection = None
 
     @abc.abstractmethod
     def close(self):
