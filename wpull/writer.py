@@ -123,7 +123,6 @@ class BaseFileWriter(BaseWriter):
 
         This should be overridden by subclasses.
         '''
-        pass
 
     def session(self):
         '''Return the File Writer Session.'''

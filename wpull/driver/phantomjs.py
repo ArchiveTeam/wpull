@@ -126,6 +126,7 @@ class PhantomJSDriver(Process):
         if os.path.exists(self._config_file.name):
             os.remove(self._config_file.name)
 
+
 def get_version(exe_path='phantomjs'):
     '''Get the version string of PhantomJS.'''
     process = subprocess.Popen(

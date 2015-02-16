@@ -13,7 +13,6 @@ import ssl
 import sys
 import tempfile
 
-import tornado.testing
 import tornado.netutil
 import tornado.web
 import trollius
@@ -24,12 +23,14 @@ from wpull.bandwidth import BandwidthLimiter
 from wpull.connection import Connection, ConnectionPool, SSLConnection
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
+from wpull.coprocessor.phantomjs import PhantomJSCoprocessor, PhantomJSParams
 from wpull.coprocessor.proxy import ProxyCoprocessor
 from wpull.coprocessor.youtubedl import YoutubeDlCoprocessor
 from wpull.database.sqltable import URLTable as SQLURLTable, GenericSQLURLTable
 from wpull.database.wrap import URLTableHookWrapper
 from wpull.debug import DebugConsoleHandler
 from wpull.dns import Resolver, PythonResolver
+from wpull.driver.phantomjs import PhantomJSDriver
 from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.ftp.client import Client as FTPClient
@@ -42,14 +43,12 @@ from wpull.http.robots import RobotsTxtChecker
 from wpull.http.stream import Stream as HTTPStream
 from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
-from wpull.driver.phantomjs import PhantomJSDriver
 from wpull.options import LOG_QUIET, LOG_VERY_QUIET, LOG_NO_VERBOSE, LOG_VERBOSE, \
     LOG_DEBUG
 from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
     FTPProcessorInstances
 from wpull.processor.rule import FetchRule, ResultRule, ProcessingRule
-from wpull.coprocessor.phantomjs import PhantomJSCoprocessor, PhantomJSParams
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
     WebProcessorInstances
 from wpull.proxy import HTTPProxyServer
@@ -79,6 +78,8 @@ from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
                           IgnoreFileWriter, TimestampingFileWriter,
                           AntiClobberFileWriter)
+import wpull.coprocessor.youtubedl
+import wpull.driver.phantomjs
 import wpull.version
 
 

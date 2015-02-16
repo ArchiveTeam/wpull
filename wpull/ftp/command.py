@@ -9,7 +9,6 @@ from wpull.ftp.request import Command
 from wpull.ftp.stream import DataStream
 from wpull.ftp.util import ReplyCodes, FTPServerError
 import wpull.ftp.util
-import wpull.string
 
 
 _logger = logging.getLogger(__name__)

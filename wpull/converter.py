@@ -13,7 +13,7 @@ from wpull.database.base import NotFound
 from wpull.document.htmlparse.element import Comment, Element, Doctype
 from wpull.item import Status
 from wpull.scraper.css import CSSScraper
-from wpull.scraper.html import HTMLScraper, ElementWalker
+from wpull.scraper.html import HTMLScraper
 from wpull.url import URLInfo
 import wpull.string
 

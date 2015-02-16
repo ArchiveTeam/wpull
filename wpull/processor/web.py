@@ -10,18 +10,15 @@ import trollius
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
-from wpull.errors import NetworkError, ProtocolError, ServerError, \
-    SSLVerificationError
+from wpull.errors import ProtocolError
 from wpull.hook import HookableMixin, Actions
 from wpull.http.web import LoopType
-from wpull.namevalue import NameValueRecord
 from wpull.processor.base import BaseProcessor, BaseProcessorSession, \
     REMOTE_ERRORS
 from wpull.processor.rule import FetchRule, ResultRule
 from wpull.stats import Statistics
 from wpull.writer import NullWriter
 import wpull.string
-import wpull.url
 
 
 _logger = logging.getLogger(__name__)
