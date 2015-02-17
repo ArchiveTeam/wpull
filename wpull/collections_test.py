@@ -17,10 +17,51 @@ class TestCollections(unittest.TestCase):
             [('a', 6), ('b', 5), ('c', 4)],
             list(mapping.items())
         )
+
+        self.assertEqual(['a', 'b', 'c'], list(mapping))
+        self.assertEqual(['a', 'b', 'c'], list(mapping.keys()))
+        self.assertEqual(['c', 'b', 'a'], list(reversed(mapping)))
+        self.assertEqual([6, 5, 4], list(mapping.values()))
+
+        self.assertEqual(6, mapping['a'])
+
+        d_value = mapping['d']
+        self.assertEqual(2, d_value)
+        del mapping['d']
+        self.assertNotIn('d', mapping)
+        d_value = mapping['d']
+        self.assertEqual(2, d_value)
+        self.assertEqual(4, len(mapping))
+
+        mapping.pop('d')
+        self.assertEqual(3, len(mapping))
+
+        mapping.pop('b')
+        self.assertEqual(2, len(mapping))
+        self.assertEqual(['a', 'c'], list(mapping))
+        self.assertEqual(['a', 'c'], list(mapping.keys()))
+
+    def test_ordered_default_dict_copy(self):
+        d1 = OrderedDefaultDict()
+        d1['a'] = object()
+        d2 = copy.copy(d1)
+        self.assertEqual(d1['a'], d2['a'])
+
+        d2['b'] = 5
+
+        self.assertEqual(1, len(d1))
+        self.assertEqual(2, len(d2))
+
+    def test_ordered_default_dict_deep_copy(self):
         d1 = OrderedDefaultDict()
         d1['a'] = object()
         d2 = copy.deepcopy(d1)
         self.assertNotEqual(d1['a'], d2['a'])
+
+        d2['b'] = 5
+
+        self.assertEqual(1, len(d1))
+        self.assertEqual(2, len(d2))
 
     def test_linked_list(self):
         linked_list = LinkedList()
