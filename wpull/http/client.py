@@ -150,14 +150,13 @@ class Session(BaseSession):
         '''
         return self._session_complete
 
-    def close(self):
-        '''Abort the session if not complete.'''
-        if not self._session_complete and self._connection:
+    def abort(self):
+        if self._connection:
             self._connection.close()
-            self._session_complete = True
 
-    def clean(self):
-        '''Return connection back to the pool.'''
+        self._session_complete = True
+
+    def recycle(self):
         assert self._session_complete
 
         if self._connection:

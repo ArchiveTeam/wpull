@@ -36,6 +36,7 @@ class BaseClient(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def _session_class(self):
         '''Return session class.'''
+        return BaseSession  # return something for code checkers
 
     @contextlib.contextmanager
     def session(self):
@@ -58,11 +59,12 @@ class BaseClient(object, metaclass=abc.ABCMeta):
                     yield session
                 except Exception as error:
                     if not isinstance(error, StopIteration):
-                        _logger.debug('Close session.')
-                        session.close()
+                        _logger.debug('Early close session.')
+                        session.abort()
+                        session.recycle()
                     raise
-                finally:
-                    session.clean()
+                else:
+                    session.recycle()
         else:
             session = self._session_class()(
                 connection_pool=self._connection_pool,
@@ -72,11 +74,12 @@ class BaseClient(object, metaclass=abc.ABCMeta):
                 yield session
             except Exception as error:
                 if not isinstance(error, StopIteration):
-                    _logger.debug('Close session.')
-                    session.close()
+                    _logger.debug('Early close session.')
+                    session.abort()
+                    session.recycle()
                 raise
-            finally:
-                session.clean()
+            else:
+                session.recycle()
 
     def close(self):
         '''Close the connection pool and recorders.'''
@@ -99,12 +102,15 @@ class BaseSession(object, metaclass=abc.ABCMeta):
         self._connection = None
 
     @abc.abstractmethod
-    def close(self):
-        '''Close any connections.'''
+    def abort(self):
+        '''Terminate early and close any connections.'''
 
     @abc.abstractmethod
-    def clean(self):
-        '''Return connection back to the pool.'''
+    def recycle(self):
+        '''Clean up and return connection back to the pool.
+
+        Connections should be kept alive if supported.
+        '''
 
     @trollius.coroutine
     def _check_out_connection(self, request):

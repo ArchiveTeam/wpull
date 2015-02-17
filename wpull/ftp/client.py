@@ -337,7 +337,16 @@ class Session(BaseSession):
         except FTPServerError:
             return
 
-    def clean(self):
+    def abort(self):
+        self._close_data_connection()
+
+        if self._connection:
+            self._connection.close()
+            self._login_table.pop(self._connection, None)
+
+    def recycle(self):
+        self._close_data_connection()
+
         if self._connection:
             if self._recorder_session:
                 self._recorder_session.end_control(
@@ -346,14 +355,12 @@ class Session(BaseSession):
 
             self._connection_pool.check_in(self._connection)
 
+    def _close_data_connection(self):
         if self._data_connection:
             self._data_connection.close()
             self._connection_pool.check_in(self._data_connection)
+            self._data_connection = None
 
         if self._data_stream:
             self._data_stream.data_observer.clear()
-
-    def close(self):
-        if self._connection:
-            self._connection.close()
-            self._login_table.pop(self._connection, None)
+            self._data_stream = None
