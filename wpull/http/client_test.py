@@ -2,6 +2,7 @@
 import contextlib
 import functools
 import io
+import warnings
 
 from trollius import From
 
@@ -137,14 +138,18 @@ class TestClient(BadAppTestCase):
         self.assertIn(b'hello', recorder.response_data)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_client_exception_close(self):
+    def test_client_did_not_complete(self):
         client = Client()
 
-        with self.assertRaises(AssertionError):
+        with warnings.catch_warnings(record=True) as warn_list:
+            warnings.simplefilter("always")
+
             with client.session() as session:
                 request = Request(self.get_url('/'))
                 response = yield From(session.fetch(request))
                 self.assertFalse(session.done())
+
+            self.assertEqual(1, len(warn_list))
 
         client = Client()
 

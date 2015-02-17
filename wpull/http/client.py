@@ -3,6 +3,7 @@
 import functools
 import gettext
 import logging
+import warnings
 
 from trollius import From, Return
 import trollius
@@ -157,7 +158,10 @@ class Session(BaseSession):
         self._session_complete = True
 
     def recycle(self):
-        assert self._session_complete
+        if not self._session_complete:
+            warnings.warn(_('HTTP session did not complete.'))
+
+            self.abort()
 
         if self._connection:
             self._connection_pool.check_in(self._connection)
