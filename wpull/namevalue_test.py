@@ -21,6 +21,20 @@ class TestNameValue(unittest.TestCase):
                     'who:   Gilbert, W.S. | Sullivan, Arthur\r\n'
                     'what:  The Yeomen of the Guard\r\n'
                     'when/created:  1888\r\n')
+    MIXED_LINE_ENDING_STR_1 = (
+        'dog: woof\n'
+        'cat: meow\r\n'
+        'bird: tweet\r'
+        'mouse: squeak\n'
+        'cow: moo\r\n'
+        'frog: croak\n\r'
+        'elephant: toot\n'
+        'duck: \n'
+        '      quack\r\n'
+        'fish: blub\n'
+        'seal: ow ow ow\r'
+        'fox: ???\r'
+    )
 
     def test_guess_line_ending(self):
         self.assertEqual('\r\n', guess_line_ending(self.RECORD_STR_1))
@@ -121,6 +135,22 @@ class TestNameValue(unittest.TestCase):
 
         record['WARC-Blah'] = 'blah'
         self.assertEqual(['WARC-Type', 'Warc-Blah'], list(record.keys()))
+
+    def test_mixed_line_ending(self):
+        record = NameValueRecord()
+        record.parse(self.MIXED_LINE_ENDING_STR_1)
+
+        self.assertEqual('woof', record['dog'])
+        self.assertEqual('meow', record['cat'])
+        self.assertEqual('tweet', record['bird'])
+        self.assertEqual('squeak', record['mouse'])
+        self.assertEqual('moo', record['cow'])
+        self.assertEqual('croak', record['frog'])
+        self.assertEqual('toot', record['elephant'])
+        self.assertEqual('quack', record['duck'])
+        self.assertEqual('blub', record['fish'])
+        self.assertEqual('ow ow ow', record['seal'])
+        self.assertEqual('???', record['fox'])
 
     def test_copy(self):
         record = NameValueRecord()
