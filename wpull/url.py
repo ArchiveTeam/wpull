@@ -636,6 +636,7 @@ def query_to_map(text):
     return query_to_map(text)
 
 
+@functools.lru_cache()
 def urljoin(base_url, url, allow_fragments=True):
     '''Join URLs like ``urllib.parse.urljoin`` but allow scheme-relative URL.'''
     if url.startswith('//') and len(url) > 2:

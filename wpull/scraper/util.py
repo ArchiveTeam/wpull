@@ -7,6 +7,7 @@ import logging
 import mimetypes
 import re
 import string
+import functools
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.item import LinkType
@@ -218,6 +219,7 @@ def is_unlikely_link(text):
         return True
 
 
+@functools.lru_cache()
 def identify_link_type(filename):
     '''Return link type guessed by filename extension.
 
