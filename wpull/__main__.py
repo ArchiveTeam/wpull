@@ -49,8 +49,10 @@ if __name__ == '__main__':
     if os.environ.get('RUN_PROFILE'):
         import cProfile
         cProfile.run('main()', 'stats-{0}.profile'.format(int(time.time())))
-        # I suggest installing runsnakerun to view the profile file graphically
-        # Or, for Python 3.4, use kcachegrind and pyprof2calltree
+        # For Python 3.2, I suggest installing runsnakerun to view the
+        # profile file graphically
+        # For Python 3.4, use kcachegrind and pyprof2calltree, or
+        # try snakeviz
     elif os.environ.get('RUN_PDB'):
         import pdb
 
