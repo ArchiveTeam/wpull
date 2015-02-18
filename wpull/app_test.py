@@ -1529,7 +1529,7 @@ class TestAppFTP(FTPTestCase):
             self.assertEqual(8, exit_code)
             self.assertEqual(6, builder.factory['Statistics'].files)
 
-            print(os.listdir())
+            print(os.listdir('.'))
 
             self.assertTrue(os.path.exists('.listing'))
             self.assertTrue(os.path.exists('example.txt'))
@@ -1566,11 +1566,30 @@ class TestAppFTP(FTPTestCase):
 
             self.assertEqual(0, exit_code)
 
-            print(os.listdir())
+            print(os.listdir('.'))
 
             self.assertTrue(os.path.exists('example.txt'))
             self.assertTrue(os.path.exists('readme.txt'))
             self.assertTrue(os.path.islink('readme.txt'))
+
+    # TODO: todo
+    # @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    # def test_file_vs_directory(self):
+    #     arg_parser = AppArgumentParser()
+    #     args = arg_parser.parse_args([
+    #         self.get_url('/example2'),
+    #         '--no-host-directories',
+    #         '--no-remove-listing',
+    #     ])
+    #     builder = Builder(args, unit_test=True)
+    #
+    #     with cd_tempdir():
+    #         app = builder.build()
+    #         exit_code = yield From(app.run())
+    #
+    #         self.assertEqual(0, exit_code)
+    #
+    #         self.assertTrue(os.path.exists('example2/.listing'))
 
 
 @trollius.coroutine
