@@ -40,12 +40,12 @@ class ReplyCodes(object):
     pathname_created = 257
     requested_file_action_pending_further_information = 350
     requested_file_action_not_taken = 450
-    requested_action_not_taken = 550
+    requested_action_not_taken_file_unavailable = 550
     requested_action_aborted_local_error_in_processing = 451
     requested_action_aborted_page_type_unknown = 551
-    requested_action_not_taken = 452
+    requested_action_not_taken_insufficient_storage_space = 452
     requested_file_action_aborted = 552
-    requested_action_not_taken = 553
+    requested_action_not_taken_file_name_not_allowed = 553
 
 
 class FTPServerError(ServerError):
