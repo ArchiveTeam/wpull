@@ -181,7 +181,8 @@ class Builder(object):
         if self._args.plugin_script:
             self._initialize_plugin()
 
-        self._factory.new('Application', self)
+        self._factory.new('Application', self,
+                          human_format_speed=not self._args.report_speed)
 
         self._build_html_parser()
         self._setup_console_logger()
@@ -705,9 +706,12 @@ class Builder(object):
             if not stream.isatty():
                 bar_style = False
 
-            recorders.append(self._factory.new('ProgressRecorder',
-                                               bar_style=bar_style,
-                                               stream=stream))
+            recorders.append(self._factory.new(
+                'ProgressRecorder',
+                bar_style=bar_style,
+                stream=stream,
+                human_format=not args.report_speed,
+            ))
 
         if args.warc_dedup:
             self._populate_visits()

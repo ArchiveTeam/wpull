@@ -345,11 +345,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('print program messages in ASCII only'),
         )
-#         self.add_argument(
-#             '--report-speed',
-#             metavar='TYPE',
-#             choices=['bits'],
-#         )
+        self.add_argument(
+            '--report-speed',
+            metavar='TYPE',
+            choices=['bits'],
+            help=_('print speed in bits only instead of human formatted units')
+        )
         group.add_argument(
             '-i',
             '--input-file',

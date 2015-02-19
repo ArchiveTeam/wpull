@@ -197,6 +197,7 @@ class TestApp(GoodAppTestCase):
             '--no-skip-getaddrinfo',
             '--limit-rate', '1m',
             '--session-timeout', '300',
+            '--report-speed=bits',
         ])
         with cd_tempdir():
             builder = Builder(args, unit_test=True)

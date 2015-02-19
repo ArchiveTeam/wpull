@@ -4,6 +4,7 @@ What's New
 
 
 * Added ``--no-cache``.
+* Added ``--report-speed``.
 
 
 0.1007 (2015-02-19)
