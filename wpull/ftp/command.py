@@ -9,7 +9,6 @@ from wpull.ftp.request import Command
 from wpull.ftp.stream import DataStream
 from wpull.ftp.util import ReplyCodes, FTPServerError
 import wpull.ftp.util
-import wpull.string
 
 
 _logger = logging.getLogger(__name__)
@@ -54,18 +53,13 @@ class Commander(object):
 
         Coroutine.
         '''
-        # FIXME: implement some states so we don't need to close all the time
-        self._control_stream.close()
-
         if self._control_stream.closed():
             yield From(self._control_stream.reconnect())
-#         else:
-#             yield From(self._control_stream.write_command(Command('REIN')))
 
-        reply = yield From(self._control_stream.read_reply())
+            reply = yield From(self._control_stream.read_reply())
 
-        self.raise_if_not_match(
-            'Server ready', ReplyCodes.service_ready_for_new_user, reply)
+            self.raise_if_not_match(
+                'Server ready', ReplyCodes.service_ready_for_new_user, reply)
 
     @trollius.coroutine
     def login(self, username='anonymous', password='-wpull-lib@'):

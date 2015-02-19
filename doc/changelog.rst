@@ -2,6 +2,17 @@
 What's New
 ==========
 
+
+0.1007 (2015-02-19)
+===================
+
+* Fixed malformed URLs printed to logs without sanitation.
+* Fixed AttributeError crash on FTP servers that support MLSD.
+* Improved link recursion heuristics when extracting from JavaScript and HTML.
+* Added ``--retr-symlinks``.
+* Added ``--session-timeout``.
+
+
 0.1006.1 (2015-02-09)
 =====================
 

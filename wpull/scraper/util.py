@@ -7,8 +7,10 @@ import logging
 import mimetypes
 import re
 import string
+import functools
 
 from wpull.backport.logging import BraceMessage as __
+from wpull.item import LinkType
 import wpull.url
 
 
@@ -215,3 +217,28 @@ def is_unlikely_link(text):
     # Forbid things where the first part of the path looks like a domain name
     if FIRST_PART_TLD_PATTERN.match(text):
         return True
+
+
+@functools.lru_cache()
+def identify_link_type(filename):
+    '''Return link type guessed by filename extension.
+
+    Returns:
+        str: A value from :class:`.item.LinkType`.
+    '''
+    mime_type = mimetypes.guess_type(filename)[0]
+
+    if not mime_type:
+        return
+
+    if mime_type == 'text/css':
+        return LinkType.css
+    elif mime_type == 'application/javascript':
+        return LinkType.javascript
+    elif mime_type == 'text/html' or mime_type.endswith('xml'):
+        return LinkType.html
+    elif mime_type.startswith('video') or \
+            mime_type.startswith('image') or \
+            mime_type.startswith('audio') or \
+            mime_type.endswith('shockwave-flash'):
+        return LinkType.media

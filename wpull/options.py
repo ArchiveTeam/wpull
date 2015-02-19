@@ -24,6 +24,10 @@ LOG_VERBOSE = logging.INFO - 1
 LOG_DEBUG = logging.DEBUG
 
 
+BOOLEAN_VALUES = ('yes', 'on', '1', 'off', 'no', '0')
+BOOLEAN_TRUE_VALUES = ('yes', 'on', '1')
+
+
 class CommaChoiceListArgs(frozenset):
     '''Specialized frozenset.
 
@@ -484,7 +488,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--timeout',
             metavar='SECONDS',
             type=float,
-            help=_('set all timeout options to SECONDS'),
+            help=_('set DNS, connect, read timeout options to SECONDS'),
         )
         group.add_argument(
             '--dns-timeout',
@@ -504,6 +508,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=900,
             type=float,
             help=_('timeout after SECS seconds for reading requests'),
+        )
+        group.add_argument(
+            '--session-timeout',
+            metavar='SECS',
+            type=float,
+            help=_('timeout after SECS seconds for downloading files'),
         )
         group.add_argument(
             '-w',
@@ -969,10 +979,13 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--preserve-permissions',
 #             action='store_true',
 #         )
-#         self.add_argument(
-#             '--retr-symlinks',
-#             action='store_true',
-#         )
+        self.add_argument(
+            '--retr-symlinks',
+            default='on',
+            nargs='?',
+            choices=BOOLEAN_VALUES,
+            help=_('if disabled, preserve symlinks and run with security risks')
+        )
 
     def _add_warc_args(self):
         group = self.add_argument_group('WARC')
@@ -1347,6 +1360,9 @@ class AppArgumentParser(argparse.ArgumentParser):
         if (args.proxy_user or args.proxy_password) and not \
                 (args.proxy_user and args.proxy_password):
             self.error(_('both username and password must be supplied'))
+
+        assert args.retr_symlinks in BOOLEAN_VALUES
+        args.retr_symlinks = args.retr_symlinks in BOOLEAN_TRUE_VALUES
 
     def _post_warc_args(self, args):
         option_names = ('clobber_method', 'timestamping', 'continue_download')

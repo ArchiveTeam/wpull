@@ -3,7 +3,8 @@ import codecs
 import io
 import re
 
-from wpull.document.base import BaseDocumentDetector, BaseTextStreamReader
+from wpull.document.base import BaseDocumentDetector, BaseTextStreamReader, \
+    VeryFalse
 from wpull.regexstream import RegexStream
 import wpull.string
 import wpull.util
@@ -36,9 +37,8 @@ class CSSReader(BaseDocumentDetector, BaseTextStreamReader):
 
         if response.body:
             # Stylesheet mistakenly served as HTML
-            if 'html' in response.fields.get('content-type', '').lower() \
-               and cls.is_file(response.body):
-                return True
+            if 'html' in response.fields.get('content-type', '').lower():
+                return cls.is_file(response.body)
 
     @classmethod
     def is_file(cls, file):
@@ -47,7 +47,7 @@ class CSSReader(BaseDocumentDetector, BaseTextStreamReader):
             wpull.util.peek_file(file)).lower()
 
         if b'<html' in peeked_data:
-            return False
+            return VeryFalse
 
         if re.search(br'@import |color:|background[a-z-]*:|font[a-z-]*:',
                      peeked_data):

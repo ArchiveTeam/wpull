@@ -49,8 +49,9 @@ class TestParse(unittest.TestCase):
                           date_factory(1994, 4, 8)),
                 FileEntry('etc', 'dir', 512,
                           date_factory(1994, 4, 8)),
-                FileEntry('bin', 'other', 7,
-                          date_factory(current_year, 1, 25, 0, 17)),
+                FileEntry('bin', 'symlink', 7,
+                          date_factory(current_year, 1, 25, 0, 17),
+                          'usr/bin'),
                 FileEntry('blah', 'dir', 512,
                           date_factory(2004, 4, 8)),
             ],
@@ -98,10 +99,10 @@ class TestParse(unittest.TestCase):
 
         self.assertEqual(
             [
-                FileEntry('dog.txt', None, None, None),
-                FileEntry('cat.txt', None, None, None),
-                FileEntry('bird.txt', None, None, None),
-                FileEntry('fish.txt', None, None, None),
+                FileEntry('dog.txt'),
+                FileEntry('cat.txt'),
+                FileEntry('bird.txt'),
+                FileEntry('fish.txt'),
             ],
             results
         )

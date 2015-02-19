@@ -3,6 +3,7 @@ import re
 
 from wpull.errors import ServerError
 import datetime
+from wpull.ftp.ls.listing import FileEntry
 
 
 class ReplyCodes(object):
@@ -39,12 +40,12 @@ class ReplyCodes(object):
     pathname_created = 257
     requested_file_action_pending_further_information = 350
     requested_file_action_not_taken = 450
-    requested_action_not_taken = 550
+    requested_action_not_taken_file_unavailable = 550
     requested_action_aborted_local_error_in_processing = 451
     requested_action_aborted_page_type_unknown = 551
-    requested_action_not_taken = 452
+    requested_action_not_taken_insufficient_storage_space = 452
     requested_file_action_aborted = 552
-    requested_action_not_taken = 553
+    requested_action_not_taken_file_name_not_allowed = 553
 
 
 class FTPServerError(ServerError):
@@ -176,3 +177,14 @@ def convert_machine_list_time_val(text):
 
     return datetime.datetime(year, month, day, hour, minute, second,
                              tzinfo=datetime.timezone.utc)
+
+
+def machine_listings_to_file_entries(listings):
+    '''Convert results from parsing machine listings to FileEntry list.'''
+    for listing in listings:
+        yield FileEntry(
+            listing['name'],
+            type=listing.get('type'),
+            size=listing.get('size'),
+            date=listing.get('modify')
+        )

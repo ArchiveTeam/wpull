@@ -2,8 +2,10 @@
 import contextlib
 import functools
 import io
+import warnings
 
 from trollius import From
+from wpull.abstract.client import DurationTimeout
 
 from wpull.connection import ConnectionPool, Connection
 from wpull.errors import NetworkError
@@ -86,12 +88,17 @@ class TestClient(BadAppTestCase):
         with client.session() as session:
             request = Request('http://wpull-no-exist.invalid')
 
-        try:
+        with self.assertRaises(NetworkError):
             yield From(session.fetch(request))
-        except NetworkError:
-            pass
-        else:
-            self.fail()  # pragma: no cover
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_client_duration_timeout(self):
+        client = Client()
+
+        with self.assertRaises(DurationTimeout), client.session() as session:
+            request = Request(self.get_url('/sleep_long'))
+            yield From(session.fetch(request))
+            yield From(session.read_content(duration_timeout=0.1))
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_client_exception_recovery(self):
@@ -137,19 +144,26 @@ class TestClient(BadAppTestCase):
         self.assertIn(b'hello', recorder.response_data)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_client_exception_close(self):
+    def test_client_did_not_complete(self):
         client = Client()
 
-        with self.assertRaises(AssertionError):
+        with warnings.catch_warnings(record=True) as warn_list:
+            warnings.simplefilter("always")
+
             with client.session() as session:
                 request = Request(self.get_url('/'))
-                response = yield From(session.fetch(request))
+                yield From(session.fetch(request))
                 self.assertFalse(session.done())
+
+            for warn_obj in warn_list:
+                print(warn_obj)
+
+            self.assertEqual(1, len(warn_list))
 
         client = Client()
 
         with self.assertRaises(MyException):
             with client.session() as session:
                 request = Request(self.get_url('/'))
-                response = yield From(session.fetch(request))
+                yield From(session.fetch(request))
                 raise MyException('Oops')

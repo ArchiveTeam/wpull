@@ -61,7 +61,7 @@ class BaseRecorderSession(object, metaclass=abc.ABCMeta):
     def response_data(self, data):
         '''Callback for the in-band bytes that was received.'''
 
-    def begin_control(self, request):
+    def begin_control(self, request, connection_reused=False):
         '''Callback for beginning of a control session.'''
 
     def request_control_data(self, data):
@@ -70,5 +70,5 @@ class BaseRecorderSession(object, metaclass=abc.ABCMeta):
     def response_control_data(self, data):
         '''Callback for out-of-band bytes that was received.'''
 
-    def end_control(self, response):
+    def end_control(self, response, connection_closed=False):
         '''Callback for ending of a control session.'''

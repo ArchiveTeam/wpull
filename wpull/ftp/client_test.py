@@ -3,6 +3,7 @@ import logging
 
 from trollius import From
 import trollius
+from wpull.abstract.client import DurationTimeout
 from wpull.errors import ProtocolError
 
 from wpull.ftp.client import Client
@@ -32,6 +33,17 @@ class TestClient(FTPTestCase):
             'The real treasure is in Smaug’s heart 💗.\n'.encode('utf-8'),
             response.body.content()
         )
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_duration_timeout(self):
+        client = Client()
+        file = io.BytesIO()
+
+        with self.assertRaises(DurationTimeout), client.session() as session:
+            yield From(
+                session.fetch(Request(self.get_url('/hidden/sleep.txt')))
+            )
+            yield From(session.read_content(file, duration_timeout=0.1))
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_fetch_no_file(self):
@@ -94,11 +106,12 @@ class TestClient(FTPTestCase):
             yield From(session.read_listing_content(file))
 
         print(response.body.content())
-        self.assertEqual(4, len(response.files))
+        self.assertEqual(5, len(response.files))
         self.assertEqual('junk', response.files[0].name)
         self.assertEqual('example1', response.files[1].name)
         self.assertEqual('example2', response.files[2].name)
         self.assertEqual('example.txt', response.files[3].name)
+        self.assertEqual('readme.txt', response.files[4].name)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_fetch_bad_pasv_addr(self):

@@ -1,11 +1,13 @@
 '''FTP client.'''
 import io
 import logging
+import weakref
+import functools
 
 from trollius import From, Return
 import trollius
 
-from wpull.abstract.client import BaseClient, BaseSession
+from wpull.abstract.client import BaseClient, BaseSession, DurationTimeout
 from wpull.body import Body
 from wpull.errors import ProtocolError
 from wpull.ftp.command import Commander
@@ -25,12 +27,18 @@ class Client(BaseClient):
 
     The session object is :class:`Session`.
     '''
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._login_table = weakref.WeakKeyDictionary()
+
     def _session_class(self):
-        return Session
+        return functools.partial(Session, login_table=self._login_table)
 
 
 class Session(BaseSession):
     def __init__(self, **kwargs):
+        self._login_table = kwargs.pop('login_table')
+
         super().__init__(**kwargs)
 
         self._connection = None
@@ -41,9 +49,6 @@ class Session(BaseSession):
         self._data_stream = None
         self._data_connection = None
         self._listing_type = None
-
-        # TODO: maybe keep track of sessions among connections to avoid
-        # having to login over and over again
 
     @trollius.coroutine
     def _init_stream(self):
@@ -80,8 +85,15 @@ class Session(BaseSession):
         username = self._request.url_info.username or self._request.username or 'anonymous'
         password = self._request.url_info.password or self._request.password or '-wpull@'
 
-        yield From(self._commander.reconnect())
+        cached_login = self._login_table.get(self._connection)
+
+        if cached_login and cached_login == (username, password):
+            _logger.debug('Reusing existing login.')
+            return
+
         yield From(self._commander.login(username, password))
+
+        self._login_table[self._connection] = (username, password)
 
     @trollius.coroutine
     def fetch(self, request):
@@ -172,8 +184,15 @@ class Session(BaseSession):
         request.address = self._connection.address
 
         if self._recorder_session:
-            self._recorder_session.begin_control(request)
+            connection_reused = not self._connection.closed()
+            self._recorder_session.begin_control(
+                request, connection_reused=connection_reused
+            )
 
+        if self._connection.closed():
+            self._login_table.pop(self._connection, None)
+
+        yield From(self._commander.reconnect())
         yield From(self._log_in())
 
         self._response.request = request
@@ -189,13 +208,15 @@ class Session(BaseSession):
             self._recorder_session.pre_response(self._response)
 
     @trollius.coroutine
-    def read_content(self, file=None, rewind=True):
+    def read_content(self, file=None, rewind=True, duration_timeout=None):
         '''Read the response content into file.
 
         Args:
             file: A file object or asyncio stream.
             rewind: Seek the given file back to its original offset after
                 reading is finished.
+            duration_timeout (int): Maximum time in seconds of which the
+                entire file must be read.
 
         Returns:
             .ftp.request.Response: A Response populated with the final
@@ -216,9 +237,17 @@ class Session(BaseSession):
             if not isinstance(file, Body):
                 self._response.body = Body(file)
 
-        reply = yield From(self._commander.read_stream(
-            file, self._data_stream
-        ))
+        read_future = self._commander.read_stream(file, self._data_stream)
+
+        try:
+            reply = yield From(
+                trollius.wait_for(read_future, timeout=duration_timeout)
+            )
+        except trollius.TimeoutError as error:
+            raise DurationTimeout(
+                'Did not finish reading after {} seconds.'
+                .format(duration_timeout)
+            ) from error
 
         self._response.reply = reply
 
@@ -231,7 +260,7 @@ class Session(BaseSession):
         raise Return(self._response)
 
     @trollius.coroutine
-    def read_listing_content(self, file):
+    def read_listing_content(self, file, duration_timeout=None):
         '''Read file listings.
 
         Returns:
@@ -242,7 +271,8 @@ class Session(BaseSession):
 
         Coroutine.
         '''
-        yield From(self.read_content(file=file, rewind=False))
+        yield From(self.read_content(file=file, rewind=False,
+                                     duration_timeout=duration_timeout))
 
         try:
             if self._response.body.tell() == 0:
@@ -250,10 +280,14 @@ class Session(BaseSession):
             elif self._listing_type == 'mlsd':
                 self._response.body.seek(0)
 
-                listings = wpull.ftp.util.parse_machine_listing(
+                machine_listings = wpull.ftp.util.parse_machine_listing(
                     self._response.body.read().decode('latin-1'),
                     convert=True, strict=False
                 )
+                listings = list(
+                    wpull.ftp.util.machine_listings_to_file_entries(
+                        machine_listings
+                    ))
             else:
                 self._response.body.seek(0)
 
@@ -314,20 +348,30 @@ class Session(BaseSession):
         except FTPServerError:
             return
 
-    def clean(self):
+    def abort(self):
+        self._close_data_connection()
+
+        if self._connection:
+            self._connection.close()
+            self._login_table.pop(self._connection, None)
+
+    def recycle(self):
+        self._close_data_connection()
+
         if self._connection:
             if self._recorder_session:
-                self._recorder_session.end_control(self._response)
+                self._recorder_session.end_control(
+                    self._response, connection_closed=self._connection.closed()
+                )
 
             self._connection_pool.check_in(self._connection)
 
+    def _close_data_connection(self):
         if self._data_connection:
             self._data_connection.close()
             self._connection_pool.check_in(self._data_connection)
+            self._data_connection = None
 
         if self._data_stream:
             self._data_stream.data_observer.clear()
-
-    def close(self):
-        if self._connection:
-            self._connection.close()
+            self._data_stream = None

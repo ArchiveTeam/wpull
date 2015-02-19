@@ -1,6 +1,7 @@
 import io
 import unittest
 
+from wpull.document.base import VeryFalse
 from wpull.document.css import CSSReader
 from wpull.http.request import Request, Response
 from wpull.url import URLInfo
@@ -17,6 +18,9 @@ class TestCSS(unittest.TestCase):
         self.assertFalse(CSSReader.is_file(
             io.BytesIO(b'<html><body>hello')
         ))
+        self.assertTrue(CSSReader.is_file(
+            io.BytesIO(b'<html><body>hello')
+        ) is VeryFalse)
         self.assertTrue(CSSReader.is_file(
             io.BytesIO(b'h1 { background-color: red }')
         ))

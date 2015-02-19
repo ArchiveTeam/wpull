@@ -3,11 +3,12 @@
 import functools
 import gettext
 import logging
+import warnings
 
 from trollius import From, Return
 import trollius
 
-from wpull.abstract.client import BaseClient, BaseSession
+from wpull.abstract.client import BaseClient, BaseSession, DurationTimeout
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
 from wpull.http.stream import Stream
@@ -97,14 +98,17 @@ class Session(BaseSession):
         raise Return(response)
 
     @trollius.coroutine
-    def read_content(self, file=None, raw=False, rewind=True):
+    def read_content(self, file=None, raw=False, rewind=True,
+                     duration_timeout=None):
         '''Read the response content into file.
 
         Args:
             file: A file object or asyncio stream.
             raw (bool): Whether chunked transfer encoding should be included.
-            rewind: Seek the given file back to its original offset after
+            rewind (bool): Seek the given file back to its original offset after
                 reading is finished.
+            duration_timeout (int): Maximum time in seconds of which the
+                entire file must be read.
 
         Be sure to call :meth:`fetch` first.
 
@@ -121,7 +125,16 @@ class Session(BaseSession):
             if not isinstance(file, Body):
                 self._response.body = Body(file)
 
-        yield From(self._stream.read_body(self._request, self._response, file=file, raw=raw))
+        read_future = self._stream.read_body(self._request, self._response, file=file, raw=raw)
+
+        try:
+            yield From(trollius.wait_for(read_future, timeout=duration_timeout))
+        except trollius.TimeoutError as error:
+            raise DurationTimeout(
+                'Did not finish reading after {} seconds.'
+                .format(duration_timeout)
+            ) from error
+
         self._session_complete = True
 
         if original_offset is not None:
@@ -150,15 +163,17 @@ class Session(BaseSession):
         '''
         return self._session_complete
 
-    def close(self):
-        '''Abort the session if not complete.'''
-        if not self._session_complete and self._connection:
+    def abort(self):
+        if self._connection:
             self._connection.close()
-            self._session_complete = True
 
-    def clean(self):
-        '''Return connection back to the pool.'''
-        assert self._session_complete
+        self._session_complete = True
+
+    def recycle(self):
+        if not self._session_complete:
+            warnings.warn(_('HTTP session did not complete.'))
+
+            self.abort()
 
         if self._connection:
             self._connection_pool.check_in(self._connection)

@@ -36,16 +36,23 @@ class FTPSession(object):
         self.data_reader = None
         self.data_writer = None
         self._current_username = None
+        self._current_password = None
+        # NOTE: Do not add any symlink directory traversal attacks since
+        # unit tests will be testing symlink support!
         self.routes = {
             '/':
                 ('dir',
-                 b'junk\nexample1\nexample2\nexample.txt\n',
+                 b'junk\nexample1\nexample2\nexample.txt\nreadme.txt\n',
                  ('drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 junk\r\n'
                   'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example1\r\n'
                   'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example2\r\n'
                   '-rw-r--r-- 1 smaug smaug 42 Apr 01 00:00 example.txt\r\n'
+                  'lrwxrwxrwx 1 smaug smaug 4 Apr 01 00:00 readme.txt -> example.txt\r\n'
                  ).encode('utf-8')),
             '/example.txt':
+                ('file',
+                 'The real treasure is in Smaug’s heart 💗.\n'.encode('utf-8')),
+            '/readme.txt':
                 ('file',
                  'The real treasure is in Smaug’s heart 💗.\n'.encode('utf-8')),
             '/empty':
@@ -55,11 +62,15 @@ class FTPSession(object):
             '/example1/loopy':
                 ('symlink', '/'),
             '/example2':
-                ('dir', b'secrets.txt',
+                ('dir', b'trash.txt',
                  ('02-09-2010  03:00PM                      13 trash.txt\r\n'
-                 ).encode('utf-8')),
+                 ).encode('utf-8'),
+                 b'type=file; trash.txt\n'
+                ),
             '/example2/trash.txt':
                 ('file', b'hello dragon!'),
+            '/hidden/sleep.txt':
+                ('file', b'asdf'),
         }
         self.command = None
         self.arg = None
@@ -108,6 +119,7 @@ class FTPSession(object):
                 'PASV': self._cmd_pasv,
                 'NLST': self._cmd_nlst,
                 'LIST': self._cmd_list,
+                'MLSD': self._cmd_mlsd,
                 'RETR': self._cmd_retr,
                 'SIZE': self._cmd_size,
                 'REST': self._cmd_rest,
@@ -124,7 +136,11 @@ class FTPSession(object):
             if not func:
                 self.writer.write(b'500 Unknown command\r\n')
             else:
-                yield From(func())
+                if self.command not in ('USER', 'PASS') and \
+                        not self._current_password:
+                    self.writer.write(b'530 Login required\r\n')
+                else:
+                    yield From(func())
 
     @trollius.coroutine
     def _cmd_user(self):
@@ -135,8 +151,10 @@ class FTPSession(object):
     def _cmd_pass(self):
         if self._current_username == 'anonymous':
             self.writer.write(b'230 Log in OK\r\n')
+            self._current_password = self.arg
         elif self._current_username == 'smaug' and self.arg == 'gold1':
             self.writer.write(b'230 Welcome!\r\n')
+            self._current_password = self.arg
         else:
             self.writer.write(b'530 Password incorrect\r\n')
 
@@ -216,6 +234,33 @@ class FTPSession(object):
             self.data_server.close()
 
     @trollius.coroutine
+    def _cmd_mlsd(self):
+        yield From(self._wait_data_writer())
+
+        info = self.routes.get(self.path)
+
+        if info and len(info) != 4:
+            self.writer.write(b'500 What?\r\n')
+            return
+
+        if not self.data_writer:
+            self.writer.write(b'227 Use PORT or PASV first\r\n')
+        else:
+            self.writer.write(b'125 Begin listings\r\n')
+
+            info = self.routes.get(self.path)
+
+            _logger.debug('Info: %s', info)
+
+            if info and info[0] == 'dir':
+                self.data_writer.write(info[3])
+
+            self.data_writer.close()
+            self.data_writer = None
+            self.writer.write(b'226 End listings\r\n')
+            self.data_server.close()
+
+    @trollius.coroutine
     def _cmd_retr(self):
         yield From(self._wait_data_writer())
 
@@ -225,12 +270,19 @@ class FTPSession(object):
             self.writer.write(b'227 Use PORT or PASV first\r\n')
         elif info and info[0] == 'file':
             self.writer.write(b'150 Begin data\r\n')
+
+            if self.path == '/hidden/sleep.txt':
+                yield From(trollius.sleep(2))
+
             self.data_writer.write(info[1][self.restart_value or 0:])
             self.restart_value = None
             self.data_writer.close()
             self.data_writer = None
             self.writer.write(b'226 End data\r\n')
             self.data_server.close()
+
+            if self.path == '/example2/trash.txt':
+                self.writer.close()
         else:
             self.writer.write(b'550 File error\r\n')
 

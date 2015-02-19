@@ -135,9 +135,9 @@ class BaseTextStreamScraper(BaseScraper, BaseTextStreamReader):
         else:
             return [item[0] for item in self.iter_processed_text(file, encoding, base_url) if item[1]]
 
-    def scrape_links(self, text):
+    def scrape_links(self, text, context=False):
         '''Convenience function for scraping from a text string.'''
-        return self.iter_processed_links(io.StringIO(text))
+        return self.iter_processed_links(io.StringIO(text), context=context)
 
 
 class BaseExtractiveScraper(BaseScraper, BaseExtractiveReader):

@@ -9,6 +9,7 @@ import string
 import urllib.parse
 
 from wpull.backport.logging import BraceMessage as __
+import wpull.string
 
 
 _logger = logging.getLogger(__name__)
@@ -394,7 +395,7 @@ def parse_url_or_log(url, encoding='utf-8'):
     except ValueError as error:
         _logger.warning(__(
             _('Unable to parse URL ‘{url}’: {error}.'),
-            url=url, error=error))
+            url=wpull.string.printable_str(url), error=error))
     else:
         return url_info
 
@@ -635,6 +636,7 @@ def query_to_map(text):
     return query_to_map(text)
 
 
+@functools.lru_cache()
 def urljoin(base_url, url, allow_fragments=True):
     '''Join URLs like ``urllib.parse.urljoin`` but allow scheme-relative URL.'''
     if url.startswith('//') and len(url) > 2:

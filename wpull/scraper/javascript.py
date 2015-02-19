@@ -10,7 +10,7 @@ from wpull.document.util import detect_response_encoding
 from wpull.item import LinkType
 from wpull.scraper.base import BaseTextStreamScraper, LinkContext, ScrapeResult
 from wpull.scraper.util import is_likely_inline, is_likely_link, \
-    is_unlikely_link, urljoin_safe
+    is_unlikely_link, urljoin_safe, identify_link_type
 import wpull.util
 
 
@@ -44,7 +44,7 @@ class JavaScriptScraper(JavaScriptReader, BaseTextStreamScraper):
                     new_link = new_text
 
                 if new_link:
-                    yield (new_link, True)
+                    yield (new_link, identify_link_type(new_link) or True)
                 else:
                     yield (text, False)
             else:
@@ -63,11 +63,18 @@ class JavaScriptScraper(JavaScriptReader, BaseTextStreamScraper):
 
         try:
             with wpull.util.reset_file_offset(response.body):
-                for link in self.iter_processed_links(response.body, encoding,
-                                                      base_url):
+                for link, context in self.iter_processed_links(
+                        response.body, encoding, base_url, context=True):
                     inline = is_likely_inline(link)
+
+                    if context is True:
+                        link_type = None
+                    else:
+                        link_type = context
+
                     link_contexts.add(
-                        LinkContext(link, inline=inline, linked=not inline)
+                        LinkContext(link, inline=inline, linked=not inline,
+                                    link_type=link_type)
                     )
 
         except UnicodeError as error:

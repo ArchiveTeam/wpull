@@ -2,6 +2,15 @@
 import abc
 
 
+class VeryFalseType(object):
+    def __bool__(self):
+        return False
+
+
+VeryFalse = VeryFalseType()
+'''Document is not definitely supported.'''
+
+
 class BaseDocumentDetector(object, metaclass=abc.ABCMeta):
     '''Base class for classes that detect document types.'''
 
@@ -19,33 +28,24 @@ class BaseDocumentDetector(object, metaclass=abc.ABCMeta):
         Returns:
             bool: If True, the reader should be able to read it.
         '''
-        if response:
-            try:
-                if cls.is_response(response):
-                    return True
-            except NotImplementedError:
-                pass
+        tests = (
+            (response, cls.is_response),
+            (file, cls.is_file),
+            (request, cls.is_request),
+            (url_info, cls.is_url)
+        )
 
-        if file:
-            try:
-                if cls.is_file(file):
-                    return True
-            except NotImplementedError:
-                pass
-
-        if request:
-            try:
-                if cls.is_request(request):
-                    return True
-            except NotImplementedError:
-                pass
-
-        if url_info:
-            try:
-                if cls.is_url(url_info):
-                    return True
-            except NotImplementedError:
-                pass
+        for instance, method in tests:
+            if instance:
+                try:
+                    result = method(instance)
+                except NotImplementedError:
+                    pass
+                else:
+                    if result:
+                        return True
+                    elif result is VeryFalse:
+                        return VeryFalse
 
     @classmethod
     def is_file(cls, file):

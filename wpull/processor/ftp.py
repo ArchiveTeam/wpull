@@ -1,6 +1,7 @@
 '''FTP'''
 import gettext
 import logging
+import os
 
 from trollius.coroutines import Return, From
 import namedlist
@@ -8,9 +9,8 @@ import trollius
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
-from wpull.errors import NetworkError, ProtocolError, ServerError, \
-    SSLVerificationError
-from wpull.ftp.request import Request, ListingResponse, Response
+from wpull.errors import ProtocolError
+from wpull.ftp.request import Request, ListingResponse
 from wpull.hook import Actions
 from wpull.processor.base import BaseProcessor, BaseProcessorSession, \
     REMOTE_ERRORS
@@ -30,7 +30,7 @@ FTPProcessorFetchParams = namedlist.namedtuple(
         ('remove_listing', True),
         ('glob', True),
         ('preserve_permissions', False),
-        ('retr_symlinks', False),
+        ('retr_symlinks', True),
     ]
 )
 '''FTPProcessorFetchParams
@@ -190,10 +190,14 @@ class FTPProcessorSession(BaseProcessorSession):
                     response.body = Body(directory=self._processor.root_path,
                                          hint='resp_cb')
 
+                duration_timeout = self._fetch_rule.duration_timeout
+
                 if is_file:
-                    yield From(session.read_content(response.body))
+                    yield From(session.read_content(
+                        response.body, duration_timeout=duration_timeout))
                 else:
-                    yield From(session.read_listing_content(response.body))
+                    yield From(session.read_listing_content(
+                        response.body, duration_timeout=duration_timeout))
 
         except HookPreResponseBreak:
             if response:
@@ -222,8 +226,13 @@ class FTPProcessorSession(BaseProcessorSession):
         for file_entry in response.files:
             if file_entry.type == 'dir':
                 linked_url = urljoin_safe(base_url, file_entry.name + '/')
-            elif file_entry.type in ('file', None):
-                linked_url = urljoin_safe(base_url, file_entry.name)
+            elif file_entry.type in ('file', 'symlink', None):
+                if not self._processor.fetch_params.retr_symlinks and \
+                        file_entry.type == 'symlink':
+                    self._make_symlink(file_entry.name, file_entry.dest)
+                    linked_url = None
+                else:
+                    linked_url = urljoin_safe(base_url, file_entry.name)
             else:
                 linked_url = None
 
@@ -267,3 +276,21 @@ class FTPProcessorSession(BaseProcessorSession):
 
         if isinstance(response, ListingResponse):
             self._add_listing_links(response)
+
+    def _make_symlink(self, link_name, link_target):
+        '''Make a symlink on the system.'''
+        path = self._file_writer_session.extra_resource_path('dummy')
+
+        if path:
+            dir_path = os.path.dirname(path)
+            symlink_path = os.path.join(dir_path, link_name)
+
+            _logger.debug('symlink %s -> %s', symlink_path, link_target)
+
+            os.symlink(link_target, symlink_path)
+
+            _logger.info(__(
+                _('Created symbolic link {symlink_path} to target {symlink_target}.'),
+                symlink_path=symlink_path,
+                symlink_target=link_target
+            ))

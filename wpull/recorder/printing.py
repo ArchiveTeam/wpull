@@ -35,11 +35,11 @@ class DebugPrintRecorderSession(BaseRecorderSession):
     def response_data(self, data):
         print(data)
 
-    def begin_control(self, request):
-        print(request)
+    def begin_control(self, request, connection_reused=False):
+        print(request, connection_reused)
 
-    def end_control(self, response):
-        print(response)
+    def end_control(self, response, connection_closed=False):
+        print(response, connection_closed)
 
     def request_control_data(self, data):
         print(data)

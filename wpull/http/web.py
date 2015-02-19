@@ -138,7 +138,7 @@ class WebSession(object):
         return self._loop_type
 
     @trollius.coroutine
-    def fetch(self, file=None, callback=None):
+    def fetch(self, file=None, callback=None, duration_timeout=None):
         '''Fetch one of the requests.
 
         Args:
@@ -146,6 +146,8 @@ class WebSession(object):
             callback: A callback function for the document contents.
                 The callback is given 2 arguments: request and response.
                 The callback returns a file object or None.
+            duration_timeout (int): Maximum time in seconds of which the
+                entire file must be read.
 
         Returns:
             Response: An instance of :class:`.http.request.Response`.
@@ -167,7 +169,9 @@ class WebSession(object):
             if callback:
                 file = callback(request, response)
 
-            yield From(session.read_content(file))
+            yield From(
+                session.read_content(file, duration_timeout=duration_timeout)
+            )
 
         self._process_response(response)
 

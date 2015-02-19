@@ -27,7 +27,7 @@ class NameValueRecord(collections.MutableMapping):
         '''Parse the string or bytes.
 
         Args:
-            script: If True, errors will not be ignored
+            strict (bool): If True, errors will not be ignored
 
         Raises:
             :class:`ValueError` if the record is malformed.
@@ -41,8 +41,7 @@ class NameValueRecord(collections.MutableMapping):
         else:
             self.raw += string
 
-        line_ending = guess_line_ending(string)
-        lines = unfold_lines(string).split(line_ending)
+        lines = unfold_lines(string).splitlines()
         for line in lines:
             if line:
                 if ':' not in line:
@@ -162,8 +161,7 @@ def unfold_lines(string):
     line.
     '''
     assert isinstance(string, str), 'Expect str. Got {}'.format(type(string))
-    line_ending = guess_line_ending(string)
-    lines = string.split(line_ending)
+    lines = string.splitlines()
     line_buffer = io.StringIO()
 
     for line_number in range(len(lines)):
@@ -171,7 +169,9 @@ def unfold_lines(string):
         if line and line[0:1] in (' ', '\t'):
             line_buffer.write(' ')
         elif line_number != 0:
-            line_buffer.write(line_ending)
+            line_buffer.write('\r\n')
         line_buffer.write(line.strip())
+
+    line_buffer.write('\r\n')
 
     return line_buffer.getvalue()

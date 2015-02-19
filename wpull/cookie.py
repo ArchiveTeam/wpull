@@ -1,6 +1,5 @@
 # encoding=utf-8
 '''HTTP Cookies.'''
-import gettext
 from http.cookiejar import DefaultCookiePolicy, MozillaCookieJar
 import logging
 import re
@@ -31,7 +30,7 @@ class DeFactoCookiePolicy(DefaultCookiePolicy):
             new_cookie_length = (self.cookie_length(cookie.domain) +
                                  len(cookie.path) + len(cookie.name) +
                                  len(cookie.value or ''))
-        except TypeError as error:
+        except TypeError:
             # cookiejar is not infallible #220
             _logger.debug('Cookie handling error', exc_info=1)
             return False

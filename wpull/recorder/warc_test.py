@@ -211,7 +211,7 @@ class TestWARC(BaseRecorderTest):
         )
         self.assertIn(b'KITTEH DOGE', warc_file_content)
         self.assertIn(b'* Opening control connection to', warc_file_content)
-        self.assertIn(b'* Closed control connection to', warc_file_content)
+        self.assertIn(b'* Kept control connection to', warc_file_content)
         self.assertIn(b'* Opened data connection to ', warc_file_content)
         self.assertIn(b'* Closed data connection to ', warc_file_content)
         self.assertIn(b'> GIMMEH example.txt', warc_file_content)
