@@ -488,7 +488,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--timeout',
             metavar='SECONDS',
             type=float,
-            help=_('set all timeout options to SECONDS'),
+            help=_('set DNS, connect, read timeout options to SECONDS'),
         )
         group.add_argument(
             '--dns-timeout',
@@ -508,6 +508,12 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=900,
             type=float,
             help=_('timeout after SECS seconds for reading requests'),
+        )
+        group.add_argument(
+            '--session-timeout',
+            metavar='SECS',
+            type=float,
+            help=_('timeout after SECS seconds for downloading files'),
         )
         group.add_argument(
             '-w',

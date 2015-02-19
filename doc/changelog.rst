@@ -6,6 +6,7 @@ What's New
 * Fixed AttributeError crash on FTP servers that support MLSD.
 * Improved link recursion heuristics when extracting from JavaScript and HTML.
 * Added ``--retr-symlinks``.
+* Added ``--session-timeout``.
 
 
 0.1006.1 (2015-02-09)

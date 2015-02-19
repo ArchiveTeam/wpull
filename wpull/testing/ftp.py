@@ -69,6 +69,8 @@ class FTPSession(object):
                 ),
             '/example2/trash.txt':
                 ('file', b'hello dragon!'),
+            '/hidden/sleep.txt':
+                ('file', b'asdf'),
         }
         self.command = None
         self.arg = None
@@ -268,6 +270,10 @@ class FTPSession(object):
             self.writer.write(b'227 Use PORT or PASV first\r\n')
         elif info and info[0] == 'file':
             self.writer.write(b'150 Begin data\r\n')
+
+            if self.path == '/hidden/sleep.txt':
+                yield From(trollius.sleep(2))
+
             self.data_writer.write(info[1][self.restart_value or 0:])
             self.restart_value = None
             self.data_writer.close()

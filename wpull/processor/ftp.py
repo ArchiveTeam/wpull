@@ -190,10 +190,14 @@ class FTPProcessorSession(BaseProcessorSession):
                     response.body = Body(directory=self._processor.root_path,
                                          hint='resp_cb')
 
+                duration_timeout = self._fetch_rule.duration_timeout
+
                 if is_file:
-                    yield From(session.read_content(response.body))
+                    yield From(session.read_content(
+                        response.body, duration_timeout=duration_timeout))
                 else:
-                    yield From(session.read_listing_content(response.body))
+                    yield From(session.read_listing_content(
+                        response.body, duration_timeout=duration_timeout))
 
         except HookPreResponseBreak:
             if response:

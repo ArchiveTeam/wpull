@@ -196,6 +196,7 @@ class TestApp(GoodAppTestCase):
             '--no-strong-crypto',
             '--no-skip-getaddrinfo',
             '--limit-rate', '1m',
+            '--session-timeout', '300',
         ])
         with cd_tempdir():
             builder = Builder(args, unit_test=True)
@@ -1198,7 +1199,7 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase):
 
         class MockWebSession(WebSession):
             @trollius.coroutine
-            def fetch(self, file=None, callback=None):
+            def fetch(self, file=None, callback=None, duration_timeout=None):
                 raise SSLVerificationError('A very bad certificate!')
 
         class MockWebClient(builder.factory.class_map['WebClient']):
@@ -1442,6 +1443,23 @@ class TestAppBad(BadAppTestCase):
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_session_timeout(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/sleep_long'),
+            '--tries=1',
+            '--session-timeout=0.1'
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(4, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
 
 
 class TestAppFTP(FTPTestCase):

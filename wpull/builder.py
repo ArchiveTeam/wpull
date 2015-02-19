@@ -796,6 +796,7 @@ class Builder(object):
             url_filter=url_filter, robots_txt_checker=robots_txt_checker,
             http_login=(http_username, http_password),
             ftp_login=(ftp_username, ftp_password),
+            duration_timeout=args.session_timeout,
         )
 
         waiter = self._factory.new('Waiter',

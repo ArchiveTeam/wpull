@@ -314,7 +314,10 @@ class WebProcessorSession(BaseProcessorSession):
 
         try:
             response = yield From(
-                self._web_client_session.fetch(callback=response_callback)
+                self._web_client_session.fetch(
+                    callback=response_callback,
+                    duration_timeout=self._fetch_rule.duration_timeout
+                )
             )
         except HookPreResponseBreak:
             _logger.debug('Hook pre-response break.')
