@@ -1128,6 +1128,37 @@ class TestApp(GoodAppTestCase):
             # thumbnails = tuple(glob.glob('*.jpg'))
             # self.assertTrue(thumbnails)
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_no_cache_arg(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/no-cache'),
+            '--tries=1'
+        ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(8, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
+
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/no-cache'),
+            '--tries=1',
+            '--no-cache',
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
 
 class SimpleHandler(tornado.web.RequestHandler):
     def get(self):

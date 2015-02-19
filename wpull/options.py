@@ -703,10 +703,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--http-password',
             help=_('password for HTTP authentication')
         )
-#         self.add_argument(
-#             '--no-cache',
-#             action='store_true',
-#         )
+        self.add_argument(
+            '--no-cache',
+            action='store_true',
+            help=_('request server to not use cached version of files'),
+        )
         group.add_argument(
             '--default-page',
             metavar='NAME',

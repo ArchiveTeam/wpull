@@ -1002,6 +1002,10 @@ class Builder(object):
             if self._args.http_compression:
                 request.fields['Accept-Encoding'] = 'gzip, deflate'
 
+            if self._args.no_cache:
+                request.fields['Cache-Control'] = 'no-cache, must-revalidate'
+                request.fields['Pragma'] = 'no-cache'
+
             return request
 
         return request_factory
