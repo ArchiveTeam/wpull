@@ -152,8 +152,11 @@ class TestClient(BadAppTestCase):
 
             with client.session() as session:
                 request = Request(self.get_url('/'))
-                response = yield From(session.fetch(request))
+                yield From(session.fetch(request))
                 self.assertFalse(session.done())
+
+            for warn_obj in warn_list:
+                print(warn_obj)
 
             self.assertEqual(1, len(warn_list))
 
@@ -162,5 +165,5 @@ class TestClient(BadAppTestCase):
         with self.assertRaises(MyException):
             with client.session() as session:
                 request = Request(self.get_url('/'))
-                response = yield From(session.fetch(request))
+                yield From(session.fetch(request))
                 raise MyException('Oops')
