@@ -7,9 +7,14 @@ from trollius import From, Return
 import trollius
 
 from wpull.connection import ConnectionPool
+from wpull.errors import NetworkTimedOut
 
 
 _logger = logging.getLogger(__name__)
+
+
+class DurationTimeout(NetworkTimedOut):
+    '''Download did not complete within specified time.'''
 
 
 class BaseClient(object, metaclass=abc.ABCMeta):

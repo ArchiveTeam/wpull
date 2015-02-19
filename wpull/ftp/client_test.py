@@ -3,6 +3,7 @@ import logging
 
 from trollius import From
 import trollius
+from wpull.abstract.client import DurationTimeout
 from wpull.errors import ProtocolError
 
 from wpull.ftp.client import Client
@@ -32,6 +33,17 @@ class TestClient(FTPTestCase):
             'The real treasure is in Smaug’s heart 💗.\n'.encode('utf-8'),
             response.body.content()
         )
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_duration_timeout(self):
+        client = Client()
+        file = io.BytesIO()
+
+        with self.assertRaises(DurationTimeout), client.session() as session:
+            yield From(
+                session.fetch(Request(self.get_url('/hidden/sleep.txt')))
+            )
+            yield From(session.read_content(file, duration_timeout=0.1))
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_fetch_no_file(self):

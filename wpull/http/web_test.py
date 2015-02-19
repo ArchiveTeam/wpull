@@ -1,5 +1,6 @@
 # encoding=utf-8
 from trollius import From
+from wpull.abstract.client import DurationTimeout
 
 from wpull.errors import ProtocolError
 from wpull.http.request import Request
@@ -86,3 +87,11 @@ class TestWebClientBadCase(BadAppTestCase):
             else:
                 self.fail()  # pragma: no cover
 
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_duration_timeout(self):
+        client = WebClient()
+        session = client.session(Request(self.get_url('/sleep_long')))
+
+        with self.assertRaises(DurationTimeout):
+            yield From(session.fetch(duration_timeout=0.1))

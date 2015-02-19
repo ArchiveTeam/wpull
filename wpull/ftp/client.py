@@ -7,7 +7,7 @@ import functools
 from trollius import From, Return
 import trollius
 
-from wpull.abstract.client import BaseClient, BaseSession
+from wpull.abstract.client import BaseClient, BaseSession, DurationTimeout
 from wpull.body import Body
 from wpull.errors import ProtocolError
 from wpull.ftp.command import Commander
@@ -208,13 +208,15 @@ class Session(BaseSession):
             self._recorder_session.pre_response(self._response)
 
     @trollius.coroutine
-    def read_content(self, file=None, rewind=True):
+    def read_content(self, file=None, rewind=True, duration_timeout=None):
         '''Read the response content into file.
 
         Args:
             file: A file object or asyncio stream.
             rewind: Seek the given file back to its original offset after
                 reading is finished.
+            duration_timeout (int): Maximum time in seconds of which the
+                entire file must be read.
 
         Returns:
             .ftp.request.Response: A Response populated with the final
@@ -235,9 +237,17 @@ class Session(BaseSession):
             if not isinstance(file, Body):
                 self._response.body = Body(file)
 
-        reply = yield From(self._commander.read_stream(
-            file, self._data_stream
-        ))
+        read_future = self._commander.read_stream(file, self._data_stream)
+
+        try:
+            reply = yield From(
+                trollius.wait_for(read_future, timeout=duration_timeout)
+            )
+        except trollius.TimeoutError as error:
+            raise DurationTimeout(
+                'Did not finish reading after {} seconds.'
+                .format(duration_timeout)
+            ) from error
 
         self._response.reply = reply
 
@@ -250,7 +260,7 @@ class Session(BaseSession):
         raise Return(self._response)
 
     @trollius.coroutine
-    def read_listing_content(self, file):
+    def read_listing_content(self, file, duration_timeout=None):
         '''Read file listings.
 
         Returns:
@@ -261,7 +271,8 @@ class Session(BaseSession):
 
         Coroutine.
         '''
-        yield From(self.read_content(file=file, rewind=False))
+        yield From(self.read_content(file=file, rewind=False,
+                                     duration_timeout=duration_timeout))
 
         try:
             if self._response.body.tell() == 0:
