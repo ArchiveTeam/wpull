@@ -3,6 +3,7 @@ What's New
 ==========
 
 
+* Fixed TypeError crash on bad Meta Refresh HTML element.
 * Added ``--no-cache``.
 * Added ``--report-speed``.
 

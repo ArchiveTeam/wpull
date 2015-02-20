@@ -155,7 +155,7 @@ class HTMLScraper(HTMLReader, BaseHTMLScraper):
                         link=link,
                         inline=False, linked=True,
                         base_link=None, value_type='refresh',
-                        link_type=None
+                        link_type=None  # treat it as a redirect
                     )
                     link_infos = itertools.chain(link_infos, [link_info])
 
@@ -417,7 +417,6 @@ class ElementWalker(object):
 
             if content_value:
                 link = parse_refresh(content_value)
-                link_type = identify_link_type(link)
 
                 if link:
                     yield LinkInfo(
@@ -426,7 +425,7 @@ class ElementWalker(object):
                         inline=False, linked=True,
                         base_link=None,
                         value_type='refresh',
-                        link_type=link_type
+                        link_type=None  # treat it as a redirect
                     )
 
     @classmethod
