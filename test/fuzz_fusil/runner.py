@@ -149,6 +149,15 @@ class FuzzedHttpServer(HttpServer):
         return mangler.data
 
 
+class WatchProcessSpecificStatusCode(WatchProcess):
+    def computeScore(self, status):
+        if status in (4, 6, 7, 8):
+            print('Change status', status, 'to 0.')
+            status = 0
+
+        return WatchProcess.computeScore(self, status)
+
+
 class Fuzzer(Application):
     def setupProject(self):
         self.project.debugger.enabled = False
@@ -171,7 +180,7 @@ class Fuzzer(Application):
                 os.path.abspath(os.path.dirname(__file__)), '..', '..')
         )
 
-        WatchProcess(process, exitcode_score=0.45)
+        WatchProcessSpecificStatusCode(process)
         stdout_watcher = WatchStdout(process)
         stdout_watcher.ignoreRegex(
             r'WARNING Invalid content length: invalid literal for int'
