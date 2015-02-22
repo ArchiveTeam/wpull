@@ -734,7 +734,7 @@ class TestApp(GoodAppTestCase):
             self.get_url('/'),
             '--recursive',
             '--tries', '1',
-            '--timeout', '1',
+            '--timeout', '10',
         ])
         builder = Builder(args, unit_test=True)
 
