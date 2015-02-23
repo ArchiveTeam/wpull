@@ -32,7 +32,6 @@ class BaseWriter(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def session(self):
         '''Return an instance of :class:`BaseWriterSession`.'''
-        pass
 
 
 class BaseWriterSession(object, metaclass=abc.ABCMeta):

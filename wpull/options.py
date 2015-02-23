@@ -614,14 +614,16 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--user',
             help=_('username for both FTP and HTTP authentication')
         )
-        group.add_argument(
+        password_group = group.add_mutually_exclusive_group()
+        password_group.add_argument(
             '--password',
             help=_('password for both FTP and HTTP authentication')
         )
-#         self.add_argument(
-#             '--ask-password',
-#             action='store_true',
-#         )
+        # password_group.add_argument(
+        #     '--ask-password',
+        #     action='store_true',
+        #     help=_('ask for a password on each connection')
+        # )
         group.add_argument(
             '--no-iri',
             action='store_true',
@@ -637,9 +639,11 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='ENC',
             help=_('force decoding documents using codec ENC'),
         )
-#         self.add_argument(
-#             '--unlink'
-#         )
+        # self.add_argument(
+        #     '--unlink',
+        #     action='store_true',
+        #     help=_('unlink file before overwriting it')
+        # )
         group.add_argument(
             '--max-filename-length',
             metavar='NUMBER',
