@@ -15,21 +15,21 @@ branches:
 
 before_install:
   - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' ]]; then 
-      sudo apt-get install liblua5.2-dev;
+      sudo apt-get -qq install liblua5.2-dev;
     fi
 
 
 # command to install dependencies
 install:
   - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' ]]; then
-      pip install -r requirements.txt;
+      for i in 1 2 3; do pip install -q -r requirements.txt && break || sleep 20; done;
     else
-      pip install -r requirements-pypy.txt;
+      for i in 1 2 3; do pip install -q -r requirements-pypy.txt && break || sleep 20; done;
     fi
   - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' ]]; then
-      pip install git+https://github.com/bastibe/lunatic-python.git@f3f68d2c8638c6f423912264aeb750f5f7eb14ee#egg=lunatic-python;
+      pip install -q git+https://github.com/bastibe/lunatic-python.git@f3f68d2c8638c6f423912264aeb750f5f7eb14ee#egg=lunatic-python;
     fi
-  - pip install coverage python-coveralls warcat youtube-dl
+  - for i in 1 2 3; do pip install -q coverage python-coveralls warcat youtube-dl && break || sleep 20; done
 
 
 # command to run tests
