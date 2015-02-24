@@ -9,6 +9,7 @@ import sys
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.util import IS_PYPY
+import wpull.resmon
 import wpull.string
 import wpull.version
 
@@ -283,16 +284,18 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('ignore all internal fatal exception errors')
         )
-        group.add_argument(
-            '--monitor-disk',
-            type=self.int_bytes,
-            help=_('pause if minimum free disk space is exceeded')
-        )
-        group.add_argument(
-            '--monitor-memory',
-            type=self.int_bytes,
-            help=_('pause if minimum free memory is exceeded')
-        )
+
+        if wpull.resmon.psutil:
+            group.add_argument(
+                '--monitor-disk',
+                type=self.int_bytes,
+                help=_('pause if minimum free disk space is exceeded')
+            )
+            group.add_argument(
+                '--monitor-memory',
+                type=self.int_bytes,
+                help=_('pause if minimum free memory is exceeded')
+            )
 
     def _add_log_and_input_args(self):
         group = self.add_argument_group(_('logging and input'))

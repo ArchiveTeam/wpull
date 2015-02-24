@@ -17,7 +17,7 @@ import tornado.netutil
 import tornado.web
 import trollius
 
-from wpull.app import Application, ResourceMonitor
+from wpull.app import Application
 from wpull.backport.logging import BraceMessage as __
 from wpull.bandwidth import BandwidthLimiter
 from wpull.connection import Connection, ConnectionPool, SSLConnection
@@ -58,6 +58,7 @@ from wpull.recorder.document import OutputDocumentRecorder
 from wpull.recorder.printing import PrintServerResponseRecorder
 from wpull.recorder.progress import ProgressRecorder
 from wpull.recorder.warc import WARCRecorder, WARCRecorderParams
+from wpull.resmon import ResourceMonitor
 from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper.base import DemuxDocumentScraper
 from wpull.scraper.css import CSSScraper
