@@ -216,6 +216,7 @@ class Engine(BaseEngine, HookableMixin):
         statistics (:class:`.stats.Statistics`): Information needed to
             compute the exit status.
         concurrent (int): The number of items to process at once.
+        ignore_exceptions(bool): Whether to ignore exceptions.
 
     The engine is described like the following:
 
@@ -312,7 +313,10 @@ class Engine(BaseEngine, HookableMixin):
 
     @trollius.coroutine
     def _process_item(self, url_record):
-        '''Process given item.'''
+        '''Process given item.
+
+        Coroutine.
+        '''
 
         with self._maybe_ignore_exceptions():
             yield From(self._process_url_item(url_record))
@@ -325,6 +329,8 @@ class Engine(BaseEngine, HookableMixin):
             url_item (:class:`.database.URLRecord`): The item to process.
 
         This function calls :meth:`.processor.BaseProcessor.process`.
+
+        Coroutine.
         '''
         assert url_record
 
@@ -360,6 +366,7 @@ class Engine(BaseEngine, HookableMixin):
 
     @contextlib.contextmanager
     def _maybe_ignore_exceptions(self):
+        '''Catch all exceptions and maybe ignore them.'''
         if self._ignore_exceptions:
             try:
                 yield

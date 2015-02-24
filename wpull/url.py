@@ -684,7 +684,7 @@ def flatten_path(path, flatten_slashes=False):
             new_parts.append(part)
         elif new_parts:
             new_parts.pop()
-    
+
     # If the filename is empty string
     if flatten_slashes and path.endswith('/') or not len(new_parts):
         new_parts.append('')
