@@ -1525,7 +1525,7 @@ class TestAppFTP(FTPTestCase):
     def test_login(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            self.get_url('/example.txt'),
+            self.get_url('/example (copy).txt'),
             '--user', 'smaug',
             '--password', 'gold1',
         ])
@@ -1542,7 +1542,7 @@ class TestAppFTP(FTPTestCase):
     def test_login_fail(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            self.get_url('/example.txt'),
+            self.get_url('/example (copy).txt'),
             '--user', 'smaug',
             '--password', 'hunter2',
             '--tries', '1'
@@ -1582,7 +1582,7 @@ class TestAppFTP(FTPTestCase):
             print(os.listdir('.'))
 
             self.assertTrue(os.path.exists('.listing'))
-            self.assertTrue(os.path.exists('example.txt'))
+            self.assertTrue(os.path.exists('example (copy).txt'))
             self.assertTrue(os.path.exists('readme.txt'))
             self.assertFalse(os.path.islink('readme.txt'))
             self.assertTrue(os.path.exists('example1/.listing'))
@@ -1618,7 +1618,7 @@ class TestAppFTP(FTPTestCase):
 
             print(os.listdir('.'))
 
-            self.assertTrue(os.path.exists('example.txt'))
+            self.assertTrue(os.path.exists('example (copy).txt'))
             self.assertTrue(os.path.exists('readme.txt'))
             self.assertTrue(os.path.islink('readme.txt'))
 

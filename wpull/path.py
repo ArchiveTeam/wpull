@@ -72,6 +72,9 @@ class PathNamer(BasePathNamer):
             alt_char=alt_char
         ))
 
+        if url_info.scheme == 'ftp':
+            parts = [urllib.parse.unquote(part) for part in parts]
+
         parts = [self.safe_filename(part) for part in parts]
 
         return os.path.join(self._root, *parts)

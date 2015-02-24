@@ -125,7 +125,7 @@ class Session(BaseSession):
 
         yield From(self._open_data_stream())
 
-        command = Command('RETR', request.url_info.path)
+        command = Command('RETR', request.file_path)
 
         yield From(self._begin_stream(command))
 
@@ -147,8 +147,8 @@ class Session(BaseSession):
         yield From(self._prepare_fetch(request, response))
         yield From(self._open_data_stream())
 
-        mlsd_command = Command('MLSD', self._request.url_info.path)
-        list_command = Command('LIST', self._request.url_info.path)
+        mlsd_command = Command('MLSD', self._request.file_path)
+        list_command = Command('LIST', self._request.file_path)
 
         try:
             yield From(self._begin_stream(mlsd_command))
@@ -343,7 +343,7 @@ class Session(BaseSession):
         Coroutine.
         '''
         try:
-            size = yield From(self._commander.size(request.url_info.path))
+            size = yield From(self._commander.size(request.file_path))
             raise Return(size)
         except FTPServerError:
             return

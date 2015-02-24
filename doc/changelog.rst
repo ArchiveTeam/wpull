@@ -5,6 +5,7 @@ What's New
 
 * Updated certificate bundle.
 * Fixed TypeError crash on bad Meta Refresh HTML element.
+* Fixed unable to fetch FTP files with spaces and other special characters.
 * Added ``--no-cache``.
 * Added ``--report-speed``.
 

@@ -276,11 +276,11 @@ class TestWriterFTPApp(FTPTestCase):
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_file_continue(self):
         arg_parser = AppArgumentParser()
-        args = arg_parser.parse_args([self.get_url('/example.txt'),
+        args = arg_parser.parse_args([self.get_url('/example (copy).txt'),
                                       '--continue', '--debug'])
 
         with cd_tempdir() as temp_dir:
-            filename = os.path.join(temp_dir, 'example.txt')
+            filename = os.path.join(temp_dir, 'example (copy).txt')
 
             with open(filename, 'wb') as out_file:
                 out_file.write(b'The')
