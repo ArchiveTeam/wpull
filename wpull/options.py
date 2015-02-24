@@ -283,6 +283,16 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('ignore all internal fatal exception errors')
         )
+        group.add_argument(
+            '--monitor-disk',
+            type=self.int_bytes,
+            help=_('pause if minimum free disk space is exceeded')
+        )
+        group.add_argument(
+            '--monitor-memory',
+            type=self.int_bytes,
+            help=_('pause if minimum free memory is exceeded')
+        )
 
     def _add_log_and_input_args(self):
         group = self.add_argument_group(_('logging and input'))

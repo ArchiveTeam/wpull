@@ -5,6 +5,7 @@ import contextlib
 import gettext
 import logging
 import os
+import itertools
 
 from trollius import From, Return
 import trollius
@@ -14,6 +15,7 @@ from wpull.database.base import NotFound
 from wpull.hook import HookableMixin, HookDisconnected
 from wpull.item import Status, URLItem
 from wpull.url import parse_url_or_log
+import wpull.string
 
 
 _logger = logging.getLogger(__name__)
@@ -194,7 +196,6 @@ class BaseEngine(object):
 
         Coroutine.
         '''
-        pass
 
     @abc.abstractmethod
     @trollius.coroutine
@@ -217,6 +218,8 @@ class Engine(BaseEngine, HookableMixin):
             compute the exit status.
         concurrent (int): The number of items to process at once.
         ignore_exceptions(bool): Whether to ignore exceptions.
+        resource_monitor (:class:`.app.resource_monitor`): Use resource
+            monitor to pause processing items if resources exceeded.
 
     The engine is described like the following:
 
@@ -232,13 +235,14 @@ class Engine(BaseEngine, HookableMixin):
     '''
 
     def __init__(self, url_table, processor, statistics,
-                 concurrent=1, ignore_exceptions=False):
+                 concurrent=1, ignore_exceptions=False, resource_monitor=None):
         super().__init__()
 
         self._url_table = url_table
         self._processor = processor
         self._statistics = statistics
         self._ignore_exceptions = ignore_exceptions
+        self._resource_monitor = resource_monitor
         self._num_worker_busy = 0
 
         self._set_concurrent(concurrent)
@@ -319,7 +323,38 @@ class Engine(BaseEngine, HookableMixin):
         '''
 
         with self._maybe_ignore_exceptions():
+            yield From(self._check_resource_monitor())
             yield From(self._process_url_item(url_record))
+
+    @trollius.coroutine
+    def _check_resource_monitor(self):
+        if not self._resource_monitor:
+            return
+
+        for counter in itertools.count():
+            resource_info = self._resource_monitor.check()
+
+            if not resource_info:
+                if counter:
+                    _logger.info(_('Situation cleared.'))
+                break
+
+            if counter % 15 == 0:
+                if resource_info.path:
+                    _logger.warning(__(
+                        _('Low disk space on {path} ({size} free).'),
+                        path=resource_info.path,
+                        size=wpull.string.format_size(resource_info.free)
+                    ))
+                else:
+                    _logger.warning(__(
+                        _('Low memory ({size} free).'),
+                        size=wpull.string.format_size(resource_info.free)
+                    ))
+
+                _logger.warning(_('Waiting for operator to clear situation.'))
+
+            yield From(trollius.sleep(60))
 
     @trollius.coroutine
     def _process_url_item(self, url_record):

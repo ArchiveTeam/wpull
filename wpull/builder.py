@@ -17,7 +17,7 @@ import tornado.netutil
 import tornado.web
 import trollius
 
-from wpull.app import Application
+from wpull.app import Application, ResourceMonitor
 from wpull.backport.logging import BraceMessage as __
 from wpull.bandwidth import BandwidthLimiter
 from wpull.connection import Connection, ConnectionPool, SSLConnection
@@ -139,6 +139,7 @@ class Builder(object):
             'RedirectTracker': RedirectTracker,
             'Request': Request,
             'Resolver': NotImplemented,
+            'ResourceMonitor': ResourceMonitor,
             'ResultRule': ResultRule,
             'RobotsTxtChecker': RobotsTxtChecker,
             'RobotsTxtPool': RobotsTxtPool,
@@ -189,6 +190,7 @@ class Builder(object):
         self._setup_console_logger()
         self._setup_file_logger()
         self._setup_debug_console()
+        resource_monitor = self._build_resource_monitor()
 
         self._build_demux_document_scraper()
         self._url_infos = tuple(self._build_input_urls())
@@ -206,7 +208,8 @@ class Builder(object):
             processor,
             statistics,
             concurrent=self._args.concurrent,
-            ignore_exceptions=self._args.ignore_fatal_errors
+            ignore_exceptions=self._args.ignore_fatal_errors,
+            resource_monitor=resource_monitor,
         )
         self._build_document_converter()
 
@@ -436,6 +439,19 @@ class Builder(object):
         ))
 
         atexit.register(sock.close)
+
+    def _build_resource_monitor(self):
+        paths = [self._args.directory_prefix, tempfile.gettempdir()]
+
+        if self._args.warc_file:
+            paths.append(self._args.warc_tempdir)
+
+        return self._factory.new(
+            'ResourceMonitor',
+            resource_paths=paths,
+            min_memory=self._args.monitor_memory,
+            min_disk=self._args.monitor_disk,
+        )
 
     def _build_input_urls(self, default_scheme='http'):
         '''Read the URLs provided by the user.'''

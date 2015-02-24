@@ -9,6 +9,7 @@ What's New
 * Fixed AssertionError fetching URLs with trailing dot not properly removed.
 * Added ``--no-cache``.
 * Added ``--report-speed``.
+* Added ``--monitor-disk`` and ``--monitor-memory``.
 
 
 0.1007 (2015-02-19)
