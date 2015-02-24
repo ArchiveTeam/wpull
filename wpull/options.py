@@ -1334,7 +1334,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         )
 
     def _add_youtube_dl_args(self):
-        group = self.add_argument_group(_('PhantomJS'))
+        group = self.add_argument_group(_('youtube-dl'))
         group.add_argument(
             '--youtube-dl',
             action='store_true',
