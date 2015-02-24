@@ -666,9 +666,11 @@ def flatten_path(path, flatten_slashes=False):
     '''
     # Based on posixpath.normpath
 
+    # Fast path
     if not path or path == '/':
         return '/'
 
+    # Take off leading slash
     if path[0] == '/':
         path = path[1:]
 
@@ -682,10 +684,12 @@ def flatten_path(path, flatten_slashes=False):
             new_parts.append(part)
         elif new_parts:
             new_parts.pop()
-
-    if flatten_slashes and path.endswith('/'):
+    
+    # If the filename is empty string
+    if flatten_slashes and path.endswith('/') or not len(new_parts):
         new_parts.append('')
 
+    # Put back leading slash
     new_parts.appendleft('')
 
     return '/'.join(new_parts)
