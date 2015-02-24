@@ -45,6 +45,7 @@ from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.options import LOG_QUIET, LOG_VERY_QUIET, LOG_NO_VERBOSE, LOG_VERBOSE, \
     LOG_DEBUG
+from wpull.path import PathNamer
 from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
     FTPProcessorInstances
@@ -75,7 +76,7 @@ from wpull.urlrewrite import URLRewriter
 from wpull.util import ASCIIStreamWriter
 from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
-from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
+from wpull.writer import (NullWriter, OverwriteFileWriter,
                           IgnoreFileWriter, TimestampingFileWriter,
                           AntiClobberFileWriter)
 import wpull.coprocessor.youtubedl
