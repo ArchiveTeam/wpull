@@ -82,6 +82,7 @@ from wpull.writer import (NullWriter, OverwriteFileWriter,
                           AntiClobberFileWriter)
 import wpull.coprocessor.youtubedl
 import wpull.driver.phantomjs
+import wpull.resmon
 import wpull.version
 
 
@@ -442,6 +443,9 @@ class Builder(object):
         atexit.register(sock.close)
 
     def _build_resource_monitor(self):
+        if not wpull.resmon.psutil:
+            return
+
         paths = [self._args.directory_prefix, tempfile.gettempdir()]
 
         if self._args.warc_file:
