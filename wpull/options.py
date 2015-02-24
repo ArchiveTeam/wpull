@@ -216,13 +216,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='version',
             version=wpull.version.__version__
         )
-#         self.add_argument(
+#         group.add_argument(
 #             '-b',
 #             '--background',
 #             action='store_true',
 #             help=_('run as background process')
 #         )
-#         self.add_argument(
+#         group.add_argument(
 #             '-e',
 #             '--execute',
 #             metavar='COMMAND',
@@ -358,7 +358,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('print program messages in ASCII only'),
         )
-        self.add_argument(
+        group.add_argument(
             '--report-speed',
             metavar='TYPE',
             choices=['bits'],
@@ -383,7 +383,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='URL',
             help=_('resolves input relative URLs to URL')
         )
-#         self.add_argument(
+#         group.add_argument(
 #             '--config',
 #             metavar='FILE',
 #             type=argparse.FileType('rt'),
@@ -492,7 +492,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('print the protocol responses from the server'),
         )
-#         self.add_argument(
+#         group.add_argument(
 #             '--spider',
 #             action='store_true',
 #             help=_('don’t download but check if URLs exist'),
@@ -561,7 +561,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='ADDRESS',
             help=_('bind to ADDRESS on the local host'),
         )
-        self.add_argument(
+        group.add_argument(
             '--limit-rate',
             metavar='RATE',
             type=self.int_bytes,
@@ -595,7 +595,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=['windows'] if os.name == 'nt' else ['unix'],
             help=_('list of safe filename modes to use'),
         )
-#         self.add_argument(
+#         group.add_argument(
 #             '--ignore-case',
 #             action='store_true',
 #             help=_('use case-insensitivity on URLs'),
@@ -652,7 +652,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             metavar='ENC',
             help=_('force decoding documents using codec ENC'),
         )
-        # self.add_argument(
+        # group.add_argument(
         #     '--unlink',
         #     action='store_true',
         #     help=_('unlink file before overwriting it')
@@ -721,7 +721,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             '--http-password',
             help=_('password for HTTP authentication')
         )
-        self.add_argument(
+        group.add_argument(
             '--no-cache',
             action='store_true',
             help=_('request server to not use cached version of files'),
@@ -732,7 +732,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             default='index.html',
             help=_('use NAME as index page if not known'),
         )
-        self.add_argument(
+        group.add_argument(
             '-E',
             '--adjust-extension',
             action='store_true',
@@ -821,19 +821,19 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=argparse.FileType('r'),
             help=_('use POST for all requests with query in FILE')
         )
-#         self.add_argument(
+#         group.add_argument(
 #             '--method',
 #             metavar='HTTPMethod',
 #         )
-#         self.add_argument(
+#         group.add_argument(
 #             '--body-data',
 #             metavar='STRING',
 #         )
-#         self.add_argument(
+#         group.add_argument(
 #             '--body-file',
 #             metavar='FILE'
 #         )
-        self.add_argument(
+        group.add_argument(
             '--content-disposition',
             action='store_true',
             help=_('use filename given in Content-Disposition header')
@@ -843,7 +843,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('keep error pages')
         )
-#         self.add_argument(
+#         group.add_argument(
 #             '--auth-no-challenge'
 #         )
         group.add_argument(
@@ -986,19 +986,19 @@ class AppArgumentParser(argparse.ArgumentParser):
             dest='remove_listing',
             help=_('keep directory file listings')
         )
-#         self.add_argument(
+#         group.add_argument(
 #             '--no-glob',
 #             action='store_true',
 #         )
-#         self.add_argument(
+#         group.add_argument(
 #             '--no-passive-ftp',
 #             action='store_true',
 #         )
-#         self.add_argument(
+#         group.add_argument(
 #             '--preserve-permissions',
 #             action='store_true',
 #         )
-        self.add_argument(
+        group.add_argument(
             '--retr-symlinks',
             default='on',
             nargs='?',
@@ -1107,7 +1107,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('save original files before converting their links')
         )
-#         self.add_argument(
+#         group.add_argument(
 #             '-m',
 #             '--mirror',
 #             action='store_true',
@@ -1126,7 +1126,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             default=5,
             help=_('limit page-requisites recursion depth to NUMBER')
         )
-#         self.add_argument(
+#         group.add_argument(
 #             '--strict-comments',
 #             action='store_true',
 #             help=_('use strict SGML comment parsing')
@@ -1238,7 +1238,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             type=self.comma_list,
             help=_('download only paths in LIST')
         )
-        self.add_argument(
+        group.add_argument(
             '--trust-server-names',
             action='store_true',
             help=_('use the last given URL for filename during redirects')
