@@ -3,6 +3,9 @@ What's New
 ==========
 
 
+0.1008 (2015-02-26)
+===================
+
 * Updated certificate bundle.
 * Fixed TypeError crash on bad Meta Refresh HTML element.
 * Fixed unable to fetch FTP files with spaces and other special characters.
