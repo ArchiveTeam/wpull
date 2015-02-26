@@ -49,7 +49,7 @@ class TestStream(FTPTestCase):
 
         data_stream = DataStream(data_connection)
 
-        yield From(control_stream.write_command(Command('RETR', 'example.txt')))
+        yield From(control_stream.write_command(Command('RETR', 'example (copy).txt')))
         reply = yield From(control_stream.read_reply())
         self.assertEqual(150, reply.code)
 

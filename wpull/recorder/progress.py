@@ -23,23 +23,29 @@ class ProgressRecorder(BaseRecorder):
         bar_style (bool): If True, print as a progress bar. If False,
             print dots every few seconds.
         stream: A file object. Default is usually stderr.
+        human_format (true): If True, format sizes in units. Otherwise, output
+            bits only.
     '''
-    def __init__(self, bar_style=False, stream=sys.stderr):
+    def __init__(self, bar_style=False, stream=sys.stderr, human_format=True):
         self._bar_style = bar_style
         self._stream = stream
+        self._human_format = human_format
 
     @contextlib.contextmanager
     def session(self):
         if self._bar_style:
-            yield BarProgressRecorderSession(stream=self._stream)
+            yield BarProgressRecorderSession(stream=self._stream,
+                                             human_format=self._human_format)
         else:
-            yield DotProgressRecorderSession(stream=self._stream)
+            yield DotProgressRecorderSession(stream=self._stream,
+                                             human_format=self._human_format)
 
 
 class BaseProgressRecorderSession(BaseRecorderSession):
     '''Base Progress Recorder Session.'''
-    def __init__(self, stream=sys.stderr):
+    def __init__(self, stream=sys.stderr, human_format=True):
         self._stream = stream
+        self._human_format = human_format
         self._bytes_received = 0
         self._content_length = None
         self._response = None
@@ -281,8 +287,14 @@ class BarProgressRecorderSession(BaseProgressRecorderSession):
         '''Print the current speed.'''
         if self._bandwidth_meter.num_samples:
             speed = self._bandwidth_meter.speed()
+
+            if self._human_format:
+                file_size_str = wpull.string.format_size(speed)
+            else:
+                file_size_str = '{:.1f} b'.format(speed * 8)
+
             speed_str = _('{preformatted_file_size}/s').format(
-                preformatted_file_size=wpull.string.format_size(speed)
+                preformatted_file_size=file_size_str
             )
         else:
             speed_str = _('-- B/s')

@@ -3,6 +3,18 @@ What's New
 ==========
 
 
+0.1008 (2015-02-26)
+===================
+
+* Updated certificate bundle.
+* Fixed TypeError crash on bad Meta Refresh HTML element.
+* Fixed unable to fetch FTP files with spaces and other special characters.
+* Fixed AssertionError fetching URLs with trailing dot not properly removed.
+* Added ``--no-cache``.
+* Added ``--report-speed``.
+* Added ``--monitor-disk`` and ``--monitor-memory``.
+
+
 0.1007 (2015-02-19)
 ===================
 

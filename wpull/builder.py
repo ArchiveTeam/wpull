@@ -45,6 +45,7 @@ from wpull.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.options import LOG_QUIET, LOG_VERY_QUIET, LOG_NO_VERBOSE, LOG_VERBOSE, \
     LOG_DEBUG
+from wpull.path import PathNamer
 from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
     FTPProcessorInstances
@@ -57,6 +58,7 @@ from wpull.recorder.document import OutputDocumentRecorder
 from wpull.recorder.printing import PrintServerResponseRecorder
 from wpull.recorder.progress import ProgressRecorder
 from wpull.recorder.warc import WARCRecorder, WARCRecorderParams
+from wpull.resmon import ResourceMonitor
 from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper.base import DemuxDocumentScraper
 from wpull.scraper.css import CSSScraper
@@ -75,11 +77,12 @@ from wpull.urlrewrite import URLRewriter
 from wpull.util import ASCIIStreamWriter
 from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
-from wpull.writer import (PathNamer, NullWriter, OverwriteFileWriter,
+from wpull.writer import (NullWriter, OverwriteFileWriter,
                           IgnoreFileWriter, TimestampingFileWriter,
                           AntiClobberFileWriter)
 import wpull.coprocessor.youtubedl
 import wpull.driver.phantomjs
+import wpull.resmon
 import wpull.version
 
 
@@ -138,6 +141,7 @@ class Builder(object):
             'RedirectTracker': RedirectTracker,
             'Request': Request,
             'Resolver': NotImplemented,
+            'ResourceMonitor': ResourceMonitor,
             'ResultRule': ResultRule,
             'RobotsTxtChecker': RobotsTxtChecker,
             'RobotsTxtPool': RobotsTxtPool,
@@ -181,12 +185,14 @@ class Builder(object):
         if self._args.plugin_script:
             self._initialize_plugin()
 
-        self._factory.new('Application', self)
+        self._factory.new('Application', self,
+                          human_format_speed=not self._args.report_speed)
 
         self._build_html_parser()
         self._setup_console_logger()
         self._setup_file_logger()
         self._setup_debug_console()
+        resource_monitor = self._build_resource_monitor()
 
         self._build_demux_document_scraper()
         self._url_infos = tuple(self._build_input_urls())
@@ -204,7 +210,8 @@ class Builder(object):
             processor,
             statistics,
             concurrent=self._args.concurrent,
-            ignore_exceptions=self._args.ignore_fatal_errors
+            ignore_exceptions=self._args.ignore_fatal_errors,
+            resource_monitor=resource_monitor,
         )
         self._build_document_converter()
 
@@ -434,6 +441,22 @@ class Builder(object):
         ))
 
         atexit.register(sock.close)
+
+    def _build_resource_monitor(self):
+        if not wpull.resmon.psutil:
+            return
+
+        paths = [self._args.directory_prefix, tempfile.gettempdir()]
+
+        if self._args.warc_file:
+            paths.append(self._args.warc_tempdir)
+
+        return self._factory.new(
+            'ResourceMonitor',
+            resource_paths=paths,
+            min_memory=self._args.monitor_memory,
+            min_disk=self._args.monitor_disk,
+        )
 
     def _build_input_urls(self, default_scheme='http'):
         '''Read the URLs provided by the user.'''
@@ -705,9 +728,12 @@ class Builder(object):
             if not stream.isatty():
                 bar_style = False
 
-            recorders.append(self._factory.new('ProgressRecorder',
-                                               bar_style=bar_style,
-                                               stream=stream))
+            recorders.append(self._factory.new(
+                'ProgressRecorder',
+                bar_style=bar_style,
+                stream=stream,
+                human_format=not args.report_speed,
+            ))
 
         if args.warc_dedup:
             self._populate_visits()
@@ -1001,6 +1027,10 @@ class Builder(object):
 
             if self._args.http_compression:
                 request.fields['Accept-Encoding'] = 'gzip, deflate'
+
+            if self._args.no_cache:
+                request.fields['Cache-Control'] = 'no-cache, must-revalidate'
+                request.fields['Pragma'] = 'no-cache'
 
             return request
 

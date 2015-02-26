@@ -197,6 +197,7 @@ class TestApp(GoodAppTestCase):
             '--no-skip-getaddrinfo',
             '--limit-rate', '1m',
             '--session-timeout', '300',
+            '--report-speed=bits',
         ])
         with cd_tempdir():
             builder = Builder(args, unit_test=True)
@@ -733,7 +734,7 @@ class TestApp(GoodAppTestCase):
             self.get_url('/'),
             '--recursive',
             '--tries', '1',
-            '--timeout', '1',
+            '--timeout', '10',
         ])
         builder = Builder(args, unit_test=True)
 
@@ -1128,6 +1129,37 @@ class TestApp(GoodAppTestCase):
             # thumbnails = tuple(glob.glob('*.jpg'))
             # self.assertTrue(thumbnails)
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_no_cache_arg(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/no-cache'),
+            '--tries=1'
+        ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(8, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
+
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/no-cache'),
+            '--tries=1',
+            '--no-cache',
+            ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
 
 class SimpleHandler(tornado.web.RequestHandler):
     def get(self):
@@ -1493,7 +1525,7 @@ class TestAppFTP(FTPTestCase):
     def test_login(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            self.get_url('/example.txt'),
+            self.get_url('/example (copy).txt'),
             '--user', 'smaug',
             '--password', 'gold1',
         ])
@@ -1510,7 +1542,7 @@ class TestAppFTP(FTPTestCase):
     def test_login_fail(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            self.get_url('/example.txt'),
+            self.get_url('/example (copy).txt'),
             '--user', 'smaug',
             '--password', 'hunter2',
             '--tries', '1'
@@ -1550,7 +1582,7 @@ class TestAppFTP(FTPTestCase):
             print(os.listdir('.'))
 
             self.assertTrue(os.path.exists('.listing'))
-            self.assertTrue(os.path.exists('example.txt'))
+            self.assertTrue(os.path.exists('example (copy).txt'))
             self.assertTrue(os.path.exists('readme.txt'))
             self.assertFalse(os.path.islink('readme.txt'))
             self.assertTrue(os.path.exists('example1/.listing'))
@@ -1586,7 +1618,7 @@ class TestAppFTP(FTPTestCase):
 
             print(os.listdir('.'))
 
-            self.assertTrue(os.path.exists('example.txt'))
+            self.assertTrue(os.path.exists('example (copy).txt'))
             self.assertTrue(os.path.exists('readme.txt'))
             self.assertTrue(os.path.islink('readme.txt'))
 

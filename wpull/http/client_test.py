@@ -158,7 +158,15 @@ class TestClient(BadAppTestCase):
             for warn_obj in warn_list:
                 print(warn_obj)
 
-            self.assertEqual(1, len(warn_list))
+            # Unrelated warnings may occur in PyPy
+            # https://travis-ci.org/chfoo/wpull/jobs/51420202
+            self.assertGreaterEqual(len(warn_list), 1)
+
+            for warn_obj in warn_list:
+                if str(warn_obj.message) == 'HTTP session did not complete.':
+                    break
+            else:
+                self.fail('Warning did not occur.')
 
         client = Client()
 

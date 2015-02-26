@@ -48,9 +48,10 @@ class Application(HookableMixin):
     )
     '''Exception classes that are not crashes.'''
 
-    def __init__(self, builder):
+    def __init__(self, builder, human_format_speed=True):
         super().__init__()
         self._builder = builder
+        self._human_format_speed = human_format_speed
         self._event_loop = trollius.get_event_loop()
         self._exit_code = 0
         self._statistics = None
@@ -199,9 +200,12 @@ class Application(HookableMixin):
         file_size = wpull.string.format_size(stats.size)
 
         if stats.bandwidth_meter.num_samples:
-            speed_size_str = wpull.string.format_size(
-                stats.bandwidth_meter.speed()
-            )
+            speed = stats.bandwidth_meter.speed()
+
+            if self._human_format_speed:
+                speed_size_str = wpull.string.format_size(speed)
+            else:
+                speed_size_str = '{:.1f} b'.format(speed * 8)
         else:
             speed_size_str = _('-- B')
 

@@ -1,5 +1,6 @@
 '''FTP conversation classes'''
 import re
+import urllib.parse
 
 from wpull.abstract.request import SerializableMixin, DictableMixin, \
     URLPropertyMixin, ProtocolResponseMixin
@@ -120,6 +121,7 @@ class Request(URLPropertyMixin):
         username (str): Username for login.
         password (str): Password for login.
         restart_value (int): Optional value for ``REST`` command.
+        file_path (str): Path of the file.
     '''
     def __init__(self, url):
         super().__init__()
@@ -130,6 +132,10 @@ class Request(URLPropertyMixin):
         self.password = None
         self.restart_value = None
 
+    @property
+    def file_path(self):
+        return urllib.parse.unquote(self.url_info.path)
+
     def to_dict(self):
         return {
             'protocol': 'ftp',
@@ -138,6 +144,7 @@ class Request(URLPropertyMixin):
             'username': self.username,
             'password': self.password,
             'restart_value': self.restart_value,
+            'file_path': self.file_path,
         }
 
     def set_continue(self, offset):

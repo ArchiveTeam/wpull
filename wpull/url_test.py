@@ -292,6 +292,10 @@ class TestURL(unittest.TestCase):
     def test_url_info_path_folding(self):
         self.assertEqual(
             'http://example.com/',
+            URLInfo.parse('http://example.com/.').url
+        )
+        self.assertEqual(
+            'http://example.com/',
             URLInfo.parse('http://example.com/../').url
         )
         self.assertEqual(
@@ -654,6 +658,12 @@ class TestURL(unittest.TestCase):
                                                  flatten_slashes=True))
         self.assertEqual('/a', flatten_path('a'))
         self.assertEqual('/a/', flatten_path('a/'))
+        self.assertEqual('/', flatten_path('.'))
+        self.assertEqual('/', flatten_path('./'))
+        self.assertEqual('/', flatten_path('/.'))
+        self.assertEqual('/', flatten_path('/..'))
+        self.assertEqual('/', flatten_path('../'))
+        self.assertEqual('/', flatten_path('./.'))
         self.assertEqual('/', flatten_path('/'))
         self.assertEqual('/', flatten_path('/../../../'))
         self.assertEqual('/', flatten_path('/.././'))

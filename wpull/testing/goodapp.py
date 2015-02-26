@@ -186,6 +186,15 @@ class ReferrerHandler(tornado.web.RequestHandler):
         self.render('page2.html')
 
 
+class NoCacheHandler(tornado.web.RequestHandler):
+    def get(self):
+        if 'no-cache' not in self.request.headers.get('cache-control', '') or \
+                'no-cache' not in self.request.headers.get('pragma', ''):
+            raise HTTPError(400)
+
+        self.write(b'OK')
+
+
 class GoodApp(tornado.web.Application):
     def __init__(self):
         tornado.web.Application.__init__(self, [
@@ -213,6 +222,7 @@ class GoodApp(tornado.web.Application):
             (r'/escape_from_fragments/', EscapedFragmentHandler),
             (r'/forum/', ForumHandler),
             (r'/referrer/.*', ReferrerHandler),
+            (r'/no-cache', NoCacheHandler),
         ],
             template_path=os.path.join(os.path.dirname(__file__),
                                        'templates'),

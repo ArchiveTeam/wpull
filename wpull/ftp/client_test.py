@@ -25,7 +25,7 @@ class TestClient(FTPTestCase):
 
         with client.session() as session:
             response = yield From(
-                session.fetch(Request(self.get_url('/example.txt')))
+                session.fetch(Request(self.get_url('/example (copy).txt')))
                 )
             yield From(session.read_content(file))
 
@@ -67,7 +67,7 @@ class TestClient(FTPTestCase):
         file = io.BytesIO()
 
         with client.session() as session:
-            request = Request(self.get_url('/example.txt'))
+            request = Request(self.get_url('/example (copy).txt'))
             request.set_continue(10)
             response = yield From(session.fetch(request))
             self.assertEqual(10, response.restart_value)
@@ -84,7 +84,7 @@ class TestClient(FTPTestCase):
         file = io.BytesIO()
 
         with client.session() as session:
-            request = Request(self.get_url('/example.txt'))
+            request = Request(self.get_url('/example (copy).txt'))
             request.set_continue(99999)  # Magic value in the test server
             response = yield From(session.fetch(request))
             self.assertFalse(response.restart_value)
@@ -110,7 +110,7 @@ class TestClient(FTPTestCase):
         self.assertEqual('junk', response.files[0].name)
         self.assertEqual('example1', response.files[1].name)
         self.assertEqual('example2', response.files[2].name)
-        self.assertEqual('example.txt', response.files[3].name)
+        self.assertEqual('example (copy).txt', response.files[3].name)
         self.assertEqual('readme.txt', response.files[4].name)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
@@ -131,5 +131,5 @@ class TestClient(FTPTestCase):
 
             with self.assertRaises(ProtocolError):
                 yield From(
-                    session.fetch(Request(self.get_url('/example.txt')))
+                    session.fetch(Request(self.get_url('/example (copy).txt')))
                 )

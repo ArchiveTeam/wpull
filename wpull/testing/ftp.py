@@ -42,14 +42,14 @@ class FTPSession(object):
         self.routes = {
             '/':
                 ('dir',
-                 b'junk\nexample1\nexample2\nexample.txt\nreadme.txt\n',
+                 b'junk\nexample1\nexample2\nexample (copy).txt\nreadme.txt\n',
                  ('drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 junk\r\n'
                   'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example1\r\n'
                   'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example2\r\n'
-                  '-rw-r--r-- 1 smaug smaug 42 Apr 01 00:00 example.txt\r\n'
-                  'lrwxrwxrwx 1 smaug smaug 4 Apr 01 00:00 readme.txt -> example.txt\r\n'
+                  '-rw-r--r-- 1 smaug smaug 42 Apr 01 00:00 example (copy).txt\r\n'
+                  'lrwxrwxrwx 1 smaug smaug 4 Apr 01 00:00 readme.txt -> example (copy).txt\r\n'
                  ).encode('utf-8')),
-            '/example.txt':
+            '/example (copy).txt':
                 ('file',
                  'The real treasure is in Smaug’s heart 💗.\n'.encode('utf-8')),
             '/readme.txt':

@@ -16,6 +16,15 @@ from fusil.process.stdout import WatchStdout
 from fusil.process.watch import WatchProcess
 
 
+class WatchProcessSpecificStatusCode(WatchProcess):
+    def computeScore(self, status):
+        if status in (4, 6, 7, 8):
+            print('Change status', status, 'to 0.')
+            status = 0
+
+        return WatchProcess.computeScore(self, status)
+
+
 class Fuzzer(Application):
     def setupProject(self):
         self.project.debugger.enabled = False
@@ -67,7 +76,7 @@ class Fuzzer(Application):
         process.env.set('OBJGRAPH_DEBUG', '1')
         process.env.set('FILE_LEAK_DEBUG', '1')
 
-        WatchProcess(process, exitcode_score=0.45)
+        WatchProcessSpecificStatusCode(process)
         stdout_watcher = WatchStdout(process)
         stdout_watcher.max_nb_line = None
         stdout_watcher.ignoreRegex(
