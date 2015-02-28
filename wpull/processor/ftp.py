@@ -1,7 +1,10 @@
 '''FTP'''
+import copy
 import gettext
 import logging
 import os
+import posixpath
+import tempfile
 
 from trollius.coroutines import Return, From
 import namedlist
@@ -11,7 +14,9 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
 from wpull.errors import ProtocolError
 from wpull.ftp.request import Request, ListingResponse
+from wpull.ftp.util import FTPServerError
 from wpull.hook import Actions
+from wpull.item import LinkType
 from wpull.processor.base import BaseProcessor, BaseProcessorSession, \
     REMOTE_ERRORS
 from wpull.processor.rule import ResultRule, FetchRule
@@ -148,9 +153,11 @@ class FTPProcessorSession(BaseProcessorSession):
         if self._fetch_rule.ftp_login:
             request.username, request.password = self._fetch_rule.ftp_login
 
+        is_file = yield From(self._prepare_request_file_vs_dir(request))
+
         self._file_writer_session.process_request(request)
 
-        yield From(self._fetch(request))
+        yield From(self._fetch(request, is_file))
 
         wait_time = self._result_rule.get_wait_time()
 
@@ -159,7 +166,70 @@ class FTPProcessorSession(BaseProcessorSession):
             yield From(trollius.sleep(wait_time))
 
     @trollius.coroutine
-    def _fetch(self, request):
+    def _prepare_request_file_vs_dir(self, request):
+        '''Check if file, modify request, and return whether is a file.
+
+        Coroutine.
+        '''
+        if self._url_item.url_record.link_type:
+            is_file = self._url_item.url_record.link_type == LinkType.file
+        elif request.url_info.path.endswith('/'):
+            is_file = False
+        else:
+            is_file = 'unknown'
+
+        if is_file == 'unknown':
+            is_file = yield From(self._fetch_parent_path(request))
+
+            if not is_file:
+                request.url = append_slash_to_path_url(request.url_info)
+                _logger.debug('Request URL changed to %s. Path=%s.',
+                              request.url, request.file_path)
+
+        raise Return(is_file)
+
+    @trollius.coroutine
+    def _fetch_parent_path(self, request):
+        '''Fetch parent directory and return whether request is a file.
+
+        Coroutine.
+        '''
+        directory_url = to_dir_path_url(request.url_info)
+        directory_request = copy.deepcopy(request)
+        directory_request.url = directory_url
+
+        _logger.debug('Check if URL %s is file with %s.', request.url,
+                      directory_url)
+
+        with self._processor.ftp_client.session() as session:
+            try:
+                yield From(session.fetch_file_listing(directory_request))
+            except FTPServerError:
+                _logger.debug('Got an error. Assume is file.')
+                return True
+
+            temp_file = tempfile.NamedTemporaryFile(
+                dir=self._processor.root_path, prefix='wpull-list'
+            )
+
+            with temp_file as file:
+                directory_response = yield From(session.read_listing_content(
+                    file, duration_timeout=self._fetch_rule.duration_timeout)
+                )
+
+        filename = posixpath.basename(request.file_path)
+
+        for file_entry in directory_response.files:
+            if file_entry.name == filename:
+                _logger.debug('Found entry in parent. Type %s',
+                              file_entry.type)
+                return file_entry.type != 'dir'
+
+        _logger.debug('Did not find entry. Assume file.')
+        return True
+
+    @trollius.coroutine
+    def _fetch(self, request, is_file):
         '''Fetch the request
 
         Coroutine.
@@ -167,8 +237,6 @@ class FTPProcessorSession(BaseProcessorSession):
         _logger.info(_('Fetching ‘{url}’.').format(url=request.url))
 
         response = None
-
-        is_file = not request.url_info.path.endswith('/')
 
         try:
             with self._processor.ftp_client.session() as session:
@@ -220,8 +288,9 @@ class FTPProcessorSession(BaseProcessorSession):
 
     def _add_listing_links(self, response):
         '''Add links from file listing response.'''
-        base_url = self._url_item.url_info.url
-        urls_to_add = set()
+        base_url = response.request.url_info.url
+        dir_urls_to_add = set()
+        file_urls_to_add = set()
 
         for file_entry in response.files:
             if file_entry.type == 'dir':
@@ -246,9 +315,13 @@ class FTPProcessorSession(BaseProcessorSession):
                         linked_url_info, linked_url_record)[0]
 
                     if verdict:
-                        urls_to_add.add(linked_url_info.url)
+                        if linked_url_info.path.endswith('/'):
+                            dir_urls_to_add.add(linked_url_info.url)
+                        else:
+                            file_urls_to_add.add(linked_url_info.url)
 
-        self._url_item.add_child_urls(urls_to_add)
+        self._url_item.add_child_urls(dir_urls_to_add, link_type=LinkType.directory)
+        self._url_item.add_child_urls(file_urls_to_add, link_type=LinkType.file)
 
     def _log_response(self, request, response):
         '''Log response.'''
@@ -294,3 +367,20 @@ class FTPProcessorSession(BaseProcessorSession):
                 symlink_path=symlink_path,
                 symlink_target=link_target
             ))
+
+
+def to_dir_path_url(url_info):
+    '''Return URL string with the path replaced with directory only.'''
+    dir_name = posixpath.dirname(url_info.path)
+
+    if not dir_name.endswith('/'):
+        url_template = 'ftp://{}{}/'
+    else:
+        url_template = 'ftp://{}{}'
+
+    return url_template.format(url_info.hostname_with_port, dir_name)
+
+
+def append_slash_to_path_url(url_info):
+    '''Return URL string with the path suffixed with a slash.'''
+    return 'ftp://{}{}/'.format(url_info.hostname_with_port, url_info.path)
