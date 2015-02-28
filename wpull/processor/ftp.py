@@ -206,7 +206,7 @@ class FTPProcessorSession(BaseProcessorSession):
                 yield From(session.fetch_file_listing(directory_request))
             except FTPServerError:
                 _logger.debug('Got an error. Assume is file.')
-                return True
+                raise Return(True)
 
             temp_file = tempfile.NamedTemporaryFile(
                 dir=self._processor.root_path, prefix='wpull-list'
@@ -223,10 +223,10 @@ class FTPProcessorSession(BaseProcessorSession):
             if file_entry.name == filename:
                 _logger.debug('Found entry in parent. Type %s',
                               file_entry.type)
-                return file_entry.type != 'dir'
+                raise Return(file_entry.type != 'dir')
 
         _logger.debug('Did not find entry. Assume file.')
-        return True
+        raise Return(True)
 
     @trollius.coroutine
     def _fetch(self, request, is_file):
