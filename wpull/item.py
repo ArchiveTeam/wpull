@@ -56,6 +56,10 @@ class LinkType(object):
     '''Image or video file. Recursion on this type will not be useful.'''
     sitemap = 'sitemap'
     '''A Sitemap.xml file.'''
+    file = 'file'
+    '''FTP File.'''
+    directory = 'directory'
+    '''FTP directory.'''
 
 
 class URLRecord(_URLRecordType):

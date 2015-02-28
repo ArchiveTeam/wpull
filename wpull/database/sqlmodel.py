@@ -71,7 +71,7 @@ class URL(DBBase):
     link_type = Column(
         Enum(
             LinkType.html, LinkType.css, LinkType.javascript, LinkType.media,
-            LinkType.sitemap
+            LinkType.sitemap, LinkType.file, LinkType.directory,
         ),
         doc='Expected content type of extracted link.'
     )
