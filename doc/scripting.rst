@@ -1,3 +1,5 @@
+.. _scripting-hooks:
+
 Scripting Hooks
 ===============
 

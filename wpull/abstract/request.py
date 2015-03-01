@@ -64,12 +64,24 @@ class ProtocolResponseMixin(object):
     '''Protocol abstraction for response objects.'''
     @abc.abstractproperty
     def protocol(self):
-        '''Return the name of the protocol.'''
+        '''Name of the protocol.
+
+        Returns:
+            str: Either ``ftp`` or ``http``.
+        '''
 
     @abc.abstractmethod
     def response_code(self):
-        '''Return the response code representative for the protocol.'''
+        '''Response code representative for the protocol.
+
+        Returns:
+            int: The status code for HTTP or the final reply code for FTP.
+        '''
 
     @abc.abstractmethod
     def response_message(self):
-        '''Return the response message representative for the protocol.'''
+        '''Response message representative for the protocol.
+
+        Returns:
+            str: The status line reason for HTTP or a reply message for FTP.
+        '''

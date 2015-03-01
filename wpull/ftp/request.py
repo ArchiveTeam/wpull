@@ -118,9 +118,9 @@ class Request(URLPropertyMixin):
     Attributes:
         address (tuple): Address of control connection.
         data_address (tuple): Address of data connection.
-        username (str): Username for login.
-        password (str): Password for login.
-        restart_value (int): Optional value for ``REST`` command.
+        username (str, None): Username for login.
+        password (str, None): Password for login.
+        restart_value (int, None): Optional value for ``REST`` command.
         file_path (str): Path of the file.
     '''
     def __init__(self, url):
@@ -158,7 +158,7 @@ class Response(DictableMixin, ProtocolResponseMixin):
 
     Attributes:
         request (:class:`Request`): The corresponding request.
-        body (:class:`.body.Body` or a file-like): The file.
+        body (:class:`.body.Body`, file-like, None): The file.
         reply (:class:`Reply`): The latest Reply.
         file_transfer_size (int): Size of the file transfer without
             considering restart. (REST is issued last.)

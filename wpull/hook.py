@@ -1,5 +1,8 @@
 # encoding=utf-8
-'''Python and Lua scripting support.'''
+'''Python and Lua scripting support.
+
+See :ref:`scripting-hooks` for an introduction.
+'''
 import logging
 
 from wpull.backport.logging import BraceMessage as __
@@ -88,6 +91,13 @@ class Callbacks(object):
         AVAILABLE_VERSIONS (tuple): The available API versions as integers.
         version (int): The current API version in use. You can set this.
             Default: 2.
+
+    An instance of this class is available in the hook environment. You
+    set your functions to the instance to override the default functions.
+
+    All functions are called with builtin Python types. i.e., complex objects
+    are converted to ``dict`` using the instance's ``to_dict`` method. Be
+    careful of values being None.
 
     API scripting versions were introduced when function signatures needed to
     be changed. Instead of breaking existing scripts in production, the
