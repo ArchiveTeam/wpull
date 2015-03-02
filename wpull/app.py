@@ -48,6 +48,7 @@ class Application(HookableMixin):
         ServerError, ProtocolError,
         SSLVerificationError, DNSNotFound,
         ConnectionRefused, NetworkError,
+        OSError, IOError,
         HookStop, StopIteration, SystemExit, KeyboardInterrupt,
     )
     '''Exception classes that are not crashes.'''
@@ -126,12 +127,22 @@ class Application(HookableMixin):
         try:
             yield From(self._builder.factory['Engine']())
         except Exception as error:
-            if not isinstance(error, StopIteration):
-                _logger.exception('Fatal exception.')
-                self._update_exit_code_from_error(error)
+            if isinstance(error, StopIteration):
+                raise
 
-                if not isinstance(error, self.EXPECTED_EXCEPTIONS):
-                    self._print_crash_message()
+            is_expected = isinstance(error, self.EXPECTED_EXCEPTIONS)
+            show_traceback = not is_expected
+
+            if show_traceback:
+                _logger.exception('Fatal exception.')
+            else:
+                _logger.error('{}'.format(error))
+
+            self._update_exit_code_from_error(error)
+
+            if not is_expected:
+                self._print_crash_message()
+                self._print_report_bug_message()
 
         self._compute_exit_code_from_stats()
 
@@ -244,8 +255,12 @@ class Application(HookableMixin):
                        'use ‘--no-check-certificate’.'))
 
     def _print_crash_message(self):
+        '''Print crashed message.'''
+        _logger.critical(_('Sorry, Wpull unexpectedly crashed.'))
+
+    def _print_report_bug_message(self):
+        '''Print report the bug message.'''
         _logger.critical(_(
-            'Sorry, Wpull unexpectedly crashed. '
             'Please report this problem to the authors at Wpull\'s '
             'issue tracker so it may be fixed. '
             'If you know how to program, maybe help us fix it? '

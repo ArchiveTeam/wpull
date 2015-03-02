@@ -3,6 +3,7 @@ What's New
 ==========
 
 * Added `--preserve-permissions`.
+* Exception tracebacks are printed only on generic errors.
 
 
 0.1008 (2015-02-26)
