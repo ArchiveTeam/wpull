@@ -1553,7 +1553,7 @@ class TestAppFTP(FTPTestCase):
             app = builder.build()
             exit_code = yield From(app.run())
 
-        self.assertEqual(8, exit_code)
+        self.assertEqual(6, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)

@@ -33,7 +33,8 @@ class NetworkTimedOut(NetworkError):
     '''Connection read/write timed out.'''
 
 
-# TODO: use AuthenticationError
+class AuthenticationError(ServerError):
+    '''Username or password error.'''
 
 
 class ExitStatus(object):
@@ -66,6 +67,7 @@ ERROR_PRIORITIES = (
     ServerError,
     ProtocolError,
     SSLVerificationError,
+    AuthenticationError,
     DNSNotFound,
     ConnectionRefused,
     NetworkError,

@@ -9,7 +9,7 @@ import trollius
 
 from wpull.abstract.client import BaseClient, BaseSession, DurationTimeout
 from wpull.body import Body
-from wpull.errors import ProtocolError
+from wpull.errors import ProtocolError, AuthenticationError
 from wpull.ftp.command import Commander
 from wpull.ftp.ls.listing import ListingError
 from wpull.ftp.ls.parse import ListingParser
@@ -91,7 +91,11 @@ class Session(BaseSession):
             _logger.debug('Reusing existing login.')
             return
 
-        yield From(self._commander.login(username, password))
+        try:
+            yield From(self._commander.login(username, password))
+        except FTPServerError as error:
+            raise AuthenticationError('Login error: {}'.format(error)) \
+                from error
 
         self._login_table[self._connection] = (username, password)
 

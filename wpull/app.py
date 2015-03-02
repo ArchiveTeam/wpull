@@ -12,7 +12,8 @@ import trollius
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ServerError, ExitStatus, ProtocolError, \
-    SSLVerificationError, DNSNotFound, ConnectionRefused, NetworkError
+    SSLVerificationError, DNSNotFound, ConnectionRefused, NetworkError, \
+    AuthenticationError
 from wpull.hook import HookableMixin, HookDisconnected, HookStop
 import wpull.string
 import wpull.observer
@@ -28,6 +29,7 @@ class Application(HookableMixin):
     This class manages process signals and displaying warnings.
     '''
     ERROR_CODE_MAP = OrderedDict([
+        (AuthenticationError, ExitStatus.authentication_failure),
         (ServerError, ExitStatus.server_error),
         (ProtocolError, ExitStatus.protocol_error),
         (SSLVerificationError, ExitStatus.ssl_verification_error),
