@@ -259,7 +259,7 @@ class FTPProcessorSession(BaseProcessorSession):
             self._processor.listing_cache[directory_url] = \
                 directory_response.files
 
-        return directory_response.files
+        raise Return(directory_response.files)
 
     @trollius.coroutine
     def _fetch(self, request, is_file):
