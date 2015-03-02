@@ -38,7 +38,9 @@ class Application(HookableMixin):
         (NetworkError, ExitStatus.network_failure),
         (OSError, ExitStatus.file_io_error),
         (IOError, ExitStatus.file_io_error),
-        (ValueError, ExitStatus.parser_error),
+        # ExitStatus.parse_error is handled by the ArgumentParse and is not
+        # needed here.
+        # Anything else is ExitStatus.generic_error.
     ])
     '''Mapping of error types to exit status.'''
 
