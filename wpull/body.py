@@ -68,7 +68,7 @@ class Body(object):
             dict: The items are:
 
                 * ``filename`` (string, None): The path of the file.
-                * ``size`` (int, None): The size of the file.
+                * ``length`` (int, None): The size of the file.
         '''
         try:
             name = self.file.name
