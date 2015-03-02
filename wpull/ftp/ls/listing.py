@@ -13,16 +13,18 @@ FileEntry = namedlist.namedtuple(
         ('type', None),
         ('size', None),
         ('date', None),
-        ('dest', None)
+        ('dest', None),
+        ('perm', None)
     ])
 '''A row in a listing.
 
 Attributes:
     name (str): Filename.
-    type (str): ``file``, ``dir``, ``symlink``, ``other``, ``None``
-    size (int): Size of file.
-    date (:class:`datetime.datetime`): A datetime object in UTC.
-    dest (str): Destination filename for symlinks.
+    type (str, None): ``file``, ``dir``, ``symlink``, ``other``, ``None``
+    size (int, None): Size of file.
+    date (:class:`datetime.datetime`, None): A datetime object in UTC.
+    dest (str, None): Destination filename for symlinks.
+    perm (int, None): Unix permissions expressed as an integer.
 '''
 
 
@@ -127,6 +129,9 @@ class LineParser(object):
                         file_type = 'symlink'
                     else:
                         file_type = 'other'
+
+                    perms = parse_unix_perm(field[1:])
+
                     break
             else:
                 raise ListingError('Failed to parse file type.')
@@ -160,7 +165,7 @@ class LineParser(object):
 
             entries.append(
                 FileEntry(filename, file_type, file_size, datetime_obj,
-                          symlink_dest))
+                          symlink_dest, perm=perms))
 
         return entries
 
@@ -209,3 +214,27 @@ def parse_int(text):
     '''Parse a integer containing potential grouping characters.'''
     text = text.translate(NUM_GROUPER_TABLE)
     return int(text)
+
+
+def parse_unix_perm(text):
+    '''Parse a Unix permission string and return integer value.'''
+    # Based on ftp-ls.c symperms
+    if len(text) != 9:
+        return 0
+
+    perms = 0
+
+    for triad_index in range(3):
+        string_index = triad_index * 3
+        perms <<= 3
+
+        if text[string_index] == 'r':
+            perms |= 1 << 2
+
+        if text[string_index + 1] == 'w':
+            perms |= 1 << 1
+
+        if text[string_index + 2] in 'xs':
+            perms |= 1
+
+    return perms

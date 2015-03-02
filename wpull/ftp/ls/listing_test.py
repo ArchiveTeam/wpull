@@ -1,6 +1,6 @@
 import unittest
 
-from wpull.ftp.ls.listing import guess_listing_type
+from wpull.ftp.ls.listing import guess_listing_type, parse_unix_perm
 
 
 UNIX_LS = '''-rw-r--r--   1 root     other        531 Jan 29 03:26 README
@@ -36,10 +36,27 @@ MVS_LS = '''  WYOSPT 3420   2003/05/21  1  200  FB      80  8053  PS  48-MVS.FIL
 '''
 
 
-class TestHeuristic(unittest.TestCase):
+class TestListing(unittest.TestCase):
     def test_guess_listing_type(self):
         self.assertEqual('unix', guess_listing_type(UNIX_LS.splitlines()))
         self.assertEqual('msdos', guess_listing_type(MSDOS_LS.splitlines()))
         self.assertEqual('msdos', guess_listing_type(MSDOS_NO_DIR_LS.splitlines()))
         self.assertEqual('nlst', guess_listing_type(NLST_LS.splitlines()))
         self.assertEqual('unknown', guess_listing_type(MVS_LS.splitlines()))
+
+    def test_parse_unix_perm(self):
+        self.assertEqual(0, parse_unix_perm('a'))
+        self.assertEqual(0, parse_unix_perm('1234567890'))
+        self.assertEqual(0, parse_unix_perm('---------'))
+        self.assertEqual(0o400, parse_unix_perm('r--------'))
+        self.assertEqual(0o040, parse_unix_perm('---r-----'))
+        self.assertEqual(0o004, parse_unix_perm('------r--'))
+        self.assertEqual(0o444, parse_unix_perm('r--r--r--'))
+        self.assertEqual(0o222, parse_unix_perm('-w--w--w-'))
+        self.assertEqual(0o111, parse_unix_perm('--x--x--x'))
+        self.assertEqual(0o111, parse_unix_perm('--s--s--s'))
+        self.assertEqual(0o545, parse_unix_perm('r-xr--r-x'))
+        self.assertEqual(0o632, parse_unix_perm('rw--wx-w-'))
+        self.assertEqual(0o535, parse_unix_perm('r-x-wxr-x'))
+        self.assertEqual(0o777, parse_unix_perm('rwxrwxrwx'))
+        self.assertEqual(0o777, parse_unix_perm('rwsrwsrws'))
