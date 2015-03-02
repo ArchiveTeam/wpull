@@ -3,6 +3,7 @@ What's New
 ==========
 
 * Added `--preserve-permissions`.
+* Fixed exit code returned as 2 instead of 1 on generic errors.
 * Exception tracebacks are printed only on generic errors.
 
 
