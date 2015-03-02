@@ -994,10 +994,11 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             '--no-passive-ftp',
 #             action='store_true',
 #         )
-#         group.add_argument(
-#             '--preserve-permissions',
-#             action='store_true',
-#         )
+        group.add_argument(
+            '--preserve-permissions',
+            action='store_true',
+            help=_('apply server\'s Unix file permissions on downloaded files')
+        )
         group.add_argument(
             '--retr-symlinks',
             default='on',

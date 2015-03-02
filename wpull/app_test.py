@@ -1568,7 +1568,8 @@ class TestAppFTP(FTPTestCase):
             '--tries', '1',
             '--wait', '0',
             '--no-host-directories',
-            '--warc-file', 'mywarc'
+            '--warc-file', 'mywarc',
+            '--preserve-permissions',
         ])
         builder = Builder(args, unit_test=True)
 

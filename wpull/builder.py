@@ -899,6 +899,7 @@ class Builder(object):
             'FTPProcessorFetchParams',
             remove_listing=self._args.remove_listing,
             retr_symlinks=self._args.retr_symlinks,
+            preserve_permissions=self._args.preserve_permissions,
         )
 
         instances = self._factory.new(

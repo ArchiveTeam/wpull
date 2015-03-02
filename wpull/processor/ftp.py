@@ -12,6 +12,7 @@ import trollius
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
+from wpull.cache import LRUCache
 from wpull.errors import ProtocolError
 from wpull.ftp.request import Request, ListingResponse
 from wpull.ftp.util import FTPServerError
@@ -76,8 +77,10 @@ class FTPProcessor(BaseProcessor):
     Args:
         rich_client (:class:`.http.web.WebClient`): The web client.
         root_path (str): The root directory path.
-        fetch_params: An instance of :class:`WebProcessorFetchParams`.
-        instances: An instance of :class:`WebProcessorInstances`.
+        fetch_params (:class:`WebProcessorFetchParams`): Parameters for
+            fetching.
+        instances (:class:`WebProcessorInstances`): Instances needed
+            by the processor.
     '''
     def __init__(self, ftp_client, root_path, fetch_params, instances):
         super().__init__()
@@ -87,6 +90,7 @@ class FTPProcessor(BaseProcessor):
         self._fetch_params = fetch_params
         self._instances = instances
         self._session_class = FTPProcessorSession
+        self._listing_cache = LRUCache(max_items=10, time_to_live=3600)
 
     @property
     def ftp_client(self):
@@ -107,6 +111,16 @@ class FTPProcessor(BaseProcessor):
     def fetch_params(self):
         '''The fetch parameters.'''
         return self._fetch_params
+
+    @property
+    def listing_cache(self):
+        '''Listing cache.
+
+        Returns:
+            :class:`.cache.LRUCache`: A cache mapping
+            from URL to list of :class:`.ftp.ls.listing.FileEntry`.
+        '''
+        return self._listing_cache
 
     @trollius.coroutine
     def process(self, url_item):
@@ -179,7 +193,22 @@ class FTPProcessorSession(BaseProcessorSession):
             is_file = 'unknown'
 
         if is_file == 'unknown':
-            is_file = yield From(self._fetch_parent_path(request))
+            files = yield From(self._fetch_parent_path(request))
+
+            if not files:
+                raise Return(True)
+
+            filename = posixpath.basename(request.file_path)
+
+            for file_entry in files:
+                if file_entry.name == filename:
+                    _logger.debug('Found entry in parent. Type %s',
+                                  file_entry.type)
+                    is_file = file_entry.type != 'dir'
+                    break
+            else:
+                _logger.debug('Did not find entry. Assume file.')
+                raise Return(True)
 
             if not is_file:
                 request.url = append_slash_to_path_url(request.url_info)
@@ -189,12 +218,17 @@ class FTPProcessorSession(BaseProcessorSession):
         raise Return(is_file)
 
     @trollius.coroutine
-    def _fetch_parent_path(self, request):
-        '''Fetch parent directory and return whether request is a file.
+    def _fetch_parent_path(self, request, use_cache=True):
+        '''Fetch parent directory and return list FileEntry.
 
         Coroutine.
         '''
         directory_url = to_dir_path_url(request.url_info)
+
+        if use_cache:
+            if directory_url in self._processor.listing_cache:
+                raise Return(self._processor.listing_cache[directory_url])
+
         directory_request = copy.deepcopy(request)
         directory_request.url = directory_url
 
@@ -206,7 +240,11 @@ class FTPProcessorSession(BaseProcessorSession):
                 yield From(session.fetch_file_listing(directory_request))
             except FTPServerError:
                 _logger.debug('Got an error. Assume is file.')
-                raise Return(True)
+
+                if use_cache:
+                    self._processor.listing_cache[directory_url] = None
+
+                return
 
             temp_file = tempfile.NamedTemporaryFile(
                 dir=self._processor.root_path, prefix='wpull-list'
@@ -217,16 +255,11 @@ class FTPProcessorSession(BaseProcessorSession):
                     file, duration_timeout=self._fetch_rule.duration_timeout)
                 )
 
-        filename = posixpath.basename(request.file_path)
+        if use_cache:
+            self._processor.listing_cache[directory_url] = \
+                directory_response.files
 
-        for file_entry in directory_response.files:
-            if file_entry.name == filename:
-                _logger.debug('Found entry in parent. Type %s',
-                              file_entry.type)
-                raise Return(file_entry.type != 'dir')
-
-        _logger.debug('Did not find entry. Assume file.')
-        raise Return(True)
+        return directory_response.files
 
     @trollius.coroutine
     def _fetch(self, request, is_file):
@@ -283,6 +316,11 @@ class FTPProcessorSession(BaseProcessorSession):
         else:
             self._log_response(request, response)
             action = self._handle_response(request, response)
+
+            if is_file and \
+                    self._processor.fetch_params.preserve_permissions and \
+                    hasattr(response.body, 'name'):
+                yield From(self._apply_unix_permissions(request, response))
 
             response.body.close()
 
@@ -367,6 +405,27 @@ class FTPProcessorSession(BaseProcessorSession):
                 symlink_path=symlink_path,
                 symlink_target=link_target
             ))
+
+    @trollius.coroutine
+    def _apply_unix_permissions(self, request, response):
+        '''Fetch and apply Unix permissions.
+
+        Coroutine.
+        '''
+        files = yield From(self._fetch_parent_path(request))
+
+        if not files:
+            return
+
+        filename = posixpath.basename(request.file_path)
+
+        for file_entry in files:
+            if file_entry.name == filename and file_entry.perm:
+                _logger.debug(__(
+                    'Set chmod {} o{:o}.',
+                    response.body.name, file_entry.perm
+                ))
+                os.chmod(response.body.name, file_entry.perm)
 
 
 def to_dir_path_url(url_info):
