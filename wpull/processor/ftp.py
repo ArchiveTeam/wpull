@@ -307,15 +307,14 @@ class FTPProcessorSession(BaseProcessorSession):
         except REMOTE_ERRORS as error:
             self._log_error(request, error)
 
-            action = self._result_rule.handle_error(
-                request, error, self._url_item)
+            self._result_rule.handle_error(request, error, self._url_item)
             _logger.debug(str(self._result_rule._statistics.errors))
 
             if response:
                 response.body.close()
         else:
             self._log_response(request, response)
-            action = self._handle_response(request, response)
+            self._handle_response(request, response)
 
             if is_file and \
                     self._processor.fetch_params.preserve_permissions and \
@@ -387,6 +386,8 @@ class FTPProcessorSession(BaseProcessorSession):
 
         if isinstance(response, ListingResponse):
             self._add_listing_links(response)
+
+        return action
 
     def _make_symlink(self, link_name, link_target):
         '''Make a symlink on the system.'''

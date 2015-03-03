@@ -325,8 +325,7 @@ class WebProcessorSession(BaseProcessorSession):
         except REMOTE_ERRORS as error:
             self._log_error(request, error)
 
-            action = self._result_rule.handle_error(
-                request, error, self._url_item)
+            self._result_rule.handle_error(request, error, self._url_item)
 
             if response:
                 response.body.close()
