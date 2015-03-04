@@ -59,6 +59,18 @@ def peek_file(file, length=4096):
         return file.read(length)
 
 
+def seek_file_end(file):
+    '''Seek to the end of the file.'''
+    try:
+        file.seek(0, 2)
+    except ValueError:
+        # gzip files don't support seek from end
+        while True:
+            data = file.read(4096)
+            if not data:
+                break
+
+
 def datetime_str():
     '''Return the current time in simple ISO8601 notation.'''
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
