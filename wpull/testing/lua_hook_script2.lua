@@ -79,7 +79,7 @@ wpull_hook.callbacks.dequeued_url = function(url_info, record_info)
   assert(counter >= 0)
 end
 
-wpull_hook.callbacks.handle_pre_response = function(url_info, record_info, http_info)
+wpull_hook.callbacks.handle_pre_response = function(url_info, record_info, response_info)
   if url_info['path'] == '/mordor' then
     return wpull_hook.actions.FINISH
   end
@@ -87,14 +87,14 @@ wpull_hook.callbacks.handle_pre_response = function(url_info, record_info, http_
   return wpull_hook.actions.NORMAL
 end
 
-wpull_hook.callbacks.handle_response = function(url_info, record_info, http_info)
+wpull_hook.callbacks.handle_response = function(url_info, record_info, response_info)
   --  print('handle_response', url_info)
 
   if url_info['path'] == '/' then
-    assert(http_info['status_code'] == 200)
-    assert(http_info.body['content_size'])
+    assert(response_info['status_code'] == 200)
+    assert(response_info.body['content_size'])
   elseif url_info['path'] == '/post/' then
-    assert(http_info['status_code'] == 200)
+    assert(response_info['status_code'] == 200)
     injected_url_found = true
     return wpull_hook.actions.FINISH
   elseif url_info['path'] == '/some_page/' then

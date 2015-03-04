@@ -78,21 +78,21 @@ def dequeued_url(url_info, record_info):
     assert counter >= 0
 
 
-def handle_pre_response(url_info, record_info, http_info):
+def handle_pre_response(url_info, record_info, response_info):
     if url_info['path'] == '/mordor':
         return wpull_hook.actions.FINISH
 
     return wpull_hook.actions.NORMAL
 
 
-def handle_response(url_info, record_info, http_info):
+def handle_response(url_info, record_info, response_info):
     print('handle_response', url_info)
 
     if url_info['path'] == '/':
-        assert http_info['body']['content_size']
-        assert http_info['status_code'] == 200
+        assert response_info['body']['content_size']
+        assert response_info['status_code'] == 200
     elif url_info['path'] == '/post/':
-        assert http_info['status_code'] == 200
+        assert response_info['status_code'] == 200
         global injected_url_found
         injected_url_found = True
         return wpull_hook.actions.FINISH
