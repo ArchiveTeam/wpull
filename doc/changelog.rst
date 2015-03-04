@@ -5,6 +5,10 @@ What's New
 * Added `--preserve-permissions`.
 * Fixed exit code returned as 2 instead of 1 on generic errors.
 * Exception tracebacks are printed only on generic errors.
+* Scripting Hook API:
+
+    * Added Version 3 API
+    * Added ``wait_time`` to version 3 which provides useful context including response or error infos.
 
 
 0.1008 (2015-02-26)

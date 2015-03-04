@@ -239,7 +239,9 @@ class WebProcessorSession(BaseProcessorSession):
             ))
             self._result_rule.handle_error(request, error, self._url_item)
 
-            wait_time = self._result_rule.get_wait_time()
+            wait_time = self._result_rule.get_wait_time(
+                request, self._url_item.url_record, error=error
+            )
 
             if wait_time:
                 _logger.debug('Sleeping {0}.'.format(wait_time))
@@ -269,9 +271,7 @@ class WebProcessorSession(BaseProcessorSession):
 
             self._request = self._web_client_session.next_request()
 
-            exit_early = yield From(self._fetch_one(self._request))
-
-            wait_time = self._result_rule.get_wait_time()
+            exit_early, wait_time = yield From(self._fetch_one(self._request))
 
             if wait_time:
                 _logger.debug('Sleeping {0}.'.format(wait_time))
@@ -321,25 +321,31 @@ class WebProcessorSession(BaseProcessorSession):
             )
         except HookPreResponseBreak:
             _logger.debug('Hook pre-response break.')
-            raise Return(True)
+            raise Return(True, None)
         except REMOTE_ERRORS as error:
             self._log_error(request, error)
 
             self._result_rule.handle_error(request, error, self._url_item)
+            wait_time = self._result_rule.get_wait_time(
+                request, self._url_item.url_record, error=error
+            )
 
             if response:
                 response.body.close()
 
-            raise Return(True)
+            raise Return(True, wait_time)
         else:
             self._log_response(request, response)
             action = self._handle_response(request, response)
+            wait_time = self._result_rule.get_wait_time(
+                request, self._url_item.url_record, response=response
+            )
 
             yield From(self._run_coprocessors(request, response))
 
             response.body.close()
 
-            raise Return(action != Actions.NORMAL)
+            raise Return(action != Actions.NORMAL, wait_time)
 
     def close(self):
         '''Close any temp files.'''

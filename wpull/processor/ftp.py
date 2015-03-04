@@ -171,9 +171,7 @@ class FTPProcessorSession(BaseProcessorSession):
 
         self._file_writer_session.process_request(request)
 
-        yield From(self._fetch(request, is_file))
-
-        wait_time = self._result_rule.get_wait_time()
+        wait_time = yield From(self._fetch(request, is_file))
 
         if wait_time:
             _logger.debug('Sleeping {0}.'.format(wait_time))
@@ -308,13 +306,22 @@ class FTPProcessorSession(BaseProcessorSession):
             self._log_error(request, error)
 
             self._result_rule.handle_error(request, error, self._url_item)
-            _logger.debug(str(self._result_rule._statistics.errors))
+
+            wait_time = self._result_rule.get_wait_time(
+                request, self._url_item.url_record, error=error
+            )
 
             if response:
                 response.body.close()
+
+            raise Return(wait_time)
         else:
             self._log_response(request, response)
             self._handle_response(request, response)
+
+            wait_time = self._result_rule.get_wait_time(
+                request, self._url_item.url_record, response=response
+            )
 
             if is_file and \
                     self._processor.fetch_params.preserve_permissions and \
@@ -322,6 +329,8 @@ class FTPProcessorSession(BaseProcessorSession):
                 yield From(self._apply_unix_permissions(request, response))
 
             response.body.close()
+
+            raise Return(wait_time)
 
     def _add_listing_links(self, response):
         '''Add links from file listing response.'''

@@ -4,6 +4,7 @@
 See :ref:`scripting-hooks` for an introduction.
 '''
 import logging
+import functools
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.item import Status
@@ -103,7 +104,7 @@ class Callbacks(object):
     be changed. Instead of breaking existing scripts in production, the
     default signature remained the same unless it was changed by the script.
     '''
-    AVAILABLE_VERSIONS = (2,)
+    AVAILABLE_VERSIONS = (2, 3)
 
     def __init__(self):
         self._version = 2
@@ -163,10 +164,23 @@ class Callbacks(object):
         func = getattr(self, 'get_urls', CallbacksV2.get_urls)
         return func(filename, url_info, document_info)
 
-    def dispatch_wait_time(self, seconds):
+    def dispatch_wait_time(self, seconds, url_info_dict, record_info_dict,
+                           response_info_dict, error_info_dict):
         '''Call appropriate ``wait_time``.'''
-        func = getattr(self, 'wait_time', CallbacksV2.wait_time)
-        return func(seconds)
+
+        if self._version == 2:
+            func = functools.partial(
+                getattr(self, 'wait_time', CallbacksV2.wait_time),
+                seconds
+            )
+        else:
+            func = functools.partial(
+                getattr(self, 'wait_time', CallbacksV3.wait_time),
+                seconds, url_info_dict, record_info_dict,
+                response_info_dict, error_info_dict
+            )
+
+        return func()
 
     def dispatch_finishing_statistics(self, start_time, end_time, num_urls, bytes_downloaded):
         '''Call appropriate ``finishing_statistics``.'''
@@ -279,9 +293,6 @@ class CallbacksV2(Callbacks):
                 :class:`.url.URLInfo`.
             record_info (dict): A mapping containing the same information in
                 :class:`.item.URLRecord`.
-
-                .. versionadded:: Scripting-API-2
-
             response_info (dict): A mapping containing the same information
                 in :class:`.http.request.Response` or
                 :class:`.ftp.request.Response`.
@@ -387,6 +398,36 @@ class CallbacksV2(Callbacks):
         return exit_code
 
 
+class CallbacksV3(CallbacksV2):
+    '''Callbacks API Version 3.
+
+    .. versionadded:: 0.1009a1
+    '''
+    @staticmethod
+    def wait_time(seconds, url_info, url_record, response, error):
+        '''Return the wait time between requests.
+
+        .. versionadded:: 0.1009a1
+
+        Args:
+            seconds (float): The original time in seconds.
+            url_info (dict): A mapping containing the same information in
+                :class:`.url.URLInfo`.
+            record_info (dict): A mapping containing the same information in
+                :class:`.item.URLRecord`.
+            response_info (dict, None): A mapping containing the same information
+                in :class:`.http.request.Response` or
+                :class:`.ftp.request.Response`.
+            error_info (dict, None): A mapping containing the keys:
+
+                * ``error``: The name of the exception (for example,
+                  ``ProtocolError``)
+
+        Returns:
+            float: The time in seconds.
+        '''
+        return seconds
+
 class HookEnvironment(object):
     '''The global instance used by scripts.
 
@@ -464,9 +505,27 @@ class HookEnvironment(object):
             size
         )
 
-    def _wait_time(self, seconds):
+    def _wait_time(self, seconds, request, url_record, response, error):
         '''Process wait time callback.'''
-        return self.callbacks.dispatch_wait_time(seconds)
+        url_info_dict = request.url_info.to_dict()
+        record_info_dict = url_record.to_dict()
+
+        if response:
+            response_info_dict = response.to_dict()
+        else:
+            response_info_dict = None
+
+        if error:
+            error_info_dict = {
+                'error': error.__class__.__name__,
+            }
+        else:
+            error_info_dict = None
+
+        return self.callbacks.dispatch_wait_time(
+            seconds, url_info_dict, record_info_dict, response_info_dict,
+            error_info_dict
+        )
 
     def _queued_url(self, url_info):
         '''Process queued URL callback.'''
