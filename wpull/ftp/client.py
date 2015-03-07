@@ -58,7 +58,7 @@ class Session(BaseSession):
         '''
         assert not self._connection
         self._connection = yield From(
-            self._connection_pool.check_out(
+            self._connection_pool.acquire(
                 self._request.url_info.hostname, self._request.url_info.port
             ))
         self._control_stream = ControlStream(self._connection)
@@ -324,7 +324,7 @@ class Session(BaseSession):
         @trollius.coroutine
         def connection_factory(address):
             self._data_connection = yield From(
-                self._connection_pool.check_out(address[0], address[1]))
+                self._connection_pool.acquire(address[0], address[1]))
             raise Return(self._data_connection)
 
         self._data_stream = yield From(self._commander.setup_data_stream(
@@ -368,12 +368,12 @@ class Session(BaseSession):
                     self._response, connection_closed=self._connection.closed()
                 )
 
-            self._connection_pool.check_in(self._connection)
+            self._connection_pool.no_wait_release(self._connection)
 
     def _close_data_connection(self):
         if self._data_connection:
             self._data_connection.close()
-            self._connection_pool.check_in(self._data_connection)
+            self._connection_pool.no_wait_release(self._data_connection)
             self._data_connection = None
 
         if self._data_stream:

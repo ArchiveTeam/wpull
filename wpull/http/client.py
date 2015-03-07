@@ -62,7 +62,7 @@ class Session(BaseSession):
         assert not self._connection
         _logger.debug(__('Client fetch request {0}.', request))
 
-        connection = yield From(self._check_out_connection(request))
+        connection = yield From(self._acquire_connection(request))
 
         if self._proxy_adapter:
             self._proxy_adapter.add_auth_header(request)
@@ -176,4 +176,4 @@ class Session(BaseSession):
             self.abort()
 
         if self._connection:
-            self._connection_pool.check_in(self._connection)
+            self._connection_pool.no_wait_release(self._connection)
