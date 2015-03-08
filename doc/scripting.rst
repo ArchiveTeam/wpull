@@ -36,4 +36,5 @@ Wpull will attempt to support deprecation and feature selection through Scriptin
 
     wpull_hook.callbacks.version = 2
 
-For complete details, see :py:mod:`wpull.hook`.
+For complete details, see :py:mod:`wpull.hook`. For an example, see `ArchiveBot's scripting hook file <https://github.com/ArchiveTeam/ArchiveBot/blob/065b0cc2549224f72a16cd3611fffb2050962c74/pipeline/wpull_hooks.py>`_.
+
