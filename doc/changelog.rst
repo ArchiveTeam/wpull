@@ -10,6 +10,10 @@ Summary of notable changes.
 Unreleased
 ==========
 
+
+0.1009 (2015-03-08)
+===================
+
 * Added: ``--preserve-permissions``.
 * Fixed: exit code returned as 2 instead of 1 on generic errors.
 * Changed: exception tracebacks are printed only on generic errors.
