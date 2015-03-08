@@ -2,26 +2,35 @@
 What's New
 ==========
 
-* Added `--preserve-permissions`.
-* Fixed exit code returned as 2 instead of 1 on generic errors.
-* Exception tracebacks are printed only on generic errors.
-* Temporary WARC log file is now compressed to save space.
-* Scripting Hook API:
+Summary of notable changes.
 
-    * Added Version 3 API
-    * Added ``wait_time`` to version 3 which provides useful context including response or error infos.
+.. Take advice from http://keepachangelog.com/.
+
+
+Unreleased
+==========
+
+* Added: `--preserve-permissions`.
+* Fixed: exit code returned as 2 instead of 1 on generic errors.
+* Changed: exception tracebacks are printed only on generic errors.
+* Changed: temporary WARC log file is now compressed to save space.
+
+Scripting Hook API:
+
+* Added: Version 3 API
+* Added: ``wait_time`` to version 3 which provides useful context including response or error infos.
 
 
 0.1008 (2015-02-26)
 ===================
 
-* Updated certificate bundle.
-* Fixed TypeError crash on bad Meta Refresh HTML element.
-* Fixed unable to fetch FTP files with spaces and other special characters.
-* Fixed AssertionError fetching URLs with trailing dot not properly removed.
-* Added ``--no-cache``.
-* Added ``--report-speed``.
-* Added ``--monitor-disk`` and ``--monitor-memory``.
+* Security: updated certificate bundle.
+* Fixed: TypeError crash on bad Meta Refresh HTML element.
+* Fixed: unable to fetch FTP files with spaces and other special characters.
+* Fixed: AssertionError fetching URLs with trailing dot not properly removed.
+* Added: ``--no-cache``.
+* Added: ``--report-speed``.
+* Added: ``--monitor-disk`` and ``--monitor-memory``.
 
 
 0.1007 (2015-02-19)
