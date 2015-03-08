@@ -99,60 +99,99 @@ class HostPool(object):
         ready (Queue): Connections not in use.
         busy (set): Connections in use.
     '''
-    def __init__(self, max_connections=6):
+    def __init__(self, connection_factory, max_connections=6):
         assert max_connections > 0, \
             'num must be positive. got {}'.format(max_connections)
 
+        self._connection_factory = connection_factory
         self.max_connections = max_connections
         self.ready = set()
         self.busy = set()
-        self._ready_event = trollius.Event()
+        self._lock = trollius.Lock()
+        self._condition = trollius.Condition(lock=self._lock)
+        self._closed = False
 
     def empty(self):
         '''Return whether the pool is empty.'''
         return not self.ready and not self.busy
 
+    @trollius.coroutine
     def clean(self, force=False):
-        '''Clean closed connections.'''
-        for connection in tuple(self.ready):
-            if force or connection.closed():
-                connection.close()
-                self.ready.remove(connection)
+        '''Clean closed connections.
+
+        Args:
+            force (bool): Clean connected and idle connections too.
+
+        Coroutine.
+        '''
+        with (yield From(self._lock)):
+            for connection in tuple(self.ready):
+                if force or connection.closed():
+                    connection.close()
+                    self.ready.remove(connection)
 
     def close(self):
-        '''Close all connections.'''
+        '''Forcibly close all connections.
+
+        This instance will not be usable after calling this method.
+        '''
         for connection in self.ready:
             connection.close()
 
         for connection in self.busy:
             connection.close()
 
+        self._closed = True
+
     def count(self):
         '''Return total number of connections.'''
         return len(self.ready) + len(self.busy)
 
     @trollius.coroutine
-    def check_out(self, connection_factory):
+    def acquire(self):
+        '''Register and return a connection.
+
+        Coroutine.
+        '''
+        assert not self._closed
+
+        yield From(self._condition.acquire())
+
         while True:
             if self.ready:
                 connection = self.ready.pop()
                 break
             elif len(self.busy) < self.max_connections:
-                connection = connection_factory()
+                connection = self._connection_factory()
                 break
             else:
                 # We should be using a Condition but check_in
                 # must be synchronous
-                yield From(self._ready_event.wait())
-                self._ready_event.clear()
+                yield From(self._condition.wait())
 
         self.busy.add(connection)
+        self._condition.release()
+
         raise Return(connection)
 
-    def check_in(self, connection):
+    @trollius.coroutine
+    def release(self, connection, reuse=True):
+        '''Unregister a connection.
+
+        Args:
+            connection: Connection instance returned from :meth:`acquire`.
+            reuse (bool): If True, the connection is made available for reuse.
+
+        Coroutine.
+        '''
+        yield From(self._condition.acquire())
         self.busy.remove(connection)
-        self.ready.add(connection)
-        self._ready_event.set()
+
+        if reuse:
+            self.ready.add(connection)
+
+        self._condition.notify()
+        self._condition.release()
 
 
 class ConnectionPool(object):
@@ -175,31 +214,29 @@ class ConnectionPool(object):
         self._connection_factory = connection_factory or Connection
         self._ssl_connection_factory = ssl_connection_factory or SSLConnection
         self._max_count = max_count
-        self._pool = {}
-
-        self._clean_cb()
+        self._host_pools = {}
+        self._host_pool_waiters = {}
+        self._host_pools_lock = trollius.Lock()
+        self._release_tasks = set()
+        self._closed = False
 
     @property
-    def pool(self):
-        return self._pool
+    def host_pools(self):
+        return self._host_pools
 
     @trollius.coroutine
-    def check_out(self, host, port, ssl=False):
+    def acquire(self, host, port, ssl=False):
         '''Return an available connection.
 
         Coroutine.
         '''
         assert isinstance(port, int), 'Expect int. Got {}'.format(type(port))
+        assert not self._closed
+
+        yield From(self._process_no_wait_releases())
 
         family, address = yield From(self._resolver.resolve(host, port))
         key = (host, port, ssl)
-
-        if key not in self._pool:
-            host_pool = self._pool[key] = HostPool(
-                max_connections=self._max_host_count
-            )
-        else:
-            host_pool = self._pool[key]
 
         if ssl:
             connection_factory = functools.partial(
@@ -208,29 +245,67 @@ class ConnectionPool(object):
             connection_factory = functools.partial(
                 self._connection_factory, address, host)
 
-        connection = yield From(host_pool.check_out(connection_factory))
+        with (yield From(self._host_pools_lock)):
+            if key not in self._host_pools:
+                host_pool = self._host_pools[key] = HostPool(
+                    connection_factory,
+                    max_connections=self._max_host_count
+                )
+                self._host_pool_waiters[key] = 1
+            else:
+                host_pool = self._host_pools[key]
+                self._host_pool_waiters[key] += 1
 
-        # XXX: Verify this assert is always true
+        _logger.debug('Check out %s', key)
+
+        connection = yield From(host_pool.acquire())
+
+        # TODO: Verify this assert is always true
         # assert host_pool.count() <= host_pool.max_connections
-        # assert key in self._pool
-        # assert self._pool[key] == host_pool
+        # assert key in self._host_pools
+        # assert self._host_pools[key] == host_pool
 
-        if key not in self._pool:
-            # XXX: Pool may have been deleted during a clean which shouldn't
-            # happen
-            self._pool[key] = host_pool
+        with (yield From(self._host_pools_lock)):
+            self._host_pool_waiters[key] -= 1
 
         raise Return(connection)
 
-    def check_in(self, connection):
-        '''Put a connection back in the pool.'''
+    @trollius.coroutine
+    def release(self, connection):
+        '''Put a connection back in the pool.
+
+        Coroutine.
+        '''
+        assert not self._closed
+
         key = (connection.hostname, connection.port, connection.ssl)
-        host_pool = self._pool[key]
+        host_pool = self._host_pools[key]
 
-        host_pool.check_in(connection)
+        _logger.debug('Check in %s', key)
 
-        if self.count() > self._max_count:
-            self.clean(force=True)
+        yield From(host_pool.release(connection))
+
+        force = self.count() > self._max_count
+        yield From(self.clean(force=force))
+
+    def no_wait_release(self, connection):
+        '''Synchronous version of :meth:`check_in`.'''
+        _logger.debug('No wait check in.')
+        release_task = trollius.get_event_loop().create_task(
+            self.release(connection)
+        )
+        self._release_tasks.add(release_task)
+
+    @trollius.coroutine
+    def _process_no_wait_releases(self):
+        '''Process check in tasks.'''
+        while True:
+            try:
+                release_task = self._release_tasks.pop()
+            except KeyError:
+                return
+            else:
+                yield From(release_task)
 
     @trollius.coroutine
     def session(self, host, port, ssl=False):
@@ -245,45 +320,57 @@ class ConnectionPool(object):
 
         Coroutine.
         '''
-        connection = yield From(self.check_out(host, port, ssl))
+        connection = yield From(self.acquire(host, port, ssl))
 
         @contextlib.contextmanager
         def context_wrapper():
             try:
                 yield connection
             finally:
-                self.check_in(connection)
+                self.no_wait_release(connection)
 
         raise Return(context_wrapper())
 
+    @trollius.coroutine
     def clean(self, force=False):
-        '''Clean all closed connections.'''
-        for key, pool in tuple(self._pool.items()):
-            pool.clean(force=force)
-            if pool.empty():
-                del self._pool[key]
+        '''Clean all closed connections.
+
+        Args:
+            force (bool): Clean connected and idle connections too.
+
+        Coroutine.
+        '''
+        assert not self._closed
+
+        with (yield From(self._host_pools_lock)):
+            for key, pool in tuple(self._host_pools.items()):
+                yield From(pool.clean(force=force))
+
+                if not self._host_pool_waiters[key] and pool.empty():
+                    del self._host_pools[key]
+                    del self._host_pool_waiters[key]
 
     def close(self):
-        '''Close all the connections.'''
-        for key, pool in tuple(self._pool.items()):
+        '''Close all the connections and clean up.
+
+        This instance will not be usable after calling this method.
+        '''
+        for key, pool in tuple(self._host_pools.items()):
             pool.close()
-            del self._pool[key]
+
+            del self._host_pools[key]
+            del self._host_pool_waiters[key]
+
+        self._closed = True
 
     def count(self):
         '''Return number of connections.'''
         counter = 0
 
-        for pool in self._pool.values():
+        for pool in self._host_pools.values():
             counter += pool.count()
 
         return counter
-
-    def _clean_cb(self):
-        '''Clean timer callback.'''
-        _logger.debug('Periodic connection clean.')
-
-        self.clean()
-        trollius.get_event_loop().call_later(120, self._clean_cb)
 
 
 class ConnectionState(object):
