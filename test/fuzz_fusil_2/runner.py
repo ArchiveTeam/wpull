@@ -64,6 +64,7 @@ class Fuzzer(Application):
                 '--database', 'wpull.db',
                 '--span-hosts-allow', 'page-requisites,linked-pages',
                 '--no-check-certificate',
+                '--concurrent', str(random.randint(1, 10)),
             ],
             timeout=timeout
         )
