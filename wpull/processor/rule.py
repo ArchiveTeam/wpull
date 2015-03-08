@@ -331,11 +331,12 @@ class ResultRule(HookableMixin):
 
         return action
 
-    def get_wait_time(self):
+    def get_wait_time(self, request, url_record, response=None, error=None):
         '''Return the wait time in seconds between requests.'''
         seconds = self._waiter.get()
         try:
-            return self.call_hook('wait_time', seconds)
+            return self.call_hook('wait_time', seconds,
+                                  request, url_record, response, error)
         except HookDisconnected:
             return seconds
 

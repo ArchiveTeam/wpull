@@ -44,16 +44,20 @@ class TestParse(unittest.TestCase):
         self.assertEqual(
             [
                 FileEntry('README', 'file', 531,
-                          date_factory(current_year, 1, 29, 3, 26)),
+                          date_factory(current_year, 1, 29, 3, 26),
+                          perm=0o644),
                 FileEntry('etc', 'dir', 512,
-                          date_factory(1994, 4, 8)),
+                          date_factory(1994, 4, 8),
+                          perm=0o555),
                 FileEntry('etc', 'dir', 512,
-                          date_factory(1994, 4, 8)),
+                          date_factory(1994, 4, 8),
+                          perm=0o555),
                 FileEntry('bin', 'symlink', 7,
                           date_factory(current_year, 1, 25, 0, 17),
-                          'usr/bin'),
+                          'usr/bin', perm=0o777),
                 FileEntry('blah', 'dir', 512,
-                          date_factory(2004, 4, 8)),
+                          date_factory(2004, 4, 8),
+                          perm=0o555),
             ],
             results
         )
@@ -123,9 +127,11 @@ class TestParse(unittest.TestCase):
         self.assertEqual(
             [
                 FileEntry('2009-12', 'file', 1558532,
-                          date_factory(2009, 12, 30)),
+                          date_factory(2009, 12, 30),
+                          perm=0o644),
                 FileEntry('2010-01', 'file', 10564020,
-                          date_factory(2010, 1, 14)),
+                          date_factory(2010, 1, 14),
+                          perm=0o644),
             ],
             results
         )

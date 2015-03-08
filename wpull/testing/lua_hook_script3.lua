@@ -3,7 +3,7 @@ local injected_url_found = false
 local got_redirected_page = false
 
 
-wpull_hook.callbacks.version = 2
+wpull_hook.callbacks.version = 3
 
 wpull_hook.callbacks.engine_run = function()
   assert(wpull_hook.factory.get('Engine'))
@@ -138,7 +138,7 @@ wpull_hook.callbacks.get_urls = function(filename, url_info, document_info)
   return nil
 end
 
-wpull_hook.callbacks.wait_time = function(seconds)
+wpull_hook.callbacks.wait_time = function(seconds, url_info, record_info, response_info, error_info)
   assert(seconds >= 0)
   return 0
 end

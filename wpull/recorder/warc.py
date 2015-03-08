@@ -14,6 +14,7 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.namevalue import NameValueRecord
 from wpull.recorder.base import BaseRecorder, BaseRecorderSession
 from wpull.warc import WARCRecord
+import wpull.util
 import wpull.version
 
 
@@ -84,13 +85,12 @@ class WARCRecorder(BaseRecorder):
         self._params = params or WARCRecorderParams()
         self._warcinfo_record = None
         self._sequence_num = 0
-        self._log_record = None
+        self._log_temp_file = None
         self._log_handler = None
         self._warc_filename = None
         self._cdx_filename = None
 
         if params.log:
-            self._log_record = WARCRecord()
             self._setup_log()
 
         self._start_new_warc_file()
@@ -158,13 +158,22 @@ class WARCRecorder(BaseRecorder):
         logger = logging.getLogger()
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        self._log_record.block_file = NamedTemporaryFile(
+        self._log_temp_file = NamedTemporaryFile(
             prefix='wpull-warc-',
             dir=self._params.temp_dir,
-            suffix='.log',
+            suffix='.log.gz',
+            delete=False,
         )
+        self._log_temp_file.close()  # For Windows
+
         self._log_handler = handler = logging.StreamHandler(
-            io.TextIOWrapper(self._log_record.block_file, encoding='utf-8'))
+            io.TextIOWrapper(
+                gzip.GzipFile(
+                    filename=self._log_temp_file.name, mode='wb'
+                ),
+                encoding='utf-8'
+            )
+        )
 
         logger.setLevel(logging.DEBUG)
         logger.debug('Wpull needs the root logger level set to DEBUG.')
@@ -258,16 +267,20 @@ class WARCRecorder(BaseRecorder):
 
     def close(self):
         '''Close the WARC file and clean up any logging handlers.'''
-        if self._log_record:
+        if self._log_temp_file:
             self._log_handler.flush()
 
             logger = logging.getLogger()
             logger.removeHandler(self._log_handler)
+            self._log_handler.stream.close()
 
-            self._log_record.block_file.seek(0)
-            self._log_record.set_common_fields('resource', 'text/plain')
+            log_record = WARCRecord()
+            log_record.block_file = gzip.GzipFile(
+                filename=self._log_temp_file.name
+            )
+            log_record.set_common_fields('resource', 'text/plain')
 
-            self._log_record.fields['WARC-Target-URI'] = \
+            log_record.fields['WARC-Target-URI'] = \
                 'urn:X-wpull:log'
 
             if self._params.max_size is not None:
@@ -276,10 +289,18 @@ class WARCRecorder(BaseRecorder):
 
                 self._start_new_warc_file(meta=True)
 
-            self.set_length_and_maybe_checksums(self._log_record)
-            self.write_record(self._log_record)
+            self.set_length_and_maybe_checksums(log_record)
+            self.write_record(log_record)
 
-            self._log_record.block_file.close()
+            log_record.block_file.close()
+
+            try:
+                os.remove(self._log_temp_file.name)
+            except OSError:
+                _logger.exception('Could not close log temp file.')
+
+            self._log_temp_file = None
+
             self._log_handler.close()
             self._log_handler = None
 

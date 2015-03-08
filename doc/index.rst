@@ -16,6 +16,7 @@ Contents:
    intro
    install
    usage
+   differences
    options
    help
    scripting

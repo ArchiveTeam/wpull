@@ -450,6 +450,41 @@ class TestApp(GoodAppTestCase):
         self.assertGreater(10.0, stats.duration)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_python_script_api_3(self):
+        arg_parser = AppArgumentParser()
+        filename = os.path.join(os.path.dirname(__file__),
+                                'testing', 'py_hook_script3.py')
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            self.get_url('/some_page'),
+            self.get_url('/mordor'),
+            'localhost:1/wolf',
+            '--python-script', filename,
+            '--page-requisites',
+            '--reject-regex', '/post/',
+            '--wait', '12',
+            '--retry-connrefused', '--tries', '1'
+        ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+            print(list(os.walk('.')))
+
+        self.assertEqual(42, exit_code)
+
+        engine = builder.factory['Engine']
+        self.assertEqual(2, engine.concurrent)
+
+        stats = builder.factory['Statistics']
+
+        self.assertEqual(3, stats.files)
+
+        # duration should be virtually 0 but account for slowness on travis ci
+        self.assertGreater(10.0, stats.duration)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_python_script_stop(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
@@ -473,6 +508,44 @@ class TestApp(GoodAppTestCase):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
                                 'testing', 'lua_hook_script2.lua')
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            self.get_url('/some_page'),
+            self.get_url('/mordor'),
+            'localhost:1/wolf',
+            '--lua-script', filename,
+            '--page-requisites',
+            '--reject-regex', '/post/',
+            '--wait', '12',
+            '--retry-connrefused', '--tries', '1'
+        ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+            print(list(os.walk('.')))
+
+        self.assertEqual(42, exit_code)
+
+        engine = builder.factory['Engine']
+        self.assertEqual(2, engine.concurrent)
+
+        stats = builder.factory['Statistics']
+
+        self.assertEqual(3, stats.files)
+
+        # duration should be virtually 0 but account for slowness on travis ci
+        self.assertGreater(10.0, stats.duration)
+
+    @unittest.skipIf(sys.version_info[0:2] == (3, 2),
+                     'lua module not working in this python version')
+    @unittest.skipIf(IS_PYPY, 'Not supported under PyPy')
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_lua_script_api_3(self):
+        arg_parser = AppArgumentParser()
+        filename = os.path.join(os.path.dirname(__file__),
+                                'testing', 'lua_hook_script3.lua')
         args = arg_parser.parse_args([
             self.get_url('/'),
             self.get_url('/some_page'),
@@ -1553,7 +1626,7 @@ class TestAppFTP(FTPTestCase):
             app = builder.build()
             exit_code = yield From(app.run())
 
-        self.assertEqual(8, exit_code)
+        self.assertEqual(6, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
@@ -1568,7 +1641,8 @@ class TestAppFTP(FTPTestCase):
             '--tries', '1',
             '--wait', '0',
             '--no-host-directories',
-            '--warc-file', 'mywarc'
+            '--warc-file', 'mywarc',
+            '--preserve-permissions',
         ])
         builder = Builder(args, unit_test=True)
 
@@ -1622,24 +1696,26 @@ class TestAppFTP(FTPTestCase):
             self.assertTrue(os.path.exists('readme.txt'))
             self.assertTrue(os.path.islink('readme.txt'))
 
-    # TODO: todo
-    # @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    # def test_file_vs_directory(self):
-    #     arg_parser = AppArgumentParser()
-    #     args = arg_parser.parse_args([
-    #         self.get_url('/example2'),
-    #         '--no-host-directories',
-    #         '--no-remove-listing',
-    #     ])
-    #     builder = Builder(args, unit_test=True)
-    #
-    #     with cd_tempdir():
-    #         app = builder.build()
-    #         exit_code = yield From(app.run())
-    #
-    #         self.assertEqual(0, exit_code)
-    #
-    #         self.assertTrue(os.path.exists('example2/.listing'))
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_file_vs_directory(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/example2'),
+            '--no-host-directories',
+            '--no-remove-listing',
+            '-r',
+            '-l=1',
+            '--tries=1'
+        ])
+        builder = Builder(args, unit_test=True)
+
+        with cd_tempdir():
+            app = builder.build()
+            exit_code = yield From(app.run())
+            print(list(os.walk('.')))
+
+            self.assertEqual(0, exit_code)
+            self.assertTrue(os.path.exists('example2/.listing'))
 
 
 @trollius.coroutine

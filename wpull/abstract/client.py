@@ -118,7 +118,7 @@ class BaseSession(object, metaclass=abc.ABCMeta):
         '''
 
     @trollius.coroutine
-    def _check_out_connection(self, request):
+    def _acquire_connection(self, request):
         '''Return a connection.'''
         self._request = request
         host = request.url_info.hostname
@@ -127,13 +127,13 @@ class BaseSession(object, metaclass=abc.ABCMeta):
 
         if self._proxy_adapter:
             connection = yield From(
-                self._proxy_adapter.check_out(self._connection_pool))
+                self._proxy_adapter.acquire(self._connection_pool))
 
             yield From(self._proxy_adapter.connect(
                 self._connection_pool, connection, (host, port), ssl))
         else:
             connection = yield From(
-                self._connection_pool.check_out(host, port, ssl))
+                self._connection_pool.acquire(host, port, ssl))
 
         self._connection = connection
 

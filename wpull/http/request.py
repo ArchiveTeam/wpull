@@ -21,7 +21,7 @@ class RawRequest(SerializableMixin, DictableMixin):
             ``HTTP/1.0``.
         fields (:class:`.namevalue.NameValueRecord`): The fields in
             the HTTP header.
-        body (:class:`.body.Body` or file-like): An optional payload.
+        body (:class:`.body.Body`, file-like, None): An optional payload.
         encoding (str): The encoding of the status line.
     '''
     def __init__(self, method=None, resource_path=None, version='HTTP/1.1'):
@@ -168,8 +168,8 @@ class Response(SerializableMixin, DictableMixin, ProtocolResponseMixin):
             ``HTTP/1.1``.
         fields (:class:`.namevalue.NameValueRecord`): The fields in
             the HTTP headers (and trailer, if present).
-        body (:class:`.body.Body` or file-like): The optional payload (without
-            and transfer or content encoding).
+        body (:class:`.body.Body`, file-like, None): The optional payload
+            (without and transfer or content encoding).
         request: The corresponding request.
         encoding (str): The encoding of the status line.
     '''

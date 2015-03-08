@@ -86,7 +86,7 @@ class WARCRecord(object):
             return
 
         with wpull.util.reset_file_offset(self.block_file):
-            self.block_file.seek(0, 2)
+            wpull.util.seek_file_end(self.block_file)
             self.fields['Content-Length'] = str(self.block_file.tell())
 
     def compute_checksum(self, payload_offset=None):

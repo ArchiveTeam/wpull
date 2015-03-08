@@ -3,7 +3,7 @@ import os.path
 
 
 wpull_hook = globals().get('wpull_hook')  # silence code checkers
-wpull_hook.callbacks.version = 2
+wpull_hook.callbacks.version = 3
 
 counter = 0
 injected_url_found = False
@@ -132,7 +132,7 @@ def get_urls(filename, url_info, document_info):
     return None
 
 
-def wait_time(seconds):
+def wait_time(seconds, url_info, record_info, response_info, error_info):
     assert seconds >= 0
     return 0
 

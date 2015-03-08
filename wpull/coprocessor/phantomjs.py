@@ -66,7 +66,7 @@ class PhantomJSCoprocessor(object):
     Args:
         phantomjs_driver_factory: Callback function that accepts ``params``
             argument and returns
-            an instance of :class:`.driver.PhantomJSDrive
+            an instance of :class:`.driver.PhantomJSDrive`
         processing_rule (:class:`.processor.rule.ProcessingRule`): Processing
             rule.
         warc_recorder: WARC recorder.

@@ -1,6 +1,10 @@
 # encoding=utf-8
-'''Python and Lua scripting support.'''
+'''Python and Lua scripting support.
+
+See :ref:`scripting-hooks` for an introduction.
+'''
 import logging
+import functools
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.item import Status
@@ -59,8 +63,10 @@ class HookableMixin(object):
 
 
 class HookStop(Exception):
-    '''Stop the engine.'''
-    pass
+    '''Stop the engine.
+
+    Raise this exception as a more graceful alternative to ``sys.exit()``.
+    '''
 
 
 class Actions(object):
@@ -79,31 +85,26 @@ class Actions(object):
     STOP = 'stop'
 
 
-class LegacyCallbacks(object):
-    '''Legacy callback hooks.
+class Callbacks(object):
+    '''Callback hooking instance.
+
+    Attributes:
+        AVAILABLE_VERSIONS (tuple): The available API versions as integers.
+        version (int): The current API version in use. You can set this.
+            Default: 2.
+
+    An instance of this class is available in the hook environment. You
+    set your functions to the instance to override the default functions.
+
+    All functions are called with builtin Python types. i.e., complex objects
+    are converted to ``dict`` using the instance's ``to_dict`` method. Be
+    careful of values being None.
 
     API scripting versions were introduced when function signatures needed to
     be changed. Instead of breaking existing scripts in production, the
     default signature remained the same unless it was changed by the script.
-
-    .. note:: Legacy functions are suffixed with an integer here only for
-       documentation purposes. Do not include the integer suffix in your
-       scripts; the argument signature will be adjusted automatically.
-
-    Currently, no deprecated functions exist.
     '''
-
-
-class Callbacks(LegacyCallbacks):
-    '''Callback hooking instance.
-
-    Attributes:
-        AVAILABLE_VERSIONS (tuple): The available API versions.
-        version (int): The current API version in use. You can set this.
-            Default: 2.
-
-    '''
-    AVAILABLE_VERSIONS = (2,)
+    AVAILABLE_VERSIONS = (2, 3)
 
     def __init__(self):
         self._version = 2
@@ -118,10 +119,86 @@ class Callbacks(LegacyCallbacks):
 
         self._version = num
 
+    def dispatch_engine_run(self):
+        '''Call appropriate ``engine_run``.'''
+        func = getattr(self, 'engine_run', CallbacksV2.engine_run)
+        return func()
+
+    def dispatch_resolve_dns(self, host):
+        '''Call appropriate ``resolve_dns``.'''
+        func = getattr(self, 'resolve_dns', CallbacksV2.resolve_dns)
+        return func(host)
+
+    def dispatch_accept_url(self, url_info, record_info, verdict, reasons):
+        '''Call appropriate ``accept_url``.'''
+        func = getattr(self, 'accept_url', CallbacksV2.accept_url)
+        return func(url_info, record_info, verdict, reasons)
+
+    def dispatch_queued_url(self, url_info):
+        '''Call appropriate ``queued_url``.'''
+        func = getattr(self, 'queued_url', CallbacksV2.queued_url)
+        return func(url_info)
+
+    def dispatch_dequeued_url(self, url_info, record_info):
+        '''Call appropriate ``dequeued_url``.'''
+        func = getattr(self, 'dequeued_url', CallbacksV2.dequeued_url)
+        return func(url_info, record_info)
+
+    def dispatch_handle_pre_response(self, url_info, url_record, response_info):
+        '''Call appropriate ``handle_pre_response``.'''
+        func = getattr(self, 'handle_pre_response', CallbacksV2.handle_pre_response)
+        return func(url_info, url_record, response_info)
+
+    def dispatch_handle_response(self, url_info, record_info, response_info):
+        '''Call appropriate ``handle_response``.'''
+        func = getattr(self, 'handle_response', CallbacksV2.handle_response)
+        return func(url_info, record_info, response_info)
+
+    def dispatch_handle_error(self, url_info, record_info, error_info):
+        '''Call appropriate ``handle_error``.'''
+        func = getattr(self, 'handle_error', CallbacksV2.handle_error)
+        return func(url_info, record_info, error_info)
+
+    def dispatch_get_urls(self, filename, url_info, document_info):
+        '''Call appropriate ``get_urls``.'''
+        func = getattr(self, 'get_urls', CallbacksV2.get_urls)
+        return func(filename, url_info, document_info)
+
+    def dispatch_wait_time(self, seconds, url_info_dict, record_info_dict,
+                           response_info_dict, error_info_dict):
+        '''Call appropriate ``wait_time``.'''
+
+        if self._version == 2:
+            func = functools.partial(
+                getattr(self, 'wait_time', CallbacksV2.wait_time),
+                seconds
+            )
+        else:
+            func = functools.partial(
+                getattr(self, 'wait_time', CallbacksV3.wait_time),
+                seconds, url_info_dict, record_info_dict,
+                response_info_dict, error_info_dict
+            )
+
+        return func()
+
+    def dispatch_finishing_statistics(self, start_time, end_time, num_urls, bytes_downloaded):
+        '''Call appropriate ``finishing_statistics``.'''
+        func = getattr(self, 'finishing_statistics', CallbacksV2.finishing_statistics)
+        return func(start_time, end_time, num_urls, bytes_downloaded)
+
+    def dispatch_exit_status(self, exit_code):
+        '''Call appropriate ``exit_status``.'''
+        func = getattr(self, 'exit_status', CallbacksV2.exit_status)
+        return func(exit_code)
+
+
+class CallbacksV2(Callbacks):
+    '''Callbacks API Version 2.'''
+
     @staticmethod
     def engine_run():
         '''Called when the Engine is about run.'''
-        pass
 
     @staticmethod
     def resolve_dns(host):
@@ -216,9 +293,6 @@ class Callbacks(LegacyCallbacks):
                 :class:`.url.URLInfo`.
             record_info (dict): A mapping containing the same information in
                 :class:`.item.URLRecord`.
-
-                .. versionadded:: Scripting-API-2
-
             response_info (dict): A mapping containing the same information
                 in :class:`.http.request.Response` or
                 :class:`.ftp.request.Response`.
@@ -308,7 +382,6 @@ class Callbacks(LegacyCallbacks):
             num_urls (int): number of URLs downloaded
             bytes_downloaded (int): size of files downloaded in bytes
         '''
-        pass
 
     @staticmethod
     def exit_status(exit_code):
@@ -324,6 +397,36 @@ class Callbacks(LegacyCallbacks):
         '''
         return exit_code
 
+
+class CallbacksV3(CallbacksV2):
+    '''Callbacks API Version 3.
+
+    .. versionadded:: 0.1009a1
+    '''
+    @staticmethod
+    def wait_time(seconds, url_info, url_record, response, error):
+        '''Return the wait time between requests.
+
+        .. versionadded:: 0.1009a1
+
+        Args:
+            seconds (float): The original time in seconds.
+            url_info (dict): A mapping containing the same information in
+                :class:`.url.URLInfo`.
+            record_info (dict): A mapping containing the same information in
+                :class:`.item.URLRecord`.
+            response_info (dict, None): A mapping containing the same information
+                in :class:`.http.request.Response` or
+                :class:`.ftp.request.Response`.
+            error_info (dict, None): A mapping containing the keys:
+
+                * ``error``: The name of the exception (for example,
+                  ``ProtocolError``)
+
+        Returns:
+            float: The time in seconds.
+        '''
+        return seconds
 
 class HookEnvironment(object):
     '''The global instance used by scripts.
@@ -375,7 +478,8 @@ class HookEnvironment(object):
             self._scrape_document)
 
     def _resolve_dns(self, host, port):
-        answer = self.callbacks.resolve_dns(host)
+        '''Process resolving DNS callback.'''
+        answer = self.callbacks.dispatch_resolve_dns(host)
 
         _logger.debug(__('Resolve hook returned {0}', answer))
 
@@ -385,35 +489,60 @@ class HookEnvironment(object):
             return host
 
     def _engine_run(self):
-        self.callbacks.engine_run()
+        '''Process engine run callback.'''
+        self.callbacks.dispatch_engine_run()
 
     def _exit_status(self, exit_status):
-        return self.callbacks.exit_status(exit_status)
+        '''Process exit status callback.'''
+        return self.callbacks.dispatch_exit_status(exit_status)
 
     def _finishing_statistics(self, start_time, stop_time, files, size):
-        self.callbacks.finishing_statistics(
+        '''Process finishing statistics callback.'''
+        self.callbacks.dispatch_finishing_statistics(
             start_time,
             stop_time,
             files,
             size
         )
 
-    def _wait_time(self, seconds):
-        return self.callbacks.wait_time(seconds)
+    def _wait_time(self, seconds, request, url_record, response, error):
+        '''Process wait time callback.'''
+        url_info_dict = request.url_info.to_dict()
+        record_info_dict = url_record.to_dict()
+
+        if response:
+            response_info_dict = response.to_dict()
+        else:
+            response_info_dict = None
+
+        if error:
+            error_info_dict = {
+                'error': error.__class__.__name__,
+            }
+        else:
+            error_info_dict = None
+
+        return self.callbacks.dispatch_wait_time(
+            seconds, url_info_dict, record_info_dict, response_info_dict,
+            error_info_dict
+        )
 
     def _queued_url(self, url_info):
+        '''Process queued URL callback.'''
         url_info_dict = url_info.to_dict()
 
-        self.callbacks.queued_url(url_info_dict)
+        self.callbacks.dispatch_queued_url(url_info_dict)
 
     def _dequeued_url(self, url_info, url_record):
+        '''Process dequeued URL callback.'''
         url_info_dict = url_info.to_dict()
         record_info_dict = url_record.to_dict()
 
-        self.callbacks.dequeued_url(url_info_dict, record_info_dict)
+        self.callbacks.dispatch_dequeued_url(url_info_dict, record_info_dict)
 
     def _should_fetch(self, url_info, url_record, verdict, reason_slug,
                       test_info):
+        '''Process should fetch callback.'''
         url_info_dict = url_info.to_dict()
 
         record_info_dict = url_record.to_dict()
@@ -423,7 +552,7 @@ class HookEnvironment(object):
             'reason': reason_slug,
         }
 
-        verdict = self.callbacks.accept_url(
+        verdict = self.callbacks.dispatch_accept_url(
             url_info_dict, record_info_dict, verdict, reasons)
 
         _logger.debug('Hooked should fetch returned %s', verdict)
@@ -431,11 +560,12 @@ class HookEnvironment(object):
         return verdict
 
     def _handle_pre_response(self, request, response, url_record):
+        '''Process pre-response callback.'''
         url_info_dict = request.url_info.to_dict()
         url_record_dict = url_record.to_dict()
 
         response_info_dict = response.to_dict()
-        action = self.callbacks.handle_pre_response(
+        action = self.callbacks.dispatch_handle_pre_response(
             url_info_dict, url_record_dict, response_info_dict
         )
 
@@ -444,11 +574,12 @@ class HookEnvironment(object):
         return action
 
     def _handle_response(self, request, response, url_record):
+        '''Process response callback.'''
         url_info_dict = request.url_info.to_dict()
         url_record_dict = url_record.to_dict()
 
         response_info_dict = response.to_dict()
-        action = self.callbacks.handle_response(
+        action = self.callbacks.dispatch_handle_response(
             url_info_dict, url_record_dict, response_info_dict
         )
 
@@ -457,12 +588,13 @@ class HookEnvironment(object):
         return action
 
     def _handle_error(self, request, url_record, error):
+        '''Process error callback.'''
         url_info_dict = request.url_info.to_dict()
         url_record_dict = url_record.to_dict()
         error_info_dict = {
             'error': error.__class__.__name__,
         }
-        action = self.callbacks.handle_error(
+        action = self.callbacks.dispatch_handle_error(
             url_info_dict, url_record_dict, error_info_dict
         )
 
@@ -471,11 +603,12 @@ class HookEnvironment(object):
         return action
 
     def _scrape_document(self, request, response, url_item):
+        '''Process scraping document callback.'''
         url_info_dict = request.url_info.to_dict()
         document_info_dict = response.body.to_dict()
         filename = response.body.name
 
-        new_url_dicts = self.callbacks.get_urls(
+        new_url_dicts = self.callbacks.dispatch_get_urls(
             filename, url_info_dict, document_info_dict)
 
         _logger.debug(__('Hooked scrape returned {0}', new_url_dicts))
