@@ -47,6 +47,7 @@ Missing in Wget
 * ``--session-timeout``
 * ``--no-skip-getaddrinfo``
 * ``--no-robots``
+* ``--http-compression`` (gzip, deflate, & raw deflate)
 * ``--html-parser``
 * ``--link-extractors``
 * ``--escaped-fragment``
