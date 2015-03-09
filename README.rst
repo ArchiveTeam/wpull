@@ -19,9 +19,6 @@ Features:
 * Modular, extensible, & asynchronous API
 * PhantomJS & youtube-dl integration
 
-**Currently in beta quality! Some features are not implemented yet and the API
-is not considered stable.**
-
 
 Install
 =======
