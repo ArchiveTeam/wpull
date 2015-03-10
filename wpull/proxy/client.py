@@ -11,10 +11,10 @@ from wpull.http.stream import Stream
 
 class ProxyAdapter(object):
     '''Proxy adapter.'''
-    def __init__(self, http_proxy, ssl=False, use_connect=True,
+    def __init__(self, http_proxy, use_ssl=False, use_connect=True,
                  authentication=None):
         self._http_proxy = http_proxy
-        self._ssl = ssl
+        self._ssl = use_ssl
         self._use_connect = use_connect
         self._authentication = authentication
 
@@ -43,25 +43,25 @@ class ProxyAdapter(object):
         raise Return(connection)
 
     @trollius.coroutine
-    def connect(self, connection_pool, connection, address, ssl=False):
+    def connect(self, connection_pool, connection, address, use_ssl=False):
         '''Connect and establish a tunnel if needed.
 
         Coroutine.
         '''
-        if connection.tunneled or not ssl or not self._use_connect:
+        if connection.tunneled or not use_ssl or not self._use_connect:
             return
 
         stream = Stream(connection, keep_alive=True)
 
         try:
-            yield From(self._establish_tunnel(stream, address, ssl))
+            yield From(self._establish_tunnel(stream, address, use_ssl))
         except Exception as error:
             if not isinstance(error, StopIteration):
                 yield From(connection_pool.release(connection))
             raise
 
     @trollius.coroutine
-    def _establish_tunnel(self, stream, address, ssl=False):
+    def _establish_tunnel(self, stream, address, use_ssl=False):
         '''Establish a TCP tunnel.
 
         Coroutine.
@@ -76,7 +76,7 @@ class ProxyAdapter(object):
 
         if response.status_code == 200:
             stream.connection.tunneled = True
-            if ssl:
+            if use_ssl:
                 raise NotImplementedError('SSL upgrading not yet supported')
             raise Return(stream.connection)
         else:

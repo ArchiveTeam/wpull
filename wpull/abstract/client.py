@@ -117,17 +117,17 @@ class BaseSession(object, metaclass=abc.ABCMeta):
         self._request = request
         host = request.url_info.hostname
         port = request.url_info.port
-        ssl = request.url_info.scheme == 'https'
+        use_ssl = request.url_info.scheme == 'https'
 
         if self._proxy_adapter:
             connection = yield From(
                 self._proxy_adapter.acquire(self._connection_pool))
 
             yield From(self._proxy_adapter.connect(
-                self._connection_pool, connection, (host, port), ssl))
+                self._connection_pool, connection, (host, port), use_ssl))
         else:
             connection = yield From(
-                self._connection_pool.acquire(host, port, ssl))
+                self._connection_pool.acquire(host, port, use_ssl))
 
         self._connection = connection
 

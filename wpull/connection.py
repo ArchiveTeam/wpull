@@ -225,7 +225,7 @@ class ConnectionPool(object):
         return self._host_pools
 
     @trollius.coroutine
-    def acquire(self, host, port, ssl=False):
+    def acquire(self, host, port, use_ssl=False):
         '''Return an available connection.
 
         Coroutine.
@@ -236,9 +236,9 @@ class ConnectionPool(object):
         yield From(self._process_no_wait_releases())
 
         family, address = yield From(self._resolver.resolve(host, port))
-        key = (host, port, ssl)
+        key = (host, port, use_ssl)
 
-        if ssl:
+        if use_ssl:
             connection_factory = functools.partial(
                 self._ssl_connection_factory, address, host)
         else:
@@ -308,7 +308,7 @@ class ConnectionPool(object):
                 yield From(release_task)
 
     @trollius.coroutine
-    def session(self, host, port, ssl=False):
+    def session(self, host, port, use_ssl=False):
         '''Return a context manager that returns a connection.
 
         Usage::
@@ -320,7 +320,7 @@ class ConnectionPool(object):
 
         Coroutine.
         '''
-        connection = yield From(self.acquire(host, port, ssl))
+        connection = yield From(self.acquire(host, port, use_ssl))
 
         @contextlib.contextmanager
         def context_wrapper():
