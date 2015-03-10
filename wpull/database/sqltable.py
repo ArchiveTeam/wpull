@@ -2,6 +2,8 @@
 import abc
 import contextlib
 import logging
+import urllib.parse
+import os
 
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
@@ -233,8 +235,9 @@ class SQLiteURLTable(BaseSQLURLTable):
         # and want SQLite to handle the checkpoints. Otherwise NullPool
         # will open and close the connection rapidly, defeating the purpose
         # of WAL.
+        escaped_path = path.replace('?', '_')
         self._engine = create_engine(
-            'sqlite:///{0}'.format(path), poolclass=SingletonThreadPool)
+            'sqlite:///{0}'.format(escaped_path), poolclass=SingletonThreadPool)
         sqlalchemy.event.listen(
             self._engine, 'connect', self._apply_pragmas_callback)
         DBBase.metadata.create_all(self._engine)

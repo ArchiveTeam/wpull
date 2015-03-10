@@ -163,7 +163,7 @@ class TestApp(GoodAppTestCase):
             '--no-parent',
             '--recursive',
             '--page-requisites',
-            '--database', b'test.db',
+            '--database', b'test?.db',
             '--server-response',
             '--random-wait',
             b'--wait', b'0.1',
@@ -986,6 +986,23 @@ class TestApp(GoodAppTestCase):
             exit_code = yield From(app.run())
 
         self.assertEqual(4, exit_code)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_database_path_question_mark(self):
+        arg_parser = AppArgumentParser()
+
+        with cd_tempdir():
+            args = arg_parser.parse_args([
+                self.get_url('/'),
+                '--database', 'test?.db'
+            ])
+
+            builder = Builder(args, unit_test=True)
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+            self.assertEqual(0, exit_code)
+            self.assertTrue(os.path.exists('test_.db'))
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_database_uri(self):

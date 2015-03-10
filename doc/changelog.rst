@@ -10,6 +10,8 @@ Summary of notable changes.
 Unreleased
 ==========
 
+* Fixed: a ``--database`` path with a question mark (``?``) truncated the path, did not use a on-disk database, or causes ``TypeError``. The question mark is automatically replaced with an underscore.
+
 
 0.1009 (2015-03-08)
 ===================
