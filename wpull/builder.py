@@ -36,7 +36,7 @@ from wpull.factory import Factory
 from wpull.ftp.client import Client as FTPClient
 from wpull.hook import HookEnvironment, PluginEnvironment
 from wpull.http.client import Client as HTTPClient
-from wpull.http.proxy import ProxyAdapter
+from wpull.proxy.client import ProxyAdapter
 from wpull.http.redirect import RedirectTracker
 from wpull.http.request import Request
 from wpull.http.robots import RobotsTxtChecker
@@ -52,7 +52,7 @@ from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
 from wpull.processor.rule import FetchRule, ResultRule, ProcessingRule
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
     WebProcessorInstances
-from wpull.proxy import HTTPProxyServer
+from wpull.proxy.server import HTTPProxyServer
 from wpull.recorder.demux import DemuxRecorder
 from wpull.recorder.document import OutputDocumentRecorder
 from wpull.recorder.printing import PrintServerResponseRecorder

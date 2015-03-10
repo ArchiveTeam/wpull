@@ -9,7 +9,7 @@ import trollius
 
 from wpull.cookie import RelaxedMozillaCookieJar, DeFactoCookiePolicy
 from wpull.http.client import Client
-from wpull.proxy import HTTPProxyServer
+from wpull.proxy.server import HTTPProxyServer
 from wpull.recorder.printing import DebugPrintRecorder
 from wpull.wrapper import CookieJarWrapper
 import wpull.testing.badapp

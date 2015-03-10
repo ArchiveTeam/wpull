@@ -68,8 +68,8 @@ setup_kwargs = dict(
         'testing/*.lua',
         'testing/*.pem',
         'driver/*.js',
-        'proxy.crt',
-        'proxy.key',
+        'proxy/proxy.crt',
+        'proxy/proxy.key',
     ]},
     classifiers=[
         'Development Status :: 5 - Production/Stable',

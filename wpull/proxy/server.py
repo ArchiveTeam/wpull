@@ -82,8 +82,8 @@ class Session(object):
         self._pre_response_callback = pre_response_callback
         self._response_callback = response_callback
 
-        self._cert_filename = wpull.util.get_package_filename('proxy.crt')
-        self._key_filename = wpull.util.get_package_filename('proxy.key')
+        self._cert_filename = wpull.util.get_package_filename('proxy/proxy.crt')
+        self._key_filename = wpull.util.get_package_filename('proxy/proxy.key')
 
         assert os.path.isfile(self._cert_filename), self._cert_filename
         assert os.path.isfile(self._key_filename), self._key_filename
