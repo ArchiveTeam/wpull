@@ -17,15 +17,19 @@ class ProxyAdapter(object):
         self._ssl = ssl
         self._use_connect = use_connect
         self._authentication = authentication
-        self._auth_header_value = 'Basic {}'.format(
-            base64.b64encode(
-                '{}:{}'.format(authentication[0], authentication[1])
-                .encode('ascii')
-            ).decode('ascii')
-        )
+
+        if authentication:
+            self._auth_header_value = 'Basic {}'.format(
+                base64.b64encode(
+                    '{}:{}'.format(authentication[0], authentication[1])
+                    .encode('ascii')
+                ).decode('ascii')
+            )
+        else:
+            self._auth_header_value = None
 
     @trollius.coroutine
-    def check_out(self, connection_pool):
+    def acquire(self, connection_pool):
         '''Check out a connection from the pool.
 
         Coroutine.
@@ -33,7 +37,7 @@ class ProxyAdapter(object):
 
         proxy_host, proxy_port = self._http_proxy
 
-        connection = yield From(connection_pool.check_out(
+        connection = yield From(connection_pool.acquire(
             proxy_host, proxy_port, self._ssl))
 
         raise Return(connection)
@@ -53,7 +57,7 @@ class ProxyAdapter(object):
             yield From(self._establish_tunnel(stream, address, ssl))
         except Exception as error:
             if not isinstance(error, StopIteration):
-                connection_pool.check_in(connection)
+                yield From(connection_pool.release(connection))
             raise
 
     @trollius.coroutine
