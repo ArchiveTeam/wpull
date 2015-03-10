@@ -50,9 +50,10 @@ To archive a website::
         --page-requisites --recursive --level inf \
         --span-hosts-allow linked-pages,page-requisites \
         --escaped-fragment --strip-session-id \
+        --sitemaps \
         --reject-regex "/login\.php" \
         --tries 3 --retry-connrefused --retry-dns-error \
-        --timeout 60 \
+        --timeout 60 --session-timeout 21600 \
         --delete-after --database blogsite-billy.db \
         --quiet --output-file blogsite-billy.log
 
