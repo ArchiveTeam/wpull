@@ -1,7 +1,21 @@
+# Source Code
 recursive-include wpull *.html *.css *.txt *.lua *.pem *.rst *.js *.png *.xml *.crt *.key
-recursive-include icon *.png *.svg *.txt
-include test/fuzz_fusil/runner.py
-include README.rst requirements*.txt LICENSE.txt
+
+# Documentation
 recursive-include doc *.rst
 include doc/make.bat doc/conf.py doc/Makefile doc/api/template.py
+
+# Icons
+recursive-include icon *.png *.svg *.txt
+
+# Readme files
+include README.rst requirements*.txt LICENSE.txt
+
+# User scripts
 include scripts/wpull scripts/wpull[23]
+
+# Extra tests
+recursive-include test runner.py README.md
+
+# Binary generators
+include freezer/debian.patch freezer/Makefile freezer/windows_msi.sh
