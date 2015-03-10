@@ -13,6 +13,11 @@ from wpull.errors import NetworkTimedOut
 _logger = logging.getLogger(__name__)
 
 
+@contextlib.contextmanager
+def dummy_context_manager():
+    yield None
+
+
 class DurationTimeout(NetworkTimedOut):
     '''Download did not complete within specified time.'''
 
@@ -54,25 +59,14 @@ class BaseClient(object, metaclass=abc.ABCMeta):
         statement.
         '''
         if self._recorder:
-            with self._recorder.session() as recorder_session:
-                session = self._session_class()(
-                    connection_pool=self._connection_pool,
-                    recorder_session=recorder_session,
-                    proxy_adapter=self._proxy_adapter,
-                )
-                try:
-                    yield session
-                except Exception as error:
-                    if not isinstance(error, StopIteration):
-                        _logger.debug('Early close session.')
-                        session.abort()
-                        session.recycle()
-                    raise
-                else:
-                    session.recycle()
+            context_manager = self._recorder.session()
         else:
+            context_manager = dummy_context_manager()
+
+        with context_manager as recorder_session:
             session = self._session_class()(
                 connection_pool=self._connection_pool,
+                recorder_session=recorder_session,
                 proxy_adapter=self._proxy_adapter,
                 )
             try:
