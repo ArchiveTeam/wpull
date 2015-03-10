@@ -39,6 +39,7 @@ PROJECT_PACKAGES = [
     'wpull.ftp.ls',
     'wpull.http',
     'wpull.processor',
+    'wpull.proxy',
     'wpull.recorder.',
     'wpull.scraper',
     'wpull.testing',
@@ -126,11 +127,11 @@ if os.environ.get('USE_CX_FREEZE'):
                     'phantomjs.js'
                 ),
                 (
-                    os.path.join(wpull_package_src_dir, 'proxy.crt'),
+                    os.path.join(wpull_package_src_dir, 'proxy', 'proxy.crt'),
                     'proxy.crt'
                 ),
                 (
-                    os.path.join(wpull_package_src_dir, 'proxy.key'),
+                    os.path.join(wpull_package_src_dir, 'proxy', 'proxy.key'),
                     'proxy.key'
                 ),
             ]
