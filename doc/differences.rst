@@ -23,6 +23,7 @@ Missing in Wpull
 * ``--no-passive-ftp``
 * ``--mirror``
 * ``--strict-comments``: No plans for support of this option.
+* ``no_proxy`` environment variable.
 * No support yet for using SSL/TLS connections on proxies. They will be unencrypted to the destination.
 * Features greater than Wget 1.15.
 
