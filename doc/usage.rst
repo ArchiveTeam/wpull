@@ -87,6 +87,8 @@ If a HTML document is encountered, Wpull will open the URL in PhantomJS. After t
 
 Currently, Wpull will *not do anything else* to manipulate the page such as clicking on links. As a consequence, Wpull with PhantomJS is *not* a complete solution for dynamic web pages yet!
 
+Storing console logs and alert messages inside the WARC file is not yet supported.
+
 
 youtube-dl Integration
 ++++++++++++++++++++++
@@ -95,7 +97,9 @@ youtube-dl Integration
 
 ``--youtube-dl`` will enable youtube-dl integration. 
 
-If a HTML document is encountered, Wpull will run youtube-dl on the URL.
+If a HTML document is encountered, Wpull will run youtube-dl on the URL. Wpull uses the options for downloading subtitles and thumbnails. Other options are at the default which may not grab the best possible quality. For example, youtube-dl may not grab the highest quality stream because it is not a simple video file.
 
 It is not recommended to use recursion because it may fetch redundant amounts of data.
+
+Storing manifests, metadata, or converted files inside the WARC file is not yet supported.
 
