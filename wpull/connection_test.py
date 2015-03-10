@@ -210,7 +210,7 @@ class TestConnectionPool(BadAppTestCase):
         self.assertEqual(1, len(pool.host_pools))
         connection_pool_entry = list(pool.host_pools.values())[0]
         self.assertIsInstance(connection_pool_entry, HostPool)
-        self.assertEqual(10, connection_pool_entry.count())
+        self.assertGreaterEqual(10, connection_pool_entry.count())
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_over_host_max_limit_cycling(self):
@@ -232,7 +232,7 @@ class TestConnectionPool(BadAppTestCase):
         self.assertEqual(1, len(pool.host_pools))
         connection_pool_entry = list(pool.host_pools.values())[0]
         self.assertIsInstance(connection_pool_entry, HostPool)
-        self.assertEqual(10, connection_pool_entry.count())
+        self.assertGreaterEqual(10, connection_pool_entry.count())
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_multiple_hosts(self):
