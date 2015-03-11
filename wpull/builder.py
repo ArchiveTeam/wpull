@@ -1465,9 +1465,6 @@ class Builder(object):
                 (self._args.http_proxy or self._args.https_proxy):
             _logger.warning(_('WARC specifications do not handle proxies.'))
 
-        if self._args.no_secure_proxy_tunnel:
-            _logger.warning(_('HTTPS without encryption is enabled.'))
-
         if (self._args.password or self._args.ftp_password or
                 self._args.http_password or self._args.proxy_password) and \
                 self._args.warc_file:
