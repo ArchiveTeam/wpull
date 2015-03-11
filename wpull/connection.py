@@ -225,8 +225,15 @@ class ConnectionPool(object):
         return self._host_pools
 
     @trollius.coroutine
-    def acquire(self, host, port, use_ssl=False):
+    def acquire(self, host, port, use_ssl=False, host_key=None):
         '''Return an available connection.
+
+        Args:
+            host (str): A hostname or IP address.
+            port (int): Port number.
+            use_ssl (bool): Whether to return a SSL connection.
+            host_key: If provided, it overrides the key used for per-host
+                connection pooling. This is useful for proxies for example.
 
         Coroutine.
         '''
@@ -236,7 +243,7 @@ class ConnectionPool(object):
         yield From(self._process_no_wait_releases())
 
         family, address = yield From(self._resolver.resolve(host, port))
-        key = (host, port, use_ssl)
+        key = host_key or (host, port, use_ssl)
 
         if use_ssl:
             connection_factory = functools.partial(
@@ -259,6 +266,7 @@ class ConnectionPool(object):
         _logger.debug('Check out %s', key)
 
         connection = yield From(host_pool.acquire())
+        connection.key = key
 
         # TODO: Verify this assert is always true
         # assert host_pool.count() <= host_pool.max_connections
@@ -278,7 +286,7 @@ class ConnectionPool(object):
         '''
         assert not self._closed
 
-        key = (connection.hostname, connection.port, connection.ssl)
+        key = connection.key
         host_pool = self._host_pools[key]
 
         _logger.debug('Check in %s', key)
@@ -403,6 +411,7 @@ class Connection(object):
             already by connected.
 
     Attributes:
+        key: Value used by the ConnectionPool for its host pool map.
         reader: Stream Reader instance.
         writer: Stream Writer instance.
         address: 2-item tuple containing the IP address.
@@ -426,6 +435,7 @@ class Connection(object):
         self._bind_host = bind_host
         self._bandwidth_limiter = bandwidth_limiter
         self._sock = sock
+        self.key = None
         self.reader = None
         self.writer = None
         self._close_timer = None
