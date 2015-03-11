@@ -10,7 +10,7 @@ import trollius
 from wpull.connection import Connection, ConnectionPool, HostPool
 from wpull.errors import NetworkError, NetworkTimedOut, SSLVerificationError
 import wpull.testing.async
-from wpull.testing.badapp import BadAppTestCase
+from wpull.testing.badapp import BadAppTestCase, SSLBadAppTestCase
 
 
 DEFAULT_TIMEOUT = 30
@@ -141,6 +141,37 @@ class TestConnection(BadAppTestCase):
                     break
 
                 bytes_left -= len(data)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_sock_reuse(self):
+        connection1 = Connection(('127.0.0.1', self.get_http_port()))
+        yield From(connection1.connect())
+
+        connection2 = Connection(
+            ('127.0.0.1', self.get_http_port()),
+            sock=connection1.writer.get_extra_info('socket')
+        )
+
+        yield From(connection2.connect())
+        yield From(connection2.write(b'GET / HTTP/1.1\r\n\r\n'))
+
+        data = yield From(connection2.readline())
+        self.assertEqual(b'HTTP', data[:4])
+
+
+class TestConnectionSSL(SSLBadAppTestCase):
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_start_tls(self):
+        connection = Connection(('127.0.0.1', self.get_http_port()), timeout=1)
+
+        yield From(connection.connect())
+
+        ssl_connection = yield From(connection.start_tls())
+
+        yield From(ssl_connection.write(b'GET / HTTP/1.1\r\n\r\n'))
+
+        data = yield From(ssl_connection.readline())
+        self.assertEqual(b'HTTP', data[:4])
 
 
 class TestConnectionPool(BadAppTestCase):

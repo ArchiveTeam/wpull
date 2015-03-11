@@ -399,6 +399,8 @@ class Connection(object):
         bind_host (str): Host name for binding the socket interface.
         bandwidth_limiter (class:`.bandwidth.BandwidthLimiter`): Bandwidth
             limiter for connection speed limiting.
+        sock (:class:`socket.socket`): Use given socket. The socket must
+            already by connected.
 
     Attributes:
         reader: Stream Reader instance.
@@ -411,7 +413,8 @@ class Connection(object):
             ``CONNECT`` request.
     '''
     def __init__(self, address, hostname=None, timeout=None,
-                 connect_timeout=None, bind_host=None, bandwidth_limiter=None):
+                 connect_timeout=None, bind_host=None, bandwidth_limiter=None,
+                 sock=None):
         assert len(address) >= 2, 'Expect str & port. Got {}.'.format(address)
         assert '.' in address[0] or ':' in address[0], \
             'Expect numerical address. Got {}.'.format(address[0])
@@ -422,6 +425,7 @@ class Connection(object):
         self._connect_timeout = connect_timeout
         self._bind_host = bind_host
         self._bandwidth_limiter = bandwidth_limiter
+        self._sock = sock
         self.reader = None
         self.writer = None
         self._close_timer = None
@@ -475,13 +479,19 @@ class Connection(object):
         if self._state != ConnectionState.ready:
             raise Exception('Closed connection must be reset before reusing.')
 
-        # TODO: maybe we don't want to ignore flow-info and scope-id?
-        host = self._address[0]
-        port = self._address[1]
+        if self._sock:
+            connection_future = trollius.open_connection(
+                sock=self._sock, **self._connection_kwargs()
+            )
+        else:
+            # TODO: maybe we don't want to ignore flow-info and scope-id?
+            host = self._address[0]
+            port = self._address[1]
 
-        connection_future = trollius.open_connection(
-            host, port, **self._connection_kwargs()
-        )
+            connection_future = trollius.open_connection(
+                host, port, **self._connection_kwargs()
+            )
+
         self.reader, self.writer = yield From(
             self.run_network_operation(
                 connection_future,
@@ -644,6 +654,25 @@ class Connection(object):
                     raise NetworkError(
                         '{name} network error: {error}'
                         .format(name=name, error=error)) from error
+
+    @trollius.coroutine
+    def start_tls(self, ssl_context=True):
+        '''Start client TLS on this connection and return SSLConnection.
+
+        Coroutine
+        '''
+        sock = self.writer.get_extra_info('socket')
+        ssl_conn = SSLConnection(
+            self._address,
+            ssl_context=ssl_context,
+            hostname=self._hostname, timeout=self._timeout,
+            connect_timeout=self._connect_timeout, bind_host=self._bind_host,
+            bandwidth_limiter=self._bandwidth_limiter, sock=sock
+        )
+
+        yield From(ssl_conn.connect())
+
+        raise Return(ssl_conn)
 
 
 class SSLConnection(Connection):
