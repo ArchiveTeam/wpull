@@ -1,84 +1,147 @@
 '''Proxy support for HTTP requests.'''
 import base64
+import io
+import logging
 
 from trollius import From, Return
 import trollius
+from wpull.connection import ConnectionPool
 
 from wpull.errors import NetworkError
 from wpull.http.request import RawRequest
 from wpull.http.stream import Stream
+import wpull.string
+
+_logger = logging.getLogger(__name__)
 
 
-class ProxyAdapter(object):
-    '''Proxy adapter.'''
-    def __init__(self, http_proxy, ssl=False, use_connect=True,
-                 authentication=None):
-        self._http_proxy = http_proxy
-        self._ssl = ssl
-        self._use_connect = use_connect
+class HTTPProxyConnectionPool(ConnectionPool):
+    '''Establish pooled connections to a HTTP proxy.
+
+    Args:
+        proxy_address (tuple): Tuple containing host and port of the proxy
+            server.
+        connection_pool (:class:`.connection.ConnectionPool`): Connection pool
+        proxy_ssl (bool): Whether to connect to the proxy using HTTPS.
+        authentication (tuple): Tuple containing username and password.
+        ssl_context: SSL context for SSL connections on TCP tunnels.
+    '''
+    def __init__(self, proxy_address, *args,
+                 proxy_ssl=False, authentication=None, ssl_context=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._proxy_address = proxy_address
+        self._proxy_ssl = proxy_ssl
         self._authentication = authentication
-        self._auth_header_value = 'Basic {}'.format(
-            base64.b64encode(
-                '{}:{}'.format(authentication[0], authentication[1])
-                .encode('ascii')
-            ).decode('ascii')
-        )
+        self._ssl_context = ssl_context
+
+        if authentication:
+            self._auth_header_value = 'Basic {}'.format(
+                base64.b64encode(
+                    '{}:{}'.format(authentication[0], authentication[1])
+                    .encode('ascii')
+                ).decode('ascii')
+            )
+        else:
+            self._auth_header_value = None
+
+        self._connection_map = {}
 
     @trollius.coroutine
-    def check_out(self, connection_pool):
-        '''Check out a connection from the pool.
+    def acquire(self, host, port, use_ssl=False, host_key=None):
+        yield From(self.acquire_proxy(host, port, use_ssl=use_ssl,
+                                      host_key=host_key))
+
+    @trollius.coroutine
+    def acquire_proxy(self, host, port, use_ssl=False, host_key=None,
+                      tunnel=True):
+        '''Check out a connection.
+
+        This function is the same as acquire but with extra arguments
+        concerning proxies.
 
         Coroutine.
         '''
+        host_key = host_key or (host, port, use_ssl)
+        proxy_host, proxy_port = self._proxy_address
 
-        proxy_host, proxy_port = self._http_proxy
+        connection = yield From(super().acquire(
+            proxy_host, proxy_port, self._proxy_ssl, host_key=host_key
+        ))
+        connection.proxied = True
 
-        connection = yield From(connection_pool.check_out(
-            proxy_host, proxy_port, self._ssl))
+        _logger.debug('Request for proxy connection.')
 
-        raise Return(connection)
+        if connection.closed():
+            _logger.debug('Connecting to proxy.')
+            yield From(connection.connect())
+
+            if tunnel:
+                yield From(self._establish_tunnel(connection, (host, port)))
+
+            if use_ssl:
+                ssl_connection = yield From(connection.start_tls(self._ssl_context))
+                ssl_connection.proxied = True
+                ssl_connection.tunneled = True
+
+                self._connection_map[ssl_connection] = connection
+                connection.wrapped_connection = ssl_connection
+
+                raise Return(ssl_connection)
+
+        if connection.wrapped_connection:
+            ssl_connection = connection.wrapped_connection
+            self._connection_map[ssl_connection] = connection
+            raise Return(ssl_connection)
+        else:
+            raise Return(connection)
 
     @trollius.coroutine
-    def connect(self, connection_pool, connection, address, ssl=False):
-        '''Connect and establish a tunnel if needed.
+    def release(self, proxy_connection):
+        connection = self._connection_map.pop(proxy_connection, proxy_connection)
+        yield From(super().release(connection))
 
-        Coroutine.
-        '''
-        if connection.tunneled or not ssl or not self._use_connect:
-            return
-
-        stream = Stream(connection, keep_alive=True)
-
-        try:
-            yield From(self._establish_tunnel(stream, address, ssl))
-        except Exception as error:
-            if not isinstance(error, StopIteration):
-                connection_pool.check_in(connection)
-            raise
+    def no_wait_release(self, proxy_connection):
+        connection = self._connection_map.pop(proxy_connection, proxy_connection)
+        super().no_wait_release(connection)
 
     @trollius.coroutine
-    def _establish_tunnel(self, stream, address, ssl=False):
+    def _establish_tunnel(self, connection, address):
         '''Establish a TCP tunnel.
 
         Coroutine.
         '''
-        host = address[0]
+        host = '[{}]'.format(address[0]) if ':' in address[0] else address[0]
         port = address[1]
         request = RawRequest('CONNECT', '{0}:{1}'.format(host, port))
 
+        self.add_auth_header(request)
+
+        stream = Stream(connection, keep_alive=True)
+
+        _logger.debug('Sending Connect.')
         yield From(stream.write_request(request))
 
+        _logger.debug('Read proxy response.')
         response = yield From(stream.read_response())
 
+        if response.status_code != 200:
+            debug_file = io.BytesIO()
+            _logger.debug('Read proxy response body.')
+            yield From(stream.read_body(request, response, file=debug_file))
+
+            debug_file.seek(0)
+            _logger.debug(ascii(debug_file.read()))
+
         if response.status_code == 200:
-            stream.connection.tunneled = True
-            if ssl:
-                raise NotImplementedError('SSL upgrading not yet supported')
-            raise Return(stream.connection)
+            connection.tunneled = True
         else:
-            raise NetworkError('Proxy does not support CONNECT.')
+            raise NetworkError(
+                'Proxy does not support CONNECT: {} {}'
+                .format(response.status_code,
+                        wpull.string.printable_str(response.reason))
+            )
 
     def add_auth_header(self, request):
-        '''Add the username and password to the request.'''
+        '''Add the username and password to the HTTP request.'''
         if self._authentication:
             request.fields['Proxy-Authorization'] = self._auth_header_value

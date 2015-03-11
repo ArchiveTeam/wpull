@@ -79,7 +79,9 @@ class Stream(object):
         '''
         _logger.debug('Sending headers.')
         yield From(self._reconnect())
-        request.prepare_for_send(full_url=full_url)
+
+        if hasattr(request, 'prepare_for_send'):
+            request.prepare_for_send(full_url=full_url)
 
         if self._ignore_length:
             request.fields['Connection'] = 'close'

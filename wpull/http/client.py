@@ -63,9 +63,7 @@ class Session(BaseSession):
         _logger.debug(__('Client fetch request {0}.', request))
 
         connection = yield From(self._acquire_connection(request))
-
-        if self._proxy_adapter:
-            self._proxy_adapter.add_auth_header(request)
+        full_url = connection.proxied and not connection.tunneled
 
         self._stream = stream = self._stream_factory(connection)
         request.address = connection.address
@@ -74,8 +72,6 @@ class Session(BaseSession):
 
         if self._recorder_session:
             self._recorder_session.pre_request(request)
-
-        full_url = bool(self._proxy_adapter)
 
         yield From(stream.write_request(request, full_url=full_url))
 
