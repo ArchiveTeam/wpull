@@ -411,7 +411,10 @@ class Connection(object):
             already by connected.
 
     Attributes:
-        key: Value used by the ConnectionPool for its host pool map.
+        key: Value used by the ConnectionPool for its host pool map. Internal
+            use only.
+        wrapped_connection: A wrapped connection for ConnectionPool. Internal
+            use only.
         reader: Stream Reader instance.
         writer: Stream Writer instance.
         address: 2-item tuple containing the IP address.
@@ -437,6 +440,7 @@ class Connection(object):
         self._bandwidth_limiter = bandwidth_limiter
         self._sock = sock
         self.key = None
+        self.wrapped_connection = None
         self.reader = None
         self.writer = None
         self._close_timer = None

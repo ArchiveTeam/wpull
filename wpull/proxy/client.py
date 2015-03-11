@@ -69,6 +69,8 @@ class HTTPProxyConnectionPool(ConnectionPool):
         ))
         connection.proxied = True
 
+        _logger.debug('Request for proxy connection.')
+
         if connection.closed():
             _logger.debug('Connecting to proxy.')
             yield From(connection.connect())
@@ -82,10 +84,16 @@ class HTTPProxyConnectionPool(ConnectionPool):
                 ssl_connection.tunneled = True
 
                 self._connection_map[ssl_connection] = connection
+                connection.wrapped_connection = ssl_connection
 
                 raise Return(ssl_connection)
 
-        raise Return(connection)
+        if connection.wrapped_connection:
+            ssl_connection = connection.wrapped_connection
+            self._connection_map[ssl_connection] = connection
+            raise Return(ssl_connection)
+        else:
+            raise Return(connection)
 
     @trollius.coroutine
     def release(self, proxy_connection):
