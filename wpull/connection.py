@@ -297,7 +297,7 @@ class ConnectionPool(object):
         yield From(self.clean(force=force))
 
     def no_wait_release(self, connection):
-        '''Synchronous version of :meth:`check_in`.'''
+        '''Synchronous version of :meth:`release`.'''
         _logger.debug('No wait check in.')
         release_task = trollius.get_event_loop().create_task(
             self.release(connection)
@@ -418,6 +418,7 @@ class Connection(object):
         host (str): Host name.
         port (int): Port number.
         ssl (bool): Whether connection is SSL.
+        proxied (bool): Whether the connection is to a HTTP proxy.
         tunneled (bool): Whether the connection has been tunneled with the
             ``CONNECT`` request.
     '''
@@ -440,6 +441,7 @@ class Connection(object):
         self.writer = None
         self._close_timer = None
         self._state = ConnectionState.ready
+        self._proxied = False
         self._tunneled = False
 
     @property
@@ -472,6 +474,14 @@ class Connection(object):
     @tunneled.setter
     def tunneled(self, value):
         self._tunneled = value
+
+    @property
+    def proxied(self):
+        return self._proxied
+
+    @proxied.setter
+    def proxied(self, value):
+        self._proxied = value
 
     def closed(self):
         '''Return whether the connection is closed.'''
