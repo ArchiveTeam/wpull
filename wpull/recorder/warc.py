@@ -33,7 +33,7 @@ WARCRecorderParams = namedlist.namedtuple(
     [
         ('compress', True),
         ('extra_fields', None),
-        ('temp_dir', None),
+        ('temp_dir', './'),
         ('log', True),
         ('appending', False),
         ('digests', True),

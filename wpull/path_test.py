@@ -1,12 +1,18 @@
 import os
 import unittest
 
-from wpull.app_test import cd_tempdir
 from wpull.path import url_to_dir_parts, url_to_filename, safe_filename, \
     anti_clobber_dir_path, parse_content_disposition
+from wpull.testing.util import TempDirMixin
 
 
-class TestPath(unittest.TestCase):
+class TestPath(unittest.TestCase, TempDirMixin):
+    def setUp(self):
+        self.set_up_temp_dir()
+
+    def tearDown(self):
+        self.tear_down_temp_dir()
+
     def test_url_to_dir_parts(self):
         self.assertEqual(
             ['blog'],
@@ -103,25 +109,25 @@ class TestPath(unittest.TestCase):
         )
 
     def test_anti_clobber_dir_path(self):
-        with cd_tempdir():
+        with self.cd_tempdir():
             self.assertEqual(
                 'a',
                 anti_clobber_dir_path('a')
             )
 
-        with cd_tempdir():
+        with self.cd_tempdir():
             self.assertEqual(
                 'a/b/c/d/e/f/g',
                 anti_clobber_dir_path('a/b/c/d/e/f/g/')
             )
 
-        with cd_tempdir():
+        with self.cd_tempdir():
             self.assertEqual(
                 'a/b/c/d/e/f/g',
                 anti_clobber_dir_path('a/b/c/d/e/f/g')
             )
 
-        with cd_tempdir():
+        with self.cd_tempdir():
             with open('a', 'w'):
                 pass
 
@@ -130,7 +136,7 @@ class TestPath(unittest.TestCase):
                 anti_clobber_dir_path('a/b/c/d/e/f/g')
             )
 
-        with cd_tempdir():
+        with self.cd_tempdir():
             os.makedirs('a/b')
             with open('a/b/c', 'w'):
                 pass
@@ -140,7 +146,7 @@ class TestPath(unittest.TestCase):
                 anti_clobber_dir_path('a/b/c/d/e/f/g')
             )
 
-        with cd_tempdir():
+        with self.cd_tempdir():
             os.makedirs('a/b/c/d/e/f')
             with open('a/b/c/d/e/f/g', 'w'):
                 pass

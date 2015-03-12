@@ -2,8 +2,6 @@
 import glob
 from http import cookiejar
 import re
-from tempfile import TemporaryDirectory
-import contextlib
 import gzip
 import hashlib
 import logging
@@ -26,6 +24,7 @@ from wpull.options import AppArgumentParser
 from wpull.testing.async import AsyncTestCase
 from wpull.testing.badapp import BadAppTestCase
 from wpull.testing.goodapp import GoodAppTestCase, GoodAppHTTPSTestCase
+from wpull.testing.util import TempDirMixin
 from wpull.url import URLInfo
 from wpull.util import IS_PYPY
 import wpull.testing.async
@@ -49,23 +48,13 @@ class MockDNSResolver(Resolver):
         raise Return((socket.AF_INET, ('127.0.0.1', port)))
 
 
-@contextlib.contextmanager
-def cd_tempdir():
-    original_dir = os.getcwd()
-    with TemporaryDirectory() as temp_dir:
-        try:
-            os.chdir(temp_dir)
-            yield temp_dir
-        finally:
-            os.chdir(original_dir)
-
-
-class TestApp(GoodAppTestCase):
+class TestApp(GoodAppTestCase, TempDirMixin):
     def setUp(self):
         self._original_cookiejar_debug = cookiejar.debug
         cookiejar.debug = True
         super().setUp()
         self.original_loggers = list(logging.getLogger().handlers)
+        self.set_up_temp_dir()
 
     def tearDown(self):
         GoodAppTestCase.tearDown(self)
@@ -74,6 +63,8 @@ class TestApp(GoodAppTestCase):
         for handler in list(logging.getLogger().handlers):
             if handler not in self.original_loggers:
                 logging.getLogger().removeHandler(handler)
+
+        self.tear_down_temp_dir()
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_no_args(self):
@@ -86,15 +77,14 @@ class TestApp(GoodAppTestCase):
         args = arg_parser.parse_args([self.get_url('/')])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
-            self.assertTrue(os.path.exists('index.html'))
+        app = builder.build()
+        exit_code = yield From(app.run())
+        self.assertTrue(os.path.exists('index.html'))
 
-            response = yield From(tornado_future_adapter(self.http_client.fetch(self.get_url('/'))))
+        response = yield From(tornado_future_adapter(self.http_client.fetch(self.get_url('/'))))
 
-            with open('index.html', 'rb') as in_file:
-                self.assertEqual(response.body, in_file.read())
+        with open('index.html', 'rb') as in_file:
+            self.assertEqual(response.body, in_file.read())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -123,13 +113,12 @@ class TestApp(GoodAppTestCase):
         args = arg_parser.parse_args([self.get_url('/big_payload')])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
-            self.assertTrue(os.path.exists('big_payload'))
+        app = builder.build()
+        exit_code = yield From(app.run())
+        self.assertTrue(os.path.exists('big_payload'))
 
-            with open('big_payload', 'rb') as in_file:
-                self.assertEqual(expected_payload, in_file.read())
+        with open('big_payload', 'rb') as in_file:
+            self.assertEqual(expected_payload, in_file.read())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -146,9 +135,8 @@ class TestApp(GoodAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(ExitStatus.server_error, exit_code)
         self.assertGreater(builder.factory['Statistics'].files, 1)
@@ -199,19 +187,18 @@ class TestApp(GoodAppTestCase):
             '--session-timeout', '300',
             '--report-speed=bits',
         ])
-        with cd_tempdir():
-            builder = Builder(args, unit_test=True)
-            app = builder.build()
-            exit_code = yield From(app.run())
+        builder = Builder(args, unit_test=True)
+        app = builder.build()
+        exit_code = yield From(app.run())
 
-            print(list(os.walk('.')))
-            self.assertTrue(os.path.exists(
-                'http/localhost+{0}/index.html'.format(self.get_http_port())
-            ))
-            self.assertTrue(os.path.exists(
-                'http/localhost+{0}/index.html.orig'.format(
-                    self.get_http_port())
-            ))
+        print(list(os.walk('.')))
+        self.assertTrue(os.path.exists(
+            'http/localhost+{0}/index.html'.format(self.get_http_port())
+        ))
+        self.assertTrue(os.path.exists(
+            'http/localhost+{0}/index.html.orig'.format(
+                self.get_http_port())
+        ))
 
         self.assertEqual(0, exit_code)
         self.assertEqual(builder.factory['Statistics'].files, 2)
@@ -228,10 +215,9 @@ class TestApp(GoodAppTestCase):
             args = arg_parser.parse_args([
                 '--input-file', in_file.name
             ])
-            with cd_tempdir():
-                builder = Builder(args, unit_test=True)
-                app = builder.build()
-                exit_code = yield From(app.run())
+            builder = Builder(args, unit_test=True)
+            app = builder.build()
+            exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(builder.factory['Statistics'].files, 2)
@@ -251,10 +237,9 @@ class TestApp(GoodAppTestCase):
                 '--input-file', in_file.name,
                 '--force-html',
             ])
-            with cd_tempdir():
-                builder = Builder(args, unit_test=True)
-                app = builder.build()
-                exit_code = yield From(app.run())
+            builder = Builder(args, unit_test=True)
+            app = builder.build()
+            exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(builder.factory['Statistics'].files, 2)
@@ -272,13 +257,12 @@ class TestApp(GoodAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
-            self.assertTrue(os.path.exists('test-00000.warc.gz'))
-            self.assertTrue(os.path.exists('test-meta.warc.gz'))
-            self.assertTrue(os.path.exists('test.cdx'))
+        self.assertTrue(os.path.exists('test-00000.warc.gz'))
+        self.assertTrue(os.path.exists('test-meta.warc.gz'))
+        self.assertTrue(os.path.exists('test.cdx'))
 
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
@@ -298,15 +282,14 @@ class TestApp(GoodAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
-            self.assertTrue(os.path.exists('test.warc.gz'))
+        self.assertTrue(os.path.exists('test.warc.gz'))
 
-            with gzip.GzipFile('test.warc.gz') as in_file:
-                data = in_file.read()
-                self.assertIn(b'FINISHED', data)
+        with gzip.GzipFile('test.warc.gz') as in_file:
+            data = in_file.read()
+            self.assertIn(b'FINISHED', data)
 
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
@@ -324,9 +307,8 @@ class TestApp(GoodAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
 
@@ -334,35 +316,34 @@ class TestApp(GoodAppTestCase):
     def test_app_args_warc_dedup(self):
         arg_parser = AppArgumentParser()
 
-        with cd_tempdir():
-            with open('dedup.cdx', 'wb') as out_file:
-                out_file.write(b' CDX a k u\n')
-                out_file.write(
-                    self.get_url('/static/my_file.txt').encode('ascii')
-                )
-                out_file.write(b' KQ4IUKATKL63FT5GMAE2YDRV3WERNL34')
-                out_file.write(b' <under-the-deer>\n')
+        with open('dedup.cdx', 'wb') as out_file:
+            out_file.write(b' CDX a k u\n')
+            out_file.write(
+                self.get_url('/static/my_file.txt').encode('ascii')
+            )
+            out_file.write(b' KQ4IUKATKL63FT5GMAE2YDRV3WERNL34')
+            out_file.write(b' <under-the-deer>\n')
 
-            args = arg_parser.parse_args([
-                self.get_url('/static/my_file.txt'),
-                '--no-parent',
-                '--warc-file', 'test',
-                '--no-warc-compression',
-                '-4',
-                '--no-robots',
-                '--warc-dedup', 'dedup.cdx',
-            ])
+        args = arg_parser.parse_args([
+            self.get_url('/static/my_file.txt'),
+            '--no-parent',
+            '--warc-file', 'test',
+            '--no-warc-compression',
+            '-4',
+            '--no-robots',
+            '--warc-dedup', 'dedup.cdx',
+        ])
 
-            builder = Builder(args, unit_test=True)
-            app = builder.build()
-            exit_code = yield From(app.run())
+        builder = Builder(args, unit_test=True)
+        app = builder.build()
+        exit_code = yield From(app.run())
 
-            with open('test.warc', 'rb') as in_file:
-                data = in_file.read()
+        with open('test.warc', 'rb') as in_file:
+            data = in_file.read()
 
-                self.assertIn(b'KQ4IUKATKL63FT5GMAE2YDRV3WERNL34', data)
-                self.assertIn(b'Type: revisit', data)
-                self.assertIn(b'<under-the-deer>', data)
+            self.assertIn(b'KQ4IUKATKL63FT5GMAE2YDRV3WERNL34', data)
+            self.assertIn(b'Type: revisit', data)
+            self.assertIn(b'<under-the-deer>', data)
 
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
@@ -374,10 +355,9 @@ class TestApp(GoodAppTestCase):
             self.get_url('/post/'),
             '--post-data', 'text=hi',
         ])
-        with cd_tempdir():
-            builder = Builder(args, unit_test=True)
-            app = builder.build()
-            exit_code = yield From(app.run())
+        builder = Builder(args, unit_test=True)
+        app = builder.build()
+        exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
@@ -432,10 +412,9 @@ class TestApp(GoodAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
-            print(list(os.walk('.')))
+        app = builder.build()
+        exit_code = yield From(app.run())
+        print(list(os.walk('.')))
 
         self.assertEqual(42, exit_code)
 
@@ -467,10 +446,9 @@ class TestApp(GoodAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
-            print(list(os.walk('.')))
+        app = builder.build()
+        exit_code = yield From(app.run())
+        print(list(os.walk('.')))
 
         self.assertEqual(42, exit_code)
 
@@ -493,10 +471,9 @@ class TestApp(GoodAppTestCase):
             self.get_url('/'),
             '--python-script', filename,
         ])
-        with cd_tempdir():
-            builder = Builder(args, unit_test=True)
-            app = builder.build()
-            exit_code = yield From(app.run())
+        builder = Builder(args, unit_test=True)
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(1, exit_code)
 
@@ -521,10 +498,9 @@ class TestApp(GoodAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
-            print(list(os.walk('.')))
+        app = builder.build()
+        exit_code = yield From(app.run())
+        print(list(os.walk('.')))
 
         self.assertEqual(42, exit_code)
 
@@ -559,10 +535,9 @@ class TestApp(GoodAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
-            print(list(os.walk('.')))
+        app = builder.build()
+        exit_code = yield From(app.run())
+        print(list(os.walk('.')))
 
         self.assertEqual(42, exit_code)
 
@@ -586,10 +561,9 @@ class TestApp(GoodAppTestCase):
             self.get_url('/'),
             '--plugin-script', filename,
             ])
-        with cd_tempdir():
-            builder = Builder(args, unit_test=True)
-            app = builder.build()
-            exit_code = yield From(app.run())
+        builder = Builder(args, unit_test=True)
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(42, exit_code)
 
@@ -601,17 +575,16 @@ class TestApp(GoodAppTestCase):
             '-r',
             '--database', 'temp-unittest.db'
         ])
-        with cd_tempdir():
-            builder = Builder(args, unit_test=True)
-            app = builder.build()
-            exit_code = yield From(app.run())
+        builder = Builder(args, unit_test=True)
+        app = builder.build()
+        exit_code = yield From(app.run())
 
-            urls = tuple(url_record.url for url_record in
-                         builder.factory['URLTable'].get_all())
-            self.assertIn(
-                self.get_url('/%E6%96%87%E5%AD%97%E5%8C%96%E3%81%91'),
-                urls
-            )
+        urls = tuple(url_record.url for url_record in
+                     builder.factory['URLTable'].get_all())
+        self.assertIn(
+            self.get_url('/%E6%96%87%E5%AD%97%E5%8C%96%E3%81%91'),
+            urls
+        )
 
         self.assertEqual(0, exit_code)
 
@@ -634,23 +607,22 @@ class TestApp(GoodAppTestCase):
             ])
             builder = Builder(args, unit_test=True)
 
-            with cd_tempdir():
-                app = builder.build()
-                exit_code = yield From(app.run())
+            app = builder.build()
+            exit_code = yield From(app.run())
 
-                self.assertEqual(0, exit_code)
-                self.assertEqual(1, builder.factory['Statistics'].files)
+            self.assertEqual(0, exit_code)
+            self.assertEqual(1, builder.factory['Statistics'].files)
 
-                cookies = list(builder.factory['CookieJar'])
-                _logger.debug('{0}'.format(cookies))
-                self.assertEqual(1, len(cookies))
-                self.assertEqual('test', cookies[0].name)
-                self.assertEqual('yes', cookies[0].value)
+            cookies = list(builder.factory['CookieJar'])
+            _logger.debug('{0}'.format(cookies))
+            self.assertEqual(1, len(cookies))
+            self.assertEqual('test', cookies[0].name)
+            self.assertEqual('yes', cookies[0].value)
 
-                with open('wpull_test_cookies.txt', 'rb') as saved_file:
-                    cookie_data = saved_file.read()
+            with open('wpull_test_cookies.txt', 'rb') as saved_file:
+                cookie_data = saved_file.read()
 
-                self.assertIn(b'test\tyes', cookie_data)
+            self.assertIn(b'test\tyes', cookie_data)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_redirect_diff_host(self):
@@ -663,9 +635,8 @@ class TestApp(GoodAppTestCase):
         builder = Builder(args, unit_test=True)
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -685,9 +656,8 @@ class TestApp(GoodAppTestCase):
         builder = Builder(args, unit_test=True)
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
@@ -708,9 +678,8 @@ class TestApp(GoodAppTestCase):
         builder = Builder(args, unit_test=True)
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
         self.assertEqual(2, builder.factory['Statistics'].files)
 
@@ -731,9 +700,8 @@ class TestApp(GoodAppTestCase):
         builder = Builder(args, unit_test=True)
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
         self.assertEqual(2, builder.factory['Statistics'].files)
 
@@ -753,9 +721,8 @@ class TestApp(GoodAppTestCase):
         builder = Builder(args, unit_test=True)
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
 
@@ -771,14 +738,13 @@ class TestApp(GoodAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            robots_txt_pool = builder.factory['RobotsTxtPool']
-            robots_txt_pool.load_robots_txt(
-                URLInfo.parse(self.get_url('/')),
-                'User-Agent: *\nDisallow: *\n'
-            )
-            exit_code = yield From(app.run())
+        app = builder.build()
+        robots_txt_pool = builder.factory['RobotsTxtPool']
+        robots_txt_pool.load_robots_txt(
+            URLInfo.parse(self.get_url('/')),
+            'User-Agent: *\nDisallow: *\n'
+        )
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
@@ -792,9 +758,8 @@ class TestApp(GoodAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
@@ -811,9 +776,8 @@ class TestApp(GoodAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(4, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -827,11 +791,10 @@ class TestApp(GoodAppTestCase):
             '--quota', '1',
         ])
 
-        with cd_tempdir():
-            builder = Builder(args, unit_test=True)
+        builder = Builder(args, unit_test=True)
 
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -844,14 +807,13 @@ class TestApp(GoodAppTestCase):
             '--content-on-error',
         ])
 
-        with cd_tempdir():
-            builder = Builder(args, unit_test=True)
+        builder = Builder(args, unit_test=True)
 
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
-            print(list(os.walk('.')))
-            self.assertTrue(os.path.exists('always_error'))
+        print(list(os.walk('.')))
+        self.assertTrue(os.path.exists('always_error'))
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -866,17 +828,16 @@ class TestApp(GoodAppTestCase):
             '--recursive',
         ])
 
-        with cd_tempdir():
-            builder = Builder(args, unit_test=True)
+        builder = Builder(args, unit_test=True)
 
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
-            print(list(os.walk('.')))
-            self.assertTrue(os.path.exists(
-                'localhost:{0}/static/my_file.txt'.format(
-                    self.get_http_port())
-            ))
+        print(list(os.walk('.')))
+        self.assertTrue(os.path.exists(
+            'localhost:{0}/static/my_file.txt'.format(
+                self.get_http_port())
+        ))
 
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(4, builder.factory['Statistics'].files)
@@ -892,17 +853,16 @@ class TestApp(GoodAppTestCase):
             '--no-parent',
         ])
 
-        with cd_tempdir():
-            builder = Builder(args, unit_test=True)
+        builder = Builder(args, unit_test=True)
 
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
-            print(list(os.walk('.')))
-            self.assertFalse(os.path.exists(
-                'localhost:{0}/static/my_file.txt'.format(
-                    self.get_http_port())
-            ))
+        print(list(os.walk('.')))
+        self.assertFalse(os.path.exists(
+            'localhost:{0}/static/my_file.txt'.format(
+                self.get_http_port())
+        ))
 
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(1, builder.factory['Statistics'].files)
@@ -927,9 +887,8 @@ class TestApp(GoodAppTestCase):
             args = arg_parser.parse_args(opts)
             builder = Builder(args, unit_test=True)
 
-            with cd_tempdir():
-                app = builder.build()
-                exit_code = yield From(app.run())
+            app = builder.build()
+            exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(2, builder.factory['Statistics'].files)
@@ -944,9 +903,8 @@ class TestApp(GoodAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -955,17 +913,16 @@ class TestApp(GoodAppTestCase):
     def test_output_document(self):
         arg_parser = AppArgumentParser()
 
-        with cd_tempdir():
-            args = arg_parser.parse_args([
-                self.get_url('/'),
-                '--output-document', 'blah.dat'
-            ])
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--output-document', 'blah.dat'
+        ])
 
-            builder = Builder(args, unit_test=True)
-            app = builder.build()
-            exit_code = yield From(app.run())
+        builder = Builder(args, unit_test=True)
+        app = builder.build()
+        exit_code = yield From(app.run())
 
-            self.assertTrue(os.path.exists('blah.dat'))
+        self.assertTrue(os.path.exists('blah.dat'))
 
         self.assertEqual(0, exit_code)
 
@@ -973,17 +930,16 @@ class TestApp(GoodAppTestCase):
     def test_misc_urls(self):
         arg_parser = AppArgumentParser()
 
-        with cd_tempdir():
-            args = arg_parser.parse_args([
-                'http://[0:0:0:0:0:ffff:a00:0]/',
-                '--tries', '1',
-                '--timeout', '0.5',
-                '-r',
-            ])
+        args = arg_parser.parse_args([
+            'http://[0:0:0:0:0:ffff:a00:0]/',
+            '--tries', '1',
+            '--timeout', '0.5',
+            '-r',
+        ])
 
-            builder = Builder(args, unit_test=True)
-            app = builder.build()
-            exit_code = yield From(app.run())
+        builder = Builder(args, unit_test=True)
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(4, exit_code)
 
@@ -991,32 +947,30 @@ class TestApp(GoodAppTestCase):
     def test_database_path_question_mark(self):
         arg_parser = AppArgumentParser()
 
-        with cd_tempdir():
-            args = arg_parser.parse_args([
-                self.get_url('/'),
-                '--database', 'test?.db'
-            ])
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--database', 'test?.db'
+        ])
 
-            builder = Builder(args, unit_test=True)
-            app = builder.build()
-            exit_code = yield From(app.run())
+        builder = Builder(args, unit_test=True)
+        app = builder.build()
+        exit_code = yield From(app.run())
 
-            self.assertEqual(0, exit_code)
-            self.assertTrue(os.path.exists('test_.db'))
+        self.assertEqual(0, exit_code)
+        self.assertTrue(os.path.exists('test_.db'))
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_database_uri(self):
         arg_parser = AppArgumentParser()
 
-        with cd_tempdir():
-            args = arg_parser.parse_args([
-                self.get_url('/'),
-                '--database-uri', 'sqlite:///test.db'
-            ])
+        args = arg_parser.parse_args([
+            self.get_url('/'),
+            '--database-uri', 'sqlite:///test.db'
+        ])
 
-            builder = Builder(args, unit_test=True)
-            app = builder.build()
-            exit_code = yield From(app.run())
+        builder = Builder(args, unit_test=True)
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
 
@@ -1030,9 +984,8 @@ class TestApp(GoodAppTestCase):
             ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -1047,9 +1000,8 @@ class TestApp(GoodAppTestCase):
             ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
@@ -1065,9 +1017,8 @@ class TestApp(GoodAppTestCase):
             ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(2, builder.factory['Statistics'].files)
@@ -1083,9 +1034,8 @@ class TestApp(GoodAppTestCase):
             ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(4, builder.factory['Statistics'].files)
@@ -1099,14 +1049,13 @@ class TestApp(GoodAppTestCase):
             ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
-            self.assertEqual(0, exit_code)
-            self.assertEqual(1, builder.factory['Statistics'].files)
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
 
-            self.assertTrue(os.path.exists('index.html?_escaped_fragment_=husky-cat'))
+        self.assertTrue(os.path.exists('index.html?_escaped_fragment_=husky-cat'))
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_escaped_fragment_recursive(self):
@@ -1118,9 +1067,8 @@ class TestApp(GoodAppTestCase):
             ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(2, builder.factory['Statistics'].files)
@@ -1135,9 +1083,8 @@ class TestApp(GoodAppTestCase):
             ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -1152,9 +1099,8 @@ class TestApp(GoodAppTestCase):
             ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(2, builder.factory['Statistics'].files)
@@ -1171,9 +1117,8 @@ class TestApp(GoodAppTestCase):
             ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
@@ -1190,34 +1135,33 @@ class TestApp(GoodAppTestCase):
             ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
-            self.assertEqual(0, exit_code)
-            # TODO: proxy doesn't account for files yet
-            # self.assertEqual(1, builder.factory['Statistics'].files)
+        self.assertEqual(0, exit_code)
+        # TODO: proxy doesn't account for files yet
+        # self.assertEqual(1, builder.factory['Statistics'].files)
 
-            print(list(os.walk('.')))
+        print(list(os.walk('.')))
 
-            with open('test.warc', 'rb') as warc_file:
-                data = warc_file.read()
+        with open('test.warc', 'rb') as warc_file:
+            data = warc_file.read()
 
-                self.assertTrue(b'youtube-dl/' in data, 'include version')
-                self.assertTrue(re.search(b'Fetched.*googlevideo\.com/videoplayback', data))
+            self.assertTrue(b'youtube-dl/' in data, 'include version')
+            self.assertTrue(re.search(b'Fetched.*googlevideo\.com/videoplayback', data))
 
-            video_files = tuple(glob.glob('*.mp4') + glob.glob('*.webm'))
-            self.assertTrue(video_files)
+        video_files = tuple(glob.glob('*.mp4') + glob.glob('*.webm'))
+        self.assertTrue(video_files)
 
-            annotations = tuple(glob.glob('*.annotation*'))
-            self.assertTrue(annotations)
+        annotations = tuple(glob.glob('*.annotation*'))
+        self.assertTrue(annotations)
 
-            info_json = tuple(glob.glob('*.info.json'))
-            self.assertTrue(info_json)
+        info_json = tuple(glob.glob('*.info.json'))
+        self.assertTrue(info_json)
 
-            # FIXME: version 2015.01.25 doesn't have thumbnail?
-            # thumbnails = tuple(glob.glob('*.jpg'))
-            # self.assertTrue(thumbnails)
+        # FIXME: version 2015.01.25 doesn't have thumbnail?
+        # thumbnails = tuple(glob.glob('*.jpg'))
+        # self.assertTrue(thumbnails)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_no_cache_arg(self):
@@ -1228,9 +1172,8 @@ class TestApp(GoodAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(8, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
@@ -1243,9 +1186,8 @@ class TestApp(GoodAppTestCase):
             ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -1256,7 +1198,7 @@ class SimpleHandler(tornado.web.RequestHandler):
         self.write(b'OK')
 
 
-class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase):
+class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase, TempDirMixin):
     def get_new_ioloop(self):
         tornado.ioloop.IOLoop.configure(
             'wpull.testing.async.TornadoAsyncIOLoop',
@@ -1267,6 +1209,12 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase):
     def setUp(self):
         AsyncTestCase.setUp(self)
         AsyncHTTPSTestCase.setUp(self)
+        self.set_up_temp_dir()
+
+    def tearDown(self):
+        AsyncHTTPSTestCase.tearDown(self)
+        AsyncTestCase.tearDown(self)
+        self.tear_down_temp_dir()
 
     def get_app(self):
         return tornado.web.Application([
@@ -1282,9 +1230,8 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(5, exit_code)
 
@@ -1300,9 +1247,8 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -1328,11 +1274,10 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase):
             def session(self, request):
                 return MockWebSession(self, request)
 
-        with cd_tempdir():
-            builder.factory.class_map['WebClient'] = MockWebClient
+        builder.factory.class_map['WebClient'] = MockWebClient
 
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(7, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
@@ -1364,36 +1309,35 @@ class PhantomJSMixin(object):
         builder = Builder(args, unit_test=True)
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
-            self.assertTrue(os.path.exists('test.warc'))
-            self.assertTrue(
-                os.path.exists('simple_javascript.html.snapshot.html')
-            )
-            self.assertTrue(
-                os.path.exists('simple_javascript.html.snapshot.pdf')
-            )
+        self.assertTrue(os.path.exists('test.warc'))
+        self.assertTrue(
+            os.path.exists('simple_javascript.html.snapshot.html')
+        )
+        self.assertTrue(
+            os.path.exists('simple_javascript.html.snapshot.pdf')
+        )
 
-            with open('simple_javascript.html.snapshot.html', 'rb') as in_file:
-                data = in_file.read()
-                self.assertIn(b'Hello world!', data)
+        with open('simple_javascript.html.snapshot.html', 'rb') as in_file:
+            data = in_file.read()
+            self.assertIn(b'Hello world!', data)
 
-            with open('test.warc', 'rb') as in_file:
-                data = in_file.read()
+        with open('test.warc', 'rb') as in_file:
+            data = in_file.read()
 
-                self.assertIn(b'urn:X-wpull:snapshot?url=', data)
-                self.assertIn(b'text/html', data)
-                self.assertIn(b'application/pdf', data)
-                self.assertIn(b'application/json', data)
-                self.assertIn(b'"set_scroll_top"', data)
-                try:
-                    self.assertIn(b'Accept-Encoding: identity', data)
-                except AssertionError:
-                    # webkit treats localhost differently
-                    self.assertNotIn(b'Accept-Encoding: gzip', data)
-                self.assertIn(b'Accept-Language: dragon', data)
+            self.assertIn(b'urn:X-wpull:snapshot?url=', data)
+            self.assertIn(b'text/html', data)
+            self.assertIn(b'application/pdf', data)
+            self.assertIn(b'application/json', data)
+            self.assertIn(b'"set_scroll_top"', data)
+            try:
+                self.assertIn(b'Accept-Encoding: identity', data)
+            except AssertionError:
+                # webkit treats localhost differently
+                self.assertNotIn(b'Accept-Encoding: gzip', data)
+            self.assertIn(b'Accept-Language: dragon', data)
 
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
@@ -1420,26 +1364,45 @@ class PhantomJSMixin(object):
         builder = Builder(args, unit_test=True)
         builder.factory.class_map['Resolver'] = MockDNSResolver
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
-            with open('DEUUEAUGH.html.snapshot.html', 'rb') as in_file:
-                data = in_file.read()
-                self.assertIn(b'Count: 10', data)
+        with open('DEUUEAUGH.html.snapshot.html', 'rb') as in_file:
+            data = in_file.read()
+            self.assertIn(b'Count: 10', data)
 
         self.assertEqual(0, exit_code)
 
 
-class TestPhantomJS(GoodAppTestCase, PhantomJSMixin):
-    pass
+class TestPhantomJS(GoodAppTestCase, PhantomJSMixin, TempDirMixin):
+    def setUp(self):
+        GoodAppTestCase.setUp(self)
+        self.set_up_temp_dir()
+
+    def tearDown(self):
+        GoodAppTestCase.tearDown(self)
+        self.tear_down_temp_dir()
 
 
-class TestPhantomJSHTTPS(GoodAppHTTPSTestCase, PhantomJSMixin):
-    pass
+class TestPhantomJSHTTPS(GoodAppHTTPSTestCase, PhantomJSMixin, TempDirMixin):
+    def setUp(self):
+        GoodAppHTTPSTestCase.setUp(self)
+        self.set_up_temp_dir()
+
+    def tearDown(self):
+        GoodAppHTTPSTestCase.tearDown(self)
+        self.tear_down_temp_dir()
 
 
-class TestAppBad(BadAppTestCase):
+class TestAppBad(BadAppTestCase, TempDirMixin):
+    def setUp(self):
+        BadAppTestCase.setUp(self)
+        self.set_up_temp_dir()
+
+    def tearDown(self):
+        BadAppTestCase.tearDown(self)
+        self.tear_down_temp_dir()
+
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_bad_cookie(self):
         import http.cookiejar
@@ -1450,9 +1413,8 @@ class TestAppBad(BadAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
@@ -1468,9 +1430,8 @@ class TestAppBad(BadAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
 
@@ -1488,9 +1449,8 @@ class TestAppBad(BadAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
@@ -1506,9 +1466,8 @@ class TestAppBad(BadAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(7, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
@@ -1523,9 +1482,8 @@ class TestAppBad(BadAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -1543,9 +1501,8 @@ class TestAppBad(BadAppTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(4, builder.factory['Statistics'].files)
@@ -1559,9 +1516,8 @@ class TestAppBad(BadAppTestCase):
             ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -1576,18 +1532,18 @@ class TestAppBad(BadAppTestCase):
             ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(4, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
 
 
-class TestAppFTP(FTPTestCase):
+class TestAppFTP(FTPTestCase, TempDirMixin):
     def setUp(self):
         super().setUp()
         self.original_loggers = list(logging.getLogger().handlers)
+        self.set_up_temp_dir()
 
     def tearDown(self):
         FTPTestCase.tearDown(self)
@@ -1595,6 +1551,8 @@ class TestAppFTP(FTPTestCase):
         for handler in list(logging.getLogger().handlers):
             if handler not in self.original_loggers:
                 logging.getLogger().removeHandler(handler)
+
+        self.tear_down_temp_dir()
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_basic(self):
@@ -1604,9 +1562,8 @@ class TestAppFTP(FTPTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
@@ -1621,9 +1578,8 @@ class TestAppFTP(FTPTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(0, exit_code)
         self.assertEqual(1, builder.factory['Statistics'].files)
@@ -1639,9 +1595,8 @@ class TestAppFTP(FTPTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
         self.assertEqual(6, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
@@ -1663,30 +1618,29 @@ class TestAppFTP(FTPTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
-            self.assertEqual(8, exit_code)
-            self.assertEqual(6, builder.factory['Statistics'].files)
+        self.assertEqual(8, exit_code)
+        self.assertEqual(6, builder.factory['Statistics'].files)
 
-            print(os.listdir('.'))
+        print(os.listdir('.'))
 
-            self.assertTrue(os.path.exists('.listing'))
-            self.assertTrue(os.path.exists('example (copy).txt'))
-            self.assertTrue(os.path.exists('readme.txt'))
-            self.assertFalse(os.path.islink('readme.txt'))
-            self.assertTrue(os.path.exists('example1/.listing'))
-            self.assertTrue(os.path.exists('example2/.listing'))
-            self.assertTrue(os.path.exists('mywarc.warc.gz'))
+        self.assertTrue(os.path.exists('.listing'))
+        self.assertTrue(os.path.exists('example (copy).txt'))
+        self.assertTrue(os.path.exists('readme.txt'))
+        self.assertFalse(os.path.islink('readme.txt'))
+        self.assertTrue(os.path.exists('example1/.listing'))
+        self.assertTrue(os.path.exists('example2/.listing'))
+        self.assertTrue(os.path.exists('mywarc.warc.gz'))
 
-            with gzip.GzipFile('mywarc.warc.gz') as in_file:
-                data = in_file.read()
+        with gzip.GzipFile('mywarc.warc.gz') as in_file:
+            data = in_file.read()
 
-                self.assertIn(b'FINISHED', data)
-                self.assertIn('The real treasure is in Smaug’s heart 💗.\n'
-                              .encode('utf-8'),
-                              data)
+            self.assertIn(b'FINISHED', data)
+            self.assertIn('The real treasure is in Smaug’s heart 💗.\n'
+                          .encode('utf-8'),
+                          data)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_retr_symlinks_off(self):
@@ -1701,17 +1655,16 @@ class TestAppFTP(FTPTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
+        app = builder.build()
+        exit_code = yield From(app.run())
 
-            self.assertEqual(0, exit_code)
+        self.assertEqual(0, exit_code)
 
-            print(os.listdir('.'))
+        print(os.listdir('.'))
 
-            self.assertTrue(os.path.exists('example (copy).txt'))
-            self.assertTrue(os.path.exists('readme.txt'))
-            self.assertTrue(os.path.islink('readme.txt'))
+        self.assertTrue(os.path.exists('example (copy).txt'))
+        self.assertTrue(os.path.exists('readme.txt'))
+        self.assertTrue(os.path.islink('readme.txt'))
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_file_vs_directory(self):
@@ -1726,13 +1679,12 @@ class TestAppFTP(FTPTestCase):
         ])
         builder = Builder(args, unit_test=True)
 
-        with cd_tempdir():
-            app = builder.build()
-            exit_code = yield From(app.run())
-            print(list(os.walk('.')))
+        app = builder.build()
+        exit_code = yield From(app.run())
+        print(list(os.walk('.')))
 
-            self.assertEqual(0, exit_code)
-            self.assertTrue(os.path.exists('example2/.listing'))
+        self.assertEqual(0, exit_code)
+        self.assertTrue(os.path.exists('example2/.listing'))
 
 
 @trollius.coroutine
