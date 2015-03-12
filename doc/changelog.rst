@@ -12,6 +12,8 @@ Unreleased
 
 * Fixed: a ``--database`` path with a question mark (``?``) truncated the path, did not use a on-disk database, or causes ``TypeError``. The question mark is automatically replaced with an underscore.
 * Fixed: HTTP proxy support broken since version 0.1001.
+* Added: ``no_proxy`` environment variable support.
+* Added: ``--proxy-domains``, ``--proxy-exclude-domains``, ``--proxy-hostnames``, ``--proxy-exclude-hostnames``
 * Removed: ``--no-secure-proxy-tunnel``.
 
 

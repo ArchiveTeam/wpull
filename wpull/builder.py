@@ -37,6 +37,7 @@ from wpull.ftp.client import Client as FTPClient
 from wpull.hook import HookEnvironment, PluginEnvironment
 from wpull.http.client import Client as HTTPClient
 from wpull.proxy.client import HTTPProxyConnectionPool
+from wpull.proxy.hostfilter import HostFilter as ProxyHostFilter
 from wpull.http.redirect import RedirectTracker
 from wpull.http.request import Request
 from wpull.http.robots import RobotsTxtChecker
@@ -136,6 +137,7 @@ class Builder(object):
             'ProcessingRule': ProcessingRule,
             'Processor': DelegateProcessor,
             'ProxyCoprocessor': ProxyCoprocessor,
+            'ProxyHostFilter': ProxyHostFilter,
             'ProgressRecorder': ProgressRecorder,
             'RedirectTracker': RedirectTracker,
             'Request': Request,
@@ -1089,6 +1091,14 @@ class Builder(object):
                 self._factory.class_map['ConnectionPool'] = \
                     HTTPProxyConnectionPool
 
+                host_filter = self._factory.new(
+                    'ProxyHostFilter',
+                    accept_domains=self._args.proxy_domains,
+                    reject_domains=self._args.proxy_exclude_domains,
+                    accept_hostnames=self._args.proxy_hostnames,
+                    reject_hostnames=self._args.proxy_exclude_hostnames
+                )
+
                 return self._factory.new(
                     'ConnectionPool',
                     http_proxy,
@@ -1096,7 +1106,8 @@ class Builder(object):
                     authentication=authentication,
                     resolver=self._build_resolver(),
                     connection_factory=connection_factory,
-                    ssl_connection_factory=ssl_connection_factory
+                    ssl_connection_factory=ssl_connection_factory,
+                    host_filter=host_filter,
                 )
 
         return self._factory.new(

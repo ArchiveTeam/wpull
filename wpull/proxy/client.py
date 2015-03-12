@@ -25,14 +25,19 @@ class HTTPProxyConnectionPool(ConnectionPool):
         proxy_ssl (bool): Whether to connect to the proxy using HTTPS.
         authentication (tuple): Tuple containing username and password.
         ssl_context: SSL context for SSL connections on TCP tunnels.
+        host_filter (:class:`.proxy.hostfilter.HostFilter`): Host filter which
+            for deciding whether a connection is routed through the proxy. A
+            test result that returns True is routed through the proxy.
     '''
     def __init__(self, proxy_address, *args,
-                 proxy_ssl=False, authentication=None, ssl_context=True, **kwargs):
+                 proxy_ssl=False, authentication=None, ssl_context=True,
+                 host_filter=None, **kwargs):
         super().__init__(*args, **kwargs)
         self._proxy_address = proxy_address
         self._proxy_ssl = proxy_ssl
         self._authentication = authentication
         self._ssl_context = ssl_context
+        self._host_filter = host_filter
 
         if authentication:
             self._auth_header_value = 'Basic {}'.format(
@@ -61,6 +66,12 @@ class HTTPProxyConnectionPool(ConnectionPool):
 
         Coroutine.
         '''
+        if self._host_filter and not self._host_filter.test(host):
+            connection = yield From(
+                super().acquire(host, port, use_ssl, host_key)
+            )
+            raise Return(connection)
+
         host_key = host_key or (host, port, use_ssl)
         proxy_host, proxy_port = self._proxy_address
 

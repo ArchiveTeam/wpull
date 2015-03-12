@@ -417,6 +417,31 @@ class AppArgumentParser(argparse.ArgumentParser):
             action='store_true',
             help=_('disable proxy support'),
         )
+        group.add_argument(
+            '--proxy-domains',
+            metavar='LIST',
+            type=self.comma_list,
+            help=_('use proxy only from LIST of hostname suffixes')
+        )
+        group.add_argument(
+            '--proxy-exclude-domains',
+            metavar='LIST',
+            type=self.comma_list,
+            default=os.environ.get('no_proxy'),
+            help=_('don’t use proxy only from LIST of hostname suffixes')
+        )
+        group.add_argument(
+            '--proxy-hostnames',
+            metavar='LIST',
+            type=self.comma_list,
+            help=_('use proxy only from LIST of hostnames')
+        )
+        group.add_argument(
+            '--proxy-exclude-hostnames',
+            metavar='LIST',
+            type=self.comma_list,
+            help=_('don’t use proxy only from LIST of hostnames')
+        )
 
     def _add_download_args(self):
         group = self.add_argument_group('download')
