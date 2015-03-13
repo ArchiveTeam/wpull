@@ -18,4 +18,5 @@ include scripts/wpull scripts/wpull[23]
 recursive-include test runner.py README.md
 
 # Binary generators
-include freezer/debian.patch freezer/Makefile freezer/windows_msi.sh
+include freezer/README.md
+include freezer/cx_freeze/debian.patch freezer/cx_freeze/Makefile freezer/cx_freeze/windows_msi.sh
