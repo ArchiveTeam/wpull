@@ -76,7 +76,7 @@ def main():
                                        python_version)
 
     with zipfile.ZipFile(os.path.join('dist', zip_name) + '.zip', 'w',
-                         compression=zipfile.ZIP_BZIP2) as zip_obj:
+                         compression=zipfile.ZIP_DEFLATED) as zip_obj:
         zip_obj.write(os.path.join('dist', final_exe_name), final_exe_name)
         zip_obj.write(os.path.join('..', '..', 'README.rst'), 'README.rst')
         zip_obj.write(os.path.join('..', '..', 'LICENSE.txt'), 'LICENSE.txt')
