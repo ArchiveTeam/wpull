@@ -6,14 +6,17 @@ import distutils.util
 import platform
 import os.path
 import os
+import zipfile
 
 
 def main():
     this_python = sys.executable
     env_dir = os.path.abspath('./wpull_env/')
-    env_bin_dir = 'Scripts' if platform.system() == 'Windows' else 'bin'
-    env_python_exe = 'python.exe' if platform.system() == 'Windows' else 'python'
+    is_windows = platform.system() == 'Windows'
+    env_bin_dir = 'Scripts' if is_windows else 'bin'
+    env_python_exe = 'python.exe' if is_windows else 'python'
     exe_name = 'wpull'
+    final_exe_name = 'wpull.exe' if is_windows else 'wpull'
 
     def run_py(args):
         subprocess.check_call([this_python, '-m'] + list(args))
@@ -68,9 +71,17 @@ def main():
     wpull_version = run_env_py(['wpull', '--version'], get_output=True)\
         .decode('ascii').strip()
     platform_string = distutils.util.get_platform()
+    python_version = platform.python_version()
+    zip_name = 'wpull-{}-{}-{}'.format(wpull_version, platform_string,
+                                       python_version)
 
-    # TODO: zip up the binary with the readme and license file.
+    with zipfile.ZipFile(os.path.join('dist', zip_name) + '.zip', 'w',
+                         compression=zipfile.ZIP_BZIP2) as zip_obj:
+        zip_obj.write(os.path.join('dist', final_exe_name), final_exe_name)
+        zip_obj.write(os.path.join('..', '..', 'README.rst'), 'README.rst')
+        zip_obj.write(os.path.join('..', '..', 'LICENSE.txt'), 'LICENSE.txt')
 
+    print('Done.')
 
 if __name__ == '__main__':
     main()
