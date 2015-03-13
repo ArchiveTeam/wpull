@@ -11,6 +11,13 @@ def get_virtual_env_extra_site_files():
                 '..', 'wpull_env', 'lib',  'python*', '*.txt'
             ),
             './'
+        ),
+        (
+            os.path.join(
+                os.path.dirname(__file__),
+                '..', 'wpull_env', 'Lib', '*.txt'
+            ),
+            './'
         )
     ]
 

@@ -12,20 +12,28 @@ def main():
     this_python = sys.executable
     env_dir = os.path.abspath('./wpull_env/')
     env_bin_dir = 'Scripts' if platform.system() == 'Windows' else 'bin'
+    env_python_exe = 'python.exe' if platform.system() == 'Windows' else 'python'
+    exe_name = 'wpull'
 
     def run_py(args):
         subprocess.check_call([this_python, '-m'] + list(args))
 
     def run_env_py(args, get_output=False):
-        proc_args = [os.path.join(env_dir, env_bin_dir, 'python'), '-m'] + list(args)
+        proc_args = [os.path.join(env_dir, env_bin_dir, env_python_exe), '-m'] + list(args)
+
+        # XXX: On Mac OS X, this variables messes up python and uses the
+        # wrong interpreter.
+        env = copy.copy(os.environ)
+        env.pop('__PYVENV_LAUNCHER__', None)
+        env.pop('_', None)
 
         if get_output:
-            return subprocess.check_output(proc_args)
+            return subprocess.check_output(proc_args, env=env)
         else:
-            subprocess.check_call(proc_args)
+            subprocess.check_call(proc_args, env=env)
 
     print('Initialize virtual env.')
-    run_py(['virtualenv', '--always-copy', env_dir])
+    run_py(['virtualenv', '--always-copy', '--system-site-packages', env_dir])
 
     print('Check for PyInstaller.')
     try:
@@ -47,11 +55,6 @@ def main():
 
     print('Install Wpull.')
     run_env_py(['pip', 'install', '../../'])
-
-    exe_name = 'wpull'
-
-    if platform.system() == 'Windows':
-        exe_name += '.exe'
 
     print('Build binary.')
     run_env_py(['PyInstaller.main',
