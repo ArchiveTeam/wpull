@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+import copy
+import subprocess
+import sys
+import distutils.util
+import platform
+import os.path
+import os
+
+
+def main():
+    this_python = sys.executable
+    env_dir = os.path.abspath('./wpull_env/')
+    env_bin_dir = 'Scripts' if platform.system() == 'Windows' else 'bin'
+
+    def run_py(args):
+        subprocess.check_call([this_python, '-m'] + list(args))
+
+    def run_env_py(args, get_output=False):
+        proc_args = [os.path.join(env_dir, env_bin_dir, 'python'), '-m'] + list(args)
+
+        if get_output:
+            return subprocess.check_output(proc_args)
+        else:
+            subprocess.check_call(proc_args)
+
+    print('Initialize virtual env.')
+    run_py(['virtualenv', '--always-copy', env_dir])
+
+    print('Check for PyInstaller.')
+    try:
+        run_env_py(['PyInstaller.main', '--version'])
+    except subprocess.CalledProcessError as error:
+        print('Returned code', error.returncode)
+
+        print('Install PyInstaller.')
+        run_env_py([
+            'pip', 'install',
+            'git+https://github.com/pyinstaller/pyinstaller@python3#egg=PyInstaller',
+        ])
+
+    print('Install packages.')
+    run_env_py(['pip', 'install', '-r', '../../requirements.txt'])
+
+    print('Install optional packages.')
+    run_env_py(['pip', 'install', 'cchardet'])
+
+    print('Install Wpull.')
+    run_env_py(['pip', 'install', '../../'])
+
+    exe_name = 'wpull'
+
+    if platform.system() == 'Windows':
+        exe_name += '.exe'
+
+    print('Build binary.')
+    run_env_py(['PyInstaller.main',
+        os.path.join(env_dir, env_bin_dir, 'wpull'),
+        '--additional-hooks-dir', 'hooks',
+        '--onefile',
+        '--name', exe_name,
+    ])
+
+    print('Zip.')
+    wpull_version = run_env_py(['wpull', '--version'], get_output=True)\
+        .decode('ascii').strip()
+    platform_string = distutils.util.get_platform()
+
+    # TODO: zip up the binary with the readme and license file.
+
+
+if __name__ == '__main__':
+    main()
