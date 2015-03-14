@@ -13,12 +13,11 @@ downloader and crawler.
 
 Features:
 
-* Written in Python: lightweight & robust
+* Written in Python: lightweight, modifiable, & robust
 * Familiar Wget options and behavior
-* Graceful stopping and resuming
+* Graceful stopping; on-disk database resume
 * Python & Lua scripting support
-* Modular, extensible, & asynchronous API
-* PhantomJS & youtube-dl integration
+* PhantomJS & youtube-dl integration (experimental)
 
 
 .. ⬆ Please keep this intro above in sync with the README file. ⬆

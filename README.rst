@@ -12,12 +12,11 @@ downloader and crawler.
 
 Features:
 
-* Written in Python: lightweight & robust
+* Written in Python: lightweight, modifiable, & robust
 * Familiar Wget options and behavior
-* Graceful stopping and resuming
+* Graceful stopping; on-disk database resume
 * Python & Lua scripting support
-* Modular, extensible, & asynchronous API
-* PhantomJS & youtube-dl integration
+* PhantomJS & youtube-dl integration (experimental)
 
 
 Install
@@ -65,7 +64,8 @@ To see all options::
 Documentation
 =============
 
-Documentation is located at http://wpull.readthedocs.org/.
+Documentation is located at http://wpull.readthedocs.org/. Please have
+a look at it before using Wpull's advanced features.
 
 
 Help
