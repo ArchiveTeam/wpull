@@ -7,6 +7,7 @@ import platform
 import os.path
 import os
 import zipfile
+import time
 
 
 def main():
@@ -72,8 +73,10 @@ def main():
         .decode('ascii').strip()
     platform_string = distutils.util.get_platform()
     python_version = platform.python_version()
-    zip_name = 'wpull-{}-{}-{}'.format(wpull_version, platform_string,
-                                       python_version)
+    date_string = time.strftime('%Y%m%d%H%M%S', time.gmtime())
+    zip_name = 'wpull-{}-{}-{}-{}'.format(
+        wpull_version, platform_string, python_version, date_string
+    )
 
     with zipfile.ZipFile(os.path.join('dist', zip_name) + '.zip', 'w',
                          compression=zipfile.ZIP_DEFLATED) as zip_obj:
