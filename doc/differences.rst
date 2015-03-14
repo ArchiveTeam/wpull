@@ -43,10 +43,17 @@ Missing in Wget
 * ``--monitor-memory``
 * ``--very-quiet``
 * ``--ascii-print``
+* ``--http-proxy``
+* ``--https-proxy``
+* ``--proxy-domains``
+* ``--proxy-exclude-domains``
+* ``--proxy-hostnames``
+* ``--proxy-exclude-hostnames``
 * ``--retry-dns-error``
 * ``--session-timeout``
 * ``--no-skip-getaddrinfo``
 * ``--no-robots``
+* ``--http-compression`` (gzip, deflate, & raw deflate)
 * ``--html-parser``
 * ``--link-extractors``
 * ``--escaped-fragment``

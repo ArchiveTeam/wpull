@@ -36,7 +36,8 @@ from wpull.factory import Factory
 from wpull.ftp.client import Client as FTPClient
 from wpull.hook import HookEnvironment, PluginEnvironment
 from wpull.http.client import Client as HTTPClient
-from wpull.http.proxy import ProxyAdapter
+from wpull.proxy.client import HTTPProxyConnectionPool
+from wpull.proxy.hostfilter import HostFilter as ProxyHostFilter
 from wpull.http.redirect import RedirectTracker
 from wpull.http.request import Request
 from wpull.http.robots import RobotsTxtChecker
@@ -52,7 +53,7 @@ from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
 from wpull.processor.rule import FetchRule, ResultRule, ProcessingRule
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
     WebProcessorInstances
-from wpull.proxy import HTTPProxyServer
+from wpull.proxy.server import HTTPProxyServer
 from wpull.recorder.demux import DemuxRecorder
 from wpull.recorder.document import OutputDocumentRecorder
 from wpull.recorder.printing import PrintServerResponseRecorder
@@ -135,8 +136,8 @@ class Builder(object):
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
             'ProcessingRule': ProcessingRule,
             'Processor': DelegateProcessor,
-            'ProxyAdapter': ProxyAdapter,
             'ProxyCoprocessor': ProxyCoprocessor,
+            'ProxyHostFilter': ProxyHostFilter,
             'ProgressRecorder': ProgressRecorder,
             'RedirectTracker': RedirectTracker,
             'Request': Request,
@@ -924,8 +925,7 @@ class Builder(object):
             'FTPClient',
             connection_pool=self._factory['ConnectionPool'],
             recorder=self._factory['DemuxRecorder'],
-            proxy_adapter=self._factory.instance_map.get('ProxyAdapter')
-            )
+        )
 
     def _build_file_writer(self):
         '''Create the File Writer.
@@ -1068,6 +1068,48 @@ class Builder(object):
             ssl_context=self._build_ssl_options()
         )
 
+        if not self._args.no_proxy:
+            if self._args.https_proxy:
+                http_proxy = self._args.http_proxy.split(':', 1)
+                proxy_ssl = True
+            elif self._args.http_proxy:
+                http_proxy = self._args.http_proxy.split(':', 1)
+                proxy_ssl = False
+            else:
+                http_proxy = None
+                proxy_ssl = None
+
+            if http_proxy:
+                http_proxy[1] = int(http_proxy[1])
+
+                if self._args.proxy_user:
+                    authentication = (self._args.proxy_user,
+                                      self._args.proxy_password)
+                else:
+                    authentication = None
+
+                self._factory.class_map['ConnectionPool'] = \
+                    HTTPProxyConnectionPool
+
+                host_filter = self._factory.new(
+                    'ProxyHostFilter',
+                    accept_domains=self._args.proxy_domains,
+                    reject_domains=self._args.proxy_exclude_domains,
+                    accept_hostnames=self._args.proxy_hostnames,
+                    reject_hostnames=self._args.proxy_exclude_hostnames
+                )
+
+                return self._factory.new(
+                    'ConnectionPool',
+                    http_proxy,
+                    proxy_ssl=proxy_ssl,
+                    authentication=authentication,
+                    resolver=self._build_resolver(),
+                    connection_factory=connection_factory,
+                    ssl_connection_factory=ssl_connection_factory,
+                    host_filter=host_filter,
+                )
+
         return self._factory.new(
             'ConnectionPool',
             resolver=self._build_resolver(),
@@ -1119,40 +1161,11 @@ class Builder(object):
             ignore_length=self._args.ignore_length,
             keep_alive=self._args.http_keep_alive)
 
-        proxy_adapter = self._build_proxy_adapter()
-
         return self._factory.new('HTTPClient',
                                  connection_pool=self._build_connection_pool(),
                                  recorder=recorder,
-                                 stream_factory=stream_factory,
-                                 proxy_adapter=proxy_adapter)
-
-    def _build_proxy_adapter(self):
-        '''Build HTTP proxy adapter.'''
-        if self._args.no_proxy:
-            return
-
-        if self._args.https_proxy:
-            http_proxy = self._args.http_proxy.split(':', 1)
-            ssl_ = True
-        elif self._args.http_proxy:
-            http_proxy = self._args.http_proxy.split(':', 1)
-            ssl_ = False
-        else:
-            return
-
-        http_proxy[1] = int(http_proxy[1])
-
-        use_connect = not self._args.no_secure_proxy_tunnel
-
-        if self._args.proxy_user:
-            authentication = (self._args.proxy_user, self._args.proxy_password)
-        else:
-            authentication = None
-
-        return self._factory.new(
-            'ProxyAdapter', http_proxy, ssl=ssl_, use_connect=use_connect,
-            authentication=authentication)
+                                 stream_factory=stream_factory
+        )
 
     def _build_web_client(self):
         '''Build Web Client.'''
@@ -1413,7 +1426,8 @@ class Builder(object):
                     path=self._args.ca_certificate
                 ))
 
-        self._ca_certs_file = certs_filename = tempfile.mkstemp()[1]
+        self._ca_certs_file = certs_filename = tempfile.mkstemp(
+            suffix='.pem', prefix='wpull-')[1]
 
         def clean_certs_file():
             os.remove(certs_filename)
@@ -1462,9 +1476,6 @@ class Builder(object):
         if self._args.warc_file and \
                 (self._args.http_proxy or self._args.https_proxy):
             _logger.warning(_('WARC specifications do not handle proxies.'))
-
-        if self._args.no_secure_proxy_tunnel:
-            _logger.warning(_('HTTPS without encryption is enabled.'))
 
         if (self._args.password or self._args.ftp_password or
                 self._args.http_password or self._args.proxy_password) and \

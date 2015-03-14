@@ -3,6 +3,8 @@ WARC Specification
 
 Additional de-facto and custom extensions to the WARC standard.
 
+Wpull follows the specifications in the `ISO 28500 latest draft <http://bibnum.bnf.fr/WARC/WARC_ISO_28500_version1_latestdraft.pdf>`_. 
+
 
 FTP
 +++

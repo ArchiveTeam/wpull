@@ -13,12 +13,11 @@ downloader and crawler.
 
 Features:
 
-* Written in Python: lightweight & robust
+* Written in Python: lightweight, modifiable, & robust
 * Familiar Wget options and behavior
-* Graceful stopping and resuming
+* Graceful stopping; on-disk database resume
 * Python & Lua scripting support
-* Modular, extensible, & asynchronous API
-* PhantomJS & youtube-dl integration
+* PhantomJS & youtube-dl integration (experimental)
 
 
 .. ⬆ Please keep this intro above in sync with the README file. ⬆
@@ -28,7 +27,6 @@ Features:
 Wpull is designed to be (almost) a drop-in replacement for Wget with
 minimal changes to options. It is designed to run on much larger crawls
 without requiring additional demand on resources.
-
 
 Wpull's behavior is not an exact duplicate of Wget's behavior. As such,
 you should not expect exact output and operation out of Wpull. However,

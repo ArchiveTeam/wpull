@@ -12,15 +12,11 @@ downloader and crawler.
 
 Features:
 
-* Written in Python: lightweight & robust
+* Written in Python: lightweight, modifiable, & robust
 * Familiar Wget options and behavior
-* Graceful stopping and resuming
+* Graceful stopping; on-disk database resume
 * Python & Lua scripting support
-* Modular, extensible, & asynchronous API
-* PhantomJS & youtube-dl integration
-
-**Currently in beta quality! Some features are not implemented yet and the API
-is not considered stable.**
+* PhantomJS & youtube-dl integration (experimental)
 
 
 Install
@@ -53,9 +49,10 @@ To archive a website::
         --page-requisites --recursive --level inf \
         --span-hosts-allow linked-pages,page-requisites \
         --escaped-fragment --strip-session-id \
+        --sitemaps \
         --reject-regex "/login\.php" \
         --tries 3 --retry-connrefused --retry-dns-error \
-        --timeout 60 \
+        --timeout 60 --session-timeout 21600 \
         --delete-after --database blogsite-billy.db \
         --quiet --output-file blogsite-billy.log
 
@@ -67,7 +64,8 @@ To see all options::
 Documentation
 =============
 
-Documentation is located at http://wpull.readthedocs.org/.
+Documentation is located at http://wpull.readthedocs.org/. Please have
+a look at it before using Wpull's advanced features.
 
 
 Help

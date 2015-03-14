@@ -39,6 +39,7 @@ PROJECT_PACKAGES = [
     'wpull.ftp.ls',
     'wpull.http',
     'wpull.processor',
+    'wpull.proxy',
     'wpull.recorder.',
     'wpull.scraper',
     'wpull.testing',
@@ -68,11 +69,11 @@ setup_kwargs = dict(
         'testing/*.lua',
         'testing/*.pem',
         'driver/*.js',
-        'proxy.crt',
-        'proxy.key',
+        'proxy/proxy.crt',
+        'proxy/proxy.key',
     ]},
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.2',
@@ -126,11 +127,11 @@ if os.environ.get('USE_CX_FREEZE'):
                     'phantomjs.js'
                 ),
                 (
-                    os.path.join(wpull_package_src_dir, 'proxy.crt'),
+                    os.path.join(wpull_package_src_dir, 'proxy', 'proxy.crt'),
                     'proxy.crt'
                 ),
                 (
-                    os.path.join(wpull_package_src_dir, 'proxy.key'),
+                    os.path.join(wpull_package_src_dir, 'proxy', 'proxy.key'),
                     'proxy.key'
                 ),
             ]

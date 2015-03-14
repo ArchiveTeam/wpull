@@ -13,14 +13,18 @@ from wpull.errors import NetworkTimedOut
 _logger = logging.getLogger(__name__)
 
 
+@contextlib.contextmanager
+def dummy_context_manager():
+    yield None
+
+
 class DurationTimeout(NetworkTimedOut):
     '''Download did not complete within specified time.'''
 
 
 class BaseClient(object, metaclass=abc.ABCMeta):
     '''Base client.'''
-    def __init__(self, connection_pool=None, recorder=None,
-                 proxy_adapter=None):
+    def __init__(self, connection_pool=None, recorder=None):
         '''
         Args:
             connection_pool (:class:`.connection.ConnectionPool`): Connection
@@ -28,7 +32,6 @@ class BaseClient(object, metaclass=abc.ABCMeta):
             recorder (:class:`.recorder.BaseRecorder`): Recorder.
             stream_factory: A function that returns a new
                 :class:`.http.stream.Stream`.
-            proxy_adapter (:class:`.http.proxy.ProxyAdapter`): Optional proxy.
         '''
         if connection_pool is not None:
             self._connection_pool = connection_pool
@@ -36,7 +39,6 @@ class BaseClient(object, metaclass=abc.ABCMeta):
             self._connection_pool = ConnectionPool()
 
         self._recorder = recorder
-        self._proxy_adapter = proxy_adapter
 
     @abc.abstractmethod
     def _session_class(self):
@@ -54,27 +56,15 @@ class BaseClient(object, metaclass=abc.ABCMeta):
         statement.
         '''
         if self._recorder:
-            with self._recorder.session() as recorder_session:
-                session = self._session_class()(
-                    connection_pool=self._connection_pool,
-                    recorder_session=recorder_session,
-                    proxy_adapter=self._proxy_adapter,
-                )
-                try:
-                    yield session
-                except Exception as error:
-                    if not isinstance(error, StopIteration):
-                        _logger.debug('Early close session.')
-                        session.abort()
-                        session.recycle()
-                    raise
-                else:
-                    session.recycle()
+            context_manager = self._recorder.session()
         else:
+            context_manager = dummy_context_manager()
+
+        with context_manager as recorder_session:
             session = self._session_class()(
                 connection_pool=self._connection_pool,
-                proxy_adapter=self._proxy_adapter,
-                )
+                recorder_session=recorder_session,
+            )
             try:
                 yield session
             except Exception as error:
@@ -97,12 +87,10 @@ class BaseClient(object, metaclass=abc.ABCMeta):
 
 class BaseSession(object, metaclass=abc.ABCMeta):
     '''Base session.'''
-    def __init__(self, connection_pool=None, recorder_session=None,
-                 proxy_adapter=None):
+    def __init__(self, connection_pool=None, recorder_session=None):
         assert connection_pool
         self._connection_pool = connection_pool
         self._recorder_session = recorder_session
-        self._proxy_adapter = proxy_adapter
         self._request = None
         self._connection = None
 
@@ -123,17 +111,16 @@ class BaseSession(object, metaclass=abc.ABCMeta):
         self._request = request
         host = request.url_info.hostname
         port = request.url_info.port
-        ssl = request.url_info.scheme == 'https'
+        use_ssl = request.url_info.scheme == 'https'
+        tunnel = request.url_info.scheme != 'http'
 
-        if self._proxy_adapter:
+        if hasattr(self._connection_pool, 'acquire_proxy'):
             connection = yield From(
-                self._proxy_adapter.acquire(self._connection_pool))
-
-            yield From(self._proxy_adapter.connect(
-                self._connection_pool, connection, (host, port), ssl))
+                self._connection_pool.acquire_proxy(host, port, use_ssl,
+                                                    tunnel=tunnel))
         else:
             connection = yield From(
-                self._connection_pool.acquire(host, port, ssl))
+                self._connection_pool.acquire(host, port, use_ssl))
 
         self._connection = connection
 

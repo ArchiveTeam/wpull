@@ -61,6 +61,13 @@ doc/_build/
 MANIFEST
 py2src_noedit/
 test/fuzz_fusil/fusil*/
-freezer/packages
-freezer/cx_freeze
+
+# ignore source code directory:
+freezer/cx_freeze/packages
+freezer/cx_freeze/cx_freeze
+
+# Ignore virtualenv
+freezer/pyinstaller/wpull_env
+freezer/pyinstaller/wpull.spec
+
 *.orig

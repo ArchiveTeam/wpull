@@ -418,9 +418,29 @@ class AppArgumentParser(argparse.ArgumentParser):
             help=_('disable proxy support'),
         )
         group.add_argument(
-            '--no-secure-proxy-tunnel',
-            action='store_true',
-            help=_('disable use of encryption when using proxy')
+            '--proxy-domains',
+            metavar='LIST',
+            type=self.comma_list,
+            help=_('use proxy only from LIST of hostname suffixes')
+        )
+        group.add_argument(
+            '--proxy-exclude-domains',
+            metavar='LIST',
+            type=self.comma_list,
+            default=os.environ.get('no_proxy'),
+            help=_('don’t use proxy only from LIST of hostname suffixes')
+        )
+        group.add_argument(
+            '--proxy-hostnames',
+            metavar='LIST',
+            type=self.comma_list,
+            help=_('use proxy only from LIST of hostnames')
+        )
+        group.add_argument(
+            '--proxy-exclude-hostnames',
+            metavar='LIST',
+            type=self.comma_list,
+            help=_('don’t use proxy only from LIST of hostnames')
         )
 
     def _add_download_args(self):
@@ -1371,11 +1391,6 @@ class AppArgumentParser(argparse.ArgumentParser):
                 args.verbosity = LOG_NO_VERBOSE
             else:
                 args.verbosity = LOG_VERBOSE
-
-        if (args.http_proxy or args.https_proxy) and not \
-                (args.no_secure_proxy_tunnel):
-            self.error(_('secure connections with proxy not supported. '
-                         'Override with --no-secure-proxy-tunnel.'))
 
         if (args.proxy_user or args.proxy_password) and not \
                 (args.proxy_user and args.proxy_password):

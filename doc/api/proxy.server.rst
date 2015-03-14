@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`http.proxy` Module
-========================
+:mod:`proxy.server` Module
+==========================
 
-.. automodule:: wpull.http.proxy
+.. automodule:: wpull.proxy.server
     :members:
     :show-inheritance:
     :private-members:
