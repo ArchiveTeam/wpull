@@ -23,6 +23,7 @@ Missing in Wpull
 * ``--no-passive-ftp``
 * ``--mirror``
 * ``--strict-comments``: No plans for support of this option.
+* ``--regex-type=posix``: No plans to support posix regex.
 * Features greater than Wget 1.15.
 
 

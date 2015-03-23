@@ -7,6 +7,12 @@ Summary of notable changes.
 .. Take advice from http://keepachangelog.com/.
 
 
+Unreleased
+==========
+
+* Fixed: ``--regex-type`` to accept ``pcre`` instead of ``posix``. Regular expressions always use Python's regex library. Posix regex is not supported.
+
+
 1.0 (2015-03-14)
 ================
 
