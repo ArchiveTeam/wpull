@@ -91,6 +91,17 @@ class Mixin(object):
             inline_urls
         )
         self.assertEqual({
+            'http://example.com/og_image.png',
+            'http://example.com/og_url.html',
+            'http://example.com/og_audio.mp3',
+            'http://example.com/og_video.webm',
+            'http://example.com/twitter_image.png',
+            'http://example.com/twitter_image0.png',
+            'http://example.com/twitter_image1.png',
+            'http://example.com/twitter_image2.png',
+            'http://example.com/twitter_image3.png',
+            'http://example.com/twitter_player.html',
+            'http://example.com/twitter_stream.mp4',
             'http://example.net/soup.html',
             'http://example.com/a_href.html',
             'http://example.com/area_href.html',

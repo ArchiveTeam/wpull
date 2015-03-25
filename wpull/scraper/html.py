@@ -298,6 +298,14 @@ class ElementWalker(object):
     '''Mapping of element tag names to attributes containing links.'''
     DYNAMIC_ATTRIBUTES = ('onkey', 'oncli', 'onmou')
     '''Attributes that contain JavaScript.'''
+    OPEN_GRAPH_MEDIA_NAMES = (
+        'og:image', 'og:audio', 'og:video',
+        'twitter:image:src', 'twitter:image0', 'twitter:image1',
+        'twitter:image2', 'twitter:image3', 'twitter:player:stream',
+    )
+    OPEN_GRAPH_LINK_NAMES = (
+        'og:url', 'twitter:player'
+    )
 
     '''Iterate elements looking for links.
 
@@ -426,6 +434,32 @@ class ElementWalker(object):
                         base_link=None,
                         value_type='refresh',
                         link_type=None  # treat it as a redirect
+                    )
+        else:
+            for link_info in cls.iter_links_open_graph_meta(element):
+                yield link_info
+
+    @classmethod
+    def iter_links_open_graph_meta(cls, element):
+            name = element.attrib.get('property', '').lower()
+
+            if name in cls.OPEN_GRAPH_LINK_NAMES or \
+                    name in cls.OPEN_GRAPH_MEDIA_NAMES:
+                link = element.attrib.get('content')
+
+                if link:
+                    if name in cls.OPEN_GRAPH_MEDIA_NAMES:
+                        link_type = LinkType.media
+                    else:
+                        link_type = None
+
+                    yield LinkInfo(
+                        element=element, tag=element.tag, attrib='property',
+                        link=link,
+                        inline=False, linked=True,
+                        base_link=None,
+                        value_type='plain',
+                        link_type=link_type
                     )
 
     @classmethod
