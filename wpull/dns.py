@@ -46,7 +46,7 @@ class Resolver(HookableMixin):
     global_cache = FIFOCache(max_items=100, time_to_live=3600)
     '''The cache for resolved addresses.'''
 
-    def __init__(self, cache_enabled=True, family=None,
+    def __init__(self, cache_enabled=True, family=PREFER_IPv4,
                  timeout=None, rotate=False):
         super().__init__()
         assert family in (socket.AF_INET, socket.AF_INET6, self.PREFER_IPv4,
