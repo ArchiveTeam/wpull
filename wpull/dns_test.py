@@ -26,48 +26,62 @@ class DNSMixin:
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver(self):
         resolver = self.get_resolver_class()()
-        address = yield From(resolver.resolve('google.com', 80))
-        self.assertTrue(address)
-        self.assertEqual(2, len(address))
-        self.assertIsInstance(address[0], int, 'is family')
-        self.assertIsInstance(address[1][0], str, 'ip address host')
-        self.assertIsInstance(address[1][1], int, 'ip address port')
+        result = yield From(resolver.resolve('google.com', 80))
+        self.assertTrue(result)
+        self.assertEqual(2, len(result))
+        self.assertIsInstance(result[0], int, 'is family')
+        self.assertIsInstance(result[1][0], str, 'ip address host')
+        self.assertIsInstance(result[1][1], int, 'ip address port')
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_resolver_dual(self):
+        resolver = self.get_resolver_class()(family=Resolver.PREFER_IPv4)
+        result4, result6 = yield From(resolver.resolve_dual('google.com', 80))
+        self.assertTrue(result4)
+        self.assertTrue(result6)
+
+        family4, address4 = result4
+        family6, address6 = result6
+
+        self.assertEqual(socket.AF_INET, family4)
+        self.assertIsInstance(address4[0], str, 'ip address host')
+        self.assertIsInstance(address4[1], int, 'ip address port')
+        self.assertIn('.', address4[0])
+
+        self.assertEqual(socket.AF_INET6, family6)
+        self.assertIsInstance(address6[0], str, 'ip address host')
+        self.assertIsInstance(address6[1], int, 'ip address port')
+        self.assertIn(':', address6[0])
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver_localhost(self):
         resolver = self.get_resolver_class()(family=socket.AF_INET)
-        address = yield From(resolver.resolve('localhost', 80))
-        self.assertTrue(address)
-        self.assertEqual(2, len(address))
-        self.assertIsInstance(address[0], int, 'is family')
-        self.assertIsInstance(address[1][0], str, 'ip address host')
-        self.assertIsInstance(address[1][1], int, 'ip address port')
+        result = yield From(resolver.resolve('localhost', 80))
+        self.assertTrue(result)
+        self.assertEqual(2, len(result))
+        self.assertIsInstance(result[0], int, 'is family')
+        self.assertIsInstance(result[1][0], str, 'ip address host')
+        self.assertIsInstance(result[1][1], int, 'ip address port')
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver_ip_address(self):
         resolver = self.get_resolver_class()()
-        address = yield From(resolver.resolve('127.0.0.1', 80))
-        self.assertEqual((socket.AF_INET, ('127.0.0.1', 80)), address)
+        result = yield From(resolver.resolve('127.0.0.1', 80))
+        self.assertEqual((socket.AF_INET, ('127.0.0.1', 80)), result)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver_timeout(self):
         resolver = MockFaultyResolver(timeout=0.1)
-        try:
+
+        with self.assertRaises(NetworkError):
             yield From(resolver.resolve('test.invalid', 80))
-        except NetworkError:
-            pass
-        else:
-            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver_fail(self):
         resolver = self.get_resolver_class()()
-        try:
+
+        with self.assertRaises(DNSNotFound):
             yield From(resolver.resolve('test.invalid', 80))
-        except DNSNotFound:
-            pass
-        else:
-            self.fail()  # pragma: no cover
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver_ipv6(self):

@@ -27,7 +27,7 @@ class Resolver(HookableMixin):
         family: IP address family specified in :mod:`socket`. Typically
             values are
 
-            * :data:`socket.AF_UNSPEC`: IPv4 and/or IPv6
+            * ``None``: no preference to IPv4 or IPv6
             * :data:`socket.AF_INET`: IPv4 only
             * :data:`socket.AF_INET6`: IPv6 only
             * :attr:`PREFER_IPv4` or :attr:`PREFER_IPv6`
@@ -46,11 +46,11 @@ class Resolver(HookableMixin):
     global_cache = FIFOCache(max_items=100, time_to_live=3600)
     '''The cache for resolved addresses.'''
 
-    def __init__(self, cache_enabled=True, family=PREFER_IPv4,
+    def __init__(self, cache_enabled=True, family=None,
                  timeout=None, rotate=False):
         super().__init__()
         assert family in (socket.AF_INET, socket.AF_INET6, self.PREFER_IPv4,
-                          self.PREFER_IPv6), \
+                          self.PREFER_IPv6, None), \
             'Unknown family {}.'.format(family)
 
         if cache_enabled:
@@ -65,21 +65,17 @@ class Resolver(HookableMixin):
         self.register_hook('resolve_dns')
 
     @trollius.coroutine
-    def resolve(self, host, port):
-        '''Resolve the given hostname and port.
+    def resolve_all(self, host, port=0):
+        '''Resolve hostname and return a list of results.
 
         Args:
             host (str): The hostname.
             port (int): The port number.
 
         Returns:
-            tuple: A tuple of length 2 where the first item is the family and
-            the second item is address that can be passed
-            to :func:`socket.connect`.
-
-            Typically in an address, the first item is the IP
-            family and the second item is the IP address. Note that
-            IPv6 returns a tuple containing more items than 2.
+            list: A list of tuples where each tuple contains the family and
+            the socket address. See :method:`resolve` for the socket address
+            format.
         '''
         _logger.debug(__('Lookup address {0} {1}.', host, port))
 
@@ -103,6 +99,27 @@ class Resolver(HookableMixin):
 
         _logger.debug(__('Resolved addresses: {0}.', results))
 
+        raise Return(results)
+
+    @trollius.coroutine
+    def resolve(self, host, port=0):
+        '''Resolve hostname and return the first result.
+
+        Args:
+            host (str): The hostname.
+            port (int): The port number.
+
+        Returns:
+            tuple: A tuple of length 2 where the first item is the family and
+            the second item is an socket address that can be passed
+            to :func:`socket.connect`.
+
+            Typically in a socket address, the first item is the IP
+            address and the second item is the port number. Note that
+            IPv6 may return a tuple containing more items than 2.
+        '''
+        results = yield From(self.resolve_all(host, port))
+
         if self._rotate:
             result = random.choice(results)
         else:
@@ -116,6 +133,40 @@ class Resolver(HookableMixin):
              .format(address[0]))
 
         raise Return((family, address))
+
+    @trollius.coroutine
+    def resolve_dual(self, host, port=0):
+        '''Resolve hostname and return the first IPv4 & IPv6 result.
+
+        Returns:
+            tuple: Similar to :method:`resolve_all`, except the list of results
+            contains at least 1 IPv4 address and at least 1 IPv6 address.
+        '''
+        results = list((yield From(self.resolve_all(host, port))))
+
+        if self._rotate:
+            random.shuffle(results)
+
+        ipv4_result = None
+        ipv6_result = None
+        new_results = []
+
+        for result in results:
+            family, socket_addr = result
+
+            if not ipv4_result and family == socket.AF_INET:
+                ipv4_result = result
+                new_results.append(result)
+            elif not ipv6_result and family == socket.AF_INET6:
+                ipv6_result = result
+                new_results.append(result)
+
+            if ipv4_result and ipv6_result:
+                break
+
+        assert len(new_results) <= 2, new_results
+
+        raise Return(new_results)
 
     def _lookup_hook(self, host, port):
         '''Return the address from callback hook'''
@@ -166,7 +217,7 @@ class Resolver(HookableMixin):
 
         Coroutine.
         '''
-        if self._family in (self.PREFER_IPv4, self.PREFER_IPv6):
+        if self._family in (None, self.PREFER_IPv4, self.PREFER_IPv6):
             family_flags = socket.AF_UNSPEC
         else:
             family_flags = self._family
@@ -275,15 +326,17 @@ class PythonResolver(Resolver):
             except DNSNotFound:
                 pass
         else:
-            try:
-                yield From(query_ipv4())
-            except DNSNotFound:
-                pass
+            if self._family == self.PREFER_IPv4 or \
+                    self._family is None and random.random() > 0.5:
+                funcs = [query_ipv4, query_ipv6]
+            else:
+                funcs = [query_ipv6, query_ipv4]
 
-            try:
-                yield From(query_ipv6())
-            except DNSNotFound:
-                pass
+            for func in funcs:
+                try:
+                    yield From(func())
+                except DNSNotFound:
+                    pass
 
         if not results:
             # Maybe defined in hosts file or mDNS
