@@ -522,3 +522,52 @@ class TestWARC(BaseRecorderTest):
         self.assertTrue(os.path.exists('./blah/asdf-00001.warc'))
         self.assertTrue(os.path.exists('./blah/asdf-meta.warc'))
         self.assertTrue(os.path.exists('./blah/' + cdx_filename))
+
+    def test_warc_max_size_and_append(self):
+        file_prefix = 'asdf'
+
+        with open('asdf-00000.warc', 'w'):
+            pass
+
+        with open('asdf-00001.warc', 'w'):
+            pass
+
+        warc_recorder = WARCRecorder(
+            file_prefix,
+            params=WARCRecorderParams(
+                compress=False,
+                max_size=1,
+                appending=True
+            ),
+        )
+
+        request = HTTPRequest('http://example.com/1')
+        request.address = ('0.0.0.0', 80)
+        response = HTTPResponse(200, 'OK')
+        response.body = Body()
+
+        with wpull.util.reset_file_offset(response.body):
+            response.body.write(b'BLAH')
+
+        with warc_recorder.session() as session:
+            session.pre_request(request)
+            session.request_data(request.to_bytes())
+            session.request(request)
+            session.pre_response(response)
+            session.response_data(response.to_bytes())
+            session.response_data(response.body.content())
+            session.response(response)
+
+        warc_recorder.close()
+
+        self.assertTrue(os.path.exists('asdf-00000.warc'))
+        self.assertTrue(os.path.exists('asdf-00001.warc'))
+        self.assertTrue(os.path.exists('asdf-00002.warc'))
+        self.assertTrue(os.path.exists('asdf-00003.warc'))
+        self.assertTrue(os.path.exists('asdf-meta.warc'))
+
+        self.assertEqual(0, os.path.getsize('asdf-00000.warc'))
+        self.assertEqual(0, os.path.getsize('asdf-00001.warc'))
+        self.assertNotEqual(0, os.path.getsize('asdf-00002.warc'))
+        self.assertNotEqual(0, os.path.getsize('asdf-00003.warc'))
+        self.assertNotEqual(0, os.path.getsize('asdf-meta.warc'))

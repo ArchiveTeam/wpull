@@ -99,6 +99,30 @@ class WARCRecorder(BaseRecorder):
             self._start_new_cdx_file()
 
     def _start_new_warc_file(self, meta=False):
+        '''Create and set as current WARC file.'''
+        if self._params.max_size and not meta and self._params.appending:
+            while True:
+                self._warc_filename = self._generate_warc_filename()
+
+                if os.path.exists(self._warc_filename):
+                    _logger.debug(__('Skip {0}', self._warc_filename))
+                    self._sequence_num += 1
+                else:
+                    break
+        else:
+            self._warc_filename = self._generate_warc_filename(meta=meta)
+
+        _logger.debug(__('WARC file at {0}', self._warc_filename))
+
+        if not self._params.appending:
+            wpull.util.truncate_file(self._warc_filename)
+
+        self._warcinfo_record = WARCRecord()
+        self._populate_warcinfo(self._params.extra_fields)
+        self.write_record(self._warcinfo_record)
+
+    def _generate_warc_filename(self, meta=False):
+        '''Return a suitable WARC filename.'''
         if self._params.max_size is None:
             sequence_name = ''
         elif meta:
@@ -111,20 +135,12 @@ class WARCRecorder(BaseRecorder):
         else:
             extension = 'warc'
 
-        self._warc_filename = '{0}{1}.{2}'.format(
+        return '{0}{1}.{2}'.format(
             self._prefix_filename, sequence_name, extension
         )
 
-        _logger.debug(__('WARC file at {0}', self._warc_filename))
-
-        if not self._params.appending:
-            wpull.util.truncate_file(self._warc_filename)
-
-        self._warcinfo_record = WARCRecord()
-        self._populate_warcinfo(self._params.extra_fields)
-        self.write_record(self._warcinfo_record)
-
     def _start_new_cdx_file(self):
+        '''Create and set current CDX file.'''
         self._cdx_filename = '{0}.cdx'.format(self._prefix_filename)
 
         if not self._params.appending:

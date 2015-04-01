@@ -11,6 +11,8 @@ Unreleased
 ==========
 
 * Fixed: ``--regex-type`` to accept ``pcre`` instead of ``posix``. Regular expressions always use Python's regex library. Posix regex is not supported.
+* Fixed: when using ``--warc-max-size`` and ``--warc-append``, it wrote to existing sequential WARC files unnecessarily.
+* Changed: when using ``--warc-max-size`` and ``--warc-append``, the next sequential WARC file is created to avoid appending to corrupt files.
 * Added: Open Graph and Twitter Card element links extraction.
 
 
