@@ -1,3 +1,4 @@
+import glob
 from tempfile import NamedTemporaryFile
 import contextlib
 import gettext
@@ -90,6 +91,8 @@ class WARCRecorder(BaseRecorder):
         self._warc_filename = None
         self._cdx_filename = None
 
+        self._check_journals_and_maybe_raise()
+
         if params.log:
             self._setup_log()
 
@@ -97,6 +100,13 @@ class WARCRecorder(BaseRecorder):
 
         if self._params.cdx:
             self._start_new_cdx_file()
+
+    def _check_journals_and_maybe_raise(self):
+        '''Check if any journal files exist and raise an error.'''
+        files = list(glob.glob(self._prefix_filename + '*-wpullinc'))
+
+        if files:
+            raise OSError('WARC file {} is incomplete.'.format(files[0]))
 
     def _start_new_warc_file(self, meta=False):
         '''Create and set as current WARC file.'''
@@ -253,6 +263,8 @@ class WARCRecorder(BaseRecorder):
         else:
             open_func = open
 
+        # Use getsize to get actual file size. Avoid tell() because it may
+        # not be the raw file position.
         if os.path.exists(self._warc_filename):
             before_offset = os.path.getsize(self._warc_filename)
         else:

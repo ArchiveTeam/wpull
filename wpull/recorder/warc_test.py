@@ -413,6 +413,21 @@ class TestWARC(BaseRecorderTest):
 
             self.assertFalse(os.path.exists(warc_filename + '-wpullinc'))
 
+    def test_warc_recorder_journal_raise_error(self):
+        warc_filename = 'asdf.warc'
+        warc_prefix = 'asdf'
+
+        with open(warc_filename + '-wpullinc', 'w'):
+            pass
+
+        with self.assertRaises(OSError):
+            WARCRecorder(
+                warc_prefix,
+                params=WARCRecorderParams(
+                    compress=False,
+                )
+            )
+
     def test_cdx_dedup(self):
         url_table = URLTable()
         warc_recorder = WARCRecorder(
