@@ -258,6 +258,12 @@ class WARCRecorder(BaseRecorder):
         else:
             before_offset = 0
 
+        journal_filename = self._warc_filename + '-wpullinc'
+
+        with open(journal_filename, 'w') as file:
+            file.write('wpull-journal-version:1\n')
+            file.write('offset:{}\n'.format(before_offset))
+
         try:
             with open_func(self._warc_filename, mode='ab') as out_file:
                 for data in record:
@@ -269,7 +275,10 @@ class WARCRecorder(BaseRecorder):
             ))
             with open(self._warc_filename, mode='wb') as out_file:
                 out_file.truncate(before_offset)
+
             raise error
+        finally:
+            os.remove(journal_filename)
 
         after_offset = os.path.getsize(self._warc_filename)
 

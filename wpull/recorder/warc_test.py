@@ -319,12 +319,13 @@ class TestWARC(BaseRecorderTest):
 
     def test_warc_recorder_rollback(self):
         warc_filename = 'asdf.warc'
+        warc_prefix = 'asdf'
 
         with open(warc_filename, 'wb') as warc_file:
             warc_file.write(b'a' * 10)
 
         warc_recorder = WARCRecorder(
-            warc_filename,
+            warc_prefix,
             params=WARCRecorderParams(
                 compress=False,
             )
@@ -357,16 +358,60 @@ class TestWARC(BaseRecorderTest):
                 BadRecord(session._child_session._request_record)
             original_offset = os.path.getsize(warc_filename)
 
-            try:
+            with self.assertRaises((OSError, IOError)):
                 session.request(request)
-            except (OSError, IOError):
-                new_offset = os.path.getsize(warc_filename)
-                self.assertEqual(new_offset, original_offset)
-            else:
-                # Should not reach here
-                self.fail()  # pragma: no cover
+
+            new_offset = os.path.getsize(warc_filename)
+            self.assertEqual(new_offset, original_offset)
+            self.assertFalse(os.path.exists(warc_filename + '-wpullinc'))
 
             _logger.debug('original offset {0}'.format(original_offset))
+
+    def test_warc_recorder_journal(self):
+        warc_filename = 'asdf.warc'
+        warc_prefix = 'asdf'
+
+        warc_recorder = WARCRecorder(
+            warc_prefix,
+            params=WARCRecorderParams(
+                compress=False,
+            )
+        )
+
+        request = HTTPRequest('http://example.com/')
+        request.address = ('0.0.0.0', 80)
+        response = HTTPResponse(200, 'OK')
+        response.body = Body()
+
+        with wpull.util.reset_file_offset(response.body):
+            response.body.write(b'KITTEH DOGE')
+
+        with warc_recorder.session() as session:
+            session.pre_request(request)
+            session.request_data(request.to_bytes())
+            test_instance = self
+
+            class MockRecord(WARCRecord):
+                def __init__(self, original_record):
+                    super().__init__()
+                    self.block_file = original_record.block_file
+                    self.fields = original_record.fields
+
+                def __iter__(self):
+                    print(list(os.walk('.')))
+                    test_instance.assertTrue(
+                        os.path.exists(warc_filename + '-wpullinc')
+                    )
+
+                    for dummy in range(1000):
+                        yield b"where's my elephant?"
+
+            session._child_session._request_record = \
+                MockRecord(session._child_session._request_record)
+
+            session.request(request)
+
+            self.assertFalse(os.path.exists(warc_filename + '-wpullinc'))
 
     def test_cdx_dedup(self):
         url_table = URLTable()
