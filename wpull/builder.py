@@ -1427,7 +1427,7 @@ class Builder(object):
                 ))
 
         self._ca_certs_file = certs_filename = tempfile.mkstemp(
-            suffix='.pem', prefix='wpull-')[1]
+            suffix='.pem', prefix='tmp-wpull-')[1]
 
         def clean_certs_file():
             os.remove(certs_filename)

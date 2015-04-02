@@ -96,7 +96,7 @@ class Session(object):
 
         if not path:
             self._temp_dir = tempfile.TemporaryDirectory(
-                dir=self._root_path, prefix='wpull-youtubedl'
+                dir=self._root_path, prefix='tmp-wpull-youtubedl'
             )
             path = '{}/tmp'.format(self._temp_dir.name)
 

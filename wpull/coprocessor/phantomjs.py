@@ -156,8 +156,6 @@ class PhantomJSCoprocessorSession(object):
 
     @trollius.coroutine
     def run(self):
-        tempfile.NamedTemporaryFile(prefix='wpull-snp')
-
         scrape_snapshot_path = self._get_temp_path('phantom', suffix='.html')
         action_log_path = self._get_temp_path('phantom-action', suffix='.txt')
         event_log_path = self._get_temp_path('phantom-event', suffix='.txt')
@@ -218,7 +216,7 @@ class PhantomJSCoprocessorSession(object):
 
     def _get_temp_path(self, hint, suffix='.tmp'):
         temp_fd, temp_path = tempfile.mkstemp(
-            dir=self._root_path, prefix='wpull-{}'.format(hint), suffix=suffix
+            dir=self._root_path, prefix='tmp-wpull-{}'.format(hint), suffix=suffix
         )
         os.close(temp_fd)
         self._temp_filenames.append(temp_path)
@@ -234,7 +232,7 @@ class PhantomJSCoprocessorSession(object):
 
             if not path:
                 temp_fd, temp_path = tempfile.mkstemp(
-                    dir=self._root_path, prefix='phnsh',
+                    dir=self._root_path, prefix='tmp-phnsh',
                     suffix='.{}'.format(snapshot_type)
                 )
                 os.close(temp_fd)

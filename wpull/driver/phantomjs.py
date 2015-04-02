@@ -68,7 +68,7 @@ class PhantomJSDriver(Process):
         script_path = wpull.util.get_package_filename('driver/phantomjs.js')
 
         self._config_file = tempfile.NamedTemporaryFile(
-            prefix='wpull-', suffix='.json', delete=False
+            prefix='tmp-wpull-', suffix='.json', delete=False
         )
 
         args = [exe_path] + (extra_args or []) + [script_path, self._config_file.name]

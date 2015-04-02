@@ -185,7 +185,7 @@ class WARCRecorder(BaseRecorder):
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         self._log_temp_file = NamedTemporaryFile(
-            prefix='wpull-warc-',
+            prefix='tmp-wpull-warc-',
             dir=self._params.temp_dir,
             suffix='.log.gz',
             delete=False,
