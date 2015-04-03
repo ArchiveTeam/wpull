@@ -93,7 +93,7 @@ class Body(object):
 def new_temp_file(directory=None, hint=''):
     '''Return a new temporary file.'''
     return tempfile.NamedTemporaryFile(
-        prefix='wpull-{0}-'.format(hint), suffix='.tmp', dir=directory)
+        prefix='tmp-wpull-{0}-'.format(hint), suffix='.tmp', dir=directory)
 
 
 def is_seekable(file):

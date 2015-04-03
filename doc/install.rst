@@ -75,7 +75,7 @@ Install Wpull from GitHub::
 Pre-built Binaries
 ==================
 
-Wpull has pre-built binaries located at https://launchpad.net/wpull/+download. These are unsupported and may not be update to date.
+Wpull has pre-built binaries located at https://launchpad.net/wpull/+download. These are unsupported and may not be up to date.
 
 
 Caveats

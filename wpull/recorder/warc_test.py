@@ -319,12 +319,13 @@ class TestWARC(BaseRecorderTest):
 
     def test_warc_recorder_rollback(self):
         warc_filename = 'asdf.warc'
+        warc_prefix = 'asdf'
 
         with open(warc_filename, 'wb') as warc_file:
             warc_file.write(b'a' * 10)
 
         warc_recorder = WARCRecorder(
-            warc_filename,
+            warc_prefix,
             params=WARCRecorderParams(
                 compress=False,
             )
@@ -357,16 +358,75 @@ class TestWARC(BaseRecorderTest):
                 BadRecord(session._child_session._request_record)
             original_offset = os.path.getsize(warc_filename)
 
-            try:
+            with self.assertRaises((OSError, IOError)):
                 session.request(request)
-            except (OSError, IOError):
-                new_offset = os.path.getsize(warc_filename)
-                self.assertEqual(new_offset, original_offset)
-            else:
-                # Should not reach here
-                self.fail()  # pragma: no cover
+
+            new_offset = os.path.getsize(warc_filename)
+            self.assertEqual(new_offset, original_offset)
+            self.assertFalse(os.path.exists(warc_filename + '-wpullinc'))
 
             _logger.debug('original offset {0}'.format(original_offset))
+
+    def test_warc_recorder_journal(self):
+        warc_filename = 'asdf.warc'
+        warc_prefix = 'asdf'
+
+        warc_recorder = WARCRecorder(
+            warc_prefix,
+            params=WARCRecorderParams(
+                compress=False,
+            )
+        )
+
+        request = HTTPRequest('http://example.com/')
+        request.address = ('0.0.0.0', 80)
+        response = HTTPResponse(200, 'OK')
+        response.body = Body()
+
+        with wpull.util.reset_file_offset(response.body):
+            response.body.write(b'KITTEH DOGE')
+
+        with warc_recorder.session() as session:
+            session.pre_request(request)
+            session.request_data(request.to_bytes())
+            test_instance = self
+
+            class MockRecord(WARCRecord):
+                def __init__(self, original_record):
+                    super().__init__()
+                    self.block_file = original_record.block_file
+                    self.fields = original_record.fields
+
+                def __iter__(self):
+                    print(list(os.walk('.')))
+                    test_instance.assertTrue(
+                        os.path.exists(warc_filename + '-wpullinc')
+                    )
+
+                    for dummy in range(1000):
+                        yield b"where's my elephant?"
+
+            session._child_session._request_record = \
+                MockRecord(session._child_session._request_record)
+
+            session.request(request)
+
+            self.assertFalse(os.path.exists(warc_filename + '-wpullinc'))
+
+    def test_warc_recorder_journal_raise_error(self):
+        warc_filename = 'asdf.warc'
+        warc_prefix = 'asdf'
+
+        with open(warc_filename + '-wpullinc', 'w'):
+            pass
+
+        with self.assertRaises(OSError):
+            WARCRecorder(
+                warc_prefix,
+                params=WARCRecorderParams(
+                    compress=False,
+                )
+            )
 
     def test_cdx_dedup(self):
         url_table = URLTable()
@@ -522,3 +582,52 @@ class TestWARC(BaseRecorderTest):
         self.assertTrue(os.path.exists('./blah/asdf-00001.warc'))
         self.assertTrue(os.path.exists('./blah/asdf-meta.warc'))
         self.assertTrue(os.path.exists('./blah/' + cdx_filename))
+
+    def test_warc_max_size_and_append(self):
+        file_prefix = 'asdf'
+
+        with open('asdf-00000.warc', 'w'):
+            pass
+
+        with open('asdf-00001.warc', 'w'):
+            pass
+
+        warc_recorder = WARCRecorder(
+            file_prefix,
+            params=WARCRecorderParams(
+                compress=False,
+                max_size=1,
+                appending=True
+            ),
+        )
+
+        request = HTTPRequest('http://example.com/1')
+        request.address = ('0.0.0.0', 80)
+        response = HTTPResponse(200, 'OK')
+        response.body = Body()
+
+        with wpull.util.reset_file_offset(response.body):
+            response.body.write(b'BLAH')
+
+        with warc_recorder.session() as session:
+            session.pre_request(request)
+            session.request_data(request.to_bytes())
+            session.request(request)
+            session.pre_response(response)
+            session.response_data(response.to_bytes())
+            session.response_data(response.body.content())
+            session.response(response)
+
+        warc_recorder.close()
+
+        self.assertTrue(os.path.exists('asdf-00000.warc'))
+        self.assertTrue(os.path.exists('asdf-00001.warc'))
+        self.assertTrue(os.path.exists('asdf-00002.warc'))
+        self.assertTrue(os.path.exists('asdf-00003.warc'))
+        self.assertTrue(os.path.exists('asdf-meta.warc'))
+
+        self.assertEqual(0, os.path.getsize('asdf-00000.warc'))
+        self.assertEqual(0, os.path.getsize('asdf-00001.warc'))
+        self.assertNotEqual(0, os.path.getsize('asdf-00002.warc'))
+        self.assertNotEqual(0, os.path.getsize('asdf-00003.warc'))
+        self.assertNotEqual(0, os.path.getsize('asdf-meta.warc'))

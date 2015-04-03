@@ -1186,7 +1186,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         group.add_argument(
             '--regex-type',
             metavar='TYPE',
-            choices=['posix'],
+            choices=['pcre'],
             help=_('use regex TYPE')
         )
         group.add_argument(

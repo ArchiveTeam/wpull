@@ -2,7 +2,11 @@
 '''Statistics.'''
 from collections import Counter
 import logging
+import os
+import shelve
+import tempfile
 import time
+import atexit
 
 from wpull.bandwidth import BandwidthMeter
 from wpull.errors import ERROR_PRIORITIES
@@ -22,8 +26,9 @@ class Statistics(object):
         errors: a Counter mapping error types to integer.
         quota (int): Threshold of number of bytes when the download quota is
             exceeded.
-        required_url_infos (set): A set of :class:`.url.URLInfo` that must
-            be completed before the quota can be exceeded.
+        required_urls_db (dict): A mapping of :class:`.url.URLInfo` to bool
+            that must be completed before the quota can be exceeded. The
+            mapping uses a disk store so it is created on demand.
         bandwidth_meter (:class:`.network.BandwidthMeter`): The bandwidth
             meter.
     '''
@@ -34,8 +39,22 @@ class Statistics(object):
         self.size = 0
         self.errors = Counter()
         self.quota = None
-        self.required_url_infos = set()
+        self._temp_dir = None
+        self._required_urls_db = None
         self.bandwidth_meter = BandwidthMeter()
+
+    @property
+    def required_urls_db(self):
+        if not self._required_urls_db:
+            self._required_urls_db = self._new_required_urls_db()
+
+        return self._required_urls_db
+
+    def _new_required_urls_db(self):
+        self._temp_dir = tempfile.TemporaryDirectory(
+            prefix='tmp-wpull-quota', dir=os.getcwd())
+
+        return shelve.open(os.path.join(self._temp_dir.name, 'quota.db'))
 
     def start(self):
         '''Record the start time.'''
@@ -45,6 +64,10 @@ class Statistics(object):
     def stop(self):
         '''Record the stop time.'''
         self.stop_time = time.time()
+
+        if self._temp_dir:
+            self._temp_dir.cleanup()
+            self._temp_dir = None
 
     @property
     def duration(self):
@@ -64,16 +87,23 @@ class Statistics(object):
     @property
     def is_quota_exceeded(self):
         '''Return whether the quota is exceeded.'''
-        if self.required_url_infos:
+        if self._required_urls_db is None:
             return False
+
+        try:
+            # bool(db) is not guaranteed to be supported, esp on PyPy
+            if next(iter(self._required_urls_db.keys())):
+                return False
+        except StopIteration:
+            pass
 
         if self.quota:
             return self.size >= self.quota
 
     def mark_done(self, url_info):
         '''Set the URLInfo as completed.'''
-        if url_info in self.required_url_infos:
-            self.required_url_infos.remove(url_info)
+        if self._required_urls_db and url_info.url in self._required_urls_db:
+            del self.required_urls_db[url_info.url]
 
     def increment_error(self, error):
         '''Increment the error counter preferring base exceptions.'''

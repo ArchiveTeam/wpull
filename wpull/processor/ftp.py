@@ -245,7 +245,7 @@ class FTPProcessorSession(BaseProcessorSession):
                 return
 
             temp_file = tempfile.NamedTemporaryFile(
-                dir=self._processor.root_path, prefix='wpull-list'
+                dir=self._processor.root_path, prefix='tmp-wpull-list'
             )
 
             with temp_file as file:

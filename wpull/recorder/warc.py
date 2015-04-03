@@ -1,3 +1,4 @@
+import glob
 from tempfile import NamedTemporaryFile
 import contextlib
 import gettext
@@ -90,6 +91,8 @@ class WARCRecorder(BaseRecorder):
         self._warc_filename = None
         self._cdx_filename = None
 
+        self._check_journals_and_maybe_raise()
+
         if params.log:
             self._setup_log()
 
@@ -98,7 +101,38 @@ class WARCRecorder(BaseRecorder):
         if self._params.cdx:
             self._start_new_cdx_file()
 
+    def _check_journals_and_maybe_raise(self):
+        '''Check if any journal files exist and raise an error.'''
+        files = list(glob.glob(self._prefix_filename + '*-wpullinc'))
+
+        if files:
+            raise OSError('WARC file {} is incomplete.'.format(files[0]))
+
     def _start_new_warc_file(self, meta=False):
+        '''Create and set as current WARC file.'''
+        if self._params.max_size and not meta and self._params.appending:
+            while True:
+                self._warc_filename = self._generate_warc_filename()
+
+                if os.path.exists(self._warc_filename):
+                    _logger.debug(__('Skip {0}', self._warc_filename))
+                    self._sequence_num += 1
+                else:
+                    break
+        else:
+            self._warc_filename = self._generate_warc_filename(meta=meta)
+
+        _logger.debug(__('WARC file at {0}', self._warc_filename))
+
+        if not self._params.appending:
+            wpull.util.truncate_file(self._warc_filename)
+
+        self._warcinfo_record = WARCRecord()
+        self._populate_warcinfo(self._params.extra_fields)
+        self.write_record(self._warcinfo_record)
+
+    def _generate_warc_filename(self, meta=False):
+        '''Return a suitable WARC filename.'''
         if self._params.max_size is None:
             sequence_name = ''
         elif meta:
@@ -111,20 +145,12 @@ class WARCRecorder(BaseRecorder):
         else:
             extension = 'warc'
 
-        self._warc_filename = '{0}{1}.{2}'.format(
+        return '{0}{1}.{2}'.format(
             self._prefix_filename, sequence_name, extension
         )
 
-        _logger.debug(__('WARC file at {0}', self._warc_filename))
-
-        if not self._params.appending:
-            wpull.util.truncate_file(self._warc_filename)
-
-        self._warcinfo_record = WARCRecord()
-        self._populate_warcinfo(self._params.extra_fields)
-        self.write_record(self._warcinfo_record)
-
     def _start_new_cdx_file(self):
+        '''Create and set current CDX file.'''
         self._cdx_filename = '{0}.cdx'.format(self._prefix_filename)
 
         if not self._params.appending:
@@ -159,7 +185,7 @@ class WARCRecorder(BaseRecorder):
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         self._log_temp_file = NamedTemporaryFile(
-            prefix='wpull-warc-',
+            prefix='tmp-wpull-warc-',
             dir=self._params.temp_dir,
             suffix='.log.gz',
             delete=False,
@@ -237,10 +263,18 @@ class WARCRecorder(BaseRecorder):
         else:
             open_func = open
 
+        # Use getsize to get actual file size. Avoid tell() because it may
+        # not be the raw file position.
         if os.path.exists(self._warc_filename):
             before_offset = os.path.getsize(self._warc_filename)
         else:
             before_offset = 0
+
+        journal_filename = self._warc_filename + '-wpullinc'
+
+        with open(journal_filename, 'w') as file:
+            file.write('wpull-journal-version:1\n')
+            file.write('offset:{}\n'.format(before_offset))
 
         try:
             with open_func(self._warc_filename, mode='ab') as out_file:
@@ -253,7 +287,10 @@ class WARCRecorder(BaseRecorder):
             ))
             with open(self._warc_filename, mode='wb') as out_file:
                 out_file.truncate(before_offset)
+
             raise error
+        finally:
+            os.remove(journal_filename)
 
         after_offset = os.path.getsize(self._warc_filename)
 
