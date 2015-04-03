@@ -7,8 +7,8 @@ Summary of notable changes.
 .. Take advice from http://keepachangelog.com/.
 
 
-Unreleased
-==========
+1.1 (2015-04-03)
+================
 
 * Security: Updated certificate bundle.
 * Fixed: ``--regex-type`` to accept ``pcre`` instead of ``posix``. Regular expressions always use Python's regex library. Posix regex is not supported.
