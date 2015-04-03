@@ -12,6 +12,7 @@ Unreleased
 
 * Fixed: ``--regex-type`` to accept ``pcre`` instead of ``posix``. Regular expressions always use Python's regex library. Posix regex is not supported.
 * Fixed: when using ``--warc-max-size`` and ``--warc-append``, it wrote to existing sequential WARC files unnecessarily.
+* Fixed: input URLs stored in memory instead of saved on disk. This issue was notable if there were many URLs provided by the ``--input-file`` option.
 * Changed: when using ``--warc-max-size`` and ``--warc-append``, the next sequential WARC file is created to avoid appending to corrupt files.
 * Changed: WARC file writing to use journal files and refuse to start program if any journals exist. This avoids corrupting files through naive use of ``--warc-append`` and allow for future automated recovery.
 * Added: Open Graph and Twitter Card element links extraction.

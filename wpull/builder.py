@@ -8,6 +8,7 @@ import gettext
 import itertools
 import logging
 import os.path
+import shelve
 import socket
 import ssl
 import sys
@@ -160,7 +161,10 @@ class Builder(object):
             'WebProcessorInstances': WebProcessorInstances,
             'YoutubeDlCoprocessor': YoutubeDlCoprocessor,
         })
-        self._url_infos = None
+        self._input_urls_temp_dir = tempfile.TemporaryDirectory(
+            prefix='tmp-wpull', dir=os.getcwd())
+        self._input_urls_db = shelve.open(
+            os.path.join(self._input_urls_temp_dir.name, 'input_urls.db'))
         self._ca_certs_file = None
         self._file_log_handler = None
         self._console_log_handler = None
@@ -196,11 +200,15 @@ class Builder(object):
         resource_monitor = self._build_resource_monitor()
 
         self._build_demux_document_scraper()
-        self._url_infos = tuple(self._build_input_urls())
+        for url_info in self._build_input_urls():
+            self._input_urls_db[url_info.url] = url_info
 
         statistics = self._factory.new('Statistics')
         statistics.quota = self._args.quota
-        statistics.required_url_infos.update(self._url_infos)
+
+        if self._args.quota:
+            for url_info in self._input_urls_db.values():
+                statistics.required_urls_db[url_info.url] = True
 
         url_table = self._build_url_table()
         processor = self._build_processor()
@@ -223,9 +231,19 @@ class Builder(object):
         self._warn_unsafe_options()
         self._warn_silly_options()
 
-        url_table.add_many(
-            [{'url': url_info.url} for url_info in self._url_infos]
-        )
+        batch = []
+
+        for url_info in self._input_urls_db.values():
+            batch.append({'url': url_info.url})
+            if len(batch) > 1000:
+                url_table.add_many(batch)
+                batch = []
+
+        url_table.add_many(batch)
+
+        self._input_urls_db.close()
+        self._input_urls_temp_dir.cleanup()
+        self._input_urls_temp_dir = None
 
         return self._factory['Application']
 
@@ -506,7 +524,7 @@ class Builder(object):
         input_file = codecs.getreader(
             self._args.local_encoding or 'utf-8')(self._args.input_file)
 
-        urls = [line.strip() for line in input_file if line.strip()]
+        urls = (line.strip() for line in input_file if line.strip())
 
         if not urls:
             raise ValueError(_('No URLs found in input file.'))
@@ -519,7 +537,7 @@ class Builder(object):
             self._args.input_file,
             encoding=self._args.local_encoding or 'utf-8'
         )
-        links = [context.link for context in scrape_result.link_contexts]
+        links = (context.link for context in scrape_result.link_contexts)
 
         return links
 
@@ -537,7 +555,7 @@ class Builder(object):
                 enabled=args.recursive, page_requisites=args.page_requisites
             ),
             SpanHostsFilter(
-                self._url_infos,
+                (url_info for url_info in self._input_urls_db.values()),
                 enabled=args.span_hosts,
                 page_requisites='page-requisites' in args.span_hosts_allow,
                 linked_pages='linked-pages' in args.span_hosts_allow,
