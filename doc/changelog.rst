@@ -10,6 +10,7 @@ Summary of notable changes.
 Unreleased
 ==========
 
+* Security: Updated certificate bundle.
 * Fixed: ``--regex-type`` to accept ``pcre`` instead of ``posix``. Regular expressions always use Python's regex library. Posix regex is not supported.
 * Fixed: when using ``--warc-max-size`` and ``--warc-append``, it wrote to existing sequential WARC files unnecessarily.
 * Fixed: input URLs stored in memory instead of saved on disk. This issue was notable if there were many URLs provided by the ``--input-file`` option.
