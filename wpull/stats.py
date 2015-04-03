@@ -90,8 +90,12 @@ class Statistics(object):
         if self._required_urls_db is None:
             return False
 
-        if self._required_urls_db:
-            return False
+        try:
+            # bool(db) is not guaranteed to be supported, esp on PyPy
+            if next(iter(self._required_urls_db.keys())):
+                return False
+        except StopIteration:
+            pass
 
         if self.quota:
             return self.size >= self.quota
