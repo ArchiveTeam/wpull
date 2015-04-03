@@ -7,6 +7,7 @@ import logging
 import re
 import string
 import urllib.parse
+import posixpath
 
 from wpull.backport.logging import BraceMessage as __
 import wpull.string
@@ -371,6 +372,13 @@ class URLInfo(object):
             return '{}:{}'.format(hostname, self.port)
         else:
             return hostname
+
+    def split_path(self):
+        '''Return the directory and filename from the path.
+
+        The results are not percent-decoded.
+        '''
+        return posixpath.split(self.path)
 
     def __repr__(self):
         return '<URLInfo at 0x{:x} url={} raw={}>'.format(

@@ -90,6 +90,7 @@ class TestURL(unittest.TestCase):
         self.assertEqual(
             'HTTP://userName:pass%3Aword@[A::1]:81/ásdF/ghjK?a=b=c&D#/?',
             url_info.raw)
+        self.assertEqual(('/%C3%A1sdF', 'ghjK'), url_info.split_path())
 
         url_info = URLInfo.parse(
             'Ftp://N00B:hunter2@LocalHost.Example/mydocs/'
@@ -111,6 +112,7 @@ class TestURL(unittest.TestCase):
         self.assertEqual(
             'Ftp://N00B:hunter2@LocalHost.Example/mydocs/',
             url_info.raw)
+        self.assertEqual(('/mydocs', ''), url_info.split_path())
 
     def test_url_info_default_port(self):
         self.assertEqual(
