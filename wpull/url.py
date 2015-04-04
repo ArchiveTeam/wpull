@@ -68,7 +68,8 @@ class URLInfo(object):
         raw (str): Original string.
         scheme (str): Protocol (for example, HTTP, FTP).
         authority (str): Raw userinfo and host.
-        path (str): Location of resource.
+        path (str): Location of resource. This value always
+            begins with a slash (``/``).
         query (str): Additional request parameters.
         fragment (str): Named anchor of a document.
         userinfo (str): Raw username and password.
@@ -77,7 +78,8 @@ class URLInfo(object):
         host (str): Raw hostname and port.
         hostname (str): Hostname or IP address.
         port (int): IP address port number.
-        resource (int): Raw path, query, and fragment.
+        resource (int): Raw path, query, and fragment. This value always
+            begins with a slash (``/``).
         query_map (dict): Mapping of the query. Values are lists.
         url (str): A normalized URL without userinfo and fragment.
         encoding (str): Codec name for IRI support.
