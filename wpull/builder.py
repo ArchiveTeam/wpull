@@ -1321,7 +1321,8 @@ class Builder(object):
             self._args.youtube_dl_exe,
             (self._args.proxy_server_address, proxy_port),
             root_path=self._args.directory_prefix,
-            user_agent = self._args.user_agent or self.default_user_agent
+            user_agent=self._args.user_agent or self.default_user_agent,
+            warc_recorder=self._factory.get('WARCRecorder'),
         )
 
         return coprocessor

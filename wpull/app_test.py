@@ -1149,6 +1149,8 @@ class TestApp(GoodAppTestCase, TempDirMixin):
 
             self.assertTrue(b'youtube-dl/' in data, 'include version')
             self.assertTrue(re.search(b'Fetched.*googlevideo\.com/videoplayback', data))
+            self.assertTrue(b'WARC-Target-URI: metadata://www.youtube.com/watch?v=tPEE9ZwTmy0' in data)
+            self.assertTrue(b'Content-Type: application/vnd.youtube-dl_formats+json' in data)
 
         video_files = tuple(glob.glob('*.mp4') + glob.glob('*.webm'))
         self.assertTrue(video_files)

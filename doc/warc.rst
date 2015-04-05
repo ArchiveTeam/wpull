@@ -84,4 +84,12 @@ Wpull's log is recorded as
 
 The document encoding is UTF-8.
 
+youtube-dl
+++++++++++
+
+JSON file is recorded as
+
+* WARC-Type: ``metadata``
+* Content-Type: ``application/vnd.youtube-dl_formats+json``
+* WARC-Target-URI: ``metadata://AUTHORITY_AND_RESOURCE`` where ``AUTHORITY_AND_RESOURCE`` is the hierarchical part, query, and fragment of the URL passed to youtube-dl. In other words, the URI is the URL where the scheme is replaced with ``metadata``.
 

@@ -6,6 +6,11 @@ Summary of notable changes.
 
 .. Take advice from http://keepachangelog.com/.
 
+Unreleased
+==========
+
+* Changed: when using ``--youtube-dl`` and ``--warc-file``, the JSON metedata file is now saved in the WARC file compatible with pywb.
+
 
 1.1 (2015-04-03)
 ================
