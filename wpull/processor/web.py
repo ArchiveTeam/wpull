@@ -427,9 +427,9 @@ class WebProcessorSession(BaseProcessorSession):
             status_code=response.status_code,
             reason=wpull.string.printable_str(response.reason),
             content_length=wpull.string.printable_str(
-                response.fields.get('Content-Length', _('none'))),
+                response.fields.get('Content-Length', _('unspecified'))),
             content_type=wpull.string.printable_str(
-                response.fields.get('Content-Type', _('none'))),
+                response.fields.get('Content-Type', _('unspecified'))),
         ))
 
     def _handle_response(self, request, response):

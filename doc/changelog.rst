@@ -10,6 +10,7 @@ Unreleased
 ==========
 
 * Changed: when using ``--youtube-dl`` and ``--warc-file``, the JSON metedata file is now saved in the WARC file compatible with pywb.
+* Changed: logging and progress meter to say "unspecified" instead of "none" when no content length is provided by server to match Wget.
 
 
 1.1 (2015-04-03)

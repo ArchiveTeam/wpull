@@ -103,9 +103,9 @@ class BaseProgressRecorderSession(BaseRecorderSession):
 
         self._println(
             _('  Length: {content_length} [{content_type}]').format(
-                content_length=self._content_length or _('none'),
+                content_length=self._content_length or _('unspecified'),
                 content_type=wpull.string.printable_str(
-                    content_type or _('none')
+                    content_type or _('unspecified')
                 )
             ),
         )
