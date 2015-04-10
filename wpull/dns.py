@@ -43,8 +43,6 @@ class Resolver(HookableMixin):
     '''Prefer IPv4 addresses.'''
     PREFER_IPv6 = 'prefer_ipv6'
     '''Prefer IPv6 addresses.'''
-    global_cache = FIFOCache(max_items=100, time_to_live=3600)
-    '''The cache for resolved addresses.'''
 
     def __init__(self, cache_enabled=True, family=PREFER_IPv4,
                  timeout=None, rotate=False):
@@ -54,7 +52,7 @@ class Resolver(HookableMixin):
             'Unknown family {}.'.format(family)
 
         if cache_enabled:
-            self._cache = self.global_cache
+            self._cache = FIFOCache(max_items=100, time_to_live=3600)
         else:
             self._cache = None
 
