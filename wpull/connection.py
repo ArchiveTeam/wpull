@@ -394,8 +394,8 @@ class ConnectionState(object):
     dead = 'dead'
 
 
-class Connection(object):
-    '''Network stream.
+class BaseConnection(object):
+    '''Base network stream.
 
     Args:
         address (tuple): 2-item tuple containing the IP address and port.
@@ -405,29 +405,18 @@ class Connection(object):
         connect_timeout (float): Time in seconds before a connect operation
             times out.
         bind_host (str): Host name for binding the socket interface.
-        bandwidth_limiter (class:`.bandwidth.BandwidthLimiter`): Bandwidth
-            limiter for connection speed limiting.
         sock (:class:`socket.socket`): Use given socket. The socket must
             already by connected.
 
     Attributes:
-        key: Value used by the ConnectionPool for its host pool map. Internal
-            use only.
-        wrapped_connection: A wrapped connection for ConnectionPool. Internal
-            use only.
         reader: Stream Reader instance.
         writer: Stream Writer instance.
         address: 2-item tuple containing the IP address.
         host (str): Host name.
         port (int): Port number.
-        ssl (bool): Whether connection is SSL.
-        proxied (bool): Whether the connection is to a HTTP proxy.
-        tunneled (bool): Whether the connection has been tunneled with the
-            ``CONNECT`` request.
     '''
     def __init__(self, address, hostname=None, timeout=None,
-                 connect_timeout=None, bind_host=None, bandwidth_limiter=None,
-                 sock=None):
+                 connect_timeout=None, bind_host=None, sock=None):
         assert len(address) >= 2, 'Expect str & port. Got {}.'.format(address)
         assert '.' in address[0] or ':' in address[0], \
             'Expect numerical address. Got {}.'.format(address[0])
@@ -437,16 +426,11 @@ class Connection(object):
         self._timeout = timeout
         self._connect_timeout = connect_timeout
         self._bind_host = bind_host
-        self._bandwidth_limiter = bandwidth_limiter
         self._sock = sock
-        self.key = None
-        self.wrapped_connection = None
         self.reader = None
         self.writer = None
         self._close_timer = None
         self._state = ConnectionState.ready
-        self._proxied = False
-        self._tunneled = False
 
     @property
     def address(self):
@@ -463,29 +447,6 @@ class Connection(object):
     @property
     def port(self):
         return self._address[1]
-
-    @property
-    def ssl(self):
-        return False
-
-    @property
-    def tunneled(self):
-        if self.closed():
-            self._tunneled = False
-
-        return self._tunneled
-
-    @tunneled.setter
-    def tunneled(self, value):
-        self._tunneled = value
-
-    @property
-    def proxied(self):
-        return self._proxied
-
-    @proxied.setter
-    def proxied(self, value):
-        self._proxied = value
 
     def closed(self):
         '''Return whether the connection is closed.'''
@@ -588,14 +549,6 @@ class Connection(object):
                 name='Read')
         )
 
-        if self._bandwidth_limiter:
-            self._bandwidth_limiter.feed(len(data))
-
-            sleep_time = self._bandwidth_limiter.sleep_time()
-            if sleep_time:
-                _logger.debug('Sleep %s', sleep_time)
-                yield From(trollius.sleep(sleep_time))
-
         raise Return(data)
 
     @trollius.coroutine
@@ -678,6 +631,71 @@ class Connection(object):
                     raise NetworkError(
                         '{name} network error: {error}'
                         .format(name=name, error=error)) from error
+
+
+class Connection(BaseConnection):
+    '''Network stream.
+
+    Args:
+        bandwidth_limiter (class:`.bandwidth.BandwidthLimiter`): Bandwidth
+            limiter for connection speed limiting.
+
+    Attributes:
+        key: Value used by the ConnectionPool for its host pool map. Internal
+            use only.
+        wrapped_connection: A wrapped connection for ConnectionPool. Internal
+            use only.
+
+        ssl (bool): Whether connection is SSL.
+        proxied (bool): Whether the connection is to a HTTP proxy.
+        tunneled (bool): Whether the connection has been tunneled with the
+            ``CONNECT`` request.
+    '''
+    def __init__(self, *args, bandwidth_limiter=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._bandwidth_limiter = bandwidth_limiter
+        self.key = None
+        self.wrapped_connection = None
+        self._proxied = False
+        self._tunneled = False
+
+    @property
+    def ssl(self):
+        return False
+
+    @property
+    def tunneled(self):
+        if self.closed():
+            self._tunneled = False
+
+        return self._tunneled
+
+    @tunneled.setter
+    def tunneled(self, value):
+        self._tunneled = value
+
+    @property
+    def proxied(self):
+        return self._proxied
+
+    @proxied.setter
+    def proxied(self, value):
+        self._proxied = value
+
+    @trollius.coroutine
+    def read(self, amount=-1):
+        data = yield From(super().read(amount))
+
+        if self._bandwidth_limiter:
+            self._bandwidth_limiter.feed(len(data))
+
+            sleep_time = self._bandwidth_limiter.sleep_time()
+            if sleep_time:
+                _logger.debug('Sleep %s', sleep_time)
+                yield From(trollius.sleep(sleep_time))
+
+        raise Return(data)
 
     @trollius.coroutine
     def start_tls(self, ssl_context=True):
