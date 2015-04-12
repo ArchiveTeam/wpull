@@ -492,6 +492,11 @@ class HTTPWARCRecorderSession(BaseWARCRecorderSession):
             self._response_record.block_file.close()
 
     def pre_request(self, request):
+        assert re.match(
+            r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[a-f0-9:]+)$',
+            request.address[0]), \
+            'IP address needed, got {}'.format(request.address[0])
+
         self._request = request
         self._request_record = record = WARCRecord()
         record.set_common_fields(WARCRecord.REQUEST, WARCRecord.TYPE_REQUEST)
@@ -512,6 +517,11 @@ class HTTPWARCRecorderSession(BaseWARCRecorderSession):
         self._recorder.write_record(self._request_record)
 
     def pre_response(self, response):
+        assert re.match(
+            r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[a-f0-9:]+)$',
+            self._request.address[0]), \
+            'IP address needed, got {}'.format(self._request.address[0])
+
         self._response_record = record = WARCRecord()
         record.set_common_fields(WARCRecord.RESPONSE, WARCRecord.TYPE_RESPONSE)
         record.fields['WARC-Target-URI'] = self._request.url_info.url
