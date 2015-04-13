@@ -14,6 +14,7 @@ import tornado.netutil
 import trollius
 
 from wpull.backport.logging import BraceMessage as __
+from wpull.cache import FIFOCache
 from wpull.dns import Resolver
 from wpull.errors import NetworkError, ConnectionRefused, SSLVerificationError, \
     NetworkTimedOut
@@ -219,6 +220,7 @@ class ConnectionPool(object):
         self._host_pools_lock = trollius.Lock()
         self._release_tasks = set()
         self._closed = False
+        self._happy_eyeballs_table = HappyEyeballsTable()
 
     @property
     def host_pools(self):
@@ -242,15 +244,19 @@ class ConnectionPool(object):
 
         yield From(self._process_no_wait_releases())
 
-        family, address = yield From(self._resolver.resolve(host, port))
+        address = host, port
         key = host_key or (host, port, use_ssl)
 
         if use_ssl:
             connection_factory = functools.partial(
-                self._ssl_connection_factory, address, host)
+                self._ssl_connection_factory, address, host,
+                resolver=self._resolver,
+                happy_eyeballs_table=self._happy_eyeballs_table)
         else:
             connection_factory = functools.partial(
-                self._connection_factory, address, host)
+                self._connection_factory, address, host,
+                resolver=self._resolver,
+                happy_eyeballs_table=self._happy_eyeballs_table)
 
         with (yield From(self._host_pools_lock)):
             if key not in self._host_pools:
@@ -398,7 +404,7 @@ class BaseConnection(object):
     '''Base network stream.
 
     Args:
-        address (tuple): 2-item tuple containing the IP address and port.
+        address (tuple): 2-item tuple containing the hostname and port.
         hostname (str): Hostname of the address (for SSL).
         timeout (float): Time in seconds before a read/write operation
             times out.
@@ -407,19 +413,31 @@ class BaseConnection(object):
         bind_host (str): Host name for binding the socket interface.
         sock (:class:`socket.socket`): Use given socket. The socket must
             already by connected.
+        resolver (:class:`.dns.Resolver`): DNS resolver.
+        happy_eyeballs_table (:class:`HappyEyeballsTable`): Happy Eyeballs
+            Table.
 
     Attributes:
         reader: Stream Reader instance.
         writer: Stream Writer instance.
-        address: 2-item tuple containing the IP address.
-        host (str): Host name.
+        address: 2-item tuple of the connected the socket address.
+        host (str): IP address.
         port (int): Port number.
     '''
+
+    global_resolver = None
+    global_happy_eyeballs_table = None
+
     def __init__(self, address, hostname=None, timeout=None,
-                 connect_timeout=None, bind_host=None, sock=None):
+                 connect_timeout=None, bind_host=None, sock=None,
+                 resolver=None, happy_eyeballs_table=None):
         assert len(address) >= 2, 'Expect str & port. Got {}.'.format(address)
-        assert '.' in address[0] or ':' in address[0], \
-            'Expect numerical address. Got {}.'.format(address[0])
+
+        if not resolver and not self.global_resolver:
+            self.global_resolver = Resolver()
+
+        if not happy_eyeballs_table and not self.global_happy_eyeballs_table:
+            self.global_happy_eyeballs_table = HappyEyeballsTable()
 
         self._address = address
         self._hostname = hostname or address[0]
@@ -427,14 +445,17 @@ class BaseConnection(object):
         self._connect_timeout = connect_timeout
         self._bind_host = bind_host
         self._sock = sock
+        self._resolver = resolver or self.global_resolver
+        self._happy_eyeballs_table = happy_eyeballs_table or self.global_happy_eyeballs_table
         self.reader = None
         self.writer = None
         self._close_timer = None
         self._state = ConnectionState.ready
+        self._active_address = None
 
     @property
     def address(self):
-        return self._address
+        return self._active_address
 
     @property
     def hostname(self):
@@ -442,11 +463,11 @@ class BaseConnection(object):
 
     @property
     def host(self):
-        return self._address[0]
+        return self.address[0]
 
     @property
     def port(self):
-        return self._address[1]
+        return self.address[1]
 
     def closed(self):
         '''Return whether the connection is closed.'''
@@ -465,24 +486,16 @@ class BaseConnection(object):
             raise Exception('Closed connection must be reset before reusing.')
 
         if self._sock:
-            connection_future = trollius.open_connection(
-                sock=self._sock, **self._connection_kwargs()
-            )
+            yield From(self._connect_existing_socket(self._sock))
         else:
             # TODO: maybe we don't want to ignore flow-info and scope-id?
-            host = self._address[0]
-            port = self._address[1]
+            results = yield From(self._resolver.resolve_dual(self._address[0], self._address[1]))
+            primary_address, secondary_address = self._get_preferred_address(results)
 
-            connection_future = trollius.open_connection(
-                host, port, **self._connection_kwargs()
-            )
-
-        self.reader, self.writer = yield From(
-            self.run_network_operation(
-                connection_future,
-                wait_timeout=self._connect_timeout,
-                name='Connect')
-        )
+            if not secondary_address:
+                yield From(self._connect_single_stack(primary_address))
+            else:
+                yield From(self._connect_dual_stack(primary_address, secondary_address))
 
         if self._timeout is not None:
             self._close_timer = CloseTimer(self._timeout, self)
@@ -500,6 +513,102 @@ class BaseConnection(object):
             kwargs['local_addr'] = (self._bind_host, 0)
 
         return kwargs
+
+    def _get_preferred_address(self, results):
+        '''Get preferred addreses from DNS results.'''
+        primary_result = results[0]
+        primary_address = primary_result[1]
+
+        if len(results) == 1:
+            secondary_address = None
+        else:
+            secondary_result = results[1]
+            secondary_address = secondary_result[1]
+
+            preferred_address = self._happy_eyeballs_table.get_preferred(
+                primary_address, secondary_address)
+
+            if preferred_address:
+                primary_address = preferred_address
+                secondary_address = None
+
+        return primary_address, secondary_address
+
+    @trollius.coroutine
+    def _connect_existing_socket(self, sock):
+        '''Connect using existing socket.'''
+        connection_future = trollius.open_connection(
+            sock=self._sock, **self._connection_kwargs()
+        )
+        yield From(self._run_open_connection(connection_future))
+
+    @trollius.coroutine
+    def _connect_single_stack(self, address):
+        '''Connect with a single address.'''
+        connection_future = trollius.open_connection(
+            address[0], address[1], **self._connection_kwargs()
+        )
+        yield From(self._run_open_connection(connection_future))
+
+    @trollius.coroutine
+    def _connect_dual_stack(self, primary_address, secondary_address):
+        '''Connect with dual addresses.'''
+        primary_fut = self._run_open_connection(trollius.open_connection(
+            primary_address[0], primary_address[1],
+            **self._connection_kwargs()
+        ))
+        secondary_fut = self._run_open_connection(trollius.open_connection(
+            secondary_address[0], secondary_address[1],
+            **self._connection_kwargs()
+        ))
+
+        failed = False
+
+        for fut in trollius.as_completed((primary_fut, secondary_fut)):
+            if not self.writer:
+                try:
+                    yield From(fut)
+                except NetworkError:
+                    if not failed:
+                        _logger.debug('Original dual stack exception', exc_info=True)
+                        failed = True
+                    else:
+                        raise
+                else:
+                    _logger.debug('Got first of dual stack.')
+            else:
+                @trollius.coroutine
+                def cleanup():
+                    try:
+                        reader, writer = yield From(fut)
+                    except NetworkError:
+                        pass
+                    else:
+                        writer.close()
+                    _logger.debug('Closed abandoned connection.')
+
+                trollius.get_event_loop().create_task(cleanup())
+
+        if self._active_address[0] == secondary_address[0]:
+            preferred_addr = secondary_address
+        else:
+            preferred_addr = primary_address
+
+        self._happy_eyeballs_table.set_preferred(preferred_addr, primary_address, secondary_address)
+
+        assert self.writer
+        assert self.reader
+
+    @trollius.coroutine
+    def _run_open_connection(self, fut):
+        '''Wait for connection.'''
+        self.reader, self.writer = yield From(
+            self.run_network_operation(
+                fut,
+                wait_timeout=self._connect_timeout,
+                name='Connect')
+        )
+        self._active_address = self.writer.get_extra_info('peername')
 
     def close(self):
         '''Close the connection.'''
@@ -773,3 +882,20 @@ class SSLConnection(Connection):
             tornado.netutil.ssl_match_hostname(cert, self._hostname)
         except SSLCertificateError as error:
             raise SSLVerificationError('Invalid SSL certificate') from error
+
+
+class HappyEyeballsTable(object):
+    def __init__(self, max_items=100, time_to_live=600):
+        self._cache = FIFOCache(max_items=max_items, time_to_live=time_to_live)
+
+    def set_preferred(self, preferred_addr, addr_1, addr_2):
+        if addr_1 > addr_2:
+            addr_1, addr_2 = addr_2, addr_1
+
+        self._cache[(addr_1, addr_2)] = preferred_addr
+
+    def get_preferred(self, addr_1, addr_2):
+        if addr_1 > addr_2:
+            addr_1, addr_2 = addr_2, addr_1
+
+        return self._cache.get((addr_1, addr_2))
