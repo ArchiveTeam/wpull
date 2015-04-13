@@ -540,7 +540,8 @@ class BaseConnection(object):
         connection_future = trollius.open_connection(
             sock=self._sock, **self._connection_kwargs()
         )
-        yield From(self._run_open_connection(connection_future))
+        self.reader, self.writer = yield From(self._run_open_connection(connection_future))
+        self._active_address = self.writer.get_extra_info('peername')
 
     @trollius.coroutine
     def _connect_single_stack(self, address):
@@ -548,7 +549,8 @@ class BaseConnection(object):
         connection_future = trollius.open_connection(
             address[0], address[1], **self._connection_kwargs()
         )
-        yield From(self._run_open_connection(connection_future))
+        self.reader, self.writer = yield From(self._run_open_connection(connection_future))
+        self._active_address = self.writer.get_extra_info('peername')
 
     @trollius.coroutine
     def _connect_dual_stack(self, primary_address, secondary_address):
@@ -567,7 +569,7 @@ class BaseConnection(object):
         for fut in trollius.as_completed((primary_fut, secondary_fut)):
             if not self.writer:
                 try:
-                    yield From(fut)
+                    self.reader, self.writer = yield From(fut)
                 except NetworkError:
                     if not failed:
                         _logger.debug('Original dual stack exception', exc_info=True)
@@ -575,6 +577,7 @@ class BaseConnection(object):
                     else:
                         raise
                 else:
+                    self._active_address = self.writer.get_extra_info('peername')
                     _logger.debug('Got first of dual stack.')
             else:
                 @trollius.coroutine
@@ -598,17 +601,18 @@ class BaseConnection(object):
 
         assert self.writer
         assert self.reader
+        assert self._active_address
 
     @trollius.coroutine
     def _run_open_connection(self, fut):
         '''Wait for connection.'''
-        self.reader, self.writer = yield From(
+        reader, writer = yield From(
             self.run_network_operation(
                 fut,
                 wait_timeout=self._connect_timeout,
                 name='Connect')
         )
-        self._active_address = self.writer.get_extra_info('peername')
+        raise Return((reader, writer))
 
     def close(self):
         '''Close the connection.'''
