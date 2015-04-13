@@ -66,6 +66,9 @@ class Session(BaseSession):
         full_url = connection.proxied and not connection.tunneled
 
         self._stream = stream = self._stream_factory(connection)
+
+        yield From(self._stream.reconnect())
+
         request.address = connection.address
 
         self._connect_data_observer()

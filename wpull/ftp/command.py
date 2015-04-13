@@ -48,18 +48,15 @@ class Commander(object):
                 )
 
     @trollius.coroutine
-    def reconnect(self):
-        '''Reconnect if needed and read the welcome message.
+    def read_welcome_message(self):
+        '''Read the welcome message.
 
         Coroutine.
         '''
-        if self._control_stream.closed():
-            yield From(self._control_stream.reconnect())
+        reply = yield From(self._control_stream.read_reply())
 
-            reply = yield From(self._control_stream.read_reply())
-
-            self.raise_if_not_match(
-                'Server ready', ReplyCodes.service_ready_for_new_user, reply)
+        self.raise_if_not_match(
+            'Server ready', ReplyCodes.service_ready_for_new_user, reply)
 
     @trollius.coroutine
     def login(self, username='anonymous', password='-wpull-lib@'):
