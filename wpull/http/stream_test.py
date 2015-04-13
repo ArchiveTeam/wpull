@@ -63,6 +63,7 @@ class StreamTestsMixin(object):
 
     @trollius.coroutine
     def fetch(self, stream, request):
+        yield From(stream.reconnect())
         yield From(stream.write_request(request))
         response = yield From(stream.read_response())
         content = io.BytesIO()
