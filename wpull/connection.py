@@ -885,16 +885,19 @@ class SSLConnection(Connection):
 
 
 class HappyEyeballsTable(object):
+    '''Happy eyeballs connection cache table.'''
     def __init__(self, max_items=100, time_to_live=600):
         self._cache = FIFOCache(max_items=max_items, time_to_live=time_to_live)
 
     def set_preferred(self, preferred_addr, addr_1, addr_2):
+        '''Set the preferred address.'''
         if addr_1 > addr_2:
             addr_1, addr_2 = addr_2, addr_1
 
         self._cache[(addr_1, addr_2)] = preferred_addr
 
     def get_preferred(self, addr_1, addr_2):
+        '''Return the preferred address.'''
         if addr_1 > addr_2:
             addr_1, addr_2 = addr_2, addr_1
 
