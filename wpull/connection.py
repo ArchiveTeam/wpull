@@ -14,6 +14,7 @@ import tornado.netutil
 import trollius
 
 from wpull.backport.logging import BraceMessage as __
+from wpull.cache import FIFOCache
 from wpull.dns import Resolver
 from wpull.errors import NetworkError, ConnectionRefused, SSLVerificationError, \
     NetworkTimedOut
@@ -219,6 +220,7 @@ class ConnectionPool(object):
         self._host_pools_lock = trollius.Lock()
         self._release_tasks = set()
         self._closed = False
+        self._happy_eyeballs_table = HappyEyeballsTable()
 
     @property
     def host_pools(self):
@@ -242,15 +244,20 @@ class ConnectionPool(object):
 
         yield From(self._process_no_wait_releases())
 
-        family, address = yield From(self._resolver.resolve(host, port))
-        key = host_key or (host, port, use_ssl)
-
         if use_ssl:
             connection_factory = functools.partial(
-                self._ssl_connection_factory, address, host)
+                self._ssl_connection_factory, hostname=host)
         else:
             connection_factory = functools.partial(
-                self._connection_factory, address, host)
+                self._connection_factory, hostname=host)
+
+        connection_factory = functools.partial(
+            HappyEyeballsConnection, (host, port), connection_factory,
+            self._resolver, self._happy_eyeballs_table,
+            is_ssl=use_ssl
+        )
+
+        key = host_key or (host, port, use_ssl)
 
         with (yield From(self._host_pools_lock)):
             if key not in self._host_pools:
@@ -773,3 +780,147 @@ class SSLConnection(Connection):
             tornado.netutil.ssl_match_hostname(cert, self._hostname)
         except SSLCertificateError as error:
             raise SSLVerificationError('Invalid SSL certificate') from error
+
+
+class HappyEyeballsConnection(object):
+    '''Wrapper for happy eyeballs connection.'''
+    def __init__(self, address, connection_factory, resolver,
+                 happy_eyeballs_table, is_ssl=False):
+        self._address = address
+        self._connection_factory = connection_factory
+        self._resolver = resolver
+        self._happy_eyeballs_table = happy_eyeballs_table
+        self._primary_connection = None
+        self._secondary_connection = None
+        self._active_connection = None
+        self.key = None
+        self.proxied = False
+        self.tunneled = False
+        self.ssl = is_ssl
+
+    def __getattr__(self, item):
+        return getattr(self._active_connection, item)
+
+    def closed(self):
+        if self._active_connection:
+            return self._active_connection.closed()
+        else:
+            return True
+
+    def close(self):
+        if self._active_connection:
+            self._active_connection.close()
+
+    def reset(self):
+        if self._active_connection:
+            self._active_connection.reset()
+
+    @trollius.coroutine
+    def connect(self):
+        if self._active_connection:
+            yield From(self._active_connection.connect())
+            return
+
+        results = yield From(self._resolver.resolve_dual(self._address[0], self._address[1]))
+
+        primary_address, secondary_address = self._get_preferred_address(results)
+
+        if not secondary_address:
+            self._primary_connection = self._active_connection = self._connection_factory(primary_address)
+            yield From(self._primary_connection.connect())
+        else:
+            yield From(self._connect_dual_stack(primary_address, secondary_address))
+
+    @trollius.coroutine
+    def _connect_dual_stack(self, primary_address, secondary_address):
+        '''Connect using happy eyeballs.'''
+        self._primary_connection = self._connection_factory(primary_address)
+        self._secondary_connection = self._connection_factory(secondary_address)
+
+        @trollius.coroutine
+        def connect_primary():
+            yield From(self._primary_connection.connect())
+            raise Return(self._primary_connection)
+
+        @trollius.coroutine
+        def connect_secondary():
+            yield From(self._secondary_connection.connect())
+            raise Return(self._secondary_connection)
+
+        primary_fut = connect_primary()
+        secondary_fut = connect_secondary()
+
+        failed = False
+
+        for fut in trollius.as_completed((primary_fut, secondary_fut)):
+            if not self._active_connection:
+                try:
+                    self._active_connection = yield From(fut)
+                except NetworkError:
+                    if not failed:
+                        _logger.debug('Original dual stack exception', exc_info=True)
+                        failed = True
+                    else:
+                        raise
+                else:
+                    _logger.debug('Got first of dual stack.')
+
+            else:
+                @trollius.coroutine
+                def cleanup():
+                    try:
+                        conn = yield From(fut)
+                    except NetworkError:
+                        pass
+                    else:
+                        conn.close()
+                    _logger.debug('Closed abandoned connection.')
+
+                trollius.get_event_loop().create_task(cleanup())
+
+        if self._active_connection.address == secondary_address:
+            preferred_addr = secondary_address
+        else:
+            preferred_addr = primary_address
+
+        self._happy_eyeballs_table.set_preferred(preferred_addr, primary_address, secondary_address)
+
+    def _get_preferred_address(self, results):
+        '''Get preferred addreses from DNS results.'''
+        primary_result = results[0]
+        primary_address = primary_result[1]
+
+        if len(results) == 1:
+            secondary_address = None
+        else:
+            secondary_result = results[1]
+            secondary_address = secondary_result[1]
+
+            preferred_address = self._happy_eyeballs_table.get_preferred(
+                primary_address, secondary_address)
+
+            if preferred_address:
+                primary_address = preferred_address
+                secondary_address = None
+
+        return primary_address, secondary_address
+
+
+class HappyEyeballsTable(object):
+    def __init__(self, max_items=100, time_to_live=600):
+        '''Happy eyeballs connection cache table.'''
+        self._cache = FIFOCache(max_items=max_items, time_to_live=time_to_live)
+
+    def set_preferred(self, preferred_addr, addr_1, addr_2):
+        '''Set the preferred address.'''
+        if addr_1 > addr_2:
+            addr_1, addr_2 = addr_2, addr_1
+
+        self._cache[(addr_1, addr_2)] = preferred_addr
+
+    def get_preferred(self, addr_1, addr_2):
+        '''Return the preferred address.'''
+        if addr_1 > addr_2:
+            addr_1, addr_2 = addr_2, addr_1
+
+        return self._cache.get((addr_1, addr_2))

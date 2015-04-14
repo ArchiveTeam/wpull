@@ -3,11 +3,13 @@
 import socket
 import ssl
 import sys
+import functools
 
 from trollius import From
 import trollius
 
 from wpull.connection import Connection, ConnectionPool, HostPool
+from wpull.dns import Resolver
 from wpull.errors import NetworkError, NetworkTimedOut, SSLVerificationError
 import wpull.testing.async
 from wpull.testing.badapp import BadAppTestCase, SSLBadAppTestCase
@@ -157,6 +159,56 @@ class TestConnection(BadAppTestCase):
 
         data = yield From(connection2.readline())
         self.assertEqual(b'HTTP', data[:4])
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_happy_eyeballs_prefer_ipv4(self):
+        connection_factory = functools.partial(Connection, connect_timeout=10)
+        resolver = Resolver(family=Resolver.PREFER_IPv4)
+        pool = ConnectionPool(resolver=resolver,
+                              connection_factory=connection_factory)
+
+        conn1 = yield From(pool.acquire('google.com', 80))
+        conn2 = yield From(pool.acquire('google.com', 80))
+
+        yield From(conn1.connect())
+        yield From(conn2.connect())
+        conn1.close()
+        conn2.close()
+
+        yield From(pool.release(conn1))
+        yield From(pool.release(conn2))
+
+        conn3 = yield From(pool.acquire('google.com', 80))
+
+        yield From(conn3.connect())
+        conn3.close()
+
+        yield From(pool.release(conn3))
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_happy_eyeballs_prefer_ipv6(self):
+        connection_factory = functools.partial(Connection, connect_timeout=10)
+        resolver = Resolver(family=Resolver.PREFER_IPv6)
+        pool = ConnectionPool(resolver=resolver,
+                              connection_factory=connection_factory)
+
+        conn1 = yield From(pool.acquire('google.com', 80))
+        conn2 = yield From(pool.acquire('google.com', 80))
+
+        yield From(conn1.connect())
+        yield From(conn2.connect())
+        conn1.close()
+        conn2.close()
+
+        yield From(pool.release(conn1))
+        yield From(pool.release(conn2))
+
+        conn3 = yield From(pool.acquire('google.com', 80))
+
+        yield From(conn3.connect())
+        conn3.close()
+
+        yield From(pool.release(conn3))
 
 
 class TestConnectionSSL(SSLBadAppTestCase):
