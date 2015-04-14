@@ -8,7 +8,8 @@ import functools
 from trollius import From
 import trollius
 
-from wpull.connection import Connection, ConnectionPool, HostPool
+from wpull.connection import Connection, ConnectionPool, HostPool, \
+    HappyEyeballsTable
 from wpull.dns import Resolver
 from wpull.errors import NetworkError, NetworkTimedOut, SSLVerificationError
 import wpull.testing.async
@@ -209,6 +210,26 @@ class TestConnection(BadAppTestCase):
         conn3.close()
 
         yield From(pool.release(conn3))
+
+    def test_happy_eyeballs_table(self):
+        table = HappyEyeballsTable()
+
+        self.assertIsNone(table.get_preferred('127.0.0.1', '::1'))
+
+        table.set_preferred('::1', '127.0.0.1', '::1')
+
+        self.assertEqual('::1', table.get_preferred('127.0.0.1', '::1'))
+        self.assertEqual('::1', table.get_preferred('::1', '127.0.0.1'))
+
+        table.set_preferred('::1', '::1', '127.0.0.1')
+
+        self.assertEqual('::1', table.get_preferred('127.0.0.1', '::1'))
+        self.assertEqual('::1', table.get_preferred('::1', '127.0.0.1'))
+
+        table.set_preferred('127.0.0.1', '::1', '127.0.0.1')
+
+        self.assertEqual('127.0.0.1', table.get_preferred('127.0.0.1', '::1'))
+        self.assertEqual('127.0.0.1', table.get_preferred('::1', '127.0.0.1'))
 
 
 class TestConnectionSSL(SSLBadAppTestCase):
