@@ -1149,8 +1149,10 @@ class Builder(object):
             family = socket.AF_INET6
         elif args.prefer_family == 'IPv6':
             family = Resolver.PREFER_IPv6
-        else:
+        elif args.prefer_family == 'IPv4':
             family = Resolver.PREFER_IPv4
+        else:
+            family = None
 
         if self._factory.class_map['Resolver'] is NotImplemented:
             if args.always_getaddrinfo:

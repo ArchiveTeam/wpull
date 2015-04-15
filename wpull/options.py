@@ -640,7 +640,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         inet_group.add_argument(
             '--prefer-family',
             metavar='FAMILY',
-            choices=['IPv6', 'IPv4'],
+            choices=['none', 'IPv6', 'IPv4'],
             help=_('prefer to connect to FAMILY IP addresses'),
         )
         group.add_argument(
