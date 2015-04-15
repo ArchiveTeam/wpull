@@ -47,6 +47,16 @@ class MockDNSResolver(Resolver):
         self.hosts_touched.add(host)
         raise Return((socket.AF_INET, ('127.0.0.1', port)))
 
+    @trollius.coroutine
+    def resolve_all(self, host, port):
+        self.hosts_touched.add(host)
+        raise Return([(socket.AF_INET, ('127.0.0.1', port))])
+
+    @trollius.coroutine
+    def resolve_dual(self, host, port):
+        self.hosts_touched.add(host)
+        raise Return([(socket.AF_INET, ('127.0.0.1', port))])
+
 
 class TestApp(GoodAppTestCase, TempDirMixin):
     def setUp(self):
