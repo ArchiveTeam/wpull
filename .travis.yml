@@ -10,7 +10,7 @@ python:
 addons:
   apt:
     packages:
-      - liblua5.2-dev
+      - liblua5.2-0-dev
 
 cache:
   directories:
