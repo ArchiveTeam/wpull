@@ -109,7 +109,7 @@ class TestClient(FTPTestCase):
         self.assertEqual(5, len(response.files))
         self.assertEqual('junk', response.files[0].name)
         self.assertEqual('example1', response.files[1].name)
-        self.assertEqual('example2', response.files[2].name)
+        self.assertEqual('example2💎', response.files[2].name)
         self.assertEqual('example (copy).txt', response.files[3].name)
         self.assertEqual('readme.txt', response.files[4].name)
 

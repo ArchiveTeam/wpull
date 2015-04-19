@@ -669,25 +669,33 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
 
     def request_control_data(self, data):
         text = textwrap_indent(
-            data.decode('latin-1'), '> ', predicate=lambda line: True
+            data.decode('utf-8', errors='surrogateescape'),
+            '> ', predicate=lambda line: True
         )
-        self._control_record.block_file.write(text.encode('latin-1'))
+        self._control_record.block_file.write(
+            text.encode('utf-8', errors='surrogateescape')
+        )
 
         if not data.endswith(b'\n'):
             self._control_record.block_file.write(b'\n')
 
     def response_control_data(self, data):
         text = textwrap_indent(
-            data.decode('latin-1'), '< ', predicate=lambda line: True
+            data.decode('utf-8', errors='surrogateescape'),
+            '< ', predicate=lambda line: True
         )
-        self._control_record.block_file.write(text.encode('latin-1'))
+        self._control_record.block_file.write(
+            text.encode('utf-8', errors='surrogateescape')
+        )
 
         if not data.endswith(b'\n'):
             self._control_record.block_file.write(b'\n')
 
     def _write_control_event(self, text):
         text = textwrap_indent(text, '* ', predicate=lambda line: True)
-        self._control_record.block_file.write(text.encode('latin-1'))
+        self._control_record.block_file.write(
+            text.encode('utf-8', errors='surrogateescape')
+        )
 
         if not text.endswith('\n'):
             self._control_record.block_file.write(b'\n')

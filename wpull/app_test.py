@@ -1643,7 +1643,7 @@ class TestAppFTP(FTPTestCase, TempDirMixin):
         self.assertTrue(os.path.exists('readme.txt'))
         self.assertFalse(os.path.islink('readme.txt'))
         self.assertTrue(os.path.exists('example1/.listing'))
-        self.assertTrue(os.path.exists('example2/.listing'))
+        self.assertTrue(os.path.exists('example2💎/.listing'))
         self.assertTrue(os.path.exists('mywarc.warc.gz'))
 
         with gzip.GzipFile('mywarc.warc.gz') as in_file:
@@ -1682,7 +1682,7 @@ class TestAppFTP(FTPTestCase, TempDirMixin):
     def test_file_vs_directory(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            self.get_url('/example2'),
+            self.get_url('/example2💎'),
             '--no-host-directories',
             '--no-remove-listing',
             '-r',
@@ -1696,7 +1696,24 @@ class TestAppFTP(FTPTestCase, TempDirMixin):
         print(list(os.walk('.')))
 
         self.assertEqual(0, exit_code)
-        self.assertTrue(os.path.exists('example2/.listing'))
+        self.assertTrue(os.path.exists('example2💎/.listing'))
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_invalid_char_dir_list(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/hidden/invalid_chars/'),
+            '--no-host-directories',
+            '--no-remove-listing',
+        ])
+        builder = Builder(args, unit_test=True)
+
+        app = builder.build()
+        exit_code = yield From(app.run())
+        print(list(os.walk('.')))
+
+        self.assertEqual(0, exit_code)
+        self.assertTrue(os.path.exists('.listing'))
 
 
 @trollius.coroutine

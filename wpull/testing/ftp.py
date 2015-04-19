@@ -42,10 +42,10 @@ class FTPSession(object):
         self.routes = {
             '/':
                 ('dir',
-                 b'junk\nexample1\nexample2\nexample (copy).txt\nreadme.txt\n',
+                 'junk\nexample1\nexample2💎\nexample (copy).txt\nreadme.txt\n'.encode('utf8'),
                  ('drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 junk\r\n'
                   'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example1\r\n'
-                  'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example2\r\n'
+                  'drw-r--r-- 1 smaug smaug 0 Apr 01 00:00 example2💎\r\n'
                   '-rw-r--r-- 1 smaug smaug 42 Apr 01 00:00 example (copy).txt\r\n'
                   'lrwxrwxrwx 1 smaug smaug 4 Apr 01 00:00 readme.txt -> example (copy).txt\r\n'
                  ).encode('utf-8')),
@@ -61,16 +61,18 @@ class FTPSession(object):
                 ('dir', b'loopy', b'loopy'),
             '/example1/loopy':
                 ('symlink', '/'),
-            '/example2':
+            '/example2💎':
                 ('dir', b'trash.txt',
                  ('02-09-2010  03:00PM                      13 trash.txt\r\n'
                  ).encode('utf-8'),
                  b'type=file; trash.txt\n'
                 ),
-            '/example2/trash.txt':
+            '/example2💎/trash.txt':
                 ('file', b'hello dragon!'),
             '/hidden/sleep.txt':
                 ('file', b'asdf'),
+            '/hidden/invalid_chars':
+                ('dir', b'wow\xf0\xff', b'wow\xf0\xff'),
         }
         self.command = None
         self.arg = None
@@ -93,9 +95,9 @@ class FTPSession(object):
                 return
 
             try:
-                command, arg = line.decode('latin-1').split(' ', 1)
+                command, arg = line.decode('utf-8', errors='replace').split(' ', 1)
             except ValueError:
-                command = line.decode('latin-1').strip()
+                command = line.decode('utf-8', errors='replace').strip()
                 arg = ''
 
             self.command = command.upper()
@@ -179,7 +181,7 @@ class FTPSession(object):
         else:
             self.writer.write('227 Now passive mode (127,0,0,1,{},{})\r\n'
                               .format(big_port_num, small_port_num)
-                              .encode('latin-1'))
+                              .encode('utf-8'))
 
     @trollius.coroutine
     def _wait_data_writer(self):
@@ -281,7 +283,7 @@ class FTPSession(object):
             self.writer.write(b'226 End data\r\n')
             self.data_server.close()
 
-            if self.path == '/example2/trash.txt':
+            if self.path == '/example2💎/trash.txt':
                 self.writer.close()
         else:
             self.writer.write(b'550 File error\r\n')
@@ -294,7 +296,7 @@ class FTPSession(object):
             self.writer.write(b'213 ')
             self.writer.write(str(len(info[1])).encode('ascii'))
             self.writer.write(b'\r\n')
-        elif info and info[0] == 'file' and self.path == '/example2/trash.txt':
+        elif info and info[0] == 'file' and self.path == '/example2💎/trash.txt':
             self.writer.write(b'213 3.14\r\n')
         else:
             self.writer.write(b'550 Unknown command\r\n')
@@ -315,7 +317,7 @@ class FTPSession(object):
 
     @trollius.coroutine
     def _cmd_cwd(self):
-        if self.arg in ('example1', 'example2', '/'):
+        if self.arg in ('example1', 'example2💎', '/'):
             self.writer.write(b'250 Changed directory\r\n')
         else:
             self.writer.write(b'550 Change directory error\r\n')

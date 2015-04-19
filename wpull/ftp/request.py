@@ -11,7 +11,7 @@ import wpull.ftp.util
 class Command(SerializableMixin, DictableMixin):
     '''FTP request command.
 
-    Encoding is Latin-1.
+    Encoding is UTF-8.
 
     Attributes:
         name (str): The command. Usually 4 characters or less.
@@ -42,11 +42,12 @@ class Command(SerializableMixin, DictableMixin):
         if not match:
             raise ProtocolError('Failed to parse command.')
 
-        self.name = match.group(1).decode('latin-1')
-        self.argument = match.group(2).decode('latin-1')
+        self.name = match.group(1).decode('utf-8', errors='surrogateescape')
+        self.argument = match.group(2).decode('utf-8', errors='surrogateescape')
 
     def to_bytes(self):
-        return '{0} {1}\r\n'.format(self.name, self.argument).encode('latin-1')
+        return '{0} {1}\r\n'.format(self.name, self.argument).encode(
+            'utf-8', errors='surrogateescape')
 
     def to_dict(self):
         return {
@@ -58,7 +59,7 @@ class Command(SerializableMixin, DictableMixin):
 class Reply(SerializableMixin, DictableMixin):
     '''FTP reply.
 
-    Encoding is always Latin-1.
+    Encoding is always UTF-8.
 
     Attributes:
         code (int): Reply code.
@@ -80,9 +81,11 @@ class Reply(SerializableMixin, DictableMixin):
                 self.code = int(match.group(1))
 
             if self.text is None:
-                self.text = match.group(3).decode('latin-1')
+                self.text = match.group(3).decode('utf-8',
+                                                  errors='surrogateescape')
             else:
-                self.text += '\r\n{0}'.format(match.group(3).decode('latin-1'))
+                self.text += '\r\n{0}'.format(match.group(3).decode(
+                    'utf-8', errors='surrogateescape'))
 
     def to_bytes(self):
         assert self.code is not None
@@ -99,7 +102,7 @@ class Reply(SerializableMixin, DictableMixin):
             else:
                 lines.append('{0}-{1}\r\n'.format(self.code, line))
 
-        return ''.join(lines).encode('latin-1')
+        return ''.join(lines).encode('utf-8', errors='surrogateescape')
 
     def to_dict(self):
         return {

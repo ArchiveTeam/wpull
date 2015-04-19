@@ -290,7 +290,8 @@ class Session(BaseSession):
                 self._response.body.seek(0)
 
                 machine_listings = wpull.ftp.util.parse_machine_listing(
-                    self._response.body.read().decode('latin-1'),
+                    self._response.body.read().decode('utf-8',
+                                                      errors='surrogateescape'),
                     convert=True, strict=False
                 )
                 listings = list(
@@ -300,7 +301,8 @@ class Session(BaseSession):
             else:
                 self._response.body.seek(0)
 
-                file = io.TextIOWrapper(self._response.body, encoding='latin-1')
+                file = io.TextIOWrapper(self._response.body, encoding='utf-8',
+                                        errors='surrogateescape')
 
                 listing_parser = ListingParser(file=file)
                 heuristics_result = listing_parser.run_heuristics()
