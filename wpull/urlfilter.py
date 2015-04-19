@@ -225,7 +225,7 @@ class SpanHostsFilter(BaseURLFilter):
         self._page_requisites = page_requisites
         self._linked_pages = linked_pages
         self._base_urls = frozenset(
-            [url_info.hostname for url_info in input_url_infos]
+            url_info.hostname for url_info in input_url_infos
         )
 
     def test(self, url_info, url_table_record):
