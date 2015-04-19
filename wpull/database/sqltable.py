@@ -181,9 +181,9 @@ class BaseSQLURLTable(BaseURLTable):
 
     def release(self):
         with self._session() as session:
-            session.query(URL)\
-                .filter_by(status=Status.in_progress)\
-                .update({URL.status: Status.todo})
+            query = update(URL).values({URL.status: Status.todo})\
+                .where(URL.status==Status.in_progress)
+            session.execute(query)
 
     def remove_many(self, urls):
         assert not isinstance(urls, (str, bytes)), \
