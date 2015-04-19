@@ -4,12 +4,14 @@ import calendar
 import codecs
 import contextlib
 import datetime
+import gzip
 import os.path
 import platform
 import re
 import sys
 import time
 import zipfile
+import pickle
 
 
 IS_PYPY = platform.python_implementation() == 'PyPy'
@@ -208,3 +210,50 @@ def get_exception_message(instance):
         return type(instance).__name__
     except AttributeError:
         return str(instance)
+
+
+class PickleStream(object):
+    '''Pickle stream helper.'''
+    def __init__(self, filename=None, file=None, mode='rb',
+                 protocol=pickle.DEFAULT_PROTOCOL):
+        if file:
+            self._file = file
+        else:
+            self._file = open(filename, mode)
+
+        self._protocol = protocol
+
+    def dump(self, obj):
+        '''Pickle an object.'''
+        pickle.dump(obj, self._file, protocol=self._protocol)
+
+    def load(self):
+        '''Unpickle an object.'''
+        return pickle.load(self._file)
+
+    def iter_load(self):
+        '''Unpickle objects.'''
+        while True:
+            try:
+                yield pickle.load(self._file)
+            except EOFError:
+                break
+
+    def close(self):
+        '''Close stream.'''
+        self._file.close()
+
+
+class GzipPickleStream(PickleStream):
+    '''gzip compressed pickle stream.'''
+    def __init__(self, filename=None, file=None, mode='rb', **kwargs):
+        if file:
+            self._gzip_file = gzip.GzipFile(fileobj=file, mode=mode)
+        else:
+            self._gzip_file = gzip.GzipFile(filename, mode=mode)
+
+        super().__init__(file=self._gzip_file, mode=mode, **kwargs)
+
+    def close(self):
+        self._gzip_file.close()
+        super().close()
