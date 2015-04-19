@@ -11,6 +11,7 @@ Unreleased
 ==========
 
 * Fixed: Connecting to sites with IPv4 & IPv6 support resulted in errors when IPv6 was not supported by the local network. Connections now use Happy Eyeballs Algorithm for IPv4 & IPv6 dual-stack support.
+* Fixed: SQLAlchemy error with PyPy and SQLAlchemy 1.0.
 * Changed: ``--prefer-family=none`` is now default.
 * Added: ``none`` as a choice to ``--prefer-family``.
 
