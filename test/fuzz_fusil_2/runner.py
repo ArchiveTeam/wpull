@@ -51,7 +51,7 @@ class Fuzzer(Application):
         process = ProjectProcess(
             self.project,
             [
-                'python3', '-m', 'wpull',
+                'python3', '-X', 'faulthandler', '-m', 'wpull',
                 '127.0.0.1:{0}'.format(port),
                 '--timeout', '5',
                 '--warc-file', 'fusil-test',
