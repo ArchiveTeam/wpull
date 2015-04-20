@@ -599,6 +599,37 @@ class TestApp(GoodAppTestCase, TempDirMixin):
         self.assertEqual(0, exit_code)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_save_cookie(self):
+        arg_parser = AppArgumentParser()
+
+        with tempfile.NamedTemporaryFile() as in_file:
+            in_file.write(b'# Kittens\n')
+            in_file.write(b'localhost.local')
+            in_file.write(b'\tFALSE\t/\tFALSE\t9999999999\tisloggedin\t1\n')
+            in_file.write(b'\tFALSE\t/\tFALSE\t\tadmin\t1\n')
+            in_file.flush()
+
+            args = arg_parser.parse_args([
+                self.get_url('/some_page/'),
+                '--load-cookies', in_file.name,
+                '--tries', '1',
+                '--save-cookies', 'wpull_test_cookies.txt',
+                ])
+            builder = Builder(args, unit_test=True)
+
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+            self.assertEqual(0, exit_code)
+            self.assertEqual(1, builder.factory['Statistics'].files)
+
+            with open('wpull_test_cookies.txt', 'rb') as saved_file:
+                cookie_data = saved_file.read()
+
+            self.assertIn(b'isloggedin\t1', cookie_data)
+            self.assertNotIn(b'admin\t1', cookie_data)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_session_cookie(self):
         arg_parser = AppArgumentParser()
 

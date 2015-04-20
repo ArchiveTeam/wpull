@@ -1262,7 +1262,7 @@ class Builder(object):
             'CookieJarWrapper',
             cookie_jar,
             save_filename=self._args.save_cookies,
-            keep_session_cookies=True,
+            keep_session_cookies=self._args.keep_session_cookies,
         )
 
         return cookie_jar_wrapper
