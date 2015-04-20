@@ -14,6 +14,7 @@ Unreleased
 * Fixed: SQLAlchemy error with PyPy and SQLAlchemy 1.0.
 * Fixed: Input URLs are not fetched in order. Regression since 1.1.
 * Fixed: UnicodeEncodeError when fetching FTP files with non-ASCII filenames.
+* Fixed: Session cookies not loaded when using ``--load-cookies``.
 * Changed: FTP communication uses UTF-8 instead of Latin-1.
 * Changed: ``--prefer-family=none`` is now default.
 * Added: ``none`` as a choice to ``--prefer-family``.

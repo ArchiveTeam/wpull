@@ -599,13 +599,16 @@ class TestApp(GoodAppTestCase, TempDirMixin):
         self.assertEqual(0, exit_code)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_cookie(self):
+    def test_session_cookie(self):
         arg_parser = AppArgumentParser()
 
         with tempfile.NamedTemporaryFile() as in_file:
             in_file.write(b'# Kittens\n')
             in_file.write(b'localhost.local')
+            # session cookie, Python style
             in_file.write(b'\tFALSE\t/\tFALSE\t\ttest\tno\n')
+            # session cookie, Firefox/Wget/Curl style
+            in_file.write(b'\tFALSE\t/\tFALSE\t0\tsessionid\tboxcat\n')
             in_file.flush()
 
             args = arg_parser.parse_args([
@@ -618,16 +621,22 @@ class TestApp(GoodAppTestCase, TempDirMixin):
             builder = Builder(args, unit_test=True)
 
             app = builder.build()
+
+            self.assertEqual(2, len(builder.factory['CookieJar']))
+
             exit_code = yield From(app.run())
 
             self.assertEqual(0, exit_code)
             self.assertEqual(1, builder.factory['Statistics'].files)
 
-            cookies = list(builder.factory['CookieJar'])
+            cookies = list(sorted(builder.factory['CookieJar'],
+                                  key=lambda cookie:cookie.name))
             _logger.debug('{0}'.format(cookies))
-            self.assertEqual(1, len(cookies))
-            self.assertEqual('test', cookies[0].name)
-            self.assertEqual('yes', cookies[0].value)
+            self.assertEqual(2, len(cookies))
+            self.assertEqual('sessionid', cookies[0].name)
+            self.assertEqual('boxcat', cookies[0].value)
+            self.assertEqual('test', cookies[1].name)
+            self.assertEqual('yes', cookies[1].value)
 
             with open('wpull_test_cookies.txt', 'rb') as saved_file:
                 cookie_data = saved_file.read()

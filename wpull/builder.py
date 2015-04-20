@@ -22,7 +22,7 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.bandwidth import BandwidthLimiter
 from wpull.connection import Connection, ConnectionPool, SSLConnection
 from wpull.converter import BatchDocumentConverter
-from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
+from wpull.cookie import DeFactoCookiePolicy, BetterMozillaCookieJar
 from wpull.coprocessor.phantomjs import PhantomJSCoprocessor, PhantomJSParams
 from wpull.coprocessor.proxy import ProxyCoprocessor
 from wpull.coprocessor.youtubedl import YoutubeDlCoprocessor
@@ -1243,7 +1243,7 @@ class Builder(object):
             return
 
         if self._args.load_cookies or self._args.save_cookies:
-            self._factory.set('CookieJar', RelaxedMozillaCookieJar)
+            self._factory.set('CookieJar', BetterMozillaCookieJar)
 
             cookie_jar = self._factory.new('CookieJar')
 

@@ -7,7 +7,7 @@ import tornado.httpclient
 import tornado.testing
 import trollius
 
-from wpull.cookie import RelaxedMozillaCookieJar, DeFactoCookiePolicy
+from wpull.cookie import BetterMozillaCookieJar, DeFactoCookiePolicy
 from wpull.http.client import Client
 from wpull.proxy.server import HTTPProxyServer
 from wpull.recorder.printing import DebugPrintRecorder
@@ -34,7 +34,7 @@ class TestProxy(wpull.testing.goodapp.GoodAppTestCase):
     @unittest.skipIf(pycurl is None, "pycurl module not present")
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_basic(self):
-        cookie_jar = RelaxedMozillaCookieJar()
+        cookie_jar = BetterMozillaCookieJar()
         policy = DeFactoCookiePolicy(cookie_jar=cookie_jar)
         cookie_jar.set_policy(policy)
         cookie_jar_wrapper = CookieJarWrapper(cookie_jar)
