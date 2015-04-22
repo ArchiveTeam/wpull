@@ -164,7 +164,7 @@ class WARCRecorder(BaseRecorder):
         self._warcinfo_record.set_common_fields(
             WARCRecord.WARCINFO, WARCRecord.WARC_FIELDS)
 
-        info_fields = NameValueRecord()
+        info_fields = NameValueRecord(wrap_width=1024)
         info_fields['Software'] = self._params.software_string \
             or self.DEFAULT_SOFTWARE_STRING
         info_fields['format'] = 'WARC File Format 1.0'
