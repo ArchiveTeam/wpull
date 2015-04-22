@@ -6,6 +6,7 @@ import codecs
 import functools
 import gettext
 import itertools
+import json
 import logging
 import os.path
 import socket
@@ -722,7 +723,8 @@ class Builder(object):
         if args.warc_file:
             extra_fields = [
                 ('robots', 'on' if args.robots else 'off'),
-                ('wpull-arguments', str(args))
+                ('wpull-arguments', str(args)),
+                ('wpull-argv', json.dumps(sys.argv[1:])),
             ]
 
             for header_string in args.warc_header:
