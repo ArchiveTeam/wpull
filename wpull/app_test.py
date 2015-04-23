@@ -1755,6 +1755,38 @@ class TestAppFTP(FTPTestCase, TempDirMixin):
         self.assertEqual(0, exit_code)
         self.assertTrue(os.path.exists('.listing'))
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_globbing(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/read*.txt'),
+        ])
+        builder = Builder(args, unit_test=True)
+
+        app = builder.build()
+        exit_code = yield From(app.run())
+        print(list(os.walk('.')))
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_no_globbing(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/read*.txt'),
+            '--tries=1',
+            '--no-glob',
+        ])
+        builder = Builder(args, unit_test=True)
+
+        app = builder.build()
+        exit_code = yield From(app.run())
+        print(list(os.walk('.')))
+
+        self.assertEqual(8, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
+
 
 @trollius.coroutine
 def tornado_future_adapter(future):

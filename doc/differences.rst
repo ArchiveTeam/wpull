@@ -19,7 +19,6 @@ Missing in Wpull
 * ``--body-data``
 * ``--body-file``
 * ``--auth-no-challenge``: Temporarily on by default, but specifying the option is not yet available. Digest authentication is not yet supported.
-* ``--no-glob``: Temporarily on by default, but specifying the option is not yet available. Globbing is not yet supported.
 * ``--no-passive-ftp``
 * ``--mirror``
 * ``--strict-comments``: No plans for support of this option.

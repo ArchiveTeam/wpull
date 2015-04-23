@@ -952,6 +952,7 @@ class Builder(object):
             remove_listing=self._args.remove_listing,
             retr_symlinks=self._args.retr_symlinks,
             preserve_permissions=self._args.preserve_permissions,
+            glob=self._args.glob,
         )
 
         instances = self._factory.new(
