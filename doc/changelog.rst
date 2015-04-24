@@ -19,6 +19,7 @@ Unreleased
 * Changed: FTP communication uses UTF-8 instead of Latin-1.
 * Changed: ``--prefer-family=none`` is now default.
 * Added: ``none`` as a choice to ``--prefer-family``.
+* Added: ``--no-glob`` and FTP filename glob support.
 
 
 1.1.1 (2015-04-13)

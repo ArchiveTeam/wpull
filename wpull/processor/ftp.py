@@ -1,10 +1,12 @@
 '''FTP'''
 import copy
+import fnmatch
 import gettext
 import logging
 import os
 import posixpath
 import tempfile
+import urllib.parse
 
 from trollius.coroutines import Return, From
 import namedlist
@@ -28,6 +30,8 @@ from wpull.writer import NullWriter
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
+
+GLOB_CHARS = frozenset('[]*?')
 
 
 FTPProcessorFetchParams = namedlist.namedtuple(
@@ -145,6 +149,7 @@ class FTPProcessorSession(BaseProcessorSession):
         self._result_rule = processor.instances.result_rule
 
         self._file_writer_session = processor.instances.file_writer.session()
+        self._glob_pattern = None
 
     def close(self):
         pass
@@ -167,9 +172,18 @@ class FTPProcessorSession(BaseProcessorSession):
         if self._fetch_rule.ftp_login:
             request.username, request.password = self._fetch_rule.ftp_login
 
-        is_file = yield From(self._prepare_request_file_vs_dir(request))
+        dir_name, filename = self._url_item.url_info.split_path()
+        if self._processor.fetch_params.glob and frozenset(filename) & GLOB_CHARS:
+            directory_url = to_dir_path_url(request.url_info)
+            directory_request = copy.deepcopy(request)
+            directory_request.url = directory_url
+            request = directory_request
+            is_file = False
+            self._glob_pattern = urllib.parse.unquote(filename)
+        else:
+            is_file = yield From(self._prepare_request_file_vs_dir(request))
 
-        self._file_writer_session.process_request(request)
+            self._file_writer_session.process_request(request)
 
         wait_time = yield From(self._fetch(request, is_file))
 
@@ -260,7 +274,7 @@ class FTPProcessorSession(BaseProcessorSession):
         raise Return(directory_response.files)
 
     @trollius.coroutine
-    def _fetch(self, request, is_file):
+    def _fetch(self, request, is_file, glob_pattern=None):
         '''Fetch the request
 
         Coroutine.
@@ -338,7 +352,16 @@ class FTPProcessorSession(BaseProcessorSession):
         dir_urls_to_add = set()
         file_urls_to_add = set()
 
+        if self._glob_pattern:
+            level = self._url_item.url_record.level
+        else:
+            level = None
+
         for file_entry in response.files:
+            if self._glob_pattern and \
+                    not fnmatch.fnmatchcase(file_entry.name, self._glob_pattern):
+                continue
+
             if file_entry.type == 'dir':
                 linked_url = urljoin_safe(base_url, file_entry.name + '/')
             elif file_entry.type in ('file', 'symlink', None):
@@ -355,7 +378,7 @@ class FTPProcessorSession(BaseProcessorSession):
                 linked_url_info = parse_url_or_log(linked_url)
 
                 if linked_url_info:
-                    linked_url_record = self._url_item.child_url_record(linked_url_info)
+                    linked_url_record = self._url_item.child_url_record(linked_url_info, level=level)
 
                     verdict = self._fetch_rule.check_ftp_request(
                         linked_url_info, linked_url_record)[0]
@@ -367,7 +390,7 @@ class FTPProcessorSession(BaseProcessorSession):
                             file_urls_to_add.add(linked_url_info.url)
 
         self._url_item.add_child_urls(dir_urls_to_add, link_type=LinkType.directory)
-        self._url_item.add_child_urls(file_urls_to_add, link_type=LinkType.file)
+        self._url_item.add_child_urls(file_urls_to_add, link_type=LinkType.file, level=level)
 
     def _log_response(self, request, response):
         '''Log response.'''

@@ -198,7 +198,7 @@ class URLItem(object):
         '''
         self.add_child_urls([{'url': url}], inline=inline, **kwargs)
 
-    def add_child_urls(self, urls, inline=False, **kwargs):
+    def add_child_urls(self, urls, inline=False, level=None, **kwargs):
         '''Add links scraped from the document with automatic values.
 
         Args:
@@ -223,14 +223,14 @@ class URLItem(object):
         self._url_table.add_many(
             [item if isinstance(item, dict) else {'url': item} for item in urls],
             inline=(self._url_record.inline or 0) + 1 if inline else None,
-            level=self._url_record.level + 1,
+            level=self._url_record.level + 1 if level is None else level,
             referrer=self._url_record.url,
             top_url=self._url_record.top_url or self._url_record.url,
             **kwargs
         )
 
     def child_url_record(self, url_info, inline=False,
-                         link_type=None, post_data=None):
+                         link_type=None, post_data=None, level=None):
         '''Return a child URLRecord.
 
         This function is useful for testing filters before adding to table.
@@ -239,7 +239,7 @@ class URLItem(object):
             url_info.url,  # url
             Status.todo,  # status
             0,  # try_count
-            self._url_record.level + 1,  # level
+            self._url_record.level + 1 if level is None else level,  # level
             self._url_record.top_url or self._url_record.url,  # top_url
             None,  # status_code
             self._url_record.url,  # referrer

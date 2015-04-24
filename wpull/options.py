@@ -1006,10 +1006,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             dest='remove_listing',
             help=_('keep directory file listings')
         )
-#         group.add_argument(
-#             '--no-glob',
-#             action='store_true',
-#         )
+        group.add_argument(
+            '--no-glob',
+            action='store_false',
+            default=True,
+            dest='glob',
+            help=_('don’t use filename glob patterns on FTP URLs')
+        )
 #         group.add_argument(
 #             '--no-passive-ftp',
 #             action='store_true',
