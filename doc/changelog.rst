@@ -7,8 +7,8 @@ Summary of notable changes.
 .. Take advice from http://keepachangelog.com/.
 
 
-Unreleased
-==========
+1.2 (2015-04-24)
+================
 
 * Fixed: Connecting to sites with IPv4 & IPv6 support resulted in errors when IPv6 was not supported by the local network. Connections now use Happy Eyeballs Algorithm for IPv4 & IPv6 dual-stack support.
 * Fixed: SQLAlchemy error with PyPy and SQLAlchemy 1.0.
