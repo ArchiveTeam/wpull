@@ -1,11 +1,13 @@
 # encoding=utf-8
+import os
 import sys
+import tempfile
 import unittest
 from dns.resolver import NoNameservers
 
 from wpull.util import (datetime_str, python_version, filter_pem,
                         parse_iso8601_str, is_ascii, close_on_error,
-                        get_exception_message)
+                        get_exception_message, GzipPickleStream)
 
 
 DEFAULT_TIMEOUT = 30
@@ -106,3 +108,32 @@ class TestUtil(unittest.TestCase):
             self.assertEqual(
                 'NoNameservers', get_exception_message(error)
             )
+
+    def test_pickle_stream_filename(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            filename = os.path.join(temp_dir, 'blah.pickle')
+            stream = GzipPickleStream(filename, mode='wb')
+
+            for num in range(10):
+                stream.dump(num)
+
+            stream = GzipPickleStream(filename, mode='rb')
+
+            for num, obj in enumerate(stream.iter_load()):
+                self.assertEqual(num, obj)
+
+    def test_pickle_stream_file_obj(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            filename = os.path.join(temp_dir, 'blah.pickle')
+            file = open(filename, mode='wb+')
+
+            stream = GzipPickleStream(file=file, mode='wb')
+
+            for num in range(10):
+                stream.dump(num)
+
+            stream = GzipPickleStream(file=file, mode='rb')
+
+            for num, obj in enumerate(stream.iter_load()):
+                self.assertEqual(num, obj)
+

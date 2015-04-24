@@ -158,3 +158,14 @@ class TestNameValue(unittest.TestCase):
 
         # Check for no crash
         copy.deepcopy(record)
+
+    def test_wrap_width(self):
+        record = NameValueRecord(wrap_width=24)
+        record['blah'] = 'hello ' * 10
+
+        self.assertEqual(
+            'Blah: hello hello hello hello\r\n'
+            '  hello hello hello \r\n'
+            ' hello hello hello \r\n',
+            str(record)
+        )

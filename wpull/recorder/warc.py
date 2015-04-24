@@ -164,7 +164,7 @@ class WARCRecorder(BaseRecorder):
         self._warcinfo_record.set_common_fields(
             WARCRecord.WARCINFO, WARCRecord.WARC_FIELDS)
 
-        info_fields = NameValueRecord()
+        info_fields = NameValueRecord(wrap_width=1024)
         info_fields['Software'] = self._params.software_string \
             or self.DEFAULT_SOFTWARE_STRING
         info_fields['format'] = 'WARC File Format 1.0'
@@ -529,6 +529,11 @@ class HTTPWARCRecorderSession(BaseWARCRecorderSession):
             self._response_record.block_file.close()
 
     def pre_request(self, request):
+        assert re.match(
+            r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[a-f0-9:]+)$',
+            request.address[0]), \
+            'IP address needed, got {}'.format(request.address[0])
+
         self._request = request
         self._request_record = record = WARCRecord()
         record.set_common_fields(WARCRecord.REQUEST, WARCRecord.TYPE_REQUEST)
@@ -549,6 +554,11 @@ class HTTPWARCRecorderSession(BaseWARCRecorderSession):
         self._recorder.write_record(self._request_record)
 
     def pre_response(self, response):
+        assert re.match(
+            r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[a-f0-9:]+)$',
+            self._request.address[0]), \
+            'IP address needed, got {}'.format(self._request.address[0])
+
         self._response_record = record = WARCRecord()
         record.set_common_fields(WARCRecord.RESPONSE, WARCRecord.TYPE_RESPONSE)
         record.fields['WARC-Target-URI'] = self._request.url_info.url
@@ -659,25 +669,33 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
 
     def request_control_data(self, data):
         text = textwrap_indent(
-            data.decode('latin-1'), '> ', predicate=lambda line: True
+            data.decode('utf-8', errors='surrogateescape'),
+            '> ', predicate=lambda line: True
         )
-        self._control_record.block_file.write(text.encode('latin-1'))
+        self._control_record.block_file.write(
+            text.encode('utf-8', errors='surrogateescape')
+        )
 
         if not data.endswith(b'\n'):
             self._control_record.block_file.write(b'\n')
 
     def response_control_data(self, data):
         text = textwrap_indent(
-            data.decode('latin-1'), '< ', predicate=lambda line: True
+            data.decode('utf-8', errors='surrogateescape'),
+            '< ', predicate=lambda line: True
         )
-        self._control_record.block_file.write(text.encode('latin-1'))
+        self._control_record.block_file.write(
+            text.encode('utf-8', errors='surrogateescape')
+        )
 
         if not data.endswith(b'\n'):
             self._control_record.block_file.write(b'\n')
 
     def _write_control_event(self, text):
         text = textwrap_indent(text, '* ', predicate=lambda line: True)
-        self._control_record.block_file.write(text.encode('latin-1'))
+        self._control_record.block_file.write(
+            text.encode('utf-8', errors='surrogateescape')
+        )
 
         if not text.endswith('\n'):
             self._control_record.block_file.write(b'\n')

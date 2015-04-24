@@ -640,7 +640,7 @@ class AppArgumentParser(argparse.ArgumentParser):
         inet_group.add_argument(
             '--prefer-family',
             metavar='FAMILY',
-            choices=['IPv6', 'IPv4'],
+            choices=['none', 'IPv6', 'IPv4'],
             help=_('prefer to connect to FAMILY IP addresses'),
         )
         group.add_argument(
@@ -1006,10 +1006,13 @@ class AppArgumentParser(argparse.ArgumentParser):
             dest='remove_listing',
             help=_('keep directory file listings')
         )
-#         group.add_argument(
-#             '--no-glob',
-#             action='store_true',
-#         )
+        group.add_argument(
+            '--no-glob',
+            action='store_false',
+            default=True,
+            dest='glob',
+            help=_('don’t use filename glob patterns on FTP URLs')
+        )
 #         group.add_argument(
 #             '--no-passive-ftp',
 #             action='store_true',

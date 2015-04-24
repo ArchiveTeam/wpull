@@ -6,9 +6,9 @@ import codecs
 import functools
 import gettext
 import itertools
+import json
 import logging
 import os.path
-import shelve
 import socket
 import ssl
 import sys
@@ -23,7 +23,7 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.bandwidth import BandwidthLimiter
 from wpull.connection import Connection, ConnectionPool, SSLConnection
 from wpull.converter import BatchDocumentConverter
-from wpull.cookie import DeFactoCookiePolicy, RelaxedMozillaCookieJar
+from wpull.cookie import DeFactoCookiePolicy, BetterMozillaCookieJar
 from wpull.coprocessor.phantomjs import PhantomJSCoprocessor, PhantomJSParams
 from wpull.coprocessor.proxy import ProxyCoprocessor
 from wpull.coprocessor.youtubedl import YoutubeDlCoprocessor
@@ -76,7 +76,7 @@ from wpull.urlfilter import (DemuxURLFilter, HTTPSOnlyFilter, SchemeFilter,
                              BackwardFilenameFilter, ParentFilter,
                              FollowFTPFilter)
 from wpull.urlrewrite import URLRewriter
-from wpull.util import ASCIIStreamWriter
+from wpull.util import ASCIIStreamWriter, GzipPickleStream
 from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (NullWriter, OverwriteFileWriter,
@@ -161,10 +161,9 @@ class Builder(object):
             'WebProcessorInstances': WebProcessorInstances,
             'YoutubeDlCoprocessor': YoutubeDlCoprocessor,
         })
-        self._input_urls_temp_dir = tempfile.TemporaryDirectory(
-            prefix='tmp-wpull', dir=os.getcwd())
-        self._input_urls_db = shelve.open(
-            os.path.join(self._input_urls_temp_dir.name, 'input_urls.db'))
+        self._input_urls_temp_file = tempfile.NamedTemporaryFile(
+            prefix='tmp-wpull-input_urls', dir=os.getcwd(),
+            suffix='.pickle')
         self._ca_certs_file = None
         self._file_log_handler = None
         self._console_log_handler = None
@@ -200,15 +199,32 @@ class Builder(object):
         resource_monitor = self._build_resource_monitor()
 
         self._build_demux_document_scraper()
-        for url_info in self._build_input_urls():
-            self._input_urls_db[url_info.url] = url_info
+
+        with wpull.util.reset_file_offset(self._input_urls_temp_file):
+            input_urls_pickle_stream = GzipPickleStream(
+                file=self._input_urls_temp_file, mode='wb'
+            )
+
+            for url_info in self._build_input_urls():
+                input_urls_pickle_stream.dump(url_info)
+
+            input_urls_pickle_stream.close()
+            del input_urls_pickle_stream
 
         statistics = self._factory.new('Statistics')
         statistics.quota = self._args.quota
 
         if self._args.quota:
-            for url_info in self._input_urls_db.values():
-                statistics.required_urls_db[url_info.url] = True
+            with wpull.util.reset_file_offset(self._input_urls_temp_file):
+                input_urls_pickle_stream = GzipPickleStream(
+                    file=self._input_urls_temp_file, mode='rb'
+                )
+
+                for url_info in input_urls_pickle_stream.iter_load():
+                    statistics.required_urls_db[url_info.url] = True
+
+                input_urls_pickle_stream.close()
+                del input_urls_pickle_stream
 
         url_table = self._build_url_table()
         processor = self._build_processor()
@@ -231,19 +247,24 @@ class Builder(object):
         self._warn_unsafe_options()
         self._warn_silly_options()
 
-        batch = []
+        with wpull.util.reset_file_offset(self._input_urls_temp_file):
+            batch = []
+            input_urls_pickle_stream = GzipPickleStream(
+                file=self._input_urls_temp_file, mode='rb'
+            )
 
-        for url_info in self._input_urls_db.values():
-            batch.append({'url': url_info.url})
-            if len(batch) > 1000:
-                url_table.add_many(batch)
-                batch = []
+            for url_info in input_urls_pickle_stream.iter_load():
+                batch.append({'url': url_info.url})
+                if len(batch) > 1000:
+                    url_table.add_many(batch)
+                    batch = []
 
-        url_table.add_many(batch)
+            url_table.add_many(batch)
 
-        self._input_urls_db.close()
-        self._input_urls_temp_dir.cleanup()
-        self._input_urls_temp_dir = None
+            input_urls_pickle_stream.close()
+            del input_urls_pickle_stream
+
+        self._input_urls_temp_file.close()
 
         return self._factory['Application']
 
@@ -554,14 +575,25 @@ class Builder(object):
             RecursiveFilter(
                 enabled=args.recursive, page_requisites=args.page_requisites
             ),
-            SpanHostsFilter(
-                (url_info for url_info in self._input_urls_db.values()),
-                enabled=args.span_hosts,
-                page_requisites='page-requisites' in args.span_hosts_allow,
-                linked_pages='linked-pages' in args.span_hosts_allow,
-            ),
             FollowFTPFilter(follow=args.follow_ftp),
         ]
+
+        with wpull.util.reset_file_offset(self._input_urls_temp_file):
+            input_urls_pickle_stream = GzipPickleStream(
+                file=self._input_urls_temp_file, mode='rb'
+            )
+
+            filters.append(
+                SpanHostsFilter(
+                    input_urls_pickle_stream.iter_load(),
+                    enabled=args.span_hosts,
+                    page_requisites='page-requisites' in args.span_hosts_allow,
+                    linked_pages='linked-pages' in args.span_hosts_allow,
+                )
+            )
+
+            input_urls_pickle_stream.close()
+            del input_urls_pickle_stream
 
         if args.no_parent:
             filters.append(ParentFilter())
@@ -691,7 +723,8 @@ class Builder(object):
         if args.warc_file:
             extra_fields = [
                 ('robots', 'on' if args.robots else 'off'),
-                ('wpull-arguments', str(args))
+                ('wpull-arguments', str(args)),
+                ('wpull-argv', json.dumps(sys.argv[1:])),
             ]
 
             for header_string in args.warc_header:
@@ -919,6 +952,7 @@ class Builder(object):
             remove_listing=self._args.remove_listing,
             retr_symlinks=self._args.retr_symlinks,
             preserve_permissions=self._args.preserve_permissions,
+            glob=self._args.glob,
         )
 
         instances = self._factory.new(
@@ -1149,8 +1183,10 @@ class Builder(object):
             family = socket.AF_INET6
         elif args.prefer_family == 'IPv6':
             family = Resolver.PREFER_IPv6
-        else:
+        elif args.prefer_family == 'IPv4':
             family = Resolver.PREFER_IPv4
+        else:
+            family = None
 
         if self._factory.class_map['Resolver'] is NotImplemented:
             if args.always_getaddrinfo:
@@ -1210,7 +1246,7 @@ class Builder(object):
             return
 
         if self._args.load_cookies or self._args.save_cookies:
-            self._factory.set('CookieJar', RelaxedMozillaCookieJar)
+            self._factory.set('CookieJar', BetterMozillaCookieJar)
 
             cookie_jar = self._factory.new('CookieJar')
 
@@ -1229,7 +1265,7 @@ class Builder(object):
             'CookieJarWrapper',
             cookie_jar,
             save_filename=self._args.save_cookies,
-            keep_session_cookies=True,
+            keep_session_cookies=self._args.keep_session_cookies,
         )
 
         return cookie_jar_wrapper

@@ -167,7 +167,7 @@ class Fuzzer(Application):
 
         process = ProjectProcess(
             self.project,
-            ['python3', '-m', 'wpull',
+            ['python3', '-X', 'faulthandler', '-m', 'wpull',
                 '127.0.0.1:8898',
                 '--timeout', '2.0',
                 '--tries', '1',

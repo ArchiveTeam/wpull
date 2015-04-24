@@ -28,7 +28,11 @@ The resource is formatted as followed:
 * Requests are indented with an ASCII greater-than and space.
 * Responses are indented with an ASCII less-than and space.
 
-The document encoding is Latin-1.
+The document encoding is UTF-8.
+
+.. versionchanged:: 1.2a1
+
+    The document encoding previously used Latin-1.
 
 
 Response data

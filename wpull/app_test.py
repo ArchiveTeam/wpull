@@ -47,6 +47,16 @@ class MockDNSResolver(Resolver):
         self.hosts_touched.add(host)
         raise Return((socket.AF_INET, ('127.0.0.1', port)))
 
+    @trollius.coroutine
+    def resolve_all(self, host, port):
+        self.hosts_touched.add(host)
+        raise Return([(socket.AF_INET, ('127.0.0.1', port))])
+
+    @trollius.coroutine
+    def resolve_dual(self, host, port):
+        self.hosts_touched.add(host)
+        raise Return([(socket.AF_INET, ('127.0.0.1', port))])
+
 
 class TestApp(GoodAppTestCase, TempDirMixin):
     def setUp(self):
@@ -589,13 +599,47 @@ class TestApp(GoodAppTestCase, TempDirMixin):
         self.assertEqual(0, exit_code)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_cookie(self):
+    def test_save_cookie(self):
         arg_parser = AppArgumentParser()
 
         with tempfile.NamedTemporaryFile() as in_file:
             in_file.write(b'# Kittens\n')
             in_file.write(b'localhost.local')
+            in_file.write(b'\tFALSE\t/\tFALSE\t9999999999\tisloggedin\t1\n')
+            in_file.write(b'\tFALSE\t/\tFALSE\t\tadmin\t1\n')
+            in_file.flush()
+
+            args = arg_parser.parse_args([
+                self.get_url('/some_page/'),
+                '--load-cookies', in_file.name,
+                '--tries', '1',
+                '--save-cookies', 'wpull_test_cookies.txt',
+                ])
+            builder = Builder(args, unit_test=True)
+
+            app = builder.build()
+            exit_code = yield From(app.run())
+
+            self.assertEqual(0, exit_code)
+            self.assertEqual(1, builder.factory['Statistics'].files)
+
+            with open('wpull_test_cookies.txt', 'rb') as saved_file:
+                cookie_data = saved_file.read()
+
+            self.assertIn(b'isloggedin\t1', cookie_data)
+            self.assertNotIn(b'admin\t1', cookie_data)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_session_cookie(self):
+        arg_parser = AppArgumentParser()
+
+        with tempfile.NamedTemporaryFile() as in_file:
+            in_file.write(b'# Kittens\n')
+            in_file.write(b'localhost.local')
+            # session cookie, Python style
             in_file.write(b'\tFALSE\t/\tFALSE\t\ttest\tno\n')
+            # session cookie, Firefox/Wget/Curl style
+            in_file.write(b'\tFALSE\t/\tFALSE\t0\tsessionid\tboxcat\n')
             in_file.flush()
 
             args = arg_parser.parse_args([
@@ -608,16 +652,22 @@ class TestApp(GoodAppTestCase, TempDirMixin):
             builder = Builder(args, unit_test=True)
 
             app = builder.build()
+
+            self.assertEqual(2, len(builder.factory['CookieJar']))
+
             exit_code = yield From(app.run())
 
             self.assertEqual(0, exit_code)
             self.assertEqual(1, builder.factory['Statistics'].files)
 
-            cookies = list(builder.factory['CookieJar'])
+            cookies = list(sorted(builder.factory['CookieJar'],
+                                  key=lambda cookie:cookie.name))
             _logger.debug('{0}'.format(cookies))
-            self.assertEqual(1, len(cookies))
-            self.assertEqual('test', cookies[0].name)
-            self.assertEqual('yes', cookies[0].value)
+            self.assertEqual(2, len(cookies))
+            self.assertEqual('sessionid', cookies[0].name)
+            self.assertEqual('boxcat', cookies[0].value)
+            self.assertEqual('test', cookies[1].name)
+            self.assertEqual('yes', cookies[1].value)
 
             with open('wpull_test_cookies.txt', 'rb') as saved_file:
                 cookie_data = saved_file.read()
@@ -1633,7 +1683,7 @@ class TestAppFTP(FTPTestCase, TempDirMixin):
         self.assertTrue(os.path.exists('readme.txt'))
         self.assertFalse(os.path.islink('readme.txt'))
         self.assertTrue(os.path.exists('example1/.listing'))
-        self.assertTrue(os.path.exists('example2/.listing'))
+        self.assertTrue(os.path.exists('example2💎/.listing'))
         self.assertTrue(os.path.exists('mywarc.warc.gz'))
 
         with gzip.GzipFile('mywarc.warc.gz') as in_file:
@@ -1672,7 +1722,7 @@ class TestAppFTP(FTPTestCase, TempDirMixin):
     def test_file_vs_directory(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([
-            self.get_url('/example2'),
+            self.get_url('/example2💎'),
             '--no-host-directories',
             '--no-remove-listing',
             '-r',
@@ -1686,7 +1736,56 @@ class TestAppFTP(FTPTestCase, TempDirMixin):
         print(list(os.walk('.')))
 
         self.assertEqual(0, exit_code)
-        self.assertTrue(os.path.exists('example2/.listing'))
+        self.assertTrue(os.path.exists('example2💎/.listing'))
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_invalid_char_dir_list(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/hidden/invalid_chars/'),
+            '--no-host-directories',
+            '--no-remove-listing',
+        ])
+        builder = Builder(args, unit_test=True)
+
+        app = builder.build()
+        exit_code = yield From(app.run())
+        print(list(os.walk('.')))
+
+        self.assertEqual(0, exit_code)
+        self.assertTrue(os.path.exists('.listing'))
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_globbing(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/read*.txt'),
+        ])
+        builder = Builder(args, unit_test=True)
+
+        app = builder.build()
+        exit_code = yield From(app.run())
+        print(list(os.walk('.')))
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, builder.factory['Statistics'].files)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_no_globbing(self):
+        arg_parser = AppArgumentParser()
+        args = arg_parser.parse_args([
+            self.get_url('/read*.txt'),
+            '--tries=1',
+            '--no-glob',
+        ])
+        builder = Builder(args, unit_test=True)
+
+        app = builder.build()
+        exit_code = yield From(app.run())
+        print(list(os.walk('.')))
+
+        self.assertEqual(8, exit_code)
+        self.assertEqual(0, builder.factory['Statistics'].files)
 
 
 @trollius.coroutine

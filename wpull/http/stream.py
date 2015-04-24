@@ -78,7 +78,6 @@ class Stream(object):
         Coroutine.
         '''
         _logger.debug('Sending headers.')
-        yield From(self._reconnect())
 
         if hasattr(request, 'prepare_for_send'):
             request.prepare_for_send(full_url=full_url)
@@ -435,7 +434,7 @@ class Stream(object):
         self._connection.close()
 
     @trollius.coroutine
-    def _reconnect(self):
+    def reconnect(self):
         '''Connect the connection if needed.
 
         Coroutine.

@@ -2,11 +2,13 @@
 import email
 from http.cookiejar import CookieJar
 import http.cookiejar
+import os
 import sys
+import tempfile
 import unittest
 import urllib.request
 
-from wpull.cookie import DeFactoCookiePolicy
+from wpull.cookie import DeFactoCookiePolicy, BetterMozillaCookieJar
 
 
 # from Lib/test/test_http_cookiejar.py
@@ -136,3 +138,15 @@ class TestCookie(unittest.TestCase):
         print(cookie_jar._cookies)
 
         self.assertTrue(cookie_jar._cookies.get('example.com'))
+
+    def test_load_bad_cookie(self):
+        cookie_jar = BetterMozillaCookieJar()
+
+        with self.assertRaises(http.cookiejar.LoadError):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                filename = os.path.join(temp_dir, 'cookies.txt')
+                with open(filename, 'w') as file:
+                    file.write('You know what they say:\n')
+                    file.write('All toasters toast toast!')
+
+                cookie_jar.load(filename)

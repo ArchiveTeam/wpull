@@ -3,6 +3,7 @@
 import collections
 import gettext
 import io
+import textwrap
 
 from wpull.collections import OrderedDefaultDict
 
@@ -17,11 +18,13 @@ class NameValueRecord(collections.MutableMapping):
 
     .. seealso:: http://tools.ietf.org/search/draft-kunze-anvl-02
     '''
-    def __init__(self, normalize_overrides=None, encoding='utf-8'):
+    def __init__(self, normalize_overrides=None, encoding='utf-8',
+                 wrap_width=None):
         self._map = OrderedDefaultDict(list)
         self.raw = None
         self.encoding = encoding
         self._normalize_overrides = normalize_overrides
+        self._wrap_width = wrap_width
 
     def parse(self, string, strict=True):
         '''Parse the string or bytes.
@@ -100,7 +103,16 @@ class NameValueRecord(collections.MutableMapping):
         '''Convert to string.'''
         pairs = []
         for name, value in self.get_all():
-            if value:
+            if value and self._wrap_width:
+                pairs.append('{0}:{1}'.format(
+                    name,
+                    '\r\n'.join(textwrap.wrap(
+                        value, width=self._wrap_width,
+                        drop_whitespace=False, initial_indent=' ',
+                        subsequent_indent=' '
+                    ))
+                ))
+            elif value:
                 pairs.append('{0}: {1}'.format(name, value))
             else:
                 pairs.append('{0}:'.format(name))

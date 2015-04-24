@@ -185,18 +185,23 @@ class Session(BaseSession):
 
         yield From(self._init_stream())
 
+        connection_closed = self._connection.closed()
+
+        if connection_closed:
+            self._login_table.pop(self._connection, None)
+            yield From(self._control_stream.reconnect())
+
         request.address = self._connection.address
 
         if self._recorder_session:
-            connection_reused = not self._connection.closed()
+            connection_reused = not connection_closed
             self._recorder_session.begin_control(
                 request, connection_reused=connection_reused
             )
 
-        if self._connection.closed():
-            self._login_table.pop(self._connection, None)
+        if connection_closed:
+            yield From(self._commander.read_welcome_message())
 
-        yield From(self._commander.reconnect())
         yield From(self._log_in())
 
         self._response.request = request
@@ -285,7 +290,8 @@ class Session(BaseSession):
                 self._response.body.seek(0)
 
                 machine_listings = wpull.ftp.util.parse_machine_listing(
-                    self._response.body.read().decode('latin-1'),
+                    self._response.body.read().decode('utf-8',
+                                                      errors='surrogateescape'),
                     convert=True, strict=False
                 )
                 listings = list(
@@ -295,7 +301,8 @@ class Session(BaseSession):
             else:
                 self._response.body.seek(0)
 
-                file = io.TextIOWrapper(self._response.body, encoding='latin-1')
+                file = io.TextIOWrapper(self._response.body, encoding='utf-8',
+                                        errors='surrogateescape')
 
                 listing_parser = ListingParser(file=file)
                 heuristics_result = listing_parser.run_heuristics()

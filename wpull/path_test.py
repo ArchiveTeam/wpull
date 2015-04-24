@@ -85,6 +85,20 @@ class TestPath(unittest.TestCase, TempDirMixin):
             )
         )
         self.assertEqual(
+            'asdf%F0%9F%92%8E',
+            safe_filename(
+                'asdf💎',
+                os_type='unix', no_control=True, ascii_only=True, case=None
+            )
+        )
+        self.assertEqual(
+            'asdf💎',
+            safe_filename(
+                'asdf💎',
+                os_type='unix', no_control=True, ascii_only=False, case=None
+            )
+        )
+        self.assertEqual(
             'asdf%3a',
             safe_filename(
                 'Asdf:',
