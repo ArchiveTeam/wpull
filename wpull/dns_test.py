@@ -90,6 +90,13 @@ class DNSMixin:
         with self.assertRaises(DNSNotFound):
             yield From(resolver.resolve('test.invalid', 80))
 
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_resolver_port_number_overflow(self):
+        resolver = self.get_resolver_class()(family=socket.AF_INET6)
+
+        with self.assertRaises(DNSNotFound):
+            yield From(resolver.resolve('test.invalid', 99999999999999999999999))
+
     def test_sort_results(self):
         Resolver_ = self.get_resolver_class()
         results = [

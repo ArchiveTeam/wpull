@@ -238,6 +238,10 @@ class Resolver(HookableMixin):
                 raise NetworkError(
                     'DNS resolution error: {error}'.format(error=error)
                 ) from error
+        except OverflowError as error:
+            raise DNSNotFound(
+                'DNS resolution failed: {error}'.format(error=error)
+            ) from error
 
         results = list([(result[0], result[4]) for result in results])
 

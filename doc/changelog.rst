@@ -7,6 +7,12 @@ Summary of notable changes.
 .. Take advice from http://keepachangelog.com/.
 
 
+Unreleased
+==========
+
+* Fixed: OverflowError with URLs with large port numbers.
+
+
 1.2 (2015-04-24)
 ================
 
