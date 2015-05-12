@@ -11,6 +11,7 @@ Unreleased
 ==========
 
 * Fixed: OverflowError with URLs with large port numbers.
+* Changed: using ``--youtube-dl`` respects ``--inet4-only` and ``--no-check-certificate`` now.
 
 
 1.2 (2015-04-24)
