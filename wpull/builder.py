@@ -1359,6 +1359,8 @@ class Builder(object):
             root_path=self._args.directory_prefix,
             user_agent=self._args.user_agent or self.default_user_agent,
             warc_recorder=self._factory.get('WARCRecorder'),
+            inet_family=self._args.inet_family,
+            check_certificate=self._args.check_certificate
         )
 
         return coprocessor

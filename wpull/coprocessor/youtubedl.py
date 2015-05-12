@@ -22,12 +22,15 @@ _ = gettext.gettext
 class YoutubeDlCoprocessor(object):
     '''youtube-dl coprocessor.'''
     def __init__(self, youtube_dl_path, proxy_address, root_path='.',
-                 user_agent=None, warc_recorder=None):
+                 user_agent=None, warc_recorder=None, inet_family=False,
+                 check_certificate=True):
         self._youtube_dl_path = youtube_dl_path
         self._proxy_address = proxy_address
         self._root_path = root_path
         self._user_agent = user_agent
         self._warc_recorder = warc_recorder
+        self._inet_family = inet_family
+        self._check_certificate = check_certificate
 
     @trollius.coroutine
     def process(self, url_item, request, response, file_writer_session):
@@ -40,7 +43,7 @@ class YoutubeDlCoprocessor(object):
         session = Session(
             self._proxy_address, self._youtube_dl_path, self._root_path,
             url_item, file_writer_session, self._user_agent,
-            self._warc_recorder
+            self._warc_recorder, self._inet_family, self._check_certificate
         )
 
         url = url_item.url_info.url
@@ -55,7 +58,8 @@ class YoutubeDlCoprocessor(object):
 class Session(object):
     '''youtube-dl session.'''
     def __init__(self, proxy_address, youtube_dl_path, root_path, url_item,
-                 file_writer_session, user_agent, warc_recorder):
+                 file_writer_session, user_agent, warc_recorder, inet_family,
+                 check_certificate):
         self._proxy_address = proxy_address
         self._youtube_dl_path = youtube_dl_path
         self._root_path = root_path
@@ -65,6 +69,8 @@ class Session(object):
         self._warc_recorder = warc_recorder
         self._temp_dir = None
         self._path_prefix = None
+        self._inet_family = inet_family
+        self._check_certificate = check_certificate
 
     @trollius.coroutine
     def run(self):
@@ -87,6 +93,12 @@ class Session(object):
 
         if self._user_agent:
             args.extend(['--user-agent', self._user_agent])
+
+        if self._inet_family == 'IPv4':
+            args.extend(['--force-ipv4'])
+
+        if self._check_certificate is False:
+            args.extend(['--no-check-certificate'])
 
         youtube_dl_process = Process(
             args,
