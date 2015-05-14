@@ -11,6 +11,7 @@ Unreleased
 ==========
 
 * Fixed: OverflowError with URLs with large port numbers.
+* Fixed: TypeError when using standard input as input file (``--input-file -``).
 * Changed: using ``--youtube-dl`` respects ``--inet4-only` and ``--no-check-certificate`` now.
 
 

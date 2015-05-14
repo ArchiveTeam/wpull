@@ -542,8 +542,11 @@ class Builder(object):
 
     def _read_input_file_as_lines(self):
         '''Read lines from input file and return them.'''
-        input_file = codecs.getreader(
-            self._args.local_encoding or 'utf-8')(self._args.input_file)
+        if self._args.input_file == sys.stdin:
+            input_file = self._args.input_file
+        else:
+            input_file = codecs.getreader(
+                self._args.local_encoding or 'utf-8')(self._args.input_file)
 
         urls = (line.strip() for line in input_file if line.strip())
 

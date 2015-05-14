@@ -1,6 +1,7 @@
 # encoding=utf-8
 import glob
 from http import cookiejar
+import io
 import re
 import gzip
 import hashlib
@@ -253,6 +254,27 @@ class TestApp(GoodAppTestCase, TempDirMixin):
 
         self.assertEqual(0, exit_code)
         self.assertEqual(builder.factory['Statistics'].files, 2)
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_app_input_file_arg_stdin(self):
+        arg_parser = AppArgumentParser(real_exit=False)
+
+        real_stdin = sys.stdin
+        fake_stdin = io.StringIO(self.get_url('/') + '\n')
+
+        try:
+            sys.stdin = fake_stdin
+            args = arg_parser.parse_args([
+                '--input-file', '-'
+            ])
+            builder = Builder(args, unit_test=True)
+            app = builder.build()
+            exit_code = yield From(app.run())
+        finally:
+            sys.stdin = real_stdin
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(builder.factory['Statistics'].files, 1)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_args_warc_size(self):
