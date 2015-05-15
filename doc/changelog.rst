@@ -7,12 +7,12 @@ Summary of notable changes.
 .. Take advice from http://keepachangelog.com/.
 
 
-Unreleased
-==========
+1.2.1 (2015-05-15)
+==================
 
 * Fixed: OverflowError with URLs with large port numbers.
 * Fixed: TypeError when using standard input as input file (``--input-file -``).
-* Changed: using ``--youtube-dl`` respects ``--inet4-only` and ``--no-check-certificate`` now.
+* Changed: using ``--youtube-dl`` respects ``--inet4-only`` and ``--no-check-certificate`` now.
 
 
 1.2 (2015-04-24)
