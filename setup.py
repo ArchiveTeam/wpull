@@ -89,7 +89,7 @@ setup_kwargs = dict(
 
 setup_kwargs['install_requires'] = [
     'tornado', 'trollius', 'chardet', 'sqlalchemy',
-    'namedlist', 'html5lib', 'dnspython3', 'psutil'
+    'namedlist', 'html5lib', 'dnspython3',
 ]
 
 setup_kwargs['scripts'] = ['scripts/wpull', 'scripts/wpull3']
