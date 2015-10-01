@@ -6,6 +6,11 @@ Summary of notable changes.
 
 .. Take advice from http://keepachangelog.com/.
 
+Unreleased
+==========
+
+* Fixed: ``--output-document`` file doesn't contain content.
+
 
 1.2.1 (2015-05-15)
 ==================

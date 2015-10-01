@@ -35,6 +35,7 @@ class OutputDocumentRecorderSession(BaseRecorderSession):
         if self._with_headers and not self._response:
             self._file.write(data)
 
-        if self._response:
-            with wpull.util.reset_file_offset(self._response.body):
-                self._file.write(self._response.body.read(len(data)))
+    def response(self, response):
+        with wpull.util.reset_file_offset(self._response.body):
+            self._response.body.seek(0)
+            self._file.write(self._response.body.read())

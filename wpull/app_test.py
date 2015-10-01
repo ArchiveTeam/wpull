@@ -995,6 +995,7 @@ class TestApp(GoodAppTestCase, TempDirMixin):
         exit_code = yield From(app.run())
 
         self.assertTrue(os.path.exists('blah.dat'))
+        self.assertTrue(os.path.getsize('blah.dat'))
 
         self.assertEqual(0, exit_code)
 
