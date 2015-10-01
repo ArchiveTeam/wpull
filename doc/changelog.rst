@@ -10,6 +10,7 @@ Unreleased
 ==========
 
 * Fixed: ``--output-document`` file doesn't contain content.
+* Fixed: OverflowError when URL contains invalid port number greater than 65535 or less than 0.
 
 
 1.2.1 (2015-05-15)
