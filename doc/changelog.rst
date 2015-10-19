@@ -11,6 +11,7 @@ Unreleased
 
 * Fixed: ``--output-document`` file doesn't contain content.
 * Fixed: OverflowError when URL contains invalid port number greater than 65535 or less than 0.
+* Fixed: AssertionError when saving IPv4-mapped IPv6 addresses to WARC files.
 * Changed: The setup file no longer requires optional psutil.
 
 

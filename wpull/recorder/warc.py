@@ -1,7 +1,7 @@
-import glob
 from tempfile import NamedTemporaryFile
 import contextlib
 import gettext
+import glob
 import gzip
 import io
 import logging
@@ -530,7 +530,7 @@ class HTTPWARCRecorderSession(BaseWARCRecorderSession):
 
     def pre_request(self, request):
         assert re.match(
-            r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[a-f0-9:]+)$',
+            r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[a-f0-9:.]+)$',
             request.address[0]), \
             'IP address needed, got {}'.format(request.address[0])
 
@@ -555,7 +555,7 @@ class HTTPWARCRecorderSession(BaseWARCRecorderSession):
 
     def pre_response(self, response):
         assert re.match(
-            r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[a-f0-9:]+)$',
+            r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[a-f0-9:.]+)$',
             self._request.address[0]), \
             'IP address needed, got {}'.format(self._request.address[0])
 
