@@ -902,19 +902,19 @@ class AppArgumentParser(argparse.ArgumentParser):
         }
 
         if hasattr(ssl, 'PROTOCOL_SSLv2'):
-            self._ssl_version_map['SSLv2'] = ssl.PROTOCOL_SSLv2,
+            self._ssl_version_map['SSLv2'] = ssl.PROTOCOL_SSLv2
 
         if hasattr(ssl, 'PROTOCOL_SSLv3'):
-            self._ssl_version_map['SSLv3'] = ssl.PROTOCOL_SSLv3,
+            self._ssl_version_map['SSLv3'] = ssl.PROTOCOL_SSLv3
 
         if hasattr(ssl, 'PROTOCOL_TLSv1'):
-            self._ssl_version_map['TLSv1'] = ssl.PROTOCOL_TLSv1,
+            self._ssl_version_map['TLSv1'] = ssl.PROTOCOL_TLSv1
 
         if hasattr(ssl, 'PROTOCOL_TLSv1_1'):
-            self._ssl_version_map['TLSv1.1'] = ssl.PROTOCOL_TLSv1_1,
+            self._ssl_version_map['TLSv1.1'] = ssl.PROTOCOL_TLSv1_1
 
         if hasattr(ssl, 'PROTOCOL_TLSv1_2'):
-            self._ssl_version_map['TLSv1.2'] = ssl.PROTOCOL_TLSv1_2,
+            self._ssl_version_map['TLSv1.2'] = ssl.PROTOCOL_TLSv1_2
 
         group = self.add_argument_group('SSL')
         group.add_argument(
