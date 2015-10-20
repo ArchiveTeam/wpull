@@ -3,9 +3,9 @@
 import abc
 import contextlib
 import gettext
+import itertools
 import logging
 import os
-import itertools
 
 from trollius import From, Return
 import trollius
@@ -33,7 +33,10 @@ class BaseEngine(object):
         self.__concurrent = 1
         self._running = False
         self._item_queue = trollius.PriorityQueue()
-        self._token_queue = trollius.JoinableQueue()
+        try:
+            self._token_queue = trollius.JoinableQueue()
+        except AttributeError:
+            self._token_queue = trollius.Queue()
         self._item_get_semaphore = trollius.BoundedSemaphore(value=1)
 
         self._producer_task = None
