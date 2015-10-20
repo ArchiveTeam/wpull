@@ -5,6 +5,7 @@ python:
   - 3.2
   - 3.3
   - 3.4
+  - 3.5
   - pypy3
 
 addons:
@@ -40,7 +41,7 @@ install:
 # command to run tests
 script:
   - pip install . -t thematrix/ --no-dependencies
-  - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' -a $TRAVIS_PYTHON_VERSION != '3.2' ]]; then
+  - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' && $TRAVIS_PYTHON_VERSION != '3.2' ]]; then
       cd thematrix/ && nosetests --with-coverage --cover-package=wpull --cover-branches;
     else
       cd thematrix/ && nosetests;
@@ -48,6 +49,6 @@ script:
 
 
 after_success:
-  - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' -a $TRAVIS_PYTHON_VERSION != '3.2' ]]; then
+  - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' && $TRAVIS_PYTHON_VERSION != '3.2' ]]; then
       coveralls;
     fi
