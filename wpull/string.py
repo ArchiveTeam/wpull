@@ -52,8 +52,8 @@ def normalize_codec_name(name):
 
     try:
         return codecs.lookup(name).name
-    except (LookupError, TypeError):
-        # TypeError occurs when name contains \x00
+    except (LookupError, TypeError, ValueError):
+        # TypeError occurs when name contains \x00 (ValueError in Py3.5)
         pass
 
 
