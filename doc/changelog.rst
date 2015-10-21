@@ -6,8 +6,8 @@ Summary of notable changes.
 
 .. Take advice from http://keepachangelog.com/.
 
-Unreleased
-==========
+1.2.2 (2015-10-21)
+==================
 
 * Fixed: ``--output-document`` file doesn't contain content.
 * Fixed: OverflowError when URL contains invalid port number greater than 65535 or less than 0.
