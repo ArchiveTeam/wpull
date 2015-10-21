@@ -79,6 +79,7 @@ setup_kwargs = dict(
         'Programming Language :: Python :: 3.2',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
+        'Topic :: Internet :: File Transfer Protocol (FTP)',
         'Topic :: Internet :: WWW/HTTP',
         'Topic :: System :: Archiving',
     ],
@@ -88,7 +89,7 @@ setup_kwargs = dict(
 
 setup_kwargs['install_requires'] = [
     'tornado', 'trollius', 'chardet', 'sqlalchemy',
-    'namedlist', 'html5lib', 'dnspython3', 'psutil'
+    'namedlist', 'html5lib', 'dnspython3',
 ]
 
 setup_kwargs['scripts'] = ['scripts/wpull', 'scripts/wpull3']

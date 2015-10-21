@@ -6,6 +6,15 @@ Summary of notable changes.
 
 .. Take advice from http://keepachangelog.com/.
 
+1.2.2 (2015-10-21)
+==================
+
+* Fixed: ``--output-document`` file doesn't contain content.
+* Fixed: OverflowError when URL contains invalid port number greater than 65535 or less than 0.
+* Fixed: AssertionError when saving IPv4-mapped IPv6 addresses to WARC files.
+* Fixed: AttributeError when running with installed Trollius 2.0.
+* Changed: The setup file no longer requires optional psutil.
+
 
 1.2.1 (2015-05-15)
 ==================

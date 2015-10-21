@@ -290,6 +290,14 @@ class TestURL(unittest.TestCase):
             ValueError, URLInfo.parse, 'http://[…]/python.xml%22')
         self.assertRaises(
             ValueError, URLInfo.parse, 'http://[.]/python.xml%22')
+        self.assertRaises(
+            ValueError, URLInfo.parse, 
+            'http://wow:99999999999999999999999999999999999999999999999999999'
+            '9999999999999999999999999999999999999999999999999999999999999999')
+        self.assertRaises(
+            ValueError, URLInfo.parse, 
+            'http://wow:-9999999999999999999999999999999999999999999999999999'
+            '9999999999999999999999999999999999999999999999999999999999999999')
 
     def test_url_info_path_folding(self):
         self.assertEqual(

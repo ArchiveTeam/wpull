@@ -24,6 +24,7 @@ Wpull requires the following:
 
 The following are optional:
 
+* `psutil` for monitoring disk space
 * `Lunatic Python (bastibe version)
   <https://github.com/bastibe/lunatic-python>`_ for Lua support
 * `Manhole <https://pypi.python.org/pypi/manhole>`_ for a REPL debugging socket
@@ -70,6 +71,14 @@ Install Wpull from GitHub::
 
 .. Tip:: Using ``git+https://github.com/chfoo/wpull.git@develop#egg=wpull``
    as the path will install Wpull's develop branch.
+
+
+psutil
+++++++
+
+psutil is required for the disk and memory monitoring options but may not be available. To install::
+
+    pip3 install psutil
 
 
 Pre-built Binaries
