@@ -40,11 +40,23 @@ class TestParse(unittest.TestCase):
         date_factory = functools.partial(datetime.datetime,
                                          tzinfo=datetime.timezone.utc)
 
-        current_year = datetime.datetime.utcnow().year
+        datetime_now = datetime.datetime.utcnow()
+        datetime_now = datetime_now.replace(tzinfo=datetime.timezone.utc)
+        current_year = datetime_now.year
+
+        datetime_1 = date_factory(current_year, 1, 29, 3, 26)
+        datetime_2 = date_factory(current_year, 1, 25, 0, 17)
+
+        if datetime_1 > datetime_now:
+            datetime_1 = datetime_1.replace(year=current_year - 1)
+
+        if datetime_2 > datetime_now:
+            datetime_2 = datetime_2.replace(year=current_year - 1)
+
         self.assertEqual(
             [
                 FileEntry('README', 'file', 531,
-                          date_factory(current_year, 1, 29, 3, 26),
+                          datetime_1,
                           perm=0o644),
                 FileEntry('etc', 'dir', 512,
                           date_factory(1994, 4, 8),
@@ -53,7 +65,7 @@ class TestParse(unittest.TestCase):
                           date_factory(1994, 4, 8),
                           perm=0o555),
                 FileEntry('bin', 'symlink', 7,
-                          date_factory(current_year, 1, 25, 0, 17),
+                          datetime_2,
                           'usr/bin', perm=0o777),
                 FileEntry('blah', 'dir', 512,
                           date_factory(2004, 4, 8),
