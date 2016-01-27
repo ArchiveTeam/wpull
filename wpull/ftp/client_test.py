@@ -133,3 +133,14 @@ class TestClient(FTPTestCase):
                 yield From(
                     session.fetch(Request(self.get_url('/example (copy).txt')))
                 )
+
+    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_login_no_password_required(self):
+        client = Client()
+        file = io.BytesIO()
+
+        with client.session() as session:
+            request = Request(self.get_url('/example (copy).txt'))
+            request.username = 'no_password_required'
+            yield From(session.fetch(request))
+            yield From(session.read_content(file))

@@ -68,6 +68,9 @@ class Commander(object):
 
         reply = yield From(self._control_stream.read_reply())
 
+        if reply.code == ReplyCodes.user_logged_in_proceed:
+            raise Return()
+
         self.raise_if_not_match(
             'Login username', ReplyCodes.user_name_okay_need_password, reply)
 

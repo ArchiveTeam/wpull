@@ -147,7 +147,12 @@ class FTPSession(object):
     @trollius.coroutine
     def _cmd_user(self):
         self._current_username = self.arg
-        self.writer.write(b'331 Password required\r\n')
+
+        if self._current_username == 'no_password_required':
+            self.writer.write(b'230 Log in OK\r\n')
+            self._current_password = 'no_password_required'
+        else:
+            self.writer.write(b'331 Password required\r\n')
 
     @trollius.coroutine
     def _cmd_pass(self):
