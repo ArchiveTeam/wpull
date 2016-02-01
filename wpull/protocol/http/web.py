@@ -9,9 +9,9 @@ from trollius import From, Return
 import trollius
 
 from wpull.errors import ProtocolError
-from wpull.http.client import Client
-from wpull.http.redirect import RedirectTracker
-from wpull.http.request import Request
+from wpull.protocol.http.client import Client
+from wpull.protocol.http.redirect import RedirectTracker
+from wpull.protocol.http.request import Request
 from wpull.url import URLInfo
 
 

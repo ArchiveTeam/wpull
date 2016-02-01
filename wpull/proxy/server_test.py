@@ -8,7 +8,7 @@ import tornado.testing
 import trollius
 
 from wpull.cookie import BetterMozillaCookieJar, DeFactoCookiePolicy
-from wpull.http.client import Client
+from wpull.protocol.http.client import Client
 from wpull.proxy.server import HTTPProxyServer
 from wpull.recorder.printing import DebugPrintRecorder
 from wpull.wrapper import CookieJarWrapper

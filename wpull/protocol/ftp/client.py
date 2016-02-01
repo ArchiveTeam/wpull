@@ -7,16 +7,16 @@ import functools
 from trollius import From, Return
 import trollius
 
-from wpull.abstract.client import BaseClient, BaseSession, DurationTimeout
+from wpull.protocol.abstract.client import BaseClient, BaseSession, DurationTimeout
 from wpull.body import Body
 from wpull.errors import ProtocolError, AuthenticationError
-from wpull.ftp.command import Commander
-from wpull.ftp.ls.listing import ListingError
-from wpull.ftp.ls.parse import ListingParser
-from wpull.ftp.request import Response, Command, ListingResponse
-from wpull.ftp.stream import ControlStream
-from wpull.ftp.util import FTPServerError, ReplyCodes
-import wpull.ftp.util
+from wpull.protocol.ftp.command import Commander
+from wpull.protocol.ftp.ls.listing import ListingError
+from wpull.protocol.ftp.ls.parse import ListingParser
+from wpull.protocol.ftp.request import Response, Command, ListingResponse
+from wpull.protocol.ftp.stream import ControlStream
+from wpull.protocol.ftp.util import FTPServerError, ReplyCodes
+import wpull.protocol.ftp.util
 
 
 _logger = logging.getLogger(__name__)
@@ -289,13 +289,13 @@ class Session(BaseSession):
             elif self._listing_type == 'mlsd':
                 self._response.body.seek(0)
 
-                machine_listings = wpull.ftp.util.parse_machine_listing(
+                machine_listings = wpull.protocol.ftp.util.parse_machine_listing(
                     self._response.body.read().decode('utf-8',
                                                       errors='surrogateescape'),
                     convert=True, strict=False
                 )
                 listings = list(
-                    wpull.ftp.util.machine_listings_to_file_entries(
+                    wpull.protocol.ftp.util.machine_listings_to_file_entries(
                         machine_listings
                     ))
             else:

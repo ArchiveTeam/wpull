@@ -5,7 +5,7 @@ import unittest
 from wpull.document.base_test import CODEC_NAMES, EBCDIC
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
 from wpull.document.sitemap import SitemapReader
-from wpull.http.request import Request
+from wpull.protocol.http.request import Request
 from wpull.url import URLInfo
 from wpull.util import IS_PYPY
 

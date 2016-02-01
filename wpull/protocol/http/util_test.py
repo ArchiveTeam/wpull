@@ -2,7 +2,7 @@
 
 import unittest
 
-from wpull.http.util import parse_charset, should_close
+from wpull.protocol.http.util import parse_charset, should_close
 
 
 class TestUtil(unittest.TestCase):

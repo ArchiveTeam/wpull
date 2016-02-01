@@ -4,9 +4,9 @@ import logging
 from trollius import From, Return
 import trollius
 
-from wpull.abstract.stream import close_stream_on_error
+from wpull.protocol.abstract.stream import close_stream_on_error
 from wpull.errors import NetworkError
-from wpull.ftp.request import Reply
+from wpull.protocol.ftp.request import Reply
 from wpull.observer import Observer
 
 

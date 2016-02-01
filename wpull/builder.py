@@ -34,16 +34,16 @@ from wpull.dns import Resolver, PythonResolver
 from wpull.driver.phantomjs import PhantomJSDriver
 from wpull.engine import Engine
 from wpull.factory import Factory
-from wpull.ftp.client import Client as FTPClient
+from wpull.protocol.ftp.client import Client as FTPClient
 from wpull.hook import HookEnvironment, PluginEnvironment
-from wpull.http.client import Client as HTTPClient
+from wpull.protocol.http.client import Client as HTTPClient
 from wpull.proxy.client import HTTPProxyConnectionPool
 from wpull.proxy.hostfilter import HostFilter as ProxyHostFilter
-from wpull.http.redirect import RedirectTracker
-from wpull.http.request import Request
-from wpull.http.robots import RobotsTxtChecker
-from wpull.http.stream import Stream as HTTPStream
-from wpull.http.web import WebClient
+from wpull.protocol.http.redirect import RedirectTracker
+from wpull.protocol.http.request import Request
+from wpull.protocol.http.robots import RobotsTxtChecker
+from wpull.protocol.http.stream import Stream as HTTPStream
+from wpull.protocol.http.web import WebClient
 from wpull.namevalue import NameValueRecord
 from wpull.options import LOG_QUIET, LOG_VERY_QUIET, LOG_NO_VERBOSE, LOG_VERBOSE, \
     LOG_DEBUG

@@ -20,7 +20,7 @@ import trollius
 from wpull.builder import Builder
 from wpull.dns import Resolver
 from wpull.errors import ExitStatus, SSLVerificationError
-from wpull.http.web import WebSession
+from wpull.protocol.http.web import WebSession
 from wpull.options import AppArgumentParser
 from wpull.testing.async import AsyncTestCase
 from wpull.testing.badapp import BadAppTestCase

@@ -3,12 +3,12 @@ import logging
 
 from trollius import From
 import trollius
-from wpull.abstract.client import DurationTimeout
+from wpull.protocol.abstract.client import DurationTimeout
 from wpull.errors import ProtocolError
 
-from wpull.ftp.client import Client
-from wpull.ftp.request import Request, Command
-from wpull.ftp.util import FTPServerError
+from wpull.protocol.ftp.client import Client
+from wpull.protocol.ftp.request import Request, Command
+from wpull.protocol.ftp.util import FTPServerError
 import wpull.testing.async
 from wpull.testing.ftp import FTPTestCase
 

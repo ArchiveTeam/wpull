@@ -3,7 +3,7 @@
 import copy
 import re
 
-from wpull.abstract.request import SerializableMixin, DictableMixin, \
+from wpull.protocol.abstract.request import SerializableMixin, DictableMixin, \
     URLPropertyMixin, ProtocolResponseMixin
 from wpull.errors import ProtocolError
 from wpull.namevalue import NameValueRecord

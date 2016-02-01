@@ -1,6 +1,6 @@
 import unittest
 
-from wpull.ftp.ls.listing import guess_listing_type, parse_unix_perm
+from wpull.protocol.ftp.ls.listing import guess_listing_type, parse_unix_perm
 
 
 UNIX_LS = '''-rw-r--r--   1 root     other        531 Jan 29 03:26 README

@@ -1,8 +1,8 @@
 '''Parse LIST listings.'''
 import itertools
 
-import wpull.ftp.ls.date
-from wpull.ftp.ls.listing import LineParser
+import wpull.protocol.ftp.ls.date
+from wpull.protocol.ftp.ls.listing import LineParser
 
 
 class ListingParser(object):
@@ -35,7 +35,7 @@ class ListingParser(object):
             the listing type and the datetime format.
         '''
         listing_type = self.line_parser.guess_type(self.sample_lines)
-        datetime_format = wpull.ftp.ls.date.guess_datetime_format(self.sample_lines)
+        datetime_format = wpull.protocol.ftp.ls.date.guess_datetime_format(self.sample_lines)
         self.line_parser.set_datetime_format(datetime_format)
         return listing_type, datetime_format
 

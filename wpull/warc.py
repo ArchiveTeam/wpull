@@ -14,7 +14,7 @@ import hashlib
 import re
 import uuid
 
-from wpull.http.request import Response
+from wpull.protocol.http.request import Response
 from wpull.namevalue import NameValueRecord
 import wpull.util
 

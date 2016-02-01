@@ -2,7 +2,7 @@ import io
 import unittest
 
 from wpull.document.xml import XMLDetector
-from wpull.http.request import Request, Response
+from wpull.protocol.http.request import Request, Response
 from wpull.url import URLInfo
 
 

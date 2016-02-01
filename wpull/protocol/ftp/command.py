@@ -5,10 +5,10 @@ from trollius import From, Return
 import trollius
 from wpull.errors import ProtocolError
 
-from wpull.ftp.request import Command
-from wpull.ftp.stream import DataStream
-from wpull.ftp.util import ReplyCodes, FTPServerError
-import wpull.ftp.util
+from wpull.protocol.ftp.request import Command
+from wpull.protocol.ftp.stream import DataStream
+from wpull.protocol.ftp.util import ReplyCodes, FTPServerError
+import wpull.protocol.ftp.util
 
 
 _logger = logging.getLogger(__name__)
@@ -98,7 +98,7 @@ class Commander(object):
             'Passive mode', ReplyCodes.entering_passive_mode, reply)
 
         try:
-            raise Return(wpull.ftp.util.parse_address(reply.text))
+            raise Return(wpull.protocol.ftp.util.parse_address(reply.text))
         except ValueError as error:
             raise ProtocolError(str(error)) from error
 

@@ -1,6 +1,6 @@
 import unittest
 import datetime
-from wpull.ftp.ls.date import parse_datetime
+from wpull.protocol.ftp.ls.date import parse_datetime
 
 
 def new_datetime(*args):

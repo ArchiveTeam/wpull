@@ -1,6 +1,6 @@
 import unittest
 from wpull.body import Body
-from wpull.ftp.request import Reply, Command, Request, Response
+from wpull.protocol.ftp.request import Reply, Command, Request, Response
 
 
 class TestRequest(unittest.TestCase):

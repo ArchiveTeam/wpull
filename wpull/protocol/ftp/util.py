@@ -3,7 +3,7 @@ import re
 
 from wpull.errors import ServerError
 import datetime
-from wpull.ftp.ls.listing import FileEntry
+from wpull.protocol.ftp.ls.listing import FileEntry
 
 
 class ReplyCodes(object):

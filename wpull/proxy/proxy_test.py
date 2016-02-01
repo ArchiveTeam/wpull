@@ -5,9 +5,9 @@ from trollius import From, Return
 import trollius
 import tornado.testing
 
-from wpull.http.client import Client
-from wpull.http.request import Request
-from wpull.http.web import WebClient
+from wpull.protocol.http.client import Client
+from wpull.protocol.http.request import Request
+from wpull.protocol.http.web import WebClient
 from wpull.proxy.client import HTTPProxyConnectionPool
 from wpull.proxy.server import HTTPProxyServer
 from wpull.recorder.printing import DebugPrintRecorder

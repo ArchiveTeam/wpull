@@ -12,7 +12,7 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
 from wpull.errors import ProtocolError
 from wpull.hook import HookableMixin, Actions
-from wpull.http.web import LoopType
+from wpull.protocol.http.web import LoopType
 from wpull.processor.base import BaseProcessor, BaseProcessorSession, \
     REMOTE_ERRORS
 from wpull.processor.rule import FetchRule, ResultRule

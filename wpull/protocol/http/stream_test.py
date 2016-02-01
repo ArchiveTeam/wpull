@@ -14,8 +14,8 @@ import trollius
 from wpull.connection import Connection, SSLConnection
 from wpull.errors import NetworkError, ConnectionRefused, ProtocolError, \
     NetworkTimedOut, SSLVerificationError
-from wpull.http.request import Request
-from wpull.http.stream import Stream
+from wpull.protocol.http.request import Request
+from wpull.protocol.http.stream import Stream
 import wpull.testing.async
 from wpull.testing.badapp import BadAppTestCase, SSLBadAppTestCase
 
@@ -342,7 +342,7 @@ class StreamTestsMixin(object):
     def test_gzip_encoding(self):
         filename = os.path.join(
             os.path.dirname(__file__),
-            '..', 'testing', 'samples', 'xkcd_1.html'
+            '..', '..', 'testing', 'samples', 'xkcd_1.html'
         )
 
         with open(filename, 'rb') as in_file:
@@ -362,7 +362,7 @@ class StreamTestsMixin(object):
     def test_zlib_encoding(self):
         filename = os.path.join(
             os.path.dirname(__file__),
-            '..', 'testing', 'samples', 'xkcd_1.html'
+            '..', '..', 'testing', 'samples', 'xkcd_1.html'
         )
 
         with open(filename, 'rb') as in_file:
@@ -509,7 +509,7 @@ class TestSSLStream(SSLBadAppTestCase, StreamTestsMixin):
         ssl_options = dict(
             cert_reqs=ssl.CERT_REQUIRED,
             ca_certs=os.path.join(os.path.dirname(__file__),
-                                  '..', 'cert', 'ca-bundle.pem'),
+                                  '..', '..', 'cert', 'ca-bundle.pem'),
         )
         ssl_context = tornado.netutil.ssl_options_to_context(ssl_options)
         stream = self.new_stream(

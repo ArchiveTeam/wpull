@@ -5,7 +5,7 @@ from wpull.document.base_test import CODEC_NAMES, EBCDIC
 from wpull.document.html import HTMLReader
 from wpull.document.htmlparse.element import Element
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
-from wpull.http.request import Request, Response
+from wpull.protocol.http.request import Request, Response
 from wpull.url import URLInfo
 from wpull.util import IS_PYPY
 

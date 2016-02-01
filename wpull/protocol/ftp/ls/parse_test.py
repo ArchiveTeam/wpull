@@ -2,8 +2,8 @@ import datetime
 import functools
 import unittest
 
-from wpull.ftp.ls.listing import FileEntry, UnknownListingError
-from wpull.ftp.ls.parse import ListingParser
+from wpull.protocol.ftp.ls.listing import FileEntry, UnknownListingError
+from wpull.protocol.ftp.ls.parse import ListingParser
 
 
 UNIX_LS = '''-rw-r--r--   1 root     other        531 Jan 29 03:26 README

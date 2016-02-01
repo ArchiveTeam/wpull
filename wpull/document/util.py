@@ -3,7 +3,7 @@
 import logging
 
 from wpull.backport.logging import BraceMessage as __
-import wpull.http.util
+import wpull.protocol.http.util
 import wpull.util
 import wpull.string
 
@@ -20,7 +20,7 @@ def get_heading_encoding(response):
     Returns:
         ``str``, ``None``: The codec name.
     '''
-    encoding = wpull.http.util.parse_charset(
+    encoding = wpull.protocol.http.util.parse_charset(
         response.fields.get('content-type', ''))
 
     if encoding:

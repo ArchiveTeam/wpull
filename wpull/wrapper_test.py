@@ -2,7 +2,7 @@
 import sys
 import unittest
 
-from wpull.http.request import Request, Response
+from wpull.protocol.http.request import Request, Response
 from wpull.wrapper import convert_http_request, HTTPResponseInfoWrapper
 
 

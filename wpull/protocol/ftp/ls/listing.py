@@ -3,7 +3,7 @@ import re
 
 import namedlist
 
-from wpull.ftp.ls.date import parse_datetime
+from wpull.protocol.ftp.ls.date import parse_datetime
 
 
 FileEntry = namedlist.namedtuple(

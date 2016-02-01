@@ -1,10 +1,10 @@
 # encoding=utf-8
 from trollius import From
-from wpull.abstract.client import DurationTimeout
+from wpull.protocol.abstract.client import DurationTimeout
 
 from wpull.errors import ProtocolError
-from wpull.http.request import Request
-from wpull.http.web import WebClient, LoopType
+from wpull.protocol.http.request import Request
+from wpull.protocol.http.web import WebClient, LoopType
 import wpull.testing.async
 from wpull.testing.badapp import BadAppTestCase
 from wpull.testing.goodapp import GoodAppTestCase

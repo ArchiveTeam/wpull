@@ -10,7 +10,7 @@ import trollius
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ProtocolError
-from wpull.http.request import Request
+from wpull.protocol.http.request import Request
 from wpull.recorder.progress import ProgressRecorder
 import wpull.util
 
@@ -237,7 +237,7 @@ class Session(object):
         self._writer.close()
 
 if __name__ == '__main__':
-    from wpull.http.client import Client
+    from wpull.protocol.http.client import Client
 
     logging.basicConfig(level=logging.DEBUG)
 

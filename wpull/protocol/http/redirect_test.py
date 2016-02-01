@@ -1,8 +1,8 @@
 # encoding=utf-8
 import unittest
 
-from wpull.http.redirect import RedirectTracker
-from wpull.http.request import Response
+from wpull.protocol.http.redirect import RedirectTracker
+from wpull.protocol.http.request import Response
 
 
 class TestWeb(unittest.TestCase):

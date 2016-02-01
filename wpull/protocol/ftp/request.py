@@ -2,10 +2,10 @@
 import re
 import urllib.parse
 
-from wpull.abstract.request import SerializableMixin, DictableMixin, \
+from wpull.protocol.abstract.request import SerializableMixin, DictableMixin, \
     URLPropertyMixin, ProtocolResponseMixin
 from wpull.errors import ProtocolError
-import wpull.ftp.util
+import wpull.protocol.ftp.util
 
 
 class Command(SerializableMixin, DictableMixin):
@@ -112,7 +112,7 @@ class Reply(SerializableMixin, DictableMixin):
 
     def code_tuple(self):
         '''Return a tuple of the reply code.'''
-        return wpull.ftp.util.reply_code_tuple(self.code)
+        return wpull.protocol.ftp.util.reply_code_tuple(self.code)
 
 
 class Request(URLPropertyMixin):

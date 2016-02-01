@@ -8,10 +8,10 @@ import warnings
 from trollius import From, Return
 import trollius
 
-from wpull.abstract.client import BaseClient, BaseSession, DurationTimeout
+from wpull.protocol.abstract.client import BaseClient, BaseSession, DurationTimeout
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
-from wpull.http.stream import Stream
+from wpull.protocol.http.stream import Stream
 
 
 _ = gettext.gettext

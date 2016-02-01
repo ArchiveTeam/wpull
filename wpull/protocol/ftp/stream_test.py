@@ -5,9 +5,9 @@ from trollius import From
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.connection import Connection
-from wpull.ftp.request import Command
-from wpull.ftp.stream import ControlStream, DataStream
-from wpull.ftp.util import parse_address
+from wpull.protocol.ftp.request import Command
+from wpull.protocol.ftp.stream import ControlStream, DataStream
+from wpull.protocol.ftp.util import parse_address
 import wpull.testing.async
 from wpull.testing.ftp import FTPTestCase
 

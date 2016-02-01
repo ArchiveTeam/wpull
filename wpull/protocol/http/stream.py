@@ -10,13 +10,13 @@ import zlib
 from trollius import From, Return
 import trollius
 
-from wpull.abstract.stream import close_stream_on_error
+from wpull.protocol.abstract.stream import close_stream_on_error
 from wpull.backport.logging import BraceMessage as __
 import wpull.decompression
 from wpull.errors import NetworkError, ProtocolError
-from wpull.http.chunked import ChunkedTransferReader
-from wpull.http.request import Response
-import wpull.http.util
+from wpull.protocol.http.chunked import ChunkedTransferReader
+from wpull.protocol.http.request import Response
+import wpull.protocol.http.util
 from wpull.observer import Observer
 
 
@@ -210,7 +210,7 @@ class Stream(object):
         else:
             yield From(self._read_body_until_close(response, file))
 
-        should_close = wpull.http.util.should_close(
+        should_close = wpull.protocol.http.util.should_close(
             request.version, response.fields.get('Connection'))
 
         if not self._keep_alive or should_close:

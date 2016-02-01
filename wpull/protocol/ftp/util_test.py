@@ -1,9 +1,9 @@
 import datetime
 import textwrap
 import unittest
-from wpull.ftp.ls.listing import FileEntry
+from wpull.protocol.ftp.ls.listing import FileEntry
 
-from wpull.ftp.util import parse_address, reply_code_tuple, \
+from wpull.protocol.ftp.util import parse_address, reply_code_tuple, \
     parse_machine_listing, machine_listings_to_file_entries
 
 

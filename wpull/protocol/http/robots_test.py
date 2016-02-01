@@ -6,8 +6,8 @@ from trollius import From
 import trollius
 
 from wpull.errors import ProtocolError, ServerError
-from wpull.http.request import Request, Response
-from wpull.http.robots import RobotsTxtChecker, NotInPoolError
+from wpull.protocol.http.request import Request, Response
+from wpull.protocol.http.robots import RobotsTxtChecker, NotInPoolError
 import wpull.testing.async
 
 

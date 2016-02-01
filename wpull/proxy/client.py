@@ -8,8 +8,8 @@ import trollius
 from wpull.connection import ConnectionPool
 
 from wpull.errors import NetworkError
-from wpull.http.request import RawRequest
-from wpull.http.stream import Stream
+from wpull.protocol.http.request import RawRequest
+from wpull.protocol.http.stream import Stream
 import wpull.string
 
 _logger = logging.getLogger(__name__)

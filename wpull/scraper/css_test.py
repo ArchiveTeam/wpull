@@ -3,7 +3,7 @@ import shutil
 import unittest
 
 from wpull.body import Body
-from wpull.http.request import Request, Response
+from wpull.protocol.http.request import Request, Response
 from wpull.item import LinkType
 from wpull.scraper.css import CSSScraper
 import wpull.util

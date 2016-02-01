@@ -11,7 +11,7 @@ import trollius
 from wpull.backport.logging import BraceMessage as __
 import wpull.body
 from wpull.errors import ServerError, ProtocolError
-from wpull.http.web import WebClient
+from wpull.protocol.http.web import WebClient
 from wpull.robotstxt import RobotsTxtPool
 from wpull.url import URLInfo
 import wpull.util

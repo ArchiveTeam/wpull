@@ -1,5 +1,5 @@
 import unittest
-from wpull.http.request import Request
+from wpull.protocol.http.request import Request
 from wpull.item import URLRecord
 from wpull.processor.web import WebProcessorSession
 from wpull.url import URLInfo

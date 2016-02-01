@@ -5,7 +5,7 @@ import unittest
 from wpull.body import Body
 
 from wpull.errors import ProtocolError
-from wpull.http.request import Request, Response
+from wpull.protocol.http.request import Request, Response
 
 
 class TestRequest(unittest.TestCase):
