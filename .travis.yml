@@ -2,11 +2,8 @@ sudo: false
 
 language: python
 python:
-  - 3.2
-  - 3.3
   - 3.4
   - 3.5
-  - pypy3
 
 cache:
   directories:
@@ -22,25 +19,15 @@ branches:
 
 # command to install dependencies
 install:
-  - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' ]]; then
-      travis_retry pip install -q -r requirements.txt;
-    else
-      travis_retry pip install -q -r requirements-pypy.txt;
-    fi
+  - travis_retry pip install -q -r requirements.txt;
   - travis_retry pip install -q coverage python-coveralls warcat youtube-dl
 
 
 # command to run tests
 script:
   - pip install . -t thematrix/ --no-dependencies
-  - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' && $TRAVIS_PYTHON_VERSION != '3.2' ]]; then
-      cd thematrix/ && nosetests --with-coverage --cover-package=wpull --cover-branches;
-    else
-      cd thematrix/ && nosetests;
-    fi
+  - cd thematrix/ && nosetests --with-coverage --cover-package=wpull --cover-branches
 
 
 after_success:
-  - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' && $TRAVIS_PYTHON_VERSION != '3.2' ]]; then
-      coveralls;
-    fi
+  - coveralls
