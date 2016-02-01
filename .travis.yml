@@ -8,11 +8,6 @@ python:
   - 3.5
   - pypy3
 
-addons:
-  apt:
-    packages:
-      - liblua5.2-dev
-
 cache:
   directories:
     - $HOME/.cache/pip
@@ -31,9 +26,6 @@ install:
       travis_retry pip install -q -r requirements.txt;
     else
       travis_retry pip install -q -r requirements-pypy.txt;
-    fi
-  - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' ]]; then
-      pip install -q git+https://github.com/bastibe/lunatic-python.git@f3f68d2c8638c6f423912264aeb750f5f7eb14ee#egg=lunatic-python;
     fi
   - travis_retry pip install -q coverage python-coveralls warcat youtube-dl
 

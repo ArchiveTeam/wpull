@@ -425,8 +425,6 @@ class Builder(object):
         '''Set up the scripts if any.'''
         if self._args.python_script:
             self._install_python_script(self._args.python_script)
-        elif self._args.lua_script:
-            self._install_lua_script(self._args.lua_script)
 
     def _install_python_script(self, filename):
         '''Load the Python script into an environment.'''
@@ -441,24 +439,6 @@ class Builder(object):
             code = compile(in_file.read(), filename, 'exec')
             context = {'wpull_hook': hook_environment}
             exec(code, context, context)
-
-    def _install_lua_script(self, filename):
-        '''Load the Lua script into an environment.'''
-        _logger.info(__(_('Using Lua hook script {filename}.'),
-                        filename=filename))
-
-        hook_environment = HookEnvironment(self._factory)
-
-        hook_environment.connect_hooks()
-
-        adapter_filename = os.path.join(
-            os.path.dirname(__file__), '_luahook.py')
-
-        with open(adapter_filename, 'rb') as in_file:
-            code = compile(in_file.read(), filename, 'exec')
-            context = {'wpull_hook': hook_environment}
-            exec(code, context, context)
-            context['install'](filename)
 
     def _setup_debug_console(self):
         if self._args.debug_console_port is None:

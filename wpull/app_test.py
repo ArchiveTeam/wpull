@@ -401,7 +401,6 @@ class TestApp(GoodAppTestCase, TempDirMixin):
             ('--warc-file=test', '--no-clobber'),
             ('--warc-file=test', '--timestamping'),
             ('--warc-file=test', '--continue'),
-            ('--lua-script=blah.lua', '--python-script=blah.py'),
             ('--no-iri', '--local-encoding=shiftjis'),
             ('--no-iri', '--remote-encoding=shiftjis'),
         ]
@@ -508,80 +507,6 @@ class TestApp(GoodAppTestCase, TempDirMixin):
         exit_code = yield From(app.run())
 
         self.assertEqual(1, exit_code)
-
-    @unittest.skipIf(sys.version_info[0:2] == (3, 2),
-                     'lua module not working in this python version')
-    @unittest.skipIf(IS_PYPY, 'Not supported under PyPy')
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_app_lua_script_api_2(self):
-        arg_parser = AppArgumentParser()
-        filename = os.path.join(os.path.dirname(__file__),
-                                'testing', 'lua_hook_script2.lua')
-        args = arg_parser.parse_args([
-            self.get_url('/'),
-            self.get_url('/some_page'),
-            self.get_url('/mordor'),
-            'localhost:1/wolf',
-            '--lua-script', filename,
-            '--page-requisites',
-            '--reject-regex', '/post/',
-            '--wait', '12',
-            '--retry-connrefused', '--tries', '1'
-        ])
-        builder = Builder(args, unit_test=True)
-
-        app = builder.build()
-        exit_code = yield From(app.run())
-        print(list(os.walk('.')))
-
-        self.assertEqual(42, exit_code)
-
-        engine = builder.factory['Engine']
-        self.assertEqual(2, engine.concurrent)
-
-        stats = builder.factory['Statistics']
-
-        self.assertEqual(3, stats.files)
-
-        # duration should be virtually 0 but account for slowness on travis ci
-        self.assertGreater(10.0, stats.duration)
-
-    @unittest.skipIf(sys.version_info[0:2] == (3, 2),
-                     'lua module not working in this python version')
-    @unittest.skipIf(IS_PYPY, 'Not supported under PyPy')
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_app_lua_script_api_3(self):
-        arg_parser = AppArgumentParser()
-        filename = os.path.join(os.path.dirname(__file__),
-                                'testing', 'lua_hook_script3.lua')
-        args = arg_parser.parse_args([
-            self.get_url('/'),
-            self.get_url('/some_page'),
-            self.get_url('/mordor'),
-            'localhost:1/wolf',
-            '--lua-script', filename,
-            '--page-requisites',
-            '--reject-regex', '/post/',
-            '--wait', '12',
-            '--retry-connrefused', '--tries', '1'
-        ])
-        builder = Builder(args, unit_test=True)
-
-        app = builder.build()
-        exit_code = yield From(app.run())
-        print(list(os.walk('.')))
-
-        self.assertEqual(42, exit_code)
-
-        engine = builder.factory['Engine']
-        self.assertEqual(2, engine.concurrent)
-
-        stats = builder.factory['Statistics']
-
-        self.assertEqual(3, stats.files)
-
-        # duration should be virtually 0 but account for slowness on travis ci
-        self.assertGreater(10.0, stats.duration)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_plugin_script(self):
