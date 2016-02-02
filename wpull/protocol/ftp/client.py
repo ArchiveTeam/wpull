@@ -11,8 +11,7 @@ from wpull.protocol.abstract.client import BaseClient, BaseSession, DurationTime
 from wpull.body import Body
 from wpull.errors import ProtocolError, AuthenticationError
 from wpull.protocol.ftp.command import Commander
-from wpull.protocol.ftp.ls.listing import ListingError
-from wpull.protocol.ftp.ls.parse import ListingParser
+from wpull.protocol.ftp.ls.listing import ListingError, ListingParser
 from wpull.protocol.ftp.request import Response, Command, ListingResponse
 from wpull.protocol.ftp.stream import ControlStream
 from wpull.protocol.ftp.util import FTPServerError, ReplyCodes
@@ -305,11 +304,10 @@ class Session(BaseSession):
                                         errors='surrogateescape')
 
                 listing_parser = ListingParser(file=file)
-                heuristics_result = listing_parser.run_heuristics()
 
-                _logger.debug('Listing detected as %s', heuristics_result)
+                listings = list(listing_parser.parse_input())
 
-                listings = list(listing_parser.parse())
+                _logger.debug('Listing detected as %s', listing_parser.type)
 
                 # We don't want the file to be closed when exiting this function
                 file.detach()

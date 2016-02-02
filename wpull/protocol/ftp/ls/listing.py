@@ -1,9 +1,11 @@
 '''Listing parser.'''
 import re
 
+import itertools
 import namedlist
 
 from wpull.protocol.ftp.ls.date import parse_datetime
+import wpull.protocol.ftp.ls.date
 
 
 FileEntry = namedlist.namedtuple(
@@ -228,3 +230,50 @@ def parse_unix_perm(text):
             perms |= 1
 
     return perms
+
+
+class ListingParser(LineParser):
+    '''Listing parser.
+
+    Args:
+        text (str): A text listing.
+        file: A file object in text mode containing the listing.
+    '''
+    def __init__(self, text=None, file=None):
+        super().__init__()
+
+        self._text = text
+        self._file = file
+
+    def parse_input(self):
+        '''Parse the listings.
+
+        Returns:
+            iter: A iterable of :class:`.ftp.ls.listing.FileEntry`
+        '''
+
+        if self._text:
+            lines = iter(self._text.splitlines())
+        elif self._file:
+            lines = self._file
+        else:
+            lines = ()
+
+        sample_lines = []
+
+        for line in lines:
+            if len(sample_lines) > 100:
+                break
+
+            sample_lines.append(line)
+
+        lines = itertools.chain(sample_lines, lines)
+
+        self.guess_type(sample_lines)
+
+        datetime_format = wpull.protocol.ftp.ls.date.guess_datetime_format(
+            sample_lines)
+
+        self.set_datetime_format(datetime_format)
+
+        return self.parse(lines)

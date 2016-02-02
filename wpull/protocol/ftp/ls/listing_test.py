@@ -1,12 +1,16 @@
+import datetime
 import unittest
 
-from wpull.protocol.ftp.ls.listing import guess_listing_type, parse_unix_perm
+import functools
 
+from wpull.protocol.ftp.ls.listing import guess_listing_type, parse_unix_perm, \
+    ListingParser, FileEntry, UnknownListingError
 
 UNIX_LS = '''-rw-r--r--   1 root     other        531 Jan 29 03:26 README
 dr-xr-xr-x   2 root     other        512 Apr  8  1994 etc
 dr-xr-xr-x   2 root     512 Apr  8  1994 etc
 lrwxrwxrwx   1 root     other          7 Jan 25 00:17 bin -> usr/bin
+dr-xr-xr-x   2 root  other 512 Apr  8  2004 blah
 '''
 
 MSDOS_LS = '''04-27-00  09:09PM       <DIR>          licensed
@@ -14,12 +18,14 @@ MSDOS_LS = '''04-27-00  09:09PM       <DIR>          licensed
 04-14-00  03:47PM                  589 readme.htm
 '''
 
-
 MSDOS_NO_DIR_LS = '''04-27-00  09:09PM               123  licensed.exe
 07-18-00  10:16AM               456  pub.pdf
 04-14-00  03:47PM                  589 readme.htm
 '''
 
+UNIX_LS_DATELIKE_FILE = '''-rw-r--r--    1 500      500       1558532 Dec 30  2009 2009-12
+-rw-r--r--    1 500      500      10564020 Jan 14  2010 2010-01
+'''
 
 NLST_LS = '''horse.txt
 fish
@@ -60,3 +66,117 @@ class TestListing(unittest.TestCase):
         self.assertEqual(0o535, parse_unix_perm('r-x-wxr-x'))
         self.assertEqual(0o777, parse_unix_perm('rwxrwxrwx'))
         self.assertEqual(0o777, parse_unix_perm('rwsrwsrws'))
+
+    def test_parse_unix(self):
+        parser = ListingParser(UNIX_LS)
+        results = list(parser.parse_input())
+        date_factory = functools.partial(datetime.datetime,
+                                         tzinfo=datetime.timezone.utc)
+
+        datetime_now = datetime.datetime.utcnow()
+        datetime_now = datetime_now.replace(tzinfo=datetime.timezone.utc)
+        current_year = datetime_now.year
+
+        datetime_1 = date_factory(current_year, 1, 29, 3, 26)
+        datetime_2 = date_factory(current_year, 1, 25, 0, 17)
+
+        if datetime_1 > datetime_now:
+            datetime_1 = datetime_1.replace(year=current_year - 1)
+
+        if datetime_2 > datetime_now:
+            datetime_2 = datetime_2.replace(year=current_year - 1)
+
+        self.assertEqual(
+            [
+                FileEntry('README', 'file', 531,
+                          datetime_1,
+                          perm=0o644),
+                FileEntry('etc', 'dir', 512,
+                          date_factory(1994, 4, 8),
+                          perm=0o555),
+                FileEntry('etc', 'dir', 512,
+                          date_factory(1994, 4, 8),
+                          perm=0o555),
+                FileEntry('bin', 'symlink', 7,
+                          datetime_2,
+                          'usr/bin', perm=0o777),
+                FileEntry('blah', 'dir', 512,
+                          date_factory(2004, 4, 8),
+                          perm=0o555),
+            ],
+            results
+        )
+
+    def test_parse_msdos(self):
+        parser = ListingParser(MSDOS_LS)
+        results = list(parser.parse_input())
+        date_factory = functools.partial(datetime.datetime,
+                                         tzinfo=datetime.timezone.utc)
+
+        self.assertEqual(
+            [
+                FileEntry('licensed', 'dir', None,
+                          date_factory(2000, 4, 27, 21, 9)),
+                FileEntry('pub', 'dir', None,
+                          date_factory(2000, 7, 18, 10, 16)),
+                FileEntry('readme.htm', 'file', 589,
+                          date_factory(2000, 4, 14, 15, 47)),
+            ],
+            results
+        )
+
+    def test_parse_msdos_no_dir(self):
+        parser = ListingParser(MSDOS_NO_DIR_LS)
+        results = list(parser.parse_input())
+        date_factory = functools.partial(datetime.datetime,
+                                         tzinfo=datetime.timezone.utc)
+
+        self.assertEqual(
+            [
+                FileEntry('licensed.exe', 'file', 123,
+                          date_factory(2000, 4, 27, 21, 9)),
+                FileEntry('pub.pdf', 'file', 456,
+                          date_factory(2000, 7, 18, 10, 16)),
+                FileEntry('readme.htm', 'file', 589,
+                          date_factory(2000, 4, 14, 15, 47)),
+            ],
+            results
+        )
+
+    def test_parse_nlst(self):
+        parser = ListingParser(NLST_LS)
+        results = list(parser.parse_input())
+
+        self.assertEqual(
+            [
+                FileEntry('horse.txt'),
+                FileEntry('fish'),
+                FileEntry('dolphin.jpg'),
+                FileEntry('delicious cake.wri'),
+                FileEntry('egg'),
+            ],
+            results
+        )
+
+    def test_parse_junk(self):
+        parser = ListingParser(' aj  \x00     a304 jrf')
+
+        self.assertRaises(UnknownListingError, parser.parse_input)
+
+    def test_parse_unix_datelike_file(self):
+        parser = ListingParser(UNIX_LS_DATELIKE_FILE)
+        results = list(parser.parse_input())
+        date_factory = functools.partial(datetime.datetime,
+                                         tzinfo=datetime.timezone.utc)
+
+        self.assertEqual(
+            [
+                FileEntry('2009-12', 'file', 1558532,
+                          date_factory(2009, 12, 30),
+                          perm=0o644),
+                FileEntry('2010-01', 'file', 10564020,
+                          date_factory(2010, 1, 14),
+                          perm=0o644),
+            ],
+            results
+        )
