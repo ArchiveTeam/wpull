@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`http.request` Module
-==========================
+:mod:`protocol.ftp.ls.date` Module
+==================================
 
-.. automodule:: wpull.http.request
+.. automodule:: wpull.protocol.ftp.ls.date
     :members:
     :show-inheritance:
     :private-members:

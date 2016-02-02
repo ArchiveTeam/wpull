@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`_luahook` Module
-======================
+:mod:`protocol.ftp.ls` Module
+=============================
 
-.. automodule:: wpull._luahook
+.. automodule:: wpull.protocol.ftp.ls
     :members:
     :show-inheritance:
     :private-members:

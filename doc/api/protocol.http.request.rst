@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`http.web` Module
-======================
+:mod:`protocol.http.request` Module
+===================================
 
-.. automodule:: wpull.http.web
+.. automodule:: wpull.protocol.http.request
     :members:
     :show-inheritance:
     :private-members:

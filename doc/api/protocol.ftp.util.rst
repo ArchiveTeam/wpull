@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`http.stream` Module
-=========================
+:mod:`protocol.ftp.util` Module
+===============================
 
-.. automodule:: wpull.http.stream
+.. automodule:: wpull.protocol.ftp.util
     :members:
     :show-inheritance:
     :private-members:

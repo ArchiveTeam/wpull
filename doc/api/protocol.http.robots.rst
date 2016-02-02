@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`http.redirect` Module
-===========================
+:mod:`protocol.http.robots` Module
+==================================
 
-.. automodule:: wpull.http.redirect
+.. automodule:: wpull.protocol.http.robots
     :members:
     :show-inheritance:
     :private-members:

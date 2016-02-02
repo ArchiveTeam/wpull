@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`http.robots` Module
-=========================
+:mod:`protocol.http.chunked` Module
+===================================
 
-.. automodule:: wpull.http.robots
+.. automodule:: wpull.protocol.http.chunked
     :members:
     :show-inheritance:
     :private-members:

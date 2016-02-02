@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`ftp.ls.listing` Module
-============================
+:mod:`protocol.ftp.ls.listing` Module
+=====================================
 
-.. automodule:: wpull.ftp.ls.listing
+.. automodule:: wpull.protocol.ftp.ls.listing
     :members:
     :show-inheritance:
     :private-members:

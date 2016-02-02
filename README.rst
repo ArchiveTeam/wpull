@@ -15,7 +15,7 @@ Features:
 * Written in Python: lightweight, modifiable, & robust
 * Familiar Wget options and behavior
 * Graceful stopping; on-disk database resume
-* Python & Lua scripting support
+* Python scripting support
 * PhantomJS & youtube-dl integration (experimental)
 
 
@@ -101,7 +101,6 @@ Copyright 2013-2015 by Christopher Foo and others. License GPL v3.
 This project contains third-party source code licensed under different terms:
 
 * wpull.backport.logging
-* wpull.backport.textwrap
 * wpull.thirdparty.robotexclusionrulesparser
 * wpull.thirdparty.dammit
 

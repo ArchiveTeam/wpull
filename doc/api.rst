@@ -10,9 +10,9 @@ Here lists all documented classes and functions. Not all members are documented 
 
 If the documentation is not sufficient, please take a look at the source code. Suggestions and improvements are welcomed.
 
-.. Note:: The API is not thread-safe. It is intended to be run asynchronously with Trollius.
+.. Note:: The API is not thread-safe. It is intended to be run asynchronously with Asyncio.
 
-    Many functions also are decorated with the :func:`trollius.coroutine` decorator. For more information, see http://trollius.readthedocs.org/.
+    Many functions also are decorated with the :func:`asyncio.coroutine` decorator. For more information, see https://docs.python.org/3/library/asyncio.html.
 
 
 wpull Package

@@ -20,18 +20,6 @@ Here is a example Python script. It refuses to download anything with the word "
 
     wpull_hook.callbacks.accept_url = accept_url
 
-Here is the same script, but in Lua:
-
-.. code-block:: lua
-
-    wpull_hook.callbacks.accept_url = function(url_info, record_info, verdict, reasons)
-        if string.match(url_info['url'], 'dog') then
-            return false
-        else
-            return verdict
-        end
-    end
-
 Wpull will attempt to support deprecation and feature selection through Scripting API Versions. To select a version, include in your script::
 
     wpull_hook.callbacks.version = 2

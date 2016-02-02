@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`ftp.ls.parse` Module
-==========================
+:mod:`protocol.ftp.request` Module
+==================================
 
-.. automodule:: wpull.ftp.ls.parse
+.. automodule:: wpull.protocol.ftp.request
     :members:
     :show-inheritance:
     :private-members:

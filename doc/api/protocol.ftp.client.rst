@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`ftp.client` Module
-========================
+:mod:`protocol.ftp.client` Module
+=================================
 
-.. automodule:: wpull.ftp.client
+.. automodule:: wpull.protocol.ftp.client
     :members:
     :show-inheritance:
     :private-members:

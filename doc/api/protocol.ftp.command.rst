@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`ftp.ls.date` Module
-=========================
+:mod:`protocol.ftp.command` Module
+==================================
 
-.. automodule:: wpull.ftp.ls.date
+.. automodule:: wpull.protocol.ftp.command
     :members:
     :show-inheritance:
     :private-members:

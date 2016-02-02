@@ -16,7 +16,7 @@ Features:
 * Written in Python: lightweight, modifiable, & robust
 * Familiar Wget options and behavior
 * Graceful stopping; on-disk database resume
-* Python & Lua scripting support
+* Python scripting support
 * PhantomJS & youtube-dl integration (experimental)
 
 

@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`abstract.stream` Module
-=============================
+:mod:`protocol.abstract` Module
+===============================
 
-.. automodule:: wpull.abstract.stream
+.. automodule:: wpull.protocol.abstract
     :members:
     :show-inheritance:
     :private-members:

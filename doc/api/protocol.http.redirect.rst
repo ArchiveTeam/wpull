@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`abstract.client` Module
-=============================
+:mod:`protocol.http.redirect` Module
+====================================
 
-.. automodule:: wpull.abstract.client
+.. automodule:: wpull.protocol.http.redirect
     :members:
     :show-inheritance:
     :private-members:

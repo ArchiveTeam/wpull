@@ -1,10 +1,10 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`http` Module
-==================
+:mod:`protocol.http.stream` Module
+==================================
 
-.. automodule:: wpull.http
+.. automodule:: wpull.protocol.http.stream
     :members:
     :show-inheritance:
     :private-members:
