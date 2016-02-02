@@ -2,6 +2,8 @@ import os.path
 import shutil
 import unittest
 
+import sys
+
 from wpull.body import Body
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
 from wpull.protocol.http.request import Request, Response
@@ -127,7 +129,9 @@ class Mixin(object):
             'ftp://example.com/ftp_script_variable.html',
             'http://example.com/end_dir_script_variable/',
             'http://example.com/start_dir_script_variable',
-            'http://example.com/../relative_dir_script_variable',
+            'http://example.com/../relative_dir_script_variable'
+            if sys.version_info < (3, 5) else
+            'http://example.com/relative_dir_script_variable',
             'http://example.com/script_json.html',
             'http://example.com/http_script_json.html?a=b',
             'http://example.com/a_javascript_link.html',
