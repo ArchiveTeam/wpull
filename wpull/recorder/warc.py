@@ -1,3 +1,4 @@
+import textwrap
 from tempfile import NamedTemporaryFile
 import contextlib
 import gettext
@@ -17,12 +18,6 @@ from wpull.recorder.base import BaseRecorder, BaseRecorderSession
 from wpull.warc import WARCRecord
 import wpull.util
 import wpull.version
-
-
-try:
-    from textwrap import indent as textwrap_indent
-except ImportError:
-    from wpull.backport.textwrap import indent as textwrap_indent
 
 
 _logger = logging.getLogger(__name__)
@@ -668,7 +663,7 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
         self._recorder.write_record(self._control_record)
 
     def request_control_data(self, data):
-        text = textwrap_indent(
+        text = textwrap.indent(
             data.decode('utf-8', errors='surrogateescape'),
             '> ', predicate=lambda line: True
         )
@@ -680,7 +675,7 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
             self._control_record.block_file.write(b'\n')
 
     def response_control_data(self, data):
-        text = textwrap_indent(
+        text = textwrap.indent(
             data.decode('utf-8', errors='surrogateescape'),
             '< ', predicate=lambda line: True
         )
@@ -692,7 +687,7 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
             self._control_record.block_file.write(b'\n')
 
     def _write_control_event(self, text):
-        text = textwrap_indent(text, '* ', predicate=lambda line: True)
+        text = textwrap.indent(text, '* ', predicate=lambda line: True)
         self._control_record.block_file.write(
             text.encode('utf-8', errors='surrogateescape')
         )
