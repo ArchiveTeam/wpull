@@ -70,14 +70,11 @@ class LineParser(object):
 
     def parse_nlst(self, lines):
         '''Parse lines from a NLST format.'''
-        entries = []
         for line in lines:
-            entries.append(FileEntry(line))
-        return entries
+            yield FileEntry(line)
 
     def parse_msdos(self, lines):
         '''Parse lines from a MS-DOS format.'''
-        entries = []
         for line in lines:
             fields = line.split(None, 4)
 
@@ -97,15 +94,11 @@ class LineParser(object):
 
             filename = fields[3]
 
-            entries.append(
-                FileEntry(filename, file_type, file_size, file_datetime))
-
-        return entries
+            yield FileEntry(filename, file_type, file_size, file_datetime)
 
     def parse_unix(self, lines):
         '''Parse listings from a Unix ls command format.'''
         # This method uses some Filezilla parsing algorithms
-        entries = []
 
         for line in lines:
             original_line = line
@@ -163,11 +156,8 @@ class LineParser(object):
             else:
                 symlink_dest = None
 
-            entries.append(
-                FileEntry(filename, file_type, file_size, datetime_obj,
-                          symlink_dest, perm=perms))
-
-        return entries
+            yield FileEntry(filename, file_type, file_size, datetime_obj,
+                            symlink_dest, perm=perms)
 
 
 def guess_listing_type(lines, threshold=100):

@@ -36,7 +36,7 @@ class TestParse(unittest.TestCase):
     def test_parse_unix(self):
         parser = ListingParser(UNIX_LS)
         parser.run_heuristics()
-        results = parser.parse()
+        results = list(parser.parse())
         date_factory = functools.partial(datetime.datetime,
                                          tzinfo=datetime.timezone.utc)
 
@@ -77,7 +77,7 @@ class TestParse(unittest.TestCase):
     def test_parse_msdos(self):
         parser = ListingParser(MSDOS_LS)
         parser.run_heuristics()
-        results = parser.parse()
+        results = list(parser.parse())
         date_factory = functools.partial(datetime.datetime,
                                          tzinfo=datetime.timezone.utc)
 
@@ -96,7 +96,7 @@ class TestParse(unittest.TestCase):
     def test_parse_msdos_no_dir(self):
         parser = ListingParser(MSDOS_NO_DIR_LS)
         parser.run_heuristics()
-        results = parser.parse()
+        results = list(parser.parse())
         date_factory = functools.partial(datetime.datetime,
                                          tzinfo=datetime.timezone.utc)
 
@@ -111,7 +111,7 @@ class TestParse(unittest.TestCase):
     def test_parse_nlst(self):
         parser = ListingParser(NLST)
         parser.run_heuristics()
-        results = parser.parse()
+        results = list(parser.parse())
 
         self.assertEqual(
             [
@@ -132,7 +132,7 @@ class TestParse(unittest.TestCase):
     def test_parse_unix_datelike_file(self):
         parser = ListingParser(UNIX_LS_DATELIKE_FILE)
         parser.run_heuristics()
-        results = parser.parse()
+        results = list(parser.parse())
         date_factory = functools.partial(datetime.datetime,
                                          tzinfo=datetime.timezone.utc)
 

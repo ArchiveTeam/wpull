@@ -309,7 +309,7 @@ class Session(BaseSession):
 
                 _logger.debug('Listing detected as %s', heuristics_result)
 
-                listings = listing_parser.parse()
+                listings = list(listing_parser.parse())
 
                 # We don't want the file to be closed when exiting this function
                 file.detach()
