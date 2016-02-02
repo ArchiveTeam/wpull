@@ -1,8 +1,8 @@
 '''FTP service control.'''
 import logging
 
-from trollius import From, Return
-import trollius
+
+import asyncio
 from wpull.errors import ProtocolError
 
 from wpull.protocol.ftp.request import Command
@@ -47,41 +47,41 @@ class Commander(object):
                 reply.code
                 )
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def read_welcome_message(self):
         '''Read the welcome message.
 
         Coroutine.
         '''
-        reply = yield From(self._control_stream.read_reply())
+        reply = yield from self._control_stream.read_reply()
 
         self.raise_if_not_match(
             'Server ready', ReplyCodes.service_ready_for_new_user, reply)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def login(self, username='anonymous', password='-wpull-lib@'):
         '''Log in.
 
         Coroutine.
         '''
-        yield From(self._control_stream.write_command(Command('USER', username)))
+        yield from self._control_stream.write_command(Command('USER', username))
 
-        reply = yield From(self._control_stream.read_reply())
+        reply = yield from self._control_stream.read_reply()
 
         if reply.code == ReplyCodes.user_logged_in_proceed:
-            raise Return()
+            return
 
         self.raise_if_not_match(
             'Login username', ReplyCodes.user_name_okay_need_password, reply)
 
-        yield From(self._control_stream.write_command(Command('PASS', password)))
+        yield from self._control_stream.write_command(Command('PASS', password))
 
-        reply = yield From(self._control_stream.read_reply())
+        reply = yield from self._control_stream.read_reply()
 
         self.raise_if_not_match(
             'Login password', ReplyCodes.user_logged_in_proceed, reply)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def passive_mode(self):
         '''Enable passive mode.
 
@@ -90,19 +90,19 @@ class Commander(object):
 
         Coroutine.
         '''
-        yield From(self._control_stream.write_command(Command('PASV')))
+        yield from self._control_stream.write_command(Command('PASV'))
 
-        reply = yield From(self._control_stream.read_reply())
+        reply = yield from self._control_stream.read_reply()
 
         self.raise_if_not_match(
             'Passive mode', ReplyCodes.entering_passive_mode, reply)
 
         try:
-            raise Return(wpull.protocol.ftp.util.parse_address(reply.text))
+            return wpull.protocol.ftp.util.parse_address(reply.text)
         except ValueError as error:
             raise ProtocolError(str(error)) from error
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def setup_data_stream(self, connection_factory,
                           data_stream_factory=DataStream):
         '''Create and setup a data stream.
@@ -121,26 +121,26 @@ class Commander(object):
         Returns:
             DataStream
         '''
-        yield From(self._control_stream.write_command(Command('TYPE', 'I')))
-        reply = yield From(self._control_stream.read_reply())
+        yield from self._control_stream.write_command(Command('TYPE', 'I'))
+        reply = yield from self._control_stream.read_reply()
 
         self.raise_if_not_match('Binary mode', ReplyCodes.command_okay, reply)
 
-        address = yield From(self.passive_mode())
+        address = yield from self.passive_mode()
 
-        connection = yield From(connection_factory(address))
+        connection = yield from connection_factory(address)
 
         # TODO: unit test for following line for connections that have
         # the same port over time but within pool cleaning intervals
         connection.reset()
 
-        yield From(connection.connect())
+        yield from connection.connect()
 
         data_stream = data_stream_factory(connection)
 
-        raise Return(data_stream)
+        return data_stream
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def begin_stream(self, command):
         '''Start sending content on the data stream.
 
@@ -153,8 +153,8 @@ class Commander(object):
         Returns:
             Reply: The begin reply.
         '''
-        yield From(self._control_stream.write_command(command))
-        reply = yield From(self._control_stream.read_reply())
+        yield from self._control_stream.write_command(command)
+        reply = yield from self._control_stream.read_reply()
 
         self.raise_if_not_match(
             'Begin stream',
@@ -165,9 +165,9 @@ class Commander(object):
             reply
         )
 
-        raise Return(reply)
+        return reply
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def read_stream(self, file, data_stream):
         '''Read from the data stream.
 
@@ -182,9 +182,9 @@ class Commander(object):
             Reply: The final reply.
         '''
 
-        yield From(data_stream.read_file(file=file))
+        yield from data_stream.read_file(file=file)
 
-        reply = yield From(self._control_stream.read_reply())
+        reply = yield from self._control_stream.read_reply()
 
         self.raise_if_not_match(
             'End stream',
@@ -194,33 +194,33 @@ class Commander(object):
 
         data_stream.close()
 
-        raise Return(reply)
+        return reply
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def size(self, filename):
         '''Get size of file.
 
         Coroutine.
         '''
-        yield From(self._control_stream.write_command(Command('SIZE', filename)))
+        yield from self._control_stream.write_command(Command('SIZE', filename))
 
-        reply = yield From(self._control_stream.read_reply())
+        reply = yield from self._control_stream.read_reply()
 
         self.raise_if_not_match('File size', ReplyCodes.file_status, reply)
 
         try:
-            raise Return(int(reply.text.strip()))
+            return int(reply.text.strip())
         except ValueError:
             return
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def restart(self, offset):
         '''Send restart command.
 
         Coroutine.
         '''
-        yield From(self._control_stream.write_command(Command('REST', str(offset))))
+        yield from self._control_stream.write_command(Command('REST', str(offset)))
 
-        reply = yield From(self._control_stream.read_reply())
+        reply = yield from self._control_stream.read_reply()
 
         self.raise_if_not_match('Restart', ReplyCodes.requested_file_action_pending_further_information, reply)

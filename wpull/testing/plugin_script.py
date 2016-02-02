@@ -1,14 +1,14 @@
-from trollius import From, Return
-import trollius
+
+import asyncio
 
 from wpull.app import Application
 
 
 class MyApplication(Application):
-    @trollius.coroutine
+    @asyncio.coroutine
     def run(self):
-        yield From(super().run())
-        raise Return(42)
+        yield from super().run()
+        return 42
 
 
 wpull_plugin.factory.class_map['Application'] = MyApplication

@@ -1,8 +1,7 @@
 import io
 import logging
 
-from trollius import From
-import trollius
+import asyncio
 from wpull.protocol.abstract.client import DurationTimeout
 from wpull.errors import ProtocolError
 
@@ -24,10 +23,9 @@ class TestClient(FTPTestCase):
         file = io.BytesIO()
 
         with client.session() as session:
-            response = yield From(
+            response = yield from \
                 session.fetch(Request(self.get_url('/example (copy).txt')))
-                )
-            yield From(session.read_content(file))
+            yield from session.read_content(file)
 
         self.assertEqual(
             'The real treasure is in Smaug’s heart 💗.\n'.encode('utf-8'),
@@ -40,10 +38,9 @@ class TestClient(FTPTestCase):
         file = io.BytesIO()
 
         with self.assertRaises(DurationTimeout), client.session() as session:
-            yield From(
+            yield from \
                 session.fetch(Request(self.get_url('/hidden/sleep.txt')))
-            )
-            yield From(session.read_content(file, duration_timeout=0.1))
+            yield from session.read_content(file, duration_timeout=0.1)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_fetch_no_file(self):
@@ -52,10 +49,9 @@ class TestClient(FTPTestCase):
 
         with client.session() as session:
             try:
-                yield From(
+                yield from \
                     session.fetch(Request(self.get_url('/asdf.txt')))
-                    )
-                yield From(session.read_content(file))
+                yield from session.read_content(file)
             except FTPServerError as error:
                 self.assertEqual(550, error.reply_code)
             else:
@@ -69,9 +65,9 @@ class TestClient(FTPTestCase):
         with client.session() as session:
             request = Request(self.get_url('/example (copy).txt'))
             request.set_continue(10)
-            response = yield From(session.fetch(request))
+            response = yield from session.fetch(request)
             self.assertEqual(10, response.restart_value)
-            yield From(session.read_content(file))
+            yield from session.read_content(file)
 
         self.assertEqual(
             'reasure is in Smaug’s heart 💗.\n'.encode('utf-8'),
@@ -86,9 +82,9 @@ class TestClient(FTPTestCase):
         with client.session() as session:
             request = Request(self.get_url('/example (copy).txt'))
             request.set_continue(99999)  # Magic value in the test server
-            response = yield From(session.fetch(request))
+            response = yield from session.fetch(request)
             self.assertFalse(response.restart_value)
-            yield From(session.read_content(file))
+            yield from session.read_content(file)
 
         self.assertEqual(
             'The real treasure is in Smaug’s heart 💗.\n'.encode('utf-8'),
@@ -100,10 +96,9 @@ class TestClient(FTPTestCase):
         client = Client()
         file = io.BytesIO()
         with client.session() as session:
-            response = yield From(
+            response = yield from \
                 session.fetch_file_listing(Request(self.get_url('/')))
-            )
-            yield From(session.read_listing_content(file))
+            yield from session.read_listing_content(file)
 
         print(response.body.content())
         self.assertEqual(5, len(response.files))
@@ -121,18 +116,17 @@ class TestClient(FTPTestCase):
         with client.session() as session:
             original_func = session._log_in
 
-            @trollius.coroutine
+            @asyncio.coroutine
             def override_func():
-                yield From(original_func())
-                yield From(session._control_stream.write_command(Command('EVIL_BAD_PASV_ADDR')))
+                yield from original_func()
+                yield from session._control_stream.write_command(Command('EVIL_BAD_PASV_ADDR'))
                 print('Evil awaits')
 
             session._log_in = override_func
 
             with self.assertRaises(ProtocolError):
-                yield From(
+                yield from \
                     session.fetch(Request(self.get_url('/example (copy).txt')))
-                )
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_login_no_password_required(self):
@@ -142,5 +136,5 @@ class TestClient(FTPTestCase):
         with client.session() as session:
             request = Request(self.get_url('/example (copy).txt'))
             request.username = 'no_password_required'
-            yield From(session.fetch(request))
-            yield From(session.read_content(file))
+            yield from session.fetch(request)
+            yield from session.read_content(file)

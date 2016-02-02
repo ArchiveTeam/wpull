@@ -8,8 +8,8 @@ import sys
 import unittest
 
 import tornado.netutil
-from trollius import From, Return
-import trollius
+
+import asyncio
 
 from wpull.connection import Connection, SSLConnection
 from wpull.errors import NetworkError, ConnectionRefused, ProtocolError, \
@@ -61,21 +61,21 @@ class StreamTestsMixin(object):
 
         return stream
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def fetch(self, stream, request):
-        yield From(stream.reconnect())
-        yield From(stream.write_request(request))
-        response = yield From(stream.read_response())
+        yield from stream.reconnect()
+        yield from stream.write_request(request)
+        response = yield from stream.read_response()
         content = io.BytesIO()
-        yield From(stream.read_body(request, response, content))
-        raise Return(response, content.getvalue())
+        yield from stream.read_body(request, response, content)
+        return response, content.getvalue()
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_no_such_host(self):
         stream = self.new_stream('wpull-no-exist.invalid', 80)
         try:
-            yield From(
-                self.fetch(stream, Request('http://wpull-no-exist.invalid')))
+            yield from \
+                self.fetch(stream, Request('http://wpull-no-exist.invalid'))
         except NetworkError:
             pass
         else:
@@ -85,7 +85,7 @@ class StreamTestsMixin(object):
     def test_connection_refused(self):
         stream = self.new_stream('127.0.0.1', 1)
         try:
-            yield From(self.fetch(stream, Request('http://localhost:1/')))
+            yield from self.fetch(stream, Request('http://localhost:1/'))
         except ConnectionRefused:
             pass
         else:
@@ -97,7 +97,7 @@ class StreamTestsMixin(object):
                                  connection_kwargs=dict(connect_timeout=0.1))
 
         try:
-            yield From(self.fetch(stream, Request('http://1.0.0.0:1/')))
+            yield from self.fetch(stream, Request('http://1.0.0.0:1/'))
         except NetworkError:
             pass
         else:
@@ -108,9 +108,9 @@ class StreamTestsMixin(object):
         stream = self.new_stream()
         request = Request(self.get_url('/'))
         request.version = 'HTTP/1.0'
-        response, dummy = yield From(self.fetch(stream, request))
+        response, dummy = yield from self.fetch(stream, request)
         self.assertEqual(200, response.status_code)
-        response, dummy = yield From(self.fetch(stream, request))
+        response, dummy = yield from self.fetch(stream, request)
         self.assertEqual(200, response.status_code)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
@@ -119,7 +119,7 @@ class StreamTestsMixin(object):
 
         for dummy in range(5):
             request = Request(self.get_url('/content_length_with_close'))
-            response, content = yield From(self.fetch(stream, request))
+            response, content = yield from self.fetch(stream, request)
             self.assertEqual(200, response.status_code)
             self.assertEqual('100', response.fields['Content-Length'])
             self.assertEqual(100, len(content))
@@ -132,7 +132,7 @@ class StreamTestsMixin(object):
 
         for dummy in range(5):
             request = Request('/content_length_without_close')
-            response, content = yield From(self.fetch(stream, request))
+            response, content = yield from self.fetch(stream, request)
             self.assertEqual(200, response.status_code)
             self.assertEqual('100', response.fields['Content-Length'])
             self.assertEqual(100, len(content))
@@ -143,7 +143,7 @@ class StreamTestsMixin(object):
         stream = self.new_stream(connection_kwargs=dict(timeout=0.1))
         request = Request(self.get_url('/sleep_long'))
         try:
-            yield From(self.fetch(stream, request))
+            yield from self.fetch(stream, request)
         except NetworkError:
             pass
         else:
@@ -153,7 +153,7 @@ class StreamTestsMixin(object):
     def test_basic(self):
         stream = self.new_stream()
         request = Request(self.get_url('/'))
-        response, content = yield From(self.fetch(stream, request))
+        response, content = yield from self.fetch(stream, request)
         self.assertEqual(200, response.status_code)
         self.assertEqual(b'hello world!', content)
 #         self.assertTrue(response.url_info)
@@ -162,7 +162,7 @@ class StreamTestsMixin(object):
     def test_basic_content_length(self):
         stream = self.new_stream()
         request = Request(self.get_url('/content_length'))
-        response, content = yield From(self.fetch(stream, request))
+        response, content = yield from self.fetch(stream, request)
         self.assertEqual(200, response.status_code)
         self.assertEqual('100', response.fields['Content-Length'])
         self.assertEqual(b'a' * 100, content)
@@ -172,7 +172,7 @@ class StreamTestsMixin(object):
     def test_basic_chunked(self):
         stream = self.new_stream()
         request = Request(self.get_url('/chunked'))
-        response, content = yield From(self.fetch(stream, request))
+        response, content = yield from self.fetch(stream, request)
         self.assertEqual(200, response.status_code)
         self.assertEqual('chunked', response.fields['Transfer-Encoding'])
         self.assertEqual(b'hello world!', content)
@@ -181,7 +181,7 @@ class StreamTestsMixin(object):
     def test_basic_chunked_trailer(self):
         stream = self.new_stream()
         request = Request(self.get_url('/chunked_trailer'))
-        response, content = yield From(self.fetch(stream, request))
+        response, content = yield from self.fetch(stream, request)
         self.assertEqual(200, response.status_code)
         self.assertEqual('chunked', response.fields['Transfer-Encoding'])
         self.assertEqual('dolphin', response.fields['Animal'])
@@ -191,7 +191,7 @@ class StreamTestsMixin(object):
     def test_basic_chunked_trailer_2(self):
         stream = self.new_stream()
         request = Request(self.get_url('/chunked_trailer_2'))
-        response, content = yield From(self.fetch(stream, request))
+        response, content = yield from self.fetch(stream, request)
         self.assertEqual(200, response.status_code)
         self.assertEqual('chunked', response.fields['Transfer-Encoding'])
         self.assertEqual('dolphin', response.fields['Animal'])
@@ -203,7 +203,7 @@ class StreamTestsMixin(object):
         stream = self.new_stream()
         request = Request(self.get_url('/malformed_chunked'))
         try:
-            yield From(self.fetch(stream, request))
+            yield from self.fetch(stream, request)
         except ProtocolError:
             pass
         else:
@@ -213,7 +213,7 @@ class StreamTestsMixin(object):
     def test_non_standard_delim_chunked(self):
         stream = self.new_stream()
         request = Request(self.get_url('/chunked_non_standard_delim'))
-        response, content = yield From(self.fetch(stream, request))
+        response, content = yield from self.fetch(stream, request)
         self.assertEqual(200, response.status_code)
         self.assertEqual('chunked', response.fields['Transfer-Encoding'])
         self.assertEqual(b'hello world!', content)
@@ -222,7 +222,7 @@ class StreamTestsMixin(object):
     def test_chunked_with_extension(self):
         stream = self.new_stream()
         request = Request(self.get_url('/chunked_with_extension'))
-        response, content = yield From(self.fetch(stream, request))
+        response, content = yield from self.fetch(stream, request)
         self.assertEqual(200, response.status_code)
         self.assertEqual('chunked', response.fields['Transfer-Encoding'])
         self.assertEqual(b'hello world!', content)
@@ -232,7 +232,7 @@ class StreamTestsMixin(object):
         stream = self.new_stream()
         request = Request(self.get_url('/buffer_overflow'))
         try:
-            yield From(self.fetch(stream, request))
+            yield from self.fetch(stream, request)
         except ProtocolError:
             pass
         else:
@@ -243,7 +243,7 @@ class StreamTestsMixin(object):
         stream = self.new_stream()
         request = Request(self.get_url('/buffer_overflow_header'))
         try:
-            yield From(self.fetch(stream, request))
+            yield from self.fetch(stream, request)
         except ProtocolError:
             pass
         else:
@@ -254,7 +254,7 @@ class StreamTestsMixin(object):
         stream = self.new_stream()
         request = Request(self.get_url('/bad_chunk_size'))
         try:
-            yield From(self.fetch(stream, request))
+            yield from self.fetch(stream, request)
         except ProtocolError:
             pass
         else:
@@ -264,7 +264,7 @@ class StreamTestsMixin(object):
     def test_content_length_and_chunked(self):
         stream = self.new_stream()
         request = Request(self.get_url('/content_length_and_chunked'))
-        response, content = yield From(self.fetch(stream, request))
+        response, content = yield from self.fetch(stream, request)
         self.assertEqual(200, response.status_code)
         self.assertEqual('chunked', response.fields['Transfer-Encoding'])
         self.assertEqual(b'hello world!', content)
@@ -273,7 +273,7 @@ class StreamTestsMixin(object):
     def test_bad_header_delminators(self):
         stream = self.new_stream()
         request = Request(self.get_url('/bad_header_deliminators'))
-        response, content = yield From(self.fetch(stream, request))
+        response, content = yield from self.fetch(stream, request)
         self.assertEqual(200, response.status_code)
         self.assertEqual(b'hi\n', content)
 
@@ -281,7 +281,7 @@ class StreamTestsMixin(object):
     def test_utf8_header(self):
         stream = self.new_stream()
         request = Request(self.get_url('/utf8_header'))
-        response, dummy = yield From(self.fetch(stream, request))
+        response, dummy = yield from self.fetch(stream, request)
         self.assertEqual(200, response.status_code)
         self.assertEqual('🐱'.encode('utf-8').decode('latin-1'),
                          response.fields['whoa'])
@@ -291,52 +291,52 @@ class StreamTestsMixin(object):
         stream = self.new_stream()
         request = Request(self.get_url('/short_close'))
         try:
-            yield From(self.fetch(stream, request))
+            yield from self.fetch(stream, request)
         except NetworkError:
             pass
         else:
             self.fail()  # pragma: no cover
 
         request = Request(self.get_url('/'))
-        yield From(self.fetch(stream, request))
+        yield from self.fetch(stream, request)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_header_early_close(self):
         stream = self.new_stream()
         request = Request(self.get_url('/header_early_close'))
         try:
-            yield From(self.fetch(stream, request))
+            yield from self.fetch(stream, request)
         except NetworkError:
             pass
         else:
             self.fail()  # pragma: no cover
 
         request = Request(self.get_url('/'))
-        yield From(self.fetch(stream, request))
+        yield from self.fetch(stream, request)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_unclean_8bit_header(self):
         stream = self.new_stream()
         request = Request(self.get_url('/unclean_8bit_header'))
-        yield From(self.fetch(stream, request))
+        yield from self.fetch(stream, request)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_no_colon_header(self):
         stream = self.new_stream()
         request = Request(self.get_url('/no_colon_header'))
-        yield From(self.fetch(stream, request))
+        yield from self.fetch(stream, request)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_malformed_content_length(self):
         stream = self.new_stream()
         request = Request(self.get_url('/malformed_content_length'))
-        yield From(self.fetch(stream, request))
+        yield from self.fetch(stream, request)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_negative_content_length(self):
         stream = self.new_stream()
         request = Request(self.get_url('/negative_content_length'))
-        yield From(self.fetch(stream, request))
+        yield from self.fetch(stream, request)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_gzip_encoding(self):
@@ -353,7 +353,7 @@ class StreamTestsMixin(object):
             print('Fetching', path)
             stream = self.new_stream()
             request = Request(self.get_url(path))
-            response, content = yield From(self.fetch(stream, request))
+            response, content = yield from self.fetch(stream, request)
 
             self.assertEqual(len(test_data), len(content))
             self.assertEqual(test_data, content)
@@ -376,7 +376,7 @@ class StreamTestsMixin(object):
             print('Fetching', path)
             stream = self.new_stream()
             request = Request(self.get_url(path))
-            response, content = yield From(self.fetch(stream, request))
+            response, content = yield from self.fetch(stream, request)
 
             self.assertEqual(len(test_data), len(content))
             self.assertEqual(test_data, content)
@@ -387,7 +387,7 @@ class StreamTestsMixin(object):
         stream = self.new_stream()
         request = Request(self.get_url('/gzip_corrupt_short'))
         try:
-            yield From(self.fetch(stream, request))
+            yield from self.fetch(stream, request)
         except ProtocolError:
             pass
         else:
@@ -398,7 +398,7 @@ class StreamTestsMixin(object):
         stream = self.new_stream()
         request = Request(self.get_url('/gzip_corrupt_footer'))
         try:
-            yield From(self.fetch(stream, request))
+            yield from self.fetch(stream, request)
         except ProtocolError:
             pass
         else:
@@ -408,20 +408,20 @@ class StreamTestsMixin(object):
     def test_no_content(self):
         stream = self.new_stream()
         request = Request(self.get_url('/no_content'))
-        yield From(self.fetch(stream, request))
+        yield from self.fetch(stream, request)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_head_no_content(self):
         stream = self.new_stream()
         request = Request(self.get_url('/no_content'), method='HEAD')
-        yield From(self.fetch(stream, request))
+        yield from self.fetch(stream, request)
 
     # XXX: why is this slow on travis
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT * 4)
     def test_big(self):
         stream = self.new_stream()
         request = Request(self.get_url('/big'))
-        response, content = yield From(self.fetch(stream, request))
+        response, content = yield from self.fetch(stream, request)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_underrun(self):
@@ -432,7 +432,7 @@ class StreamTestsMixin(object):
         for counter in range(3):
             print(counter)
             try:
-                yield From(self.fetch(stream, request))
+                yield from self.fetch(stream, request)
             except NetworkTimedOut:
                 pass
             else:
@@ -444,12 +444,12 @@ class StreamTestsMixin(object):
         request = Request(self.get_url('/overrun'))
 
         for dummy in range(3):
-            response, content = yield From(self.fetch(stream, request))
+            response, content = yield from self.fetch(stream, request)
 
             self.assertEqual(b'a' * 100, content)
 
         request = Request(self.get_url('/'))
-        yield From(self.fetch(stream, request))
+        yield from self.fetch(stream, request)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_ignore_length(self):
@@ -457,7 +457,7 @@ class StreamTestsMixin(object):
                                  keep_alive=False, ignore_length=True)
         request = Request(self.get_url('/underrun'))
 
-        response, content = yield From(self.fetch(stream, request))
+        response, content = yield from self.fetch(stream, request)
 
         self.assertEqual(50, len(content))
 
@@ -465,7 +465,7 @@ class StreamTestsMixin(object):
     def test_false_gzip(self):
         stream = self.new_stream('127.0.0.1', self._port)
         request = Request(self.get_url('/false_gzip'))
-        response, content = yield From(self.fetch(stream, request))
+        response, content = yield from self.fetch(stream, request)
 
         self.assertEqual('gzip', response.fields['Content-Encoding'])
         self.assertEqual(b'a' * 100, content)
@@ -474,7 +474,7 @@ class StreamTestsMixin(object):
     def test_status_line_only(self):
         stream = self.new_stream('127.0.0.1', self._port)
         request = Request(self.get_url('/status_line_only'))
-        response, content = yield From(self.fetch(stream, request))
+        response, content = yield from self.fetch(stream, request)
 
         self.assertEqual(200, response.status_code)
         self.assertEqual(b'Hey', content)
@@ -485,7 +485,7 @@ class StreamTestsMixin(object):
         request = Request(self.get_url('/newline_line_only'))
 
         with self.assertRaises(ProtocolError):
-            yield From(self.fetch(stream, request))
+            yield from self.fetch(stream, request)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_many_headers(self):
@@ -493,7 +493,7 @@ class StreamTestsMixin(object):
         request = Request(self.get_url('/many_headers'))
 
         with self.assertRaises(ProtocolError):
-            yield From(self.fetch(stream, request))
+            yield from self.fetch(stream, request)
 
 
 class TestStream(BadAppTestCase, StreamTestsMixin):
@@ -517,7 +517,7 @@ class TestSSLStream(SSLBadAppTestCase, StreamTestsMixin):
         request = Request(self.get_url('/'))
 
         try:
-            yield From(self.fetch(stream, request))
+            yield from self.fetch(stream, request)
         except SSLVerificationError:
             pass
         else:
@@ -528,4 +528,4 @@ class TestSSLStream(SSLBadAppTestCase, StreamTestsMixin):
         stream = self.new_stream(ssl=True)
         request = Request(self.get_url('/'))
 
-        yield From(self.fetch(stream, request))
+        yield from self.fetch(stream, request)

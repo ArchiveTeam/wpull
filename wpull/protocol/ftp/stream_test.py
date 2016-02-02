@@ -1,8 +1,6 @@
 import io
 import logging
 
-from trollius import From
-
 from wpull.backport.logging import BraceMessage as __
 from wpull.connection import Connection
 from wpull.protocol.ftp.request import Command
@@ -23,41 +21,41 @@ class TestStream(FTPTestCase):
             _logger.debug(__('{0}={1}', data_type, data))
 
         connection = Connection(('127.0.0.1', self.server_port()))
-        yield From(connection.connect())
+        yield from connection.connect()
 
         control_stream = ControlStream(connection)
         control_stream.data_observer.add(log_cb)
 
-        reply = yield From(control_stream.read_reply())
+        reply = yield from control_stream.read_reply()
         self.assertEqual(220, reply.code)
 
-        yield From(control_stream.write_command(Command('USER', 'smaug')))
-        reply = yield From(control_stream.read_reply())
+        yield from control_stream.write_command(Command('USER', 'smaug'))
+        reply = yield from control_stream.read_reply()
         self.assertEqual(331, reply.code)
 
-        yield From(control_stream.write_command(Command('PASS', 'gold1')))
-        reply = yield From(control_stream.read_reply())
+        yield from control_stream.write_command(Command('PASS', 'gold1'))
+        reply = yield from control_stream.read_reply()
         self.assertEqual(230, reply.code)
 
-        yield From(control_stream.write_command(Command('PASV')))
-        reply = yield From(control_stream.read_reply())
+        yield from control_stream.write_command(Command('PASV'))
+        reply = yield from control_stream.read_reply()
         self.assertEqual(227, reply.code)
         address = parse_address(reply.text)
 
         data_connection = Connection(address)
-        yield From(data_connection.connect())
+        yield from data_connection.connect()
 
         data_stream = DataStream(data_connection)
 
-        yield From(control_stream.write_command(Command('RETR', 'example (copy).txt')))
-        reply = yield From(control_stream.read_reply())
+        yield from control_stream.write_command(Command('RETR', 'example (copy).txt'))
+        reply = yield from control_stream.read_reply()
         self.assertEqual(150, reply.code)
 
         my_file = io.BytesIO()
 
-        yield From(data_stream.read_file(my_file))
+        yield from data_stream.read_file(my_file)
 
-        reply = yield From(control_stream.read_reply())
+        reply = yield from control_stream.read_reply()
         self.assertEqual(226, reply.code)
 
         self.assertEqual(

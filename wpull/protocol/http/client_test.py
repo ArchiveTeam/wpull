@@ -4,7 +4,6 @@ import functools
 import io
 import warnings
 
-from trollius import From
 from wpull.protocol.abstract.client import DurationTimeout
 
 from wpull.connection import ConnectionPool, Connection
@@ -67,13 +66,13 @@ class TestClient(BadAppTestCase):
 
         with client.session() as session:
             request = Request(self.get_url('/'))
-            response = yield From(session.fetch(request))
+            response = yield from session.fetch(request)
 
             self.assertEqual(200, response.status_code)
             self.assertEqual(request, response.request)
 
             file_obj = io.BytesIO()
-            yield From(session.read_content(file_obj))
+            yield from session.read_content(file_obj)
 
             self.assertEqual(b'hello world!', file_obj.getvalue())
 
@@ -89,7 +88,7 @@ class TestClient(BadAppTestCase):
             request = Request('http://wpull-no-exist.invalid')
 
         with self.assertRaises(NetworkError):
-            yield From(session.fetch(request))
+            yield from session.fetch(request)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_client_duration_timeout(self):
@@ -97,8 +96,8 @@ class TestClient(BadAppTestCase):
 
         with self.assertRaises(DurationTimeout), client.session() as session:
             request = Request(self.get_url('/sleep_long'))
-            yield From(session.fetch(request))
-            yield From(session.read_content(duration_timeout=0.1))
+            yield from session.fetch(request)
+            yield from session.read_content(duration_timeout=0.1)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_client_exception_recovery(self):
@@ -110,7 +109,7 @@ class TestClient(BadAppTestCase):
             with client.session() as session:
                 request = Request(self.get_url('/header_early_close'))
                 try:
-                    yield From(session.fetch(request))
+                    yield from session.fetch(request)
                 except NetworkError:
                     pass
                 else:
@@ -119,9 +118,9 @@ class TestClient(BadAppTestCase):
         for dummy in range(7):
             with client.session() as session:
                 request = Request(self.get_url('/'))
-                response = yield From(session.fetch(request))
+                response = yield from session.fetch(request)
                 self.assertEqual(200, response.status_code)
-                yield From(session.read_content())
+                yield from session.read_content()
                 self.assertTrue(session.done())
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
@@ -131,8 +130,8 @@ class TestClient(BadAppTestCase):
 
         with client.session() as session:
             request = Request(self.get_url('/'))
-            response = yield From(session.fetch(request))
-            yield From(session.read_content())
+            response = yield from session.fetch(request)
+            yield from session.read_content()
             self.assertEqual(200, response.status_code)
 
         self.assertTrue(recorder.pre_request)
@@ -152,7 +151,7 @@ class TestClient(BadAppTestCase):
 
             with client.session() as session:
                 request = Request(self.get_url('/'))
-                yield From(session.fetch(request))
+                yield from session.fetch(request)
                 self.assertFalse(session.done())
 
             for warn_obj in warn_list:
@@ -173,5 +172,5 @@ class TestClient(BadAppTestCase):
         with self.assertRaises(MyException):
             with client.session() as session:
                 request = Request(self.get_url('/'))
-                yield From(session.fetch(request))
+                yield from session.fetch(request)
                 raise MyException('Oops')

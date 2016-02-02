@@ -1,5 +1,4 @@
 # encoding=utf-8
-from trollius import From
 from wpull.protocol.abstract.client import DurationTimeout
 
 from wpull.errors import ProtocolError
@@ -20,7 +19,7 @@ class TestWebClient(GoodAppTestCase):
         session = client.session(Request(self.get_url('/')))
 
         self.assertFalse(session.done())
-        response = yield From(session.fetch())
+        response = yield from session.fetch()
 
         self.assertEqual(200, response.status_code)
         self.assertTrue(session.done())
@@ -33,7 +32,7 @@ class TestWebClient(GoodAppTestCase):
         status_codes = []
 
         while not session.done():
-            response = yield From(session.fetch())
+            response = yield from session.fetch()
             if not status_codes:
                 self.assertEqual(LoopType.redirect, session.loop_type())
             status_codes.append(response.status_code)
@@ -50,7 +49,7 @@ class TestWebClient(GoodAppTestCase):
         status_codes = []
 
         while not session.done():
-            response = yield From(session.fetch())
+            response = yield from session.fetch()
             if not status_codes:
                 self.assertEqual(LoopType.redirect, session.loop_type())
             status_codes.append(response.status_code)
@@ -68,7 +67,7 @@ class TestWebClientBadCase(BadAppTestCase):
 
         while not session.done():
             try:
-                yield From(session.fetch())
+                yield from session.fetch()
             except ProtocolError:
                 return
             else:
@@ -81,7 +80,7 @@ class TestWebClientBadCase(BadAppTestCase):
 
         while not session.done():
             try:
-                yield From(session.fetch())
+                yield from session.fetch()
             except ProtocolError:
                 return
             else:
@@ -94,4 +93,4 @@ class TestWebClientBadCase(BadAppTestCase):
         session = client.session(Request(self.get_url('/sleep_long')))
 
         with self.assertRaises(DurationTimeout):
-            yield From(session.fetch(duration_timeout=0.1))
+            yield from session.fetch(duration_timeout=0.1)

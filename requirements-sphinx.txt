@@ -1,5 +1,4 @@
 tornado>=3.2.2,<5.0
-trollius>=1.0
 chardet>=2.0.1
 sqlalchemy>=0.9
 sphinxcontrib-napoleon>=0.2.6

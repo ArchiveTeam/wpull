@@ -5,8 +5,7 @@ import subprocess
 import tempfile
 
 import namedlist
-import trollius
-from trollius.coroutines import From, Return
+import asyncio
 
 from wpull.driver.process import Process
 import wpull.util
@@ -79,13 +78,13 @@ class PhantomJSDriver(Process):
     def _stderr_callback(self, line):
         _logger.warning(line.decode('utf-8', 'replace').rstrip())
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def start(self, use_atexit=True):
         _logger.debug('PhantomJS start.')
 
         self._write_config()
 
-        yield From(super().start(use_atexit))
+        yield from super().start(use_atexit)
 
     def _write_config(self):
         '''Write the parameters to a file for PhantomJS to read.'''

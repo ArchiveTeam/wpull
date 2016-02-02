@@ -1,8 +1,7 @@
 # encoding=utf-8
 import random
 
-from trollius import From
-import trollius
+import asyncio
 
 from wpull.database.sqltable import SQLiteURLTable
 from wpull.engine import BaseEngine, Engine
@@ -26,12 +25,12 @@ class MockEngine(BaseEngine):
         self._test_stop = test_stop
         self._test_exception = test_exception
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _get_item(self):
         if self.items:
             return self.items.pop(0)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _process_item(self, item):
         if self._test_stop:
             self._stop()
@@ -44,11 +43,11 @@ class MockEngine(BaseEngine):
             if self._test_exception:
                 raise MockEngineError()
 
-        yield From(trollius.sleep(random.uniform(0.01, 0.5)))
+        yield from asyncio.sleep(random.uniform(0.01, 0.5))
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def run(self):
-        yield From(self._run_workers())
+        yield from self._run_workers()
 
     @property
     def concurrent(self):
@@ -60,7 +59,7 @@ class MockEngine(BaseEngine):
 
 
 class MockProcessor(object):
-    @trollius.coroutine
+    @asyncio.coroutine
     def process(self, url_item):
         url_item.skip()
 
@@ -72,7 +71,7 @@ class TestEngine(AsyncTestCase):
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_base_engine(self):
         engine = MockEngine()
-        yield From(engine.run())
+        yield from engine.run()
 
         self.assertFalse(engine.items)
         self.assertEqual([1, 2, 3, 4, 5], engine.processed_items)
@@ -81,7 +80,7 @@ class TestEngine(AsyncTestCase):
     def test_base_engine_concurrency_under(self):
         engine = MockEngine()
         engine.concurrent = 2
-        yield From(engine.run())
+        yield from engine.run()
 
         self.assertFalse(engine.items)
         self.assertEqual([1, 2, 3, 4, 5], engine.processed_items)
@@ -90,7 +89,7 @@ class TestEngine(AsyncTestCase):
     def test_base_engine_concurrency_equal(self):
         engine = MockEngine()
         engine.concurrent = 4
-        yield From(engine.run())
+        yield from engine.run()
 
         self.assertFalse(engine.items)
         self.assertEqual([1, 2, 3, 4, 5], engine.processed_items)
@@ -99,7 +98,7 @@ class TestEngine(AsyncTestCase):
     def test_base_engine_concurrency_over(self):
         engine = MockEngine()
         engine.concurrent = 10
-        yield From(engine.run())
+        yield from engine.run()
 
         self.assertFalse(engine.items)
         self.assertEqual([1, 2, 3, 4, 5], engine.processed_items)
@@ -107,7 +106,7 @@ class TestEngine(AsyncTestCase):
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_base_engine_stop(self):
         engine = MockEngine(test_stop=True)
-        yield From(engine.run())
+        yield from engine.run()
         self.assertEqual([3, 4], engine.items)
         self.assertEqual([1], engine.processed_items)
 
@@ -115,7 +114,7 @@ class TestEngine(AsyncTestCase):
     def test_base_engine_exception(self):
         engine = MockEngine(test_exception=True)
         try:
-            yield From(engine.run())
+            yield from engine.run()
         except MockEngineError:
             pass
         else:
@@ -136,4 +135,4 @@ class TestEngine(AsyncTestCase):
         engine = Engine(url_table, processor, statistics)
 
         # It shouldn't crash with ValueError during URL parse
-        yield From(engine())
+        yield from engine()

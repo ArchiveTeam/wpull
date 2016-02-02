@@ -8,9 +8,8 @@ import posixpath
 import tempfile
 import urllib.parse
 
-from trollius.coroutines import Return, From
 import namedlist
-import trollius
+import asyncio
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
@@ -126,11 +125,11 @@ class FTPProcessor(BaseProcessor):
         '''
         return self._listing_cache
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def process(self, url_item):
         session = self._session_class(self, url_item)
         try:
-            raise Return((yield From(session.process())))
+            return (yield from session.process())
         finally:
             session.close()
 
@@ -154,7 +153,7 @@ class FTPProcessorSession(BaseProcessorSession):
     def close(self):
         pass
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def process(self):
         '''Process.
 
@@ -181,17 +180,17 @@ class FTPProcessorSession(BaseProcessorSession):
             is_file = False
             self._glob_pattern = urllib.parse.unquote(filename)
         else:
-            is_file = yield From(self._prepare_request_file_vs_dir(request))
+            is_file = yield from self._prepare_request_file_vs_dir(request)
 
             self._file_writer_session.process_request(request)
 
-        wait_time = yield From(self._fetch(request, is_file))
+        wait_time = yield from self._fetch(request, is_file)
 
         if wait_time:
             _logger.debug('Sleeping {0}.'.format(wait_time))
-            yield From(trollius.sleep(wait_time))
+            yield from asyncio.sleep(wait_time)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _prepare_request_file_vs_dir(self, request):
         '''Check if file, modify request, and return whether is a file.
 
@@ -205,10 +204,10 @@ class FTPProcessorSession(BaseProcessorSession):
             is_file = 'unknown'
 
         if is_file == 'unknown':
-            files = yield From(self._fetch_parent_path(request))
+            files = yield from self._fetch_parent_path(request)
 
             if not files:
-                raise Return(True)
+                return True
 
             filename = posixpath.basename(request.file_path)
 
@@ -220,16 +219,16 @@ class FTPProcessorSession(BaseProcessorSession):
                     break
             else:
                 _logger.debug('Did not find entry. Assume file.')
-                raise Return(True)
+                return True
 
             if not is_file:
                 request.url = append_slash_to_path_url(request.url_info)
                 _logger.debug('Request URL changed to %s. Path=%s.',
                               request.url, request.file_path)
 
-        raise Return(is_file)
+        return is_file
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _fetch_parent_path(self, request, use_cache=True):
         '''Fetch parent directory and return list FileEntry.
 
@@ -239,7 +238,7 @@ class FTPProcessorSession(BaseProcessorSession):
 
         if use_cache:
             if directory_url in self._processor.listing_cache:
-                raise Return(self._processor.listing_cache[directory_url])
+                return self._processor.listing_cache[directory_url]
 
         directory_request = copy.deepcopy(request)
         directory_request.url = directory_url
@@ -249,7 +248,7 @@ class FTPProcessorSession(BaseProcessorSession):
 
         with self._processor.ftp_client.session() as session:
             try:
-                yield From(session.fetch_file_listing(directory_request))
+                yield from session.fetch_file_listing(directory_request)
             except FTPServerError:
                 _logger.debug('Got an error. Assume is file.')
 
@@ -263,17 +262,16 @@ class FTPProcessorSession(BaseProcessorSession):
             )
 
             with temp_file as file:
-                directory_response = yield From(session.read_listing_content(
+                directory_response = yield from session.read_listing_content(
                     file, duration_timeout=self._fetch_rule.duration_timeout)
-                )
 
         if use_cache:
             self._processor.listing_cache[directory_url] = \
                 directory_response.files
 
-        raise Return(directory_response.files)
+        return directory_response.files
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _fetch(self, request, is_file, glob_pattern=None):
         '''Fetch the request
 
@@ -286,9 +284,9 @@ class FTPProcessorSession(BaseProcessorSession):
         try:
             with self._processor.ftp_client.session() as session:
                 if is_file:
-                    response = yield From(session.fetch(request))
+                    response = yield from session.fetch(request)
                 else:
-                    response = yield From(session.fetch_file_listing(request))
+                    response = yield from session.fetch_file_listing(request)
 
                 action = self._result_rule.handle_pre_response(
                     request, response, self._url_item
@@ -306,11 +304,11 @@ class FTPProcessorSession(BaseProcessorSession):
                 duration_timeout = self._fetch_rule.duration_timeout
 
                 if is_file:
-                    yield From(session.read_content(
-                        response.body, duration_timeout=duration_timeout))
+                    yield from session.read_content(
+                        response.body, duration_timeout=duration_timeout)
                 else:
-                    yield From(session.read_listing_content(
-                        response.body, duration_timeout=duration_timeout))
+                    yield from session.read_listing_content(
+                        response.body, duration_timeout=duration_timeout)
 
         except HookPreResponseBreak:
             if response:
@@ -328,7 +326,7 @@ class FTPProcessorSession(BaseProcessorSession):
             if response:
                 response.body.close()
 
-            raise Return(wait_time)
+            return wait_time
         else:
             self._log_response(request, response)
             self._handle_response(request, response)
@@ -340,11 +338,11 @@ class FTPProcessorSession(BaseProcessorSession):
             if is_file and \
                     self._processor.fetch_params.preserve_permissions and \
                     hasattr(response.body, 'name'):
-                yield From(self._apply_unix_permissions(request, response))
+                yield from self._apply_unix_permissions(request, response)
 
             response.body.close()
 
-            raise Return(wait_time)
+            return wait_time
 
     def _add_listing_links(self, response):
         '''Add links from file listing response.'''
@@ -439,13 +437,13 @@ class FTPProcessorSession(BaseProcessorSession):
                 symlink_target=link_target
             ))
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _apply_unix_permissions(self, request, response):
         '''Fetch and apply Unix permissions.
 
         Coroutine.
         '''
-        files = yield From(self._fetch_parent_path(request))
+        files = yield from self._fetch_parent_path(request)
 
         if not files:
             return

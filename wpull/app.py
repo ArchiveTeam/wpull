@@ -7,8 +7,7 @@ import logging
 import platform
 import signal
 
-from trollius import From, Return
-import trollius
+import asyncio
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ServerError, ExitStatus, ProtocolError, \
@@ -57,7 +56,7 @@ class Application(HookableMixin):
         super().__init__()
         self._builder = builder
         self._human_format_speed = human_format_speed
-        self._event_loop = trollius.get_event_loop()
+        self._event_loop = asyncio.get_event_loop()
         self._exit_code = 0
         self._statistics = None
         self.stop_observer = wpull.observer.Observer()
@@ -117,15 +116,15 @@ class Application(HookableMixin):
         '''
         return self._event_loop.run_until_complete(self.run())
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def run(self):
-        yield From(self._start_servers())
+        yield from self._start_servers()
 
         self._statistics = self._builder.factory['Statistics']
         self._statistics.start()
 
         try:
-            yield From(self._builder.factory['Engine']())
+            yield from self._builder.factory['Engine']()
         except Exception as error:
             if isinstance(error, StopIteration):
                 raise
@@ -166,13 +165,13 @@ class Application(HookableMixin):
         except HookDisconnected:
             pass
 
-        yield From(self._close_servers())
+        yield from self._close_servers()
         self._print_stats()
         self._convert_documents()
         self.stop_observer.notify()
         self._close()
 
-        raise Return(self._exit_code)
+        return self._exit_code
 
     def _update_exit_code_from_error(self, error):
         '''Set the exit code based on the error type.
@@ -283,7 +282,7 @@ class Application(HookableMixin):
         '''Add a server task.'''
         self._server_tasks.append(task)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _start_servers(self):
         '''Start servers.
 
@@ -291,7 +290,7 @@ class Application(HookableMixin):
         '''
         for task in self._server_tasks:
             _logger.debug(__('Starting task {}', task))
-            server = yield From(task)
+            server = yield from task
             self._servers.append(server)
 
     def _close_servers(self):
@@ -302,4 +301,4 @@ class Application(HookableMixin):
         for server in self._servers:
             _logger.debug(__('Closing server {}', server))
             server.close()
-            yield From(server.wait_closed())
+            yield from server.wait_closed()

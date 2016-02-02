@@ -9,8 +9,7 @@ import tempfile
 import io
 
 import namedlist
-import trollius
-from trollius import From, Return
+import asyncio
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.document.html import HTMLReader
@@ -83,7 +82,7 @@ class PhantomJSCoprocessor(object):
 
         self._file_writer_session = None
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def process(self, url_item, request, response, file_writer_session):
         '''Process PhantomJS.
 
@@ -104,8 +103,8 @@ class PhantomJSCoprocessor(object):
 
         for dummy in range(attempts):
             try:
-                yield From(self._run_driver(url_item, request, response))
-            except trollius.TimeoutError:
+                yield from self._run_driver(url_item, request, response)
+            except asyncio.TimeoutError:
                 _logger.warning(_('Waiting for page load timed out.'))
                 break
             except PhantomJSCrashed as error:
@@ -118,7 +117,7 @@ class PhantomJSCoprocessor(object):
                 url=request.url_info.url
             ))
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _run_driver(self, url_item, request, response):
         '''Start PhantomJS processing.'''
         _logger.debug('Started PhantomJS processing.')
@@ -131,7 +130,7 @@ class PhantomJSCoprocessor(object):
         )
 
         with contextlib.closing(session):
-            yield From(session.run())
+            yield from session.run()
 
         _logger.debug('Ended PhantomJS processing.')
 
@@ -154,7 +153,7 @@ class PhantomJSCoprocessorSession(object):
         self._temp_filenames = []
         self._action_warc_record = None
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def run(self):
         scrape_snapshot_path = self._get_temp_path('phantom', suffix='.html')
         action_log_path = self._get_temp_path('phantom-action', suffix='.txt')
@@ -186,17 +185,17 @@ class PhantomJSCoprocessorSession(object):
         ))
 
         with contextlib.closing(driver):
-            yield From(driver.start())
+            yield from driver.start()
 
             # FIXME: we don't account that things might be scrolling and
             # downloading so it might not be a good idea to timeout like
             # this
             if self._params.load_time:
-                yield From(trollius.wait_for(
+                yield from asyncio.wait_for(
                     driver.process.wait(), self._params.load_time
-                ))
+                )
             else:
-                yield From(driver.process.wait())
+                yield from driver.process.wait()
 
             if driver.process.returncode != 0:
                 raise PhantomJSCrashed(

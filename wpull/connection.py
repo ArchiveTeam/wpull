@@ -9,9 +9,8 @@ import socket
 import ssl
 
 from tornado.netutil import SSLCertificateError
-from trollius import From, Return
 import tornado.netutil
-import trollius
+import asyncio
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.cache import FIFOCache
@@ -30,7 +29,7 @@ class CloseTimer(object):
         self._touch_time = None
         self._call_later_handle = None
         self._connection = connection
-        self._event_loop = trollius.get_event_loop()
+        self._event_loop = asyncio.get_event_loop()
         self._timed_out = False
         self._running = True
 
@@ -108,15 +107,15 @@ class HostPool(object):
         self.max_connections = max_connections
         self.ready = set()
         self.busy = set()
-        self._lock = trollius.Lock()
-        self._condition = trollius.Condition(lock=self._lock)
+        self._lock = asyncio.Lock()
+        self._condition = asyncio.Condition(lock=self._lock)
         self._closed = False
 
     def empty(self):
         '''Return whether the pool is empty.'''
         return not self.ready and not self.busy
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def clean(self, force=False):
         '''Clean closed connections.
 
@@ -125,7 +124,7 @@ class HostPool(object):
 
         Coroutine.
         '''
-        with (yield From(self._lock)):
+        with (yield from self._lock):
             for connection in tuple(self.ready):
                 if force or connection.closed():
                     connection.close()
@@ -148,7 +147,7 @@ class HostPool(object):
         '''Return total number of connections.'''
         return len(self.ready) + len(self.busy)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def acquire(self):
         '''Register and return a connection.
 
@@ -156,7 +155,7 @@ class HostPool(object):
         '''
         assert not self._closed
 
-        yield From(self._condition.acquire())
+        yield from self._condition.acquire()
 
         while True:
             if self.ready:
@@ -168,14 +167,14 @@ class HostPool(object):
             else:
                 # We should be using a Condition but check_in
                 # must be synchronous
-                yield From(self._condition.wait())
+                yield from self._condition.wait()
 
         self.busy.add(connection)
         self._condition.release()
 
-        raise Return(connection)
+        return connection
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def release(self, connection, reuse=True):
         '''Unregister a connection.
 
@@ -185,7 +184,7 @@ class HostPool(object):
 
         Coroutine.
         '''
-        yield From(self._condition.acquire())
+        yield from self._condition.acquire()
         self.busy.remove(connection)
 
         if reuse:
@@ -217,7 +216,7 @@ class ConnectionPool(object):
         self._max_count = max_count
         self._host_pools = {}
         self._host_pool_waiters = {}
-        self._host_pools_lock = trollius.Lock()
+        self._host_pools_lock = asyncio.Lock()
         self._release_tasks = set()
         self._closed = False
         self._happy_eyeballs_table = HappyEyeballsTable()
@@ -226,7 +225,7 @@ class ConnectionPool(object):
     def host_pools(self):
         return self._host_pools
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def acquire(self, host, port, use_ssl=False, host_key=None):
         '''Return an available connection.
 
@@ -242,7 +241,7 @@ class ConnectionPool(object):
         assert isinstance(port, int), 'Expect int. Got {}'.format(type(port))
         assert not self._closed
 
-        yield From(self._process_no_wait_releases())
+        yield from self._process_no_wait_releases()
 
         if use_ssl:
             connection_factory = functools.partial(
@@ -259,7 +258,7 @@ class ConnectionPool(object):
 
         key = host_key or (host, port, use_ssl)
 
-        with (yield From(self._host_pools_lock)):
+        with (yield from self._host_pools_lock):
             if key not in self._host_pools:
                 host_pool = self._host_pools[key] = HostPool(
                     connection_factory,
@@ -272,7 +271,7 @@ class ConnectionPool(object):
 
         _logger.debug('Check out %s', key)
 
-        connection = yield From(host_pool.acquire())
+        connection = yield from host_pool.acquire()
         connection.key = key
 
         # TODO: Verify this assert is always true
@@ -280,12 +279,12 @@ class ConnectionPool(object):
         # assert key in self._host_pools
         # assert self._host_pools[key] == host_pool
 
-        with (yield From(self._host_pools_lock)):
+        with (yield from self._host_pools_lock):
             self._host_pool_waiters[key] -= 1
 
-        raise Return(connection)
+        return connection
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def release(self, connection):
         '''Put a connection back in the pool.
 
@@ -298,20 +297,20 @@ class ConnectionPool(object):
 
         _logger.debug('Check in %s', key)
 
-        yield From(host_pool.release(connection))
+        yield from host_pool.release(connection)
 
         force = self.count() > self._max_count
-        yield From(self.clean(force=force))
+        yield from self.clean(force=force)
 
     def no_wait_release(self, connection):
         '''Synchronous version of :meth:`release`.'''
         _logger.debug('No wait check in.')
-        release_task = trollius.get_event_loop().create_task(
+        release_task = asyncio.get_event_loop().create_task(
             self.release(connection)
         )
         self._release_tasks.add(release_task)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _process_no_wait_releases(self):
         '''Process check in tasks.'''
         while True:
@@ -320,9 +319,9 @@ class ConnectionPool(object):
             except KeyError:
                 return
             else:
-                yield From(release_task)
+                yield from release_task
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def session(self, host, port, use_ssl=False):
         '''Return a context manager that returns a connection.
 
@@ -335,7 +334,7 @@ class ConnectionPool(object):
 
         Coroutine.
         '''
-        connection = yield From(self.acquire(host, port, use_ssl))
+        connection = yield from self.acquire(host, port, use_ssl)
 
         @contextlib.contextmanager
         def context_wrapper():
@@ -344,9 +343,9 @@ class ConnectionPool(object):
             finally:
                 self.no_wait_release(connection)
 
-        raise Return(context_wrapper())
+        return context_wrapper()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def clean(self, force=False):
         '''Clean all closed connections.
 
@@ -357,9 +356,9 @@ class ConnectionPool(object):
         '''
         assert not self._closed
 
-        with (yield From(self._host_pools_lock)):
+        with (yield from self._host_pools_lock):
             for key, pool in tuple(self._host_pools.items()):
-                yield From(pool.clean(force=force))
+                yield from pool.clean(force=force)
 
                 if not self._host_pool_waiters[key] and pool.empty():
                     del self._host_pools[key]
@@ -463,7 +462,7 @@ class BaseConnection(object):
         '''Return the state of this connection.'''
         return self._state
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def connect(self):
         '''Establish a connection.'''
         _logger.debug(__('Connecting to {0}.', self._address))
@@ -472,7 +471,7 @@ class BaseConnection(object):
             raise Exception('Closed connection must be reset before reusing.')
 
         if self._sock:
-            connection_future = trollius.open_connection(
+            connection_future = asyncio.open_connection(
                 sock=self._sock, **self._connection_kwargs()
             )
         else:
@@ -480,16 +479,15 @@ class BaseConnection(object):
             host = self._address[0]
             port = self._address[1]
 
-            connection_future = trollius.open_connection(
+            connection_future = asyncio.open_connection(
                 host, port, **self._connection_kwargs()
             )
 
-        self.reader, self.writer = yield From(
+        self.reader, self.writer = yield from \
             self.run_network_operation(
                 connection_future,
                 wait_timeout=self._connect_timeout,
                 name='Connect')
-        )
 
         if self._timeout is not None:
             self._close_timer = CloseTimer(self._timeout, self)
@@ -527,7 +525,7 @@ class BaseConnection(object):
         self.close()
         self._state = ConnectionState.ready
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def write(self, data, drain=True):
         '''Write data.'''
         assert self._state == ConnectionState.created, \
@@ -539,42 +537,39 @@ class BaseConnection(object):
             fut = self.writer.drain()
 
             if fut:
-                yield From(self.run_network_operation(
+                yield from self.run_network_operation(
                     fut, close_timeout=self._timeout, name='Write')
-                )
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def read(self, amount=-1):
         '''Read data.'''
         assert self._state == ConnectionState.created, \
             'Expect conn created. Got {}.'.format(self._state)
 
-        data = yield From(
+        data = yield from \
             self.run_network_operation(
                 self.reader.read(amount),
                 close_timeout=self._timeout,
                 name='Read')
-        )
 
-        raise Return(data)
+        return data
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def readline(self):
         '''Read a line of data.'''
         assert self._state == ConnectionState.created, \
             'Expect conn created. Got {}.'.format(self._state)
 
         with self._close_timer.with_timeout():
-            data = yield From(
+            data = yield from \
                 self.run_network_operation(
                     self.reader.readline(),
                     close_timeout=self._timeout,
                     name='Readline')
-            )
 
-        raise Return(data)
+        return data
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def run_network_operation(self, task, wait_timeout=None,
                               close_timeout=None,
                               name='Network operation'):
@@ -589,20 +584,20 @@ class BaseConnection(object):
         try:
             if close_timeout is not None:
                 with self._close_timer.with_timeout():
-                    data = yield From(task)
+                    data = yield from task
 
                 if self._close_timer.is_timeout():
                     raise NetworkTimedOut(
                         '{name} timed out.'.format(name=name))
                 else:
-                    raise Return(data)
+                    return data
             elif wait_timeout is not None:
-                data = yield From(trollius.wait_for(task, wait_timeout))
-                raise Return(data)
+                data = yield from asyncio.wait_for(task, wait_timeout)
+                return data
             else:
-                raise Return((yield From(task)))
+                return (yield from task)
 
-        except trollius.TimeoutError as error:
+        except asyncio.TimeoutError as error:
             self.close()
             raise NetworkTimedOut(
                 '{name} timed out.'.format(name=name)) from error
@@ -690,9 +685,9 @@ class Connection(BaseConnection):
     def proxied(self, value):
         self._proxied = value
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def read(self, amount=-1):
-        data = yield From(super().read(amount))
+        data = yield from super().read(amount)
 
         if self._bandwidth_limiter:
             self._bandwidth_limiter.feed(len(data))
@@ -700,11 +695,11 @@ class Connection(BaseConnection):
             sleep_time = self._bandwidth_limiter.sleep_time()
             if sleep_time:
                 _logger.debug('Sleep %s', sleep_time)
-                yield From(trollius.sleep(sleep_time))
+                yield from asyncio.sleep(sleep_time)
 
-        raise Return(data)
+        return data
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def start_tls(self, ssl_context=True):
         '''Start client TLS on this connection and return SSLConnection.
 
@@ -719,9 +714,9 @@ class Connection(BaseConnection):
             bandwidth_limiter=self._bandwidth_limiter, sock=sock
         )
 
-        yield From(ssl_conn.connect())
+        yield from ssl_conn.connect()
 
-        raise Return(ssl_conn)
+        return ssl_conn
 
 
 class SSLConnection(Connection):
@@ -752,12 +747,12 @@ class SSLConnection(Connection):
 
             return kwargs
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def connect(self):
-        result = yield From(super().connect())
+        result = yield from super().connect()
         sock = self.writer.transport.get_extra_info('socket')
         self._verify_cert(sock)
-        raise Return(result)
+        return result
 
     def _verify_cert(self, sock):
         # Based on tornado.iostream.SSLIOStream
@@ -815,47 +810,47 @@ class HappyEyeballsConnection(object):
         if self._active_connection:
             self._active_connection.reset()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def connect(self):
         if self._active_connection:
-            yield From(self._active_connection.connect())
+            yield from self._active_connection.connect()
             return
 
-        results = yield From(self._resolver.resolve_dual(self._address[0], self._address[1]))
+        results = yield from self._resolver.resolve_dual(self._address[0], self._address[1])
 
         primary_address, secondary_address = self._get_preferred_address(results)
 
         if not secondary_address:
             self._primary_connection = self._active_connection = self._connection_factory(primary_address)
-            yield From(self._primary_connection.connect())
+            yield from self._primary_connection.connect()
         else:
-            yield From(self._connect_dual_stack(primary_address, secondary_address))
+            yield from self._connect_dual_stack(primary_address, secondary_address)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _connect_dual_stack(self, primary_address, secondary_address):
         '''Connect using happy eyeballs.'''
         self._primary_connection = self._connection_factory(primary_address)
         self._secondary_connection = self._connection_factory(secondary_address)
 
-        @trollius.coroutine
+        @asyncio.coroutine
         def connect_primary():
-            yield From(self._primary_connection.connect())
-            raise Return(self._primary_connection)
+            yield from self._primary_connection.connect()
+            return self._primary_connection
 
-        @trollius.coroutine
+        @asyncio.coroutine
         def connect_secondary():
-            yield From(self._secondary_connection.connect())
-            raise Return(self._secondary_connection)
+            yield from self._secondary_connection.connect()
+            return self._secondary_connection
 
         primary_fut = connect_primary()
         secondary_fut = connect_secondary()
 
         failed = False
 
-        for fut in trollius.as_completed((primary_fut, secondary_fut)):
+        for fut in asyncio.as_completed((primary_fut, secondary_fut)):
             if not self._active_connection:
                 try:
-                    self._active_connection = yield From(fut)
+                    self._active_connection = yield from fut
                 except NetworkError:
                     if not failed:
                         _logger.debug('Original dual stack exception', exc_info=True)
@@ -866,17 +861,17 @@ class HappyEyeballsConnection(object):
                     _logger.debug('Got first of dual stack.')
 
             else:
-                @trollius.coroutine
+                @asyncio.coroutine
                 def cleanup():
                     try:
-                        conn = yield From(fut)
+                        conn = yield from fut
                     except NetworkError:
                         pass
                     else:
                         conn.close()
                     _logger.debug('Closed abandoned connection.')
 
-                trollius.get_event_loop().create_task(cleanup())
+                asyncio.get_event_loop().create_task(cleanup())
 
         if self._active_connection.address == secondary_address:
             preferred_addr = secondary_address

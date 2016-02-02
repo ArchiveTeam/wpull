@@ -1,8 +1,7 @@
 # encoding=utf-8
 import socket
 
-from trollius import From
-import trollius
+import asyncio
 
 from wpull.dns import Resolver, PythonResolver
 from wpull.errors import NetworkError, DNSNotFound
@@ -13,10 +12,10 @@ DEFAULT_TIMEOUT = 30
 
 
 class MockFaultyResolver(Resolver):
-    @trollius.coroutine
+    @asyncio.coroutine
     def _resolve_from_network(self, host, port):
-        yield From(trollius.sleep(2))
-        yield From(Resolver._resolve_from_network(self, host, port))
+        yield from asyncio.sleep(2)
+        yield from Resolver._resolve_from_network(self, host, port)
 
 
 class DNSMixin:
@@ -26,7 +25,7 @@ class DNSMixin:
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver(self):
         resolver = self.get_resolver_class()()
-        result = yield From(resolver.resolve('google.com', 80))
+        result = yield from resolver.resolve('google.com', 80)
         self.assertTrue(result)
         self.assertEqual(2, len(result))
         self.assertIsInstance(result[0], int, 'is family')
@@ -36,7 +35,7 @@ class DNSMixin:
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver_dual(self):
         resolver = self.get_resolver_class()(family=Resolver.PREFER_IPv4)
-        result4, result6 = yield From(resolver.resolve_dual('google.com', 80))
+        result4, result6 = yield from resolver.resolve_dual('google.com', 80)
         self.assertTrue(result4)
         self.assertTrue(result6)
 
@@ -56,7 +55,7 @@ class DNSMixin:
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver_localhost(self):
         resolver = self.get_resolver_class()(family=socket.AF_INET)
-        result = yield From(resolver.resolve('localhost', 80))
+        result = yield from resolver.resolve('localhost', 80)
         self.assertTrue(result)
         self.assertEqual(2, len(result))
         self.assertIsInstance(result[0], int, 'is family')
@@ -66,7 +65,7 @@ class DNSMixin:
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver_ip_address(self):
         resolver = self.get_resolver_class()()
-        result = yield From(resolver.resolve('127.0.0.1', 80))
+        result = yield from resolver.resolve('127.0.0.1', 80)
         self.assertEqual((socket.AF_INET, ('127.0.0.1', 80)), result)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
@@ -74,28 +73,28 @@ class DNSMixin:
         resolver = MockFaultyResolver(timeout=0.1)
 
         with self.assertRaises(NetworkError):
-            yield From(resolver.resolve('test.invalid', 80))
+            yield from resolver.resolve('test.invalid', 80)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver_fail(self):
         resolver = self.get_resolver_class()()
 
         with self.assertRaises(DNSNotFound):
-            yield From(resolver.resolve('test.invalid', 80))
+            yield from resolver.resolve('test.invalid', 80)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver_ipv6(self):
         resolver = self.get_resolver_class()(family=socket.AF_INET6)
 
         with self.assertRaises(DNSNotFound):
-            yield From(resolver.resolve('test.invalid', 80))
+            yield from resolver.resolve('test.invalid', 80)
 
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver_port_number_overflow(self):
         resolver = self.get_resolver_class()(family=socket.AF_INET6)
 
         with self.assertRaises(DNSNotFound):
-            yield From(resolver.resolve('test.invalid', 99999999999999999999999))
+            yield from resolver.resolve('test.invalid', 99999999999999999999999)
 
     def test_sort_results(self):
         Resolver_ = self.get_resolver_class()
@@ -135,7 +134,7 @@ class TestDNS(DNSMixin, wpull.testing.async.AsyncTestCase):
     def test_resolver_hyphen(self):
         resolver = self.get_resolver_class()()
         with self.assertRaises(DNSNotFound):
-            yield From(resolver.resolve('-kol.deviantart.com', 80))
+            yield from resolver.resolve('-kol.deviantart.com', 80)
 
 
 class TestDNSPython(DNSMixin, wpull.testing.async.AsyncTestCase):
@@ -145,4 +144,4 @@ class TestDNSPython(DNSMixin, wpull.testing.async.AsyncTestCase):
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_resolver_hyphen(self):
         resolver = self.get_resolver_class()()
-        yield From(resolver.resolve('-kol.deviantart.com', 80))
+        yield from resolver.resolve('-kol.deviantart.com', 80)

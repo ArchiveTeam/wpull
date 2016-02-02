@@ -6,8 +6,8 @@ import os
 import tempfile
 import subprocess
 
-from trollius import From, Return
-import trollius
+
+import asyncio
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.document.html import HTMLReader
@@ -32,7 +32,7 @@ class YoutubeDlCoprocessor(object):
         self._inet_family = inet_family
         self._check_certificate = check_certificate
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def process(self, url_item, request, response, file_writer_session):
         if response.status_code != 200:
             return
@@ -50,7 +50,7 @@ class YoutubeDlCoprocessor(object):
         _logger.info(__(_('youtube-dl fetching ‘{url}’.'), url=url))
 
         with contextlib.closing(session):
-            yield From(session.run())
+            yield from session.run()
 
         _logger.info(__(_('youtube-dl fetched ‘{url}’.'), url=url))
 
@@ -72,7 +72,7 @@ class Session(object):
         self._inet_family = inet_family
         self._check_certificate = check_certificate
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def run(self):
         host, port = self._proxy_address
         url = self._url_item.url_info.url
@@ -106,8 +106,8 @@ class Session(object):
             stdout_callback=self._stdout_callback,
         )
 
-        yield From(youtube_dl_process.start())
-        yield From(youtube_dl_process.process.wait())
+        yield from youtube_dl_process.start()
+        yield from youtube_dl_process.process.wait()
 
         if self._warc_recorder:
             self._write_warc_metadata()

@@ -4,7 +4,7 @@ import abc
 import gettext
 import logging
 
-import trollius
+import asyncio
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ServerError, ProtocolError, SSLVerificationError, \
@@ -29,7 +29,7 @@ class BaseProcessor(object, metaclass=abc.ABCMeta):
 
     Processors contain the logic for processing requests.
     '''
-    @trollius.coroutine
+    @asyncio.coroutine
     def process(self, url_item):
         '''Process an URL Item.
 

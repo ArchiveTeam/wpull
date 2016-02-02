@@ -7,8 +7,8 @@ import itertools
 import logging
 import os
 
-from trollius import From, Return
-import trollius
+
+import asyncio
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.database.base import NotFound
@@ -32,12 +32,12 @@ class BaseEngine(object):
         super().__init__()
         self.__concurrent = 1
         self._running = False
-        self._item_queue = trollius.PriorityQueue()
+        self._item_queue = asyncio.PriorityQueue()
         try:
-            self._token_queue = trollius.JoinableQueue()
+            self._token_queue = asyncio.JoinableQueue()
         except AttributeError:
-            self._token_queue = trollius.Queue()
-        self._item_get_semaphore = trollius.BoundedSemaphore(value=1)
+            self._token_queue = asyncio.Queue()
+        self._item_get_semaphore = asyncio.BoundedSemaphore(value=1)
 
         self._producer_task = None
         self._worker_tasks = set()
@@ -47,24 +47,24 @@ class BaseEngine(object):
         '''Get concurrency value.'''
         return self.__concurrent
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _run_workers(self):
         '''Run the consumers.
 
         Coroutine.
         '''
         self._running = True
-        self._producer_task = trollius.async(self._run_producer_wrapper())
+        self._producer_task = asyncio.async(self._run_producer_wrapper())
         worker_tasks = self._worker_tasks
 
         while self._running:
             while len(worker_tasks) < self.__concurrent:
-                worker_task = trollius.async(self._run_worker())
+                worker_task = asyncio.async(self._run_worker())
                 worker_tasks.add(worker_task)
 
-            wait_coroutine = trollius.wait(
-                worker_tasks, return_when=trollius.FIRST_COMPLETED)
-            done_tasks = (yield From(wait_coroutine))[0]
+            wait_coroutine = asyncio.wait(
+                worker_tasks, return_when=asyncio.FIRST_COMPLETED)
+            done_tasks = (yield from wait_coroutine)[0]
 
             for task in done_tasks:
                 task.result()
@@ -74,7 +74,7 @@ class BaseEngine(object):
 
         if worker_tasks:
             _logger.debug('Waiting for workers to stop.')
-            yield From(trollius.wait(worker_tasks))
+            yield from asyncio.wait(worker_tasks)
 
         _logger.debug('Waiting for producer to stop.')
 
@@ -89,13 +89,13 @@ class BaseEngine(object):
             ))
             self._item_get_semaphore.release()
 
-        yield From(self._producer_task)
+        yield from self._producer_task
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _run_producer_wrapper(self):
         '''Run the producer, if exception, stop engine.'''
         try:
-            yield From(self._run_producer())
+            yield from self._run_producer()
         except Exception as error:
             if not isinstance(error, StopIteration):
                 # Stop the workers so the producer exception will be handled
@@ -103,7 +103,7 @@ class BaseEngine(object):
                 self._stop()
             raise
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _run_producer(self):
         '''Run the producer.
 
@@ -111,7 +111,7 @@ class BaseEngine(object):
         '''
         while self._running:
             _logger.debug('Get item from source')
-            item = yield From(self._get_item())
+            item = yield from self._get_item()
 
             # FIXME: accessing protected unfinished_tasks
             if item is None and self._token_queue._unfinished_tasks == 0:
@@ -121,13 +121,13 @@ class BaseEngine(object):
                 _logger.debug(
                     __('Producer waiting for {0} workers to finish up.',
                         len(self._worker_tasks)))
-                yield From(self._token_queue.join())
+                yield from self._token_queue.join()
             else:
-                yield From(self._item_get_semaphore.acquire())
+                yield from self._item_get_semaphore.acquire()
                 self._token_queue.put_nowait(None)
-                yield From(self._item_queue.put((self.ITEM_PRIORITY, item)))
+                yield from self._item_queue.put((self.ITEM_PRIORITY, item))
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _run_worker(self):
         '''Run a single consumer.
 
@@ -136,7 +136,7 @@ class BaseEngine(object):
         _logger.debug('Worker start.')
 
         while True:
-            priority, item = yield From(self._item_queue.get())
+            priority, item = yield from self._item_queue.get()
 
             if item == self.POISON_PILL:
                 _logger.debug('Worker quitting.')
@@ -146,7 +146,7 @@ class BaseEngine(object):
                 _logger.debug(__('Processing item {0}.', item))
                 self._item_get_semaphore.release()
                 self._token_queue.get_nowait()
-                yield From(self._process_item(item))
+                yield from self._process_item(item)
                 self._token_queue.task_done()
 
                 if os.environ.get('OBJGRAPH_DEBUG'):
@@ -193,7 +193,7 @@ class BaseEngine(object):
                     (self.POISON_PRIORITY, self.POISON_PILL))
 
     @abc.abstractmethod
-    @trollius.coroutine
+    @asyncio.coroutine
     def _get_item(self):
         '''Get an item.
 
@@ -201,7 +201,7 @@ class BaseEngine(object):
         '''
 
     @abc.abstractmethod
-    @trollius.coroutine
+    @asyncio.coroutine
     def _process_item(self, item):
         '''Process an item.
 
@@ -260,7 +260,7 @@ class Engine(BaseEngine, HookableMixin):
         '''Set concurrency value.'''
         self._set_concurrent(value)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def __call__(self):
         '''Run the engine.
 
@@ -278,14 +278,14 @@ class Engine(BaseEngine, HookableMixin):
             pass
 
         self._release_in_progress()
-        yield From(self._run_workers())
+        yield from self._run_workers()
 
     def _release_in_progress(self):
         '''Release any items in progress.'''
         _logger.debug('Release in-progress.')
         self._url_table.release()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _get_item(self):
         with self._maybe_ignore_exceptions():
             return self._get_next_url_record()
@@ -318,7 +318,7 @@ class Engine(BaseEngine, HookableMixin):
 
         return url_record
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _process_item(self, url_record):
         '''Process given item.
 
@@ -326,10 +326,10 @@ class Engine(BaseEngine, HookableMixin):
         '''
 
         with self._maybe_ignore_exceptions():
-            yield From(self._check_resource_monitor())
-            yield From(self._process_url_item(url_record))
+            yield from self._check_resource_monitor()
+            yield from self._process_url_item(url_record)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _check_resource_monitor(self):
         if not self._resource_monitor:
             return
@@ -357,9 +357,9 @@ class Engine(BaseEngine, HookableMixin):
 
                 _logger.warning(_('Waiting for operator to clear situation.'))
 
-            yield From(trollius.sleep(60))
+            yield from asyncio.sleep(60)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _process_url_item(self, url_record):
         '''Process an item.
 
@@ -384,7 +384,7 @@ class Engine(BaseEngine, HookableMixin):
         _logger.debug(__('Begin session for {0} {1}.',
                          url_record, url_item.url_info))
 
-        yield From(self._processor.process(url_item))
+        yield from self._processor.process(url_item)
 
         assert url_item.is_processed
 

@@ -5,8 +5,7 @@ import gettext
 import logging
 import warnings
 
-from trollius import From, Return
-import trollius
+import asyncio
 
 from wpull.protocol.abstract.client import BaseClient, BaseSession, DurationTimeout
 from wpull.backport.logging import BraceMessage as __
@@ -45,7 +44,7 @@ class Session(BaseSession):
 
         self._session_complete = True
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def fetch(self, request):
         '''Fulfill a request.
 
@@ -62,12 +61,12 @@ class Session(BaseSession):
         assert not self._connection
         _logger.debug(__('Client fetch request {0}.', request))
 
-        connection = yield From(self._acquire_connection(request))
+        connection = yield from self._acquire_connection(request)
         full_url = connection.proxied and not connection.tunneled
 
         self._stream = stream = self._stream_factory(connection)
 
-        yield From(self._stream.reconnect())
+        yield from self._stream.reconnect()
 
         request.address = connection.address
 
@@ -76,17 +75,17 @@ class Session(BaseSession):
         if self._recorder_session:
             self._recorder_session.pre_request(request)
 
-        yield From(stream.write_request(request, full_url=full_url))
+        yield from stream.write_request(request, full_url=full_url)
 
         if request.body:
             assert 'Content-Length' in request.fields
             length = int(request.fields['Content-Length'])
-            yield From(stream.write_body(request.body, length=length))
+            yield from stream.write_body(request.body, length=length)
 
         if self._recorder_session:
             self._recorder_session.request(request)
 
-        self._response = response = yield From(stream.read_response())
+        self._response = response = yield from stream.read_response()
         response.request = request
 
         if self._recorder_session:
@@ -94,9 +93,9 @@ class Session(BaseSession):
 
         self._session_complete = False
 
-        raise Return(response)
+        return response
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def read_content(self, file=None, raw=False, rewind=True,
                      duration_timeout=None):
         '''Read the response content into file.
@@ -127,8 +126,8 @@ class Session(BaseSession):
         read_future = self._stream.read_body(self._request, self._response, file=file, raw=raw)
 
         try:
-            yield From(trollius.wait_for(read_future, timeout=duration_timeout))
-        except trollius.TimeoutError as error:
+            yield from asyncio.wait_for(read_future, timeout=duration_timeout)
+        except asyncio.TimeoutError as error:
             raise DurationTimeout(
                 'Did not finish reading after {} seconds.'
                 .format(duration_timeout)

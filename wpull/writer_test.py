@@ -3,8 +3,6 @@ import hashlib
 import os.path
 import unittest
 
-from trollius import From
-
 from wpull.builder import Builder
 from wpull.options import AppArgumentParser
 import wpull.testing.async
@@ -31,7 +29,7 @@ class TestWriterApp(GoodAppTestCase, TempDirMixin):
         args = arg_parser.parse_args([self.get_url('/static/my_file.txt')])
 
         app = Builder(args, unit_test=True).build()
-        exit_code = yield From(app.run())
+        exit_code = yield from app.run()
 
         self.assertEqual(0, exit_code)
 
@@ -43,7 +41,7 @@ class TestWriterApp(GoodAppTestCase, TempDirMixin):
             self.assertIn(b'END', in_file.read())
 
         app = Builder(args, unit_test=True).build()
-        exit_code = yield From(app.run())
+        exit_code = yield from app.run()
 
         self.assertEqual(0, exit_code)
 
@@ -63,7 +61,7 @@ class TestWriterApp(GoodAppTestCase, TempDirMixin):
             out_file.write(b'START')
 
         app = Builder(args, unit_test=True).build()
-        exit_code = yield From(app.run())
+        exit_code = yield from app.run()
 
         self.assertEqual(0, exit_code)
 
@@ -90,7 +88,7 @@ class TestWriterApp(GoodAppTestCase, TempDirMixin):
 
         builder = Builder(args, unit_test=True)
         app = builder.build()
-        exit_code = yield From(app.run())
+        exit_code = yield from app.run()
 
         self.assertEqual(0, exit_code)
 
@@ -114,7 +112,7 @@ class TestWriterApp(GoodAppTestCase, TempDirMixin):
 
         builder = Builder(args, unit_test=True)
         app = builder.build()
-        exit_code = yield From(app.run())
+        exit_code = yield from app.run()
 
         self.assertEqual(0, exit_code)
 
@@ -142,7 +140,7 @@ class TestWriterApp(GoodAppTestCase, TempDirMixin):
 
         builder = Builder(args, unit_test=True)
         app = builder.build()
-        exit_code = yield From(app.run())
+        exit_code = yield from app.run()
 
         self.assertEqual(0, exit_code)
 
@@ -165,7 +163,7 @@ class TestWriterApp(GoodAppTestCase, TempDirMixin):
 
         os.mkdir('dir_or_file')
 
-        exit_code = yield From(app.run())
+        exit_code = yield from app.run()
 
         self.assertEqual(0, exit_code)
 
@@ -187,7 +185,7 @@ class TestWriterApp(GoodAppTestCase, TempDirMixin):
         with open('dir_or_file', 'wb'):
             pass
 
-        exit_code = yield From(app.run())
+        exit_code = yield from app.run()
 
         self.assertEqual(0, exit_code)
 
@@ -214,7 +212,7 @@ class TestWriterApp(GoodAppTestCase, TempDirMixin):
 
         builder = Builder(args, unit_test=True)
         app = builder.build()
-        exit_code = yield From(app.run())
+        exit_code = yield from app.run()
 
         self.assertEqual(0, exit_code)
 
@@ -243,7 +241,7 @@ class TestWriterApp(GoodAppTestCase, TempDirMixin):
 
         builder = Builder(args, unit_test=True)
         app = builder.build()
-        exit_code = yield From(app.run())
+        exit_code = yield from app.run()
 
         self.assertEqual(0, exit_code)
 
@@ -265,7 +263,7 @@ class TestWriterApp(GoodAppTestCase, TempDirMixin):
 
         builder = Builder(args, unit_test=True)
         app = builder.build()
-        exit_code = yield From(app.run())
+        exit_code = yield from app.run()
 
         self.assertEqual(0, exit_code)
 
@@ -295,7 +293,7 @@ class TestWriterFTPApp(FTPTestCase, TempDirMixin):
             out_file.write(b'The')
 
         app = Builder(args, unit_test=True).build()
-        exit_code = yield From(app.run())
+        exit_code = yield from app.run()
 
         self.assertEqual(0, exit_code)
 

@@ -2,8 +2,7 @@
 import contextlib
 import io
 
-from trollius import From
-import trollius
+import asyncio
 
 from wpull.errors import ProtocolError, ServerError
 from wpull.protocol.http.request import Request, Response
@@ -32,7 +31,7 @@ class MockWebSession(object):
     def done(self):
         return self.done_value
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def fetch(self, file=None, callback=None):
         return self.client.mock_response_callback(self.client.request, file)
 
@@ -57,10 +56,10 @@ class TestRobots(wpull.testing.async.AsyncTestCase):
 
         checker.web_client.mock_response_callback = response_callback
 
-        yield From(checker.fetch_robots_txt(request))
+        yield from checker.fetch_robots_txt(request)
 
         self.assertTrue(checker.can_fetch_pool(request))
-        self.assertTrue((yield From(checker.can_fetch(request))))
+        self.assertTrue((yield from checker.can_fetch(request)))
 
     @wpull.testing.async.async_test
     def test_fetch_disallow(self):
@@ -81,10 +80,10 @@ class TestRobots(wpull.testing.async.AsyncTestCase):
 
         checker.web_client.mock_response_callback = response_callback
 
-        yield From(checker.fetch_robots_txt(request))
+        yield from checker.fetch_robots_txt(request)
 
         self.assertFalse(checker.can_fetch_pool(request))
-        self.assertFalse((yield From(checker.can_fetch(request))))
+        self.assertFalse((yield from checker.can_fetch(request)))
 
     @wpull.testing.async.async_test
     def test_redirect_loop(self):
@@ -110,7 +109,7 @@ class TestRobots(wpull.testing.async.AsyncTestCase):
 
         checker.web_client.mock_response_callback = response_callback
 
-        self.assertTrue((yield From(checker.can_fetch(request))))
+        self.assertTrue((yield from checker.can_fetch(request)))
         self.assertTrue(checker.can_fetch_pool(request))
 
     @wpull.testing.async.async_test
@@ -130,7 +129,7 @@ class TestRobots(wpull.testing.async.AsyncTestCase):
         checker.web_client.mock_response_callback = response_callback
 
         try:
-            yield From(checker.can_fetch(request))
+            yield from checker.can_fetch(request)
         except ServerError:
             pass
         else:
@@ -189,5 +188,5 @@ class TestRobots(wpull.testing.async.AsyncTestCase):
 
         checker.web_client.mock_response_callback = response_callback_1
 
-        self.assertTrue((yield From(checker.can_fetch(request))))
+        self.assertTrue((yield from checker.can_fetch(request)))
         self.assertTrue(checker.can_fetch_pool(request))

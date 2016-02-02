@@ -5,8 +5,7 @@ import gettext
 import logging
 import http.client
 
-from trollius import From, Return
-import trollius
+import asyncio
 
 from wpull.errors import ProtocolError
 from wpull.protocol.http.client import Client
@@ -137,7 +136,7 @@ class WebSession(object):
         '''
         return self._loop_type
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def fetch(self, file=None, callback=None, duration_timeout=None):
         '''Fetch one of the requests.
 
@@ -164,18 +163,17 @@ class WebSession(object):
                     request.url_info.hostname_with_port in self._hostnames_with_auth:
                 self._add_basic_auth_header(request)
 
-            response = yield From(session.fetch(request))
+            response = yield from session.fetch(request)
 
             if callback:
                 file = callback(request, response)
 
-            yield From(
+            yield from \
                 session.read_content(file, duration_timeout=duration_timeout)
-            )
 
         self._process_response(response)
 
-        raise Return(response)
+        return response
 
     def _process_response(self, response):
         '''Handle the response and update the internal state.'''

@@ -16,7 +16,7 @@ import tempfile
 
 import tornado.netutil
 import tornado.web
-import trollius
+import asyncio
 
 from wpull.app import Application
 from wpull.backport.logging import BraceMessage as __
@@ -1370,8 +1370,8 @@ class Builder(object):
         )[0]
         proxy_port = proxy_socket.getsockname()[1]
 
-        proxy_server_task = trollius.async(
-            trollius.start_server(proxy_server, sock=proxy_socket)
+        proxy_server_task = asyncio.async(
+            asyncio.start_server(proxy_server, sock=proxy_socket)
         )
 
         return proxy_server, proxy_server_task, proxy_port

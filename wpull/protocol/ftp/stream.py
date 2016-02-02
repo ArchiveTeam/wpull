@@ -1,8 +1,8 @@
 '''FTP Streams'''
 import logging
 
-from trollius import From, Return
-import trollius
+
+import asyncio
 
 from wpull.protocol.abstract.stream import close_stream_on_error
 from wpull.errors import NetworkError
@@ -42,7 +42,7 @@ class DataStream(object):
         '''Return whether the connection is closed.'''
         return self._connection.closed()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     @close_stream_on_error
     def read_file(self, file=None):
         '''Read from connection to file.
@@ -54,7 +54,7 @@ class DataStream(object):
             file_is_async = hasattr(file, 'drain')
 
         while True:
-            data = yield From(self._connection.read(4096))
+            data = yield from self._connection.read(4096)
 
             if not data:
                 break
@@ -63,7 +63,7 @@ class DataStream(object):
                 file.write(data)
 
                 if file_is_async:
-                    yield From(file.drain())
+                    yield from file.drain()
 
             self._data_observer.notify('read', data)
 
@@ -99,7 +99,7 @@ class ControlStream(object):
         '''Return whether the connection is closed.'''
         return self._connection.closed()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def reconnect(self):
         '''Connected the stream if needed.
 
@@ -108,9 +108,9 @@ class ControlStream(object):
         if self._connection.closed():
             self._connection.reset()
 
-            yield From(self._connection.connect())
+            yield from self._connection.connect()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     @close_stream_on_error
     def write_command(self, command):
         '''Write a command to the stream.
@@ -122,10 +122,10 @@ class ControlStream(object):
         '''
         _logger.debug('Write command.')
         data = command.to_bytes()
-        yield From(self._connection.write(data))
+        yield from self._connection.write(data)
         self._data_observer.notify('command', data)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     @close_stream_on_error
     def read_reply(self):
         '''Read a reply from the stream.
@@ -139,7 +139,7 @@ class ControlStream(object):
         reply = Reply()
 
         while True:
-            line = yield From(self._connection.readline())
+            line = yield from self._connection.readline()
 
             if line[-1:] != b'\n':
                 raise NetworkError('Connection closed.')
@@ -150,4 +150,4 @@ class ControlStream(object):
             if reply.code is not None:
                 break
 
-        raise Return(reply)
+        return reply

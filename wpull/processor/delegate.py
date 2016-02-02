@@ -2,8 +2,8 @@
 import gettext
 import logging
 
-from trollius import From, Return
-import trollius
+
+import asyncio
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.processor.base import BaseProcessor
@@ -19,14 +19,14 @@ class DelegateProcessor(BaseProcessor):
         self.web_processor = web_processor
         self.ftp_processor = ftp_processor
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def process(self, url_item):
         scheme = url_item.url_info.scheme
 
         if scheme in ('http', 'https'):
-            raise Return((yield From(self.web_processor.process(url_item))))
+            return (yield from self.web_processor.process(url_item))
         elif scheme == 'ftp':
-            raise Return((yield From(self.ftp_processor.process(url_item))))
+            return (yield from self.ftp_processor.process(url_item))
         else:
             _logger.warning(__(
                 _('No processor available to handle {scheme} scheme.'),

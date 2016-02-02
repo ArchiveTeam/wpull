@@ -5,8 +5,7 @@ import gettext
 import logging
 import os
 
-from trollius import From, Return
-import trollius
+import asyncio
 
 from wpull.backport.logging import BraceMessage as __
 import wpull.body
@@ -57,7 +56,7 @@ class RobotsTxtChecker(object):
         else:
             raise NotInPoolError()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def fetch_robots_txt(self, request, file=None):
         '''Fetch the robots.txt file for the request.
 
@@ -78,7 +77,7 @@ class RobotsTxtChecker(object):
                 wpull.util.truncate_file(file.name)
 
                 try:
-                    response = yield From(session.fetch(file=file))
+                    response = yield from session.fetch(file=file)
                 except ProtocolError:
                     self._accept_as_blank(url_info)
 
@@ -94,7 +93,7 @@ class RobotsTxtChecker(object):
             else:
                 self._accept_as_blank(url_info)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def can_fetch(self, request, file=None):
         '''Return whether the request can fetched.
 
@@ -105,13 +104,13 @@ class RobotsTxtChecker(object):
         Coroutine.
         '''
         try:
-            raise Return(self.can_fetch_pool(request))
+            return self.can_fetch_pool(request)
         except NotInPoolError:
             pass
 
-        yield From(self.fetch_robots_txt(request, file=file))
+        yield from self.fetch_robots_txt(request, file=file)
 
-        raise Return(self.can_fetch_pool(request))
+        return self.can_fetch_pool(request)
 
     def _read_content(self, response, original_url_info):
         '''Read response and parse the contents into the pool.'''

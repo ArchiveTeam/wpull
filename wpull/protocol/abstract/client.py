@@ -3,8 +3,8 @@ import abc
 import contextlib
 import logging
 
-from trollius import From, Return
-import trollius
+
+import asyncio
 
 from wpull.connection import ConnectionPool
 from wpull.errors import NetworkTimedOut
@@ -105,7 +105,7 @@ class BaseSession(object, metaclass=abc.ABCMeta):
         Connections should be kept alive if supported.
         '''
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _acquire_connection(self, request):
         '''Return a connection.'''
         self._request = request
@@ -115,13 +115,13 @@ class BaseSession(object, metaclass=abc.ABCMeta):
         tunnel = request.url_info.scheme != 'http'
 
         if hasattr(self._connection_pool, 'acquire_proxy'):
-            connection = yield From(
+            connection = yield from \
                 self._connection_pool.acquire_proxy(host, port, use_ssl,
-                                                    tunnel=tunnel))
+                                                    tunnel=tunnel)
         else:
-            connection = yield From(
-                self._connection_pool.acquire(host, port, use_ssl))
+            connection = yield from \
+                self._connection_pool.acquire(host, port, use_ssl)
 
         self._connection = connection
 
-        raise Return(connection)
+        return connection

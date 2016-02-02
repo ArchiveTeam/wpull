@@ -5,8 +5,8 @@ import logging
 import ssl
 import os
 
-from trollius import From, Return
-import trollius
+
+import asyncio
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ProtocolError
@@ -24,7 +24,7 @@ class HTTPProxyServer(object):
 
     This function is meant to be used as a callback::
 
-        trollius.start_server(HTTPProxyServer(HTTPClient))
+        asyncio.start_server(HTTPProxyServer(HTTPClient))
 
     Args:
         http_client (:class:`.http.client.Client`): The HTTP client.
@@ -42,7 +42,7 @@ class HTTPProxyServer(object):
         self.pre_response_callback = None
         self.response_callback = None
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def __call__(self, reader, writer):
         '''Handle a request
 
@@ -54,11 +54,11 @@ class HTTPProxyServer(object):
                 self.request_callback,
                 self.pre_response_callback, self.response_callback
             )
-            yield From(session())
+            yield from session()
         except Exception as error:
             if not isinstance(error, StopIteration):
-                if isinstance(error, (trollius.ConnectionAbortedError,
-                                      trollius.ConnectionResetError)):
+                if isinstance(error, (asyncio.ConnectionAbortedError,
+                                      asyncio.ConnectionResetError)):
                     # Client using the proxy has closed the connection
                     _logger.debug('Proxy error', exc_info=True)
                 else:
@@ -90,13 +90,13 @@ class Session(object):
 
         self._is_ssl_tunnel = False
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def __call__(self):
         '''Process a connection session.'''
         _logger.debug('Begin session.')
 
         while True:
-            request = yield From(self._read_request_header())
+            request = yield from self._read_request_header()
 
             if not request:
                 return
@@ -108,9 +108,9 @@ class Session(object):
                     self._reject_request('Cannot CONNECT within CONNECT')
                     return
 
-                yield From(self._start_tls())
+                yield from self._start_tls()
                 self._is_ssl_tunnel = True
-                request = yield From(self._read_request_header())
+                request = yield from self._read_request_header()
 
                 if not request:
                     return
@@ -137,7 +137,7 @@ class Session(object):
                 if 'Content-Length' in request.fields:
                     request.body = self._reader
 
-                response = yield From(session.fetch(request))
+                response = yield from session.fetch(request)
 
                 # XXX: scripting hook tries to call to_dict() on body.
                 # we set it to None so it doesn't error
@@ -148,20 +148,20 @@ class Session(object):
                     self._pre_response_callback(request, response)
 
                 self._writer.write(response.to_bytes())
-                yield From(self._writer.drain())
-                yield From(session.read_content(file=self._writer, raw=True))
+                yield from self._writer.drain()
+                yield from session.read_content(file=self._writer, raw=True)
 
                 if self._response_callback:
                     self._response_callback(request, response)
 
             _logger.debug('Response done.')
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _read_request_header(self):
         request = Request()
 
         for dummy in range(100):
-            line = yield From(self._reader.readline())
+            line = yield from self._reader.readline()
 
             _logger.debug(__('Got line {0}', line))
 
@@ -175,24 +175,24 @@ class Session(object):
         else:
             raise ProtocolError('Request has too many headers.')
 
-        raise Return(request)
+        return request
 
     def _start_tls(self):
         '''Start SSL protocol on the socket.'''
         socket_ = self._writer.get_extra_info('socket')
 
         try:
-            trollius.get_event_loop().remove_reader(socket_.fileno())
+            asyncio.get_event_loop().remove_reader(socket_.fileno())
         except ValueError as error:
-            raise trollius.ConnectionAbortedError() from error
+            raise asyncio.ConnectionAbortedError() from error
 
         self._writer.write(b'HTTP/1.1 200 Connection established\r\n\r\n')
-        yield From(self._writer.drain())
+        yield from self._writer.drain()
 
         try:
-            trollius.get_event_loop().remove_writer(socket_.fileno())
+            asyncio.get_event_loop().remove_writer(socket_.fileno())
         except ValueError as error:
-            raise trollius.ConnectionAbortedError() from error
+            raise asyncio.ConnectionAbortedError() from error
 
         ssl_socket = ssl.wrap_socket(
             socket_, server_side=True,
@@ -209,21 +209,21 @@ class Session(object):
             except ssl.SSLError as error:
                 if error.errno in (ssl.SSL_ERROR_WANT_READ, ssl.SSL_ERROR_WANT_WRITE):
                     _logger.debug('Do handshake %s', error)
-                    yield From(trollius.sleep(0.05))
+                    yield from asyncio.sleep(0.05)
                 else:
                     raise
         else:
             _logger.error(_('Unable to handshake.'))
             ssl_socket.close()
             self._reject_request('Could not start TLS')
-            raise trollius.ConnectionAbortedError('Could not start TLS')
+            raise asyncio.ConnectionAbortedError('Could not start TLS')
 
-        loop = trollius.get_event_loop()
-        reader = trollius.StreamReader(loop=loop)
-        protocol = trollius.StreamReaderProtocol(reader, loop=loop)
-        transport, dummy = yield From(loop.create_connection(
-            lambda: protocol, sock=ssl_socket))
-        writer = trollius.StreamWriter(transport, protocol, reader, loop)
+        loop = asyncio.get_event_loop()
+        reader = asyncio.StreamReader(loop=loop)
+        protocol = asyncio.StreamReaderProtocol(reader, loop=loop)
+        transport, dummy = yield from loop.create_connection(
+            lambda: protocol, sock=ssl_socket)
+        writer = asyncio.StreamWriter(transport, protocol, reader, loop)
 
         self._reader = reader
         self._writer = writer
@@ -244,5 +244,5 @@ if __name__ == '__main__':
     http_client = Client(recorder=ProgressRecorder())
     proxy = HTTPProxyServer(http_client)
 
-    trollius.get_event_loop().run_until_complete(trollius.start_server(proxy, port=8888))
-    trollius.get_event_loop().run_forever()
+    asyncio.get_event_loop().run_until_complete(asyncio.start_server(proxy, port=8888))
+    asyncio.get_event_loop().run_forever()

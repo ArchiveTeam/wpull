@@ -4,9 +4,8 @@ import gettext
 import io
 import logging
 
-from trollius.coroutines import Return, From
 import namedlist
-import trollius
+import asyncio
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
@@ -116,11 +115,11 @@ class WebProcessor(BaseProcessor, HookableMixin):
         '''The fetch parameters.'''
         return self._fetch_params
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def process(self, url_item):
         session = self._session_class(self, url_item)
         try:
-            raise Return((yield From(session.process())))
+            return (yield from session.process())
         finally:
             session.close()
 
@@ -199,9 +198,9 @@ class WebProcessorSession(BaseProcessorSession):
 
         request.fields['Referer'] = url_record.referrer
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def process(self):
-        ok = yield From(self._process_robots())
+        ok = yield from self._process_robots()
 
         if not ok:
             return
@@ -212,7 +211,7 @@ class WebProcessorSession(BaseProcessorSession):
             self._new_initial_request()
         )
 
-        yield From(self._process_loop())
+        yield from self._process_loop()
 
         if self._request and self._request.body:
             self._request.body.close()
@@ -221,7 +220,7 @@ class WebProcessorSession(BaseProcessorSession):
             _logger.debug('Was not processed. Skipping.')
             self._url_item.skip()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _process_robots(self):
         '''Process robots.txt.
 
@@ -229,8 +228,8 @@ class WebProcessorSession(BaseProcessorSession):
         '''
         try:
             request = self._new_initial_request(with_body=False)
-            verdict = (yield From(self._should_fetch_reason_with_robots(
-                request, self._url_item.url_record)))[0]
+            verdict = (yield from self._should_fetch_reason_with_robots(
+                request, self._url_item.url_record))[0]
         except REMOTE_ERRORS as error:
             _logger.error(__(
                 _('Fetching robots.txt for ‘{url}’ '
@@ -245,17 +244,17 @@ class WebProcessorSession(BaseProcessorSession):
 
             if wait_time:
                 _logger.debug('Sleeping {0}.'.format(wait_time))
-                yield From(trollius.sleep(wait_time))
+                yield from asyncio.sleep(wait_time)
 
-            raise Return(False)
+            return False
         else:
             if not verdict:
                 self._url_item.skip()
-                raise Return(False)
+                return False
 
-        raise Return(True)
+        return True
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _process_loop(self):
         '''Fetch URL including redirects.
 
@@ -271,16 +270,16 @@ class WebProcessorSession(BaseProcessorSession):
 
             self._request = self._web_client_session.next_request()
 
-            exit_early, wait_time = yield From(self._fetch_one(self._request))
+            exit_early, wait_time = yield from self._fetch_one(self._request)
 
             if wait_time:
                 _logger.debug('Sleeping {0}.'.format(wait_time))
-                yield From(trollius.sleep(wait_time))
+                yield from asyncio.sleep(wait_time)
 
             if exit_early:
                 break
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _fetch_one(self, request):
         '''Process one of the loop iteration.
 
@@ -313,15 +312,14 @@ class WebProcessorSession(BaseProcessorSession):
             return response.body
 
         try:
-            response = yield From(
+            response = yield from \
                 self._web_client_session.fetch(
                     callback=response_callback,
                     duration_timeout=self._fetch_rule.duration_timeout
                 )
-            )
         except HookPreResponseBreak:
             _logger.debug('Hook pre-response break.')
-            raise Return(True, None)
+            return True, None
         except REMOTE_ERRORS as error:
             self._log_error(request, error)
 
@@ -333,7 +331,7 @@ class WebProcessorSession(BaseProcessorSession):
             if response:
                 response.body.close()
 
-            raise Return(True, wait_time)
+            return True, wait_time
         else:
             self._log_response(request, response)
             action = self._handle_response(request, response)
@@ -341,11 +339,11 @@ class WebProcessorSession(BaseProcessorSession):
                 request, self._url_item.url_record, response=response
             )
 
-            yield From(self._run_coprocessors(request, response))
+            yield from self._run_coprocessors(request, response)
 
             response.body.close()
 
-            raise Return(action != Actions.NORMAL, wait_time)
+            return action != Actions.NORMAL, wait_time
 
     def close(self):
         '''Close any temp files.'''
@@ -385,17 +383,16 @@ class WebProcessorSession(BaseProcessorSession):
         return self._fetch_rule.check_subsequent_web_request(
             url_info, url_record, is_redirect=is_redirect)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _should_fetch_reason_with_robots(self, request, url_record):
         '''Return info whether the URL should be fetched including checking
         robots.txt.
 
         Coroutine.
         '''
-        result = yield From(
+        result = yield from \
             self._fetch_rule.check_initial_web_request(request, url_record)
-        )
-        raise Return(result)
+        return result
 
     def _add_post_data(self, request):
         '''Add data to the payload.'''
@@ -484,13 +481,13 @@ class WebProcessorSession(BaseProcessorSession):
         phantomjs_coprocessor = self._processor.instances.phantomjs_coprocessor
 
         if phantomjs_coprocessor:
-            yield From(phantomjs_coprocessor.process(
+            yield from phantomjs_coprocessor.process(
                 self._url_item, request, response, self._file_writer_session
-            ))
+            )
 
         youtube_dl_coprocessor = self._processor.instances.youtube_dl_coprocessor
 
         if youtube_dl_coprocessor:
-            yield From(youtube_dl_coprocessor.process(
+            yield from youtube_dl_coprocessor.process(
                 self._url_item, request, response, self._file_writer_session
-            ))
+            )

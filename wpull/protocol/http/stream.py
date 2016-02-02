@@ -7,8 +7,7 @@ import logging
 import re
 import zlib
 
-from trollius import From, Return
-import trollius
+import asyncio
 
 from wpull.protocol.abstract.stream import close_stream_on_error
 from wpull.backport.logging import BraceMessage as __
@@ -67,7 +66,7 @@ class Stream(object):
     def data_observer(self):
         return self._data_observer
 
-    @trollius.coroutine
+    @asyncio.coroutine
     @close_stream_on_error
     def write_request(self, request, full_url=False):
         '''Send the request's HTTP status line and header fields.
@@ -91,9 +90,9 @@ class Stream(object):
 
         # XXX: Connection lost is raised too early on Python 3.2, 3.3 so
         # don't flush but check for connection closed on reads
-        yield From(self._connection.write(data, drain=False))
+        yield from self._connection.write(data, drain=False)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     @close_stream_on_error
     def write_body(self, file, length=None):
         '''Send the request's content body.
@@ -102,8 +101,8 @@ class Stream(object):
         '''
         _logger.debug('Sending body.')
 
-        file_is_async = (trollius.iscoroutine(file.read) or
-                         trollius.iscoroutinefunction(file.read))
+        file_is_async = (asyncio.iscoroutine(file.read) or
+                         asyncio.iscoroutinefunction(file.read))
 
         _logger.debug(__('Body is async: {0}', file_is_async))
 
@@ -119,7 +118,7 @@ class Stream(object):
                 read_size = self._read_size
 
             if file_is_async:
-                data = yield From(file.read(read_size))
+                data = yield from file.read(read_size)
             else:
                 data = file.read(read_size)
 
@@ -136,12 +135,12 @@ class Stream(object):
             else:
                 drain = True
 
-            yield From(self._connection.write(data, drain=drain))
+            yield from self._connection.write(data, drain=drain)
 
             if length is not None:
                 bytes_left -= len(data)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     @close_stream_on_error
     def read_response(self, response=None):
         '''Read the response's HTTP status line and header fields.
@@ -158,7 +157,7 @@ class Stream(object):
 
         while True:
             try:
-                data = yield From(self._connection.readline())
+                data = yield from self._connection.readline()
             except ValueError as error:
                 raise ProtocolError(
                     'Invalid header: {0}'.format(error)) from error
@@ -183,9 +182,9 @@ class Stream(object):
 
         response.parse(b''.join(header_lines))
 
-        raise Return(response)
+        return response
 
-    @trollius.coroutine
+    @asyncio.coroutine
     @close_stream_on_error
     def read_body(self, request, response, file=None, raw=False):
         '''Read the response's content body.
@@ -204,11 +203,11 @@ class Stream(object):
             read_strategy = 'close'
 
         if read_strategy == 'chunked':
-            yield From(self._read_body_by_chunk(response, file, raw=raw))
+            yield from self._read_body_by_chunk(response, file, raw=raw)
         elif read_strategy == 'length':
-            yield From(self._read_body_by_length(response, file))
+            yield from self._read_body_by_length(response, file)
         else:
-            yield From(self._read_body_until_close(response, file))
+            yield from self._read_body_until_close(response, file)
 
         should_close = wpull.protocol.http.util.should_close(
             request.version, response.fields.get('Connection'))
@@ -217,7 +216,7 @@ class Stream(object):
             _logger.debug('Not keep-alive. Closing connection.')
             self.close()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _read_body_until_close(self, response, file):
         '''Read the response until the connection closes.
 
@@ -228,7 +227,7 @@ class Stream(object):
         file_is_async = hasattr(file, 'drain')
 
         while True:
-            data = yield From(self._connection.read(self._read_size))
+            data = yield from self._connection.read(self._read_size)
 
             if not data:
                 break
@@ -241,7 +240,7 @@ class Stream(object):
                 file.write(content_data)
 
                 if file_is_async:
-                    yield From(file.drain())
+                    yield from file.drain()
 
         content_data = self._flush_decompressor()
 
@@ -249,9 +248,9 @@ class Stream(object):
             file.write(content_data)
 
             if file_is_async:
-                yield From(file.drain())
+                yield from file.drain()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _read_body_by_length(self, response, file):
         '''Read the connection specified by a length.
 
@@ -272,13 +271,13 @@ class Stream(object):
                 _('Invalid content length: {error}'), error=error
             ))
 
-            yield From(self._read_body_until_close(response, file))
+            yield from self._read_body_until_close(response, file)
             return
 
         bytes_left = body_size
 
         while bytes_left > 0:
-            data = yield From(self._connection.read(self._read_size))
+            data = yield from self._connection.read(self._read_size)
 
             if not data:
                 break
@@ -299,7 +298,7 @@ class Stream(object):
                 file.write(content_data)
 
                 if file_is_async:
-                    yield From(file.drain())
+                    yield from file.drain()
 
         if bytes_left > 0:
             raise NetworkError('Connection closed.')
@@ -310,9 +309,9 @@ class Stream(object):
             file.write(content_data)
 
             if file_is_async:
-                yield From(file.drain())
+                yield from file.drain()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _read_body_by_chunk(self, response, file, raw=False):
         '''Read the connection using chunked transfer encoding.
 
@@ -323,7 +322,7 @@ class Stream(object):
         file_is_async = hasattr(file, 'drain')
 
         while True:
-            chunk_size, data = yield From(reader.read_chunk_header())
+            chunk_size, data = yield from reader.read_chunk_header()
 
             self._data_observer.notify('response_body', data)
             if raw:
@@ -333,7 +332,7 @@ class Stream(object):
                 break
 
             while True:
-                content, data = yield From(reader.read_chunk_body())
+                content, data = yield from reader.read_chunk_body()
 
                 self._data_observer.notify('response_body', data)
 
@@ -349,7 +348,7 @@ class Stream(object):
                     file.write(content)
 
                     if file_is_async:
-                        yield From(file.drain())
+                        yield from file.drain()
 
         content = self._flush_decompressor()
 
@@ -357,9 +356,9 @@ class Stream(object):
             file.write(content)
 
             if file_is_async:
-                yield From(file.drain())
+                yield from file.drain()
 
-        trailer_data = yield From(reader.read_trailer())
+        trailer_data = yield from reader.read_trailer()
 
         self._data_observer.notify('response_body', trailer_data)
 
@@ -367,7 +366,7 @@ class Stream(object):
             file.write(trailer_data)
 
             if file_is_async:
-                yield From(file.drain())
+                yield from file.drain()
 
         response.fields.parse(trailer_data)
 
@@ -433,7 +432,7 @@ class Stream(object):
         '''Close the connection.'''
         self._connection.close()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def reconnect(self):
         '''Connect the connection if needed.
 
@@ -442,7 +441,7 @@ class Stream(object):
         if self._connection.closed():
             self._connection.reset()
 
-            yield From(self._connection.connect())
+            yield from self._connection.connect()
 
 
 def is_no_body(request, response, no_content_codes=DEFAULT_NO_CONTENT_CODES):

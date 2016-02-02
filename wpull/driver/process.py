@@ -9,8 +9,7 @@ import atexit
 import errno
 import time
 
-from trollius import From
-import trollius
+import asyncio
 
 from wpull.backport.logging import BraceMessage as __
 
@@ -34,7 +33,7 @@ class Process(object):
         '''Return the underlying process.'''
         return self._process
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def start(self, use_atexit=True):
         '''Start the executable.
 
@@ -46,16 +45,16 @@ class Process(object):
 
         _logger.debug('Starting process %s', self._proc_args)
 
-        process_future = trollius.create_subprocess_exec(
+        process_future = asyncio.create_subprocess_exec(
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             *self._proc_args
         )
-        self._process = yield From(process_future)
+        self._process = yield from process_future
 
-        self._stderr_reader = trollius.async(self._read_stderr())
-        self._stdout_reader = trollius.async(self._read_stdout())
+        self._stderr_reader = asyncio.async(self._read_stderr())
+        self._stdout_reader = asyncio.async(self._read_stdout())
 
         if use_atexit:
             atexit.register(self.close)
@@ -93,12 +92,12 @@ class Process(object):
             if error.errno != errno.ESRCH:
                 raise
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _read_stdout(self):
         '''Continuously read the stdout for messages.'''
         try:
             while self._process.returncode is None:
-                line = yield From(self._process.stdout.readline())
+                line = yield from self._process.stdout.readline()
 
                 _logger.debug('Read stdout line %s', repr(line))
 
@@ -106,24 +105,24 @@ class Process(object):
                     break
 
                 if self._stdout_callback:
-                    yield From(self._stdout_callback(line))
+                    yield from self._stdout_callback(line)
 
         except Exception:
             _logger.exception('Unhandled read stdout exception.')
             raise
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _read_stderr(self):
         '''Continuously read stderr for error messages.'''
         try:
             while self._process.returncode is None:
-                line = yield From(self._process.stderr.readline())
+                line = yield from self._process.stderr.readline()
 
                 if not line:
                     break
 
                 if self._stderr_callback:
-                    yield From(self._stderr_callback(line))
+                    yield from self._stderr_callback(line)
 
         except Exception:
             _logger.exception('Unhandled read stderr exception.')

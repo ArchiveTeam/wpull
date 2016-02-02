@@ -2,8 +2,8 @@
 import logging
 import random
 
-from trollius import From, Return
-import trollius
+
+import asyncio
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.hook import HookableMixin, HookDisconnected, Actions, HookStop
@@ -31,7 +31,7 @@ class FetchRule(HookableMixin):
 
         self.register_hook('should_fetch')
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def consult_robots_txt(self, request):
         '''Consult by fetching robots.txt as needed.
 
@@ -45,10 +45,10 @@ class FetchRule(HookableMixin):
         Coroutine
         '''
         if not self._robots_txt_checker:
-            raise Return(True)
+            return True
 
-        result = yield From(self._robots_txt_checker.can_fetch(request))
-        raise Return(result)
+        result = yield from self._robots_txt_checker.can_fetch(request)
+        return result
 
     def consult_helix_fossil(self):
         '''Consult the helix fossil.
@@ -118,7 +118,7 @@ class FetchRule(HookableMixin):
 
         return verdict, reason
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def check_initial_web_request(self, request, url_record):
         '''Check robots.txt, URL filters, and scripting hook.
 
@@ -132,7 +132,7 @@ class FetchRule(HookableMixin):
         )
 
         if verdict and self._robots_txt_checker:
-            can_fetch = yield From(self.consult_robots_txt(request))
+            can_fetch = yield from self.consult_robots_txt(request)
 
             if not can_fetch:
                 verdict = False
@@ -142,7 +142,7 @@ class FetchRule(HookableMixin):
             request.url_info, url_record, verdict, reason, test_info
         )
 
-        raise Return((verdict, reason))
+        return (verdict, reason)
 
     def check_subsequent_web_request(self, url_info, url_record,
                                      is_redirect=False):

@@ -5,8 +5,8 @@ import logging
 import random
 import socket
 
-from trollius import From, Return
-import trollius
+
+import asyncio
 import dns.resolver
 
 from wpull.backport.logging import BraceMessage as __
@@ -62,7 +62,7 @@ class Resolver(HookableMixin):
 
         self.register_hook('resolve_dns')
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def resolve_all(self, host, port=0):
         '''Resolve hostname and return a list of results.
 
@@ -84,7 +84,7 @@ class Resolver(HookableMixin):
             results = self._get_cache(host, port, self._family)
 
         if results is None:
-            results = yield From(self._resolve_from_network(host, port))
+            results = yield from self._resolve_from_network(host, port)
 
         if self._cache:
             self._put_cache(host, port, results)
@@ -97,9 +97,9 @@ class Resolver(HookableMixin):
 
         _logger.debug(__('Resolved addresses: {0}.', results))
 
-        raise Return(results)
+        return results
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def resolve(self, host, port=0):
         '''Resolve hostname and return the first result.
 
@@ -116,7 +116,7 @@ class Resolver(HookableMixin):
             address and the second item is the port number. Note that
             IPv6 may return a tuple containing more items than 2.
         '''
-        results = yield From(self.resolve_all(host, port))
+        results = yield from self.resolve_all(host, port)
 
         if self._rotate:
             result = random.choice(results)
@@ -130,9 +130,9 @@ class Resolver(HookableMixin):
             ('Resolve did not return numerical address. Got {}.'
              .format(address[0]))
 
-        raise Return((family, address))
+        return (family, address)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def resolve_dual(self, host, port=0):
         '''Resolve hostname and return the first IPv4 & IPv6 result.
 
@@ -140,7 +140,7 @@ class Resolver(HookableMixin):
             tuple: Similar to :method:`resolve_all`, except the list of results
             contains at least 1 IPv4 address and at least 1 IPv6 address.
         '''
-        results = list((yield From(self.resolve_all(host, port))))
+        results = list((yield from self.resolve_all(host, port)))
 
         if self._rotate:
             random.shuffle(results)
@@ -164,7 +164,7 @@ class Resolver(HookableMixin):
 
         assert len(new_results) <= 2, new_results
 
-        raise Return(new_results)
+        return new_results
 
     def _lookup_hook(self, host, port):
         '''Return the address from callback hook'''
@@ -181,7 +181,7 @@ class Resolver(HookableMixin):
 
         return host
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _resolve_from_network(self, host, port):
         '''Resolve the address using network.
 
@@ -194,13 +194,13 @@ class Resolver(HookableMixin):
 
         try:
             future = self._getaddrinfo_implementation(host, port)
-            results = yield From(trollius.wait_for(future, self._timeout))
-        except trollius.TimeoutError as error:
+            results = yield from asyncio.wait_for(future, self._timeout)
+        except asyncio.TimeoutError as error:
             raise NetworkError('DNS resolve timed out.') from error
         else:
-            raise Return(results)
+            return results
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _getaddrinfo_implementation(self, host, port):
         '''The resolver implementation.
 
@@ -221,11 +221,10 @@ class Resolver(HookableMixin):
             family_flags = self._family
 
         try:
-            results = yield From(
-                trollius.get_event_loop().getaddrinfo(
+            results = yield from \
+                asyncio.get_event_loop().getaddrinfo(
                     host, port, family=family_flags
                 )
-            )
         except socket.error as error:
             if error.errno in (
                     socket.EAI_FAIL,
@@ -248,7 +247,7 @@ class Resolver(HookableMixin):
         if self._family in (self.PREFER_IPv4, self.PREFER_IPv6):
             results = self.sort_results(results, self._family)
 
-        raise Return(results)
+        return results
 
     def _get_cache(self, host, port, family):
         '''Return the address from cache.
@@ -295,36 +294,36 @@ class PythonResolver(Resolver):
         if self._timeout:
             self._resolver.timeout = self._timeout
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _getaddrinfo_implementation(self, host, port):
-        event_loop = trollius.get_event_loop()
+        event_loop = asyncio.get_event_loop()
 
         results = []
 
         def query_ipv4():
-            answers = yield From(event_loop.run_in_executor(
+            answers = yield from event_loop.run_in_executor(
                 None, self._query, host, 'A'
-            ))
+            )
             results.extend(
                 (socket.AF_INET, (answer.address, port)) for answer in answers
             )
 
         def query_ipv6():
-            answers = yield From(event_loop.run_in_executor(
+            answers = yield from event_loop.run_in_executor(
                 None, self._query, host, 'AAAA'
-            ))
+            )
             results.extend(
                 (socket.AF_INET6, (answer.address, port)) for answer in answers
             )
 
         if self._family == socket.AF_INET:
             try:
-                yield From(query_ipv4())
+                yield from query_ipv4()
             except DNSNotFound:
                 pass
         elif self._family == socket.AF_INET6:
             try:
-                yield From(query_ipv6())
+                yield from query_ipv6()
             except DNSNotFound:
                 pass
         else:
@@ -336,15 +335,15 @@ class PythonResolver(Resolver):
 
             for func in funcs:
                 try:
-                    yield From(func())
+                    yield from func()
                 except DNSNotFound:
                     pass
 
         if not results:
             # Maybe defined in hosts file or mDNS
-            results = yield From(super()._getaddrinfo_implementation(host, port))
+            results = yield from super()._getaddrinfo_implementation(host, port)
 
-        raise Return(results)
+        return results
 
     def _query(self, host, query_type):
         try:

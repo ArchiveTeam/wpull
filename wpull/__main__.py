@@ -4,21 +4,12 @@ import sys
 import time
 
 import tornado.platform.asyncio
-import trollius
 
 from wpull.builder import Builder
 from wpull.options import AppArgumentParser
 
 
-def main(exit=True, install_tornado_bridge=True, prefer_trollius=True):
-    if prefer_trollius:
-        try:
-            import asyncio
-        except ImportError:
-            pass
-        else:
-            asyncio.set_event_loop_policy(trollius.get_event_loop_policy())
-
+def main(exit=True, install_tornado_bridge=True):
     if install_tornado_bridge:
         tornado.platform.asyncio.AsyncIOMainLoop().install()
 

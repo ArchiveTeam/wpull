@@ -4,8 +4,8 @@ import logging
 import weakref
 import functools
 
-from trollius import From, Return
-import trollius
+
+import asyncio
 
 from wpull.protocol.abstract.client import BaseClient, BaseSession, DurationTimeout
 from wpull.body import Body
@@ -49,17 +49,17 @@ class Session(BaseSession):
         self._data_connection = None
         self._listing_type = None
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _init_stream(self):
         '''Create streams and commander.
 
         Coroutine.
         '''
         assert not self._connection
-        self._connection = yield From(
+        self._connection = yield from \
             self._connection_pool.acquire(
                 self._request.url_info.hostname, self._request.url_info.port
-            ))
+            )
         self._control_stream = ControlStream(self._connection)
         self._commander = Commander(self._control_stream)
 
@@ -75,7 +75,7 @@ class Session(BaseSession):
 
             self._control_stream.data_observer.add(control_data_callback)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _log_in(self):
         '''Connect and login.
 
@@ -91,14 +91,14 @@ class Session(BaseSession):
             return
 
         try:
-            yield From(self._commander.login(username, password))
+            yield from self._commander.login(username, password)
         except FTPServerError as error:
             raise AuthenticationError('Login error: {}'.format(error)) \
                 from error
 
         self._login_table[self._connection] = (username, password)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def fetch(self, request):
         '''Fulfill a request.
 
@@ -115,26 +115,26 @@ class Session(BaseSession):
         '''
         response = Response()
 
-        yield From(self._prepare_fetch(request, response))
+        yield from self._prepare_fetch(request, response)
 
-        response.file_transfer_size = yield From(self._fetch_size(request))
+        response.file_transfer_size = yield from self._fetch_size(request)
 
         if request.restart_value:
             try:
-                yield From(self._commander.restart(request.restart_value))
+                yield from self._commander.restart(request.restart_value)
                 response.restart_value = request.restart_value
             except FTPServerError:
                 _logger.debug('Could not restart file.', exc_info=1)
 
-        yield From(self._open_data_stream())
+        yield from self._open_data_stream()
 
         command = Command('RETR', request.file_path)
 
-        yield From(self._begin_stream(command))
+        yield from self._begin_stream(command)
 
-        raise Return(response)
+        return response
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def fetch_file_listing(self, request):
         '''Fetch a file listing.
 
@@ -147,14 +147,14 @@ class Session(BaseSession):
         '''
         response = ListingResponse()
 
-        yield From(self._prepare_fetch(request, response))
-        yield From(self._open_data_stream())
+        yield from self._prepare_fetch(request, response)
+        yield from self._open_data_stream()
 
         mlsd_command = Command('MLSD', self._request.file_path)
         list_command = Command('LIST', self._request.file_path)
 
         try:
-            yield From(self._begin_stream(mlsd_command))
+            yield from self._begin_stream(mlsd_command)
             self._listing_type = 'mlsd'
         except FTPServerError as error:
             if error.reply_code in (ReplyCodes.syntax_error_command_unrecognized,
@@ -166,14 +166,14 @@ class Session(BaseSession):
         if not self._listing_type:
             # This code not in exception handler to avoid incorrect
             # exception chaining
-            yield From(self._begin_stream(list_command))
+            yield from self._begin_stream(list_command)
             self._listing_type = 'list'
 
         _logger.debug('Listing type is %s', self._listing_type)
 
-        raise Return(response)
+        return response
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _prepare_fetch(self, request, response):
         '''Prepare for a fetch.
 
@@ -182,13 +182,13 @@ class Session(BaseSession):
         self._request = request
         self._response = response
 
-        yield From(self._init_stream())
+        yield from self._init_stream()
 
         connection_closed = self._connection.closed()
 
         if connection_closed:
             self._login_table.pop(self._connection, None)
-            yield From(self._control_stream.reconnect())
+            yield from self._control_stream.reconnect()
 
         request.address = self._connection.address
 
@@ -199,23 +199,23 @@ class Session(BaseSession):
             )
 
         if connection_closed:
-            yield From(self._commander.read_welcome_message())
+            yield from self._commander.read_welcome_message()
 
-        yield From(self._log_in())
+        yield from self._log_in()
 
         self._response.request = request
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _begin_stream(self, command):
         '''Start data stream transfer.'''
-        begin_reply = yield From(self._commander.begin_stream(command))
+        begin_reply = yield from self._commander.begin_stream(command)
 
         self._response.reply = begin_reply
 
         if self._recorder_session:
             self._recorder_session.pre_response(self._response)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def read_content(self, file=None, rewind=True, duration_timeout=None):
         '''Read the response content into file.
 
@@ -248,10 +248,9 @@ class Session(BaseSession):
         read_future = self._commander.read_stream(file, self._data_stream)
 
         try:
-            reply = yield From(
-                trollius.wait_for(read_future, timeout=duration_timeout)
-            )
-        except trollius.TimeoutError as error:
+            reply = yield from \
+                asyncio.wait_for(read_future, timeout=duration_timeout)
+        except asyncio.TimeoutError as error:
             raise DurationTimeout(
                 'Did not finish reading after {} seconds.'
                 .format(duration_timeout)
@@ -265,9 +264,9 @@ class Session(BaseSession):
         if self._recorder_session:
             self._recorder_session.response(self._response)
 
-        raise Return(self._response)
+        return self._response
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def read_listing_content(self, file, duration_timeout=None):
         '''Read file listings.
 
@@ -279,8 +278,8 @@ class Session(BaseSession):
 
         Coroutine.
         '''
-        yield From(self.read_content(file=file, rewind=False,
-                                     duration_timeout=duration_timeout))
+        yield from self.read_content(file=file, rewind=False,
+                                     duration_timeout=duration_timeout)
 
         try:
             if self._response.body.tell() == 0:
@@ -318,23 +317,23 @@ class Session(BaseSession):
         self._response.files = listings
 
         self._response.body.seek(0)
-        raise Return(self._response)
+        return self._response
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _open_data_stream(self):
         '''Open the data stream connection.
 
         Coroutine.
         '''
-        @trollius.coroutine
+        @asyncio.coroutine
         def connection_factory(address):
-            self._data_connection = yield From(
-                self._connection_pool.acquire(address[0], address[1]))
-            raise Return(self._data_connection)
+            self._data_connection = yield from \
+                self._connection_pool.acquire(address[0], address[1])
+            return self._data_connection
 
-        self._data_stream = yield From(self._commander.setup_data_stream(
+        self._data_stream = yield from self._commander.setup_data_stream(
             connection_factory
-        ))
+        )
 
         if self._recorder_session:
             self._response.data_address = self._data_connection.address
@@ -345,15 +344,15 @@ class Session(BaseSession):
 
             self._data_stream.data_observer.add(data_callback)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _fetch_size(self, request):
         '''Return size of file.
 
         Coroutine.
         '''
         try:
-            size = yield From(self._commander.size(request.file_path))
-            raise Return(size)
+            size = yield from self._commander.size(request.file_path)
+            return size
         except FTPServerError:
             return
 
