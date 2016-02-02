@@ -93,51 +93,6 @@ setup_kwargs['install_requires'] = [
 setup_kwargs['scripts'] = ['scripts/wpull', 'scripts/wpull3']
 
 
-if os.environ.get('USE_CX_FREEZE'):
-    from cx_Freeze import setup, Executable
-
-    wpull_package_dir = '.'
-    wpull_package_src_dir = './wpull/'
-
-    sys.path.insert(0, os.path.dirname(wpull_package_dir))
-
-    extension = '.exe' if platform.system() == 'Windows' else ''
-
-    setup_kwargs['executables'] = [
-        Executable(
-            os.path.join(wpull_package_src_dir, '__main__.py'),
-            targetName='wpull' + extension,
-            shortcutName='Wpull ' + version,
-        )
-    ]
-    setup_kwargs['options'] = {
-        'build_exe': {
-            'includes': [
-                'lxml._elementpath',
-                'sqlalchemy.dialects.sqlite',
-            ],
-            'zip_includes': [
-                (os.path.join(wpull_package_src_dir, 'cert', 'ca-bundle.pem'),
-                 'wpull/cert/ca-bundle.pem'),
-            ],
-            'include_files': [
-                (
-                    os.path.join(wpull_package_src_dir, 'driver', 'phantomjs.js'),
-                    'phantomjs.js'
-                ),
-                (
-                    os.path.join(wpull_package_src_dir, 'proxy', 'proxy.crt'),
-                    'proxy.crt'
-                ),
-                (
-                    os.path.join(wpull_package_src_dir, 'proxy', 'proxy.key'),
-                    'proxy.key'
-                ),
-            ]
-        }
-    }
-
-
 if __name__ == '__main__':
     if sys.version_info[0] < 3:
         raise Exception('Sorry, Python 2 is not supported.')

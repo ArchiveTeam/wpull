@@ -9,6 +9,7 @@ Summary of notable changes.
 Unreleased
 ==========
 
+* Removed: cx_freeze build support.
 * Deprecated: Lua Scripting support will be removed in next release.
 * Deprecated: Python 3.2 & 3.3 support will be removed in the next release.
 * Deprecated: PyPy support will be removed in the next release.
