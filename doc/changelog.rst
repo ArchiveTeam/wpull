@@ -13,6 +13,7 @@ Unreleased
 * Deprecated: Python 3.2 & 3.3 support will be removed in the next release.
 * Deprecated: PyPy support will be removed in the next release.
 * Fixed: Error when logging in with FTP to servers that don't need a password.
+* Fixed: ValueError when downloading URLs that contain unencoded unprintable characters like Zero Width Non-Joiner or Right to Left Mark.
 
 
 1.2.2 (2015-10-21)
