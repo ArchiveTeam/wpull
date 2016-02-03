@@ -6,8 +6,8 @@ Summary of notable changes.
 
 .. Take advice from http://keepachangelog.com/.
 
-Unreleased
-==========
+1.2.3 (2016-02-03)
+==================
 
 * Deprecated: Lua Scripting support will be removed in next release.
 * Deprecated: Python 3.2 & 3.3 support will be removed in the next release.
