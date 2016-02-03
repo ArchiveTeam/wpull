@@ -6,8 +6,8 @@ Summary of notable changes.
 
 .. Take advice from http://keepachangelog.com/.
 
-Unreleased
-==========
+1.2.3 (2016-02-03)
+==================
 
 * Removed: cx_freeze build support.
 * Deprecated: Lua Scripting support will be removed in next release.
