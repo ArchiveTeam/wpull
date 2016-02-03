@@ -1335,7 +1335,8 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase, TempDirMixin):
 
 
 class PhantomJSMixin(object):
-    @unittest.skipIf(IS_PYPY, 'Broken under Travis CI')
+    # FIXME: it stopped working in Travis for a while
+    @unittest.skipIf(os.environ.get('TRAVIS'), 'Broken under Travis CI')
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_app_phantomjs(self):
         arg_parser = AppArgumentParser()
@@ -1393,9 +1394,7 @@ class PhantomJSMixin(object):
         self.assertEqual(0, exit_code)
         self.assertGreaterEqual(builder.factory['Statistics'].files, 1)
 
-    # FIXME: for some reason, it never makes a connection to the proxy under
-    # PyPy and Travis CI. eg: https://travis-ci.org/chfoo/wpull/jobs/49829901
-    @unittest.skipIf(IS_PYPY, 'Broken under Travis CI')
+    @unittest.skipIf(os.environ.get('TRAVIS'), 'Broken under Travis CI')
     @wpull.testing.async.async_test(
         timeout=DEFAULT_TIMEOUT * 3 if IS_PYPY else DEFAULT_TIMEOUT
     )
