@@ -3,6 +3,7 @@ import collections
 import fnmatch
 import functools
 import gettext
+import ipaddress
 import logging
 import re
 import string
@@ -59,9 +60,6 @@ FORBIDDEN_HOSTNAME_CHARS = frozenset('#%/:?@[\\] ')
 
 Does not include non-printing characters. Meant for ASCII.
 '''
-
-VALID_IPv6_ADDRESS_CHARS = frozenset(string.hexdigits + '.:')
-'''Valid IPv6 address characters.'''
 
 
 class URLInfo(object):
@@ -258,7 +256,13 @@ class URLInfo(object):
         if hostname.startswith('['):
             return cls.parse_ipv6_hostname(hostname)
         else:
-            new_hostname = normalize_hostname(hostname)
+            try:
+                new_hostname = normalize_ipv4_address(hostname)
+            except ValueError:
+                # _logger.debug('', exc_info=True)
+                new_hostname = hostname
+
+            new_hostname = normalize_hostname(new_hostname)
 
             if any(char in new_hostname for char in FORBIDDEN_HOSTNAME_CHARS):
                 raise ValueError('Invalid hostname: {}'
@@ -273,13 +277,7 @@ class URLInfo(object):
             raise ValueError('Invalid IPv6 address: {}'
                              .format(ascii(hostname)))
 
-        hostname = hostname[1:-1]
-
-        if any(char not in VALID_IPv6_ADDRESS_CHARS for char in hostname):
-            raise ValueError('Invalid IPv6 address: {}'
-                             .format(ascii(hostname)))
-
-        hostname = normalize_hostname(hostname)
+        hostname = ipaddress.IPv6Address(hostname[1:-1]).compressed
 
         return hostname
 
@@ -437,6 +435,33 @@ def normalize_hostname(hostname):
         new_hostname.encode('idna')
 
     return new_hostname
+
+
+def parse_ipv4_int(text):
+    if text.startswith('0x'):
+        base = 16
+    elif text.startswith('0'):
+        base = 8
+    else:
+        base = 10
+
+    return int(text, base)
+
+
+def normalize_ipv4_address(address):
+    num_decimals = address.count('.')
+
+    if num_decimals == 0:
+        return ipaddress.IPv4Address(parse_ipv4_int(address)).compressed
+    elif num_decimals == 3:
+        return ipaddress.IPv4Address(
+            sum(
+                parse_ipv4_int(part) << (24 - index * 8)
+                for index, part in enumerate(address.split('.'))
+            )
+        ).compressed
+    else:
+        raise ValueError('Not an IPv4 address')
 
 
 def normalize_path(path, encoding='utf-8'):
