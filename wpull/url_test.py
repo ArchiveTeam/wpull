@@ -68,29 +68,30 @@ class TestURL(unittest.TestCase):
 
     def test_url_info_parts(self):
         url_info = URLInfo.parse(
-            'HTTP://userName:pass%3Aword@[A::1]:81/ásdF/ghjK?a=b=c&D#/?')
+            'HTTP://userName:pass%3Aword@[A::1]:81/ásdF\u200C/ghjK?a=b=c&D#/?')
         self.assertEqual(
-            'http://userName:pass:word@[a::1]:81/%C3%A1sdF/ghjK?a=b=c&D',
+            'http://userName:pass:word@[a::1]:81/'
+            '%C3%A1sdF%E2%80%8C/ghjK?a=b=c&D',
             url_info.url
         )
         self.assertEqual('http', url_info.scheme)
         self.assertEqual('userName:pass%3Aword@[A::1]:81',
                          url_info.authority)
-        self.assertEqual('/ásdF/ghjK?a=b=c&D#/?', url_info.resource)
+        self.assertEqual('/ásdF\u200C/ghjK?a=b=c&D#/?', url_info.resource)
         self.assertEqual('userName', url_info.username)
         self.assertEqual('pass:word', url_info.password)
         self.assertEqual('[A::1]:81', url_info.host)
         self.assertEqual('[a::1]:81', url_info.hostname_with_port)
         self.assertEqual('a::1', url_info.hostname)
         self.assertEqual(81, url_info.port)
-        self.assertEqual('/%C3%A1sdF/ghjK', url_info.path)
+        self.assertEqual('/%C3%A1sdF%E2%80%8C/ghjK', url_info.path)
         self.assertEqual('a=b=c&D', url_info.query)
         self.assertEqual('/?', url_info.fragment)
         self.assertEqual('utf-8', url_info.encoding)
         self.assertEqual(
-            'HTTP://userName:pass%3Aword@[A::1]:81/ásdF/ghjK?a=b=c&D#/?',
+            'HTTP://userName:pass%3Aword@[A::1]:81/ásdF\u200C/ghjK?a=b=c&D#/?',
             url_info.raw)
-        self.assertEqual(('/%C3%A1sdF', 'ghjK'), url_info.split_path())
+        self.assertEqual(('/%C3%A1sdF%E2%80%8C', 'ghjK'), url_info.split_path())
 
         url_info = URLInfo.parse(
             'Ftp://N00B:hunter2@LocalHost.Example/mydocs/'

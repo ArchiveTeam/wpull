@@ -26,6 +26,8 @@ RELATIVE_SCHEME_DEFAULT_PORTS = {
     'wss': 443,
 }
 
+C0_CONTROL_SET = frozenset(chr(i) for i in range(0, 0x1f + 1))
+'''Characters from 0x00 to 0x1f inclusive'''
 
 DEFAULT_ENCODE_SET = frozenset(b' "#<>?`')
 '''Percent encoding set as defined by WHATWG URL living standard.
@@ -124,8 +126,8 @@ class URLInfo(object):
     def parse(cls, url, default_scheme='http', encoding='utf-8'):
         '''Parse a URL and return a URLInfo.'''
         url = url.strip()
-        if not url.isprintable():
-            raise ValueError('URL is not printable: {}'.format(ascii(url)))
+        if frozenset(url) & C0_CONTROL_SET:
+            raise ValueError('URL contains control codes: {}'.format(ascii(url)))
 
         scheme, sep, remaining = url.partition(':')
 
