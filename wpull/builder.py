@@ -1,6 +1,6 @@
 # encoding=utf-8
 '''Application support.'''
-from http.cookiejar import CookieJar
+import asyncio
 import atexit
 import codecs
 import functools
@@ -13,15 +13,17 @@ import socket
 import ssl
 import sys
 import tempfile
+from http.cookiejar import CookieJar
 
 import tornado.netutil
 import tornado.web
-import asyncio
 
+import wpull.coprocessor.youtubedl
+import wpull.driver.phantomjs
+import wpull.resmon
+import wpull.version
 from wpull.app import Application
 from wpull.backport.logging import BraceMessage as __
-from wpull.bandwidth import BandwidthLimiter
-from wpull.connection import Connection, ConnectionPool, SSLConnection
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy, BetterMozillaCookieJar
 from wpull.coprocessor.phantomjs import PhantomJSCoprocessor, PhantomJSParams
@@ -30,21 +32,14 @@ from wpull.coprocessor.youtubedl import YoutubeDlCoprocessor
 from wpull.database.sqltable import URLTable as SQLURLTable, GenericSQLURLTable
 from wpull.database.wrap import URLTableHookWrapper
 from wpull.debug import DebugConsoleHandler
-from wpull.dns import Resolver, PythonResolver
 from wpull.driver.phantomjs import PhantomJSDriver
 from wpull.engine import Engine
 from wpull.factory import Factory
-from wpull.protocol.ftp.client import Client as FTPClient
 from wpull.hook import HookEnvironment, PluginEnvironment
-from wpull.protocol.http.client import Client as HTTPClient
-from wpull.proxy.client import HTTPProxyConnectionPool
-from wpull.proxy.hostfilter import HostFilter as ProxyHostFilter
-from wpull.protocol.http.redirect import RedirectTracker
-from wpull.protocol.http.request import Request
-from wpull.protocol.http.robots import RobotsTxtChecker
-from wpull.protocol.http.stream import Stream as HTTPStream
-from wpull.protocol.http.web import WebClient
 from wpull.namevalue import NameValueRecord
+from wpull.network.bandwidth import BandwidthLimiter
+from wpull.network.connection import Connection, ConnectionPool, SSLConnection
+from wpull.network.dns import Resolver, PythonResolver
 from wpull.options import LOG_QUIET, LOG_VERY_QUIET, LOG_NO_VERBOSE, LOG_VERBOSE, \
     LOG_DEBUG
 from wpull.path import PathNamer
@@ -54,6 +49,15 @@ from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
 from wpull.processor.rule import FetchRule, ResultRule, ProcessingRule
 from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
     WebProcessorInstances
+from wpull.protocol.ftp.client import Client as FTPClient
+from wpull.protocol.http.client import Client as HTTPClient
+from wpull.protocol.http.redirect import RedirectTracker
+from wpull.protocol.http.request import Request
+from wpull.protocol.http.robots import RobotsTxtChecker
+from wpull.protocol.http.stream import Stream as HTTPStream
+from wpull.protocol.http.web import WebClient
+from wpull.proxy.client import HTTPProxyConnectionPool
+from wpull.proxy.hostfilter import HostFilter as ProxyHostFilter
 from wpull.proxy.server import HTTPProxyServer
 from wpull.recorder.demux import DemuxRecorder
 from wpull.recorder.document import OutputDocumentRecorder
@@ -82,11 +86,6 @@ from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (NullWriter, OverwriteFileWriter,
                           IgnoreFileWriter, TimestampingFileWriter,
                           AntiClobberFileWriter)
-import wpull.coprocessor.youtubedl
-import wpull.driver.phantomjs
-import wpull.resmon
-import wpull.version
-
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext

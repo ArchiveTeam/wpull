@@ -1,14 +1,11 @@
 '''Client abstractions'''
 import abc
+import asyncio
 import contextlib
 import logging
 
-
-import asyncio
-
-from wpull.connection import ConnectionPool
 from wpull.errors import NetworkTimedOut
-
+from wpull.network.connection import ConnectionPool
 
 _logger = logging.getLogger(__name__)
 

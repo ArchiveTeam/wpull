@@ -4,16 +4,14 @@ import functools
 import io
 import warnings
 
-from wpull.protocol.abstract.client import DurationTimeout
-
-from wpull.connection import ConnectionPool, Connection
+import wpull.testing.async
 from wpull.errors import NetworkError
+from wpull.network.connection import ConnectionPool, Connection
+from wpull.protocol.abstract.client import DurationTimeout
 from wpull.protocol.http.client import Client
 from wpull.protocol.http.request import Request
 from wpull.recorder.base import BaseRecorder, BaseRecorderSession
 from wpull.testing.badapp import BadAppTestCase
-import wpull.testing.async
-
 
 DEFAULT_TIMEOUT = 30
 

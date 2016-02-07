@@ -2,7 +2,7 @@
 import time
 import unittest
 
-from wpull.bandwidth import BandwidthMeter, BandwidthLimiter
+from wpull.network.bandwidth import BandwidthMeter, BandwidthLimiter
 
 
 class TestNetwork(unittest.TestCase):

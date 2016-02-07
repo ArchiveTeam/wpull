@@ -1,15 +1,14 @@
 '''Proxy support for HTTP requests.'''
+import asyncio
 import base64
 import io
 import logging
 
-import asyncio
-from wpull.connection import ConnectionPool
-
+import wpull.string
 from wpull.errors import NetworkError
+from wpull.network.connection import ConnectionPool
 from wpull.protocol.http.request import RawRequest
 from wpull.protocol.http.stream import Stream
-import wpull.string
 
 _logger = logging.getLogger(__name__)
 

@@ -1,11 +1,10 @@
 # encoding=utf-8
 import socket
-
 import unittest
 
-from wpull.dns import Resolver, IPFamilyPreference
-from wpull.errors import NetworkError, DNSNotFound
 import wpull.testing.async
+from wpull.errors import NetworkError, DNSNotFound
+from wpull.network.dns import Resolver, IPFamilyPreference
 
 
 DEFAULT_TIMEOUT = 30

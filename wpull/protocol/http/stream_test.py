@@ -1,24 +1,20 @@
 # encoding=utf-8
+import asyncio
 import io
 import logging
 import os.path
-import socket
 import ssl
-import sys
 import unittest
 
 import tornado.netutil
 
-import asyncio
-
-from wpull.connection import Connection, SSLConnection
+import wpull.testing.async
 from wpull.errors import NetworkError, ConnectionRefused, ProtocolError, \
     NetworkTimedOut, SSLVerificationError
+from wpull.network.connection import Connection, SSLConnection
 from wpull.protocol.http.request import Request
 from wpull.protocol.http.stream import Stream
-import wpull.testing.async
 from wpull.testing.badapp import BadAppTestCase, SSLBadAppTestCase
-
 
 DEFAULT_TIMEOUT = 30
 

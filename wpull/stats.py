@@ -1,16 +1,14 @@
 # encoding=utf-8
 '''Statistics.'''
-from collections import Counter
 import logging
 import os
 import shelve
 import tempfile
 import time
-import atexit
+from collections import Counter
 
-from wpull.bandwidth import BandwidthMeter
 from wpull.errors import ERROR_PRIORITIES
-
+from wpull.network.bandwidth import BandwidthMeter
 
 _logger = logging.getLogger(__name__)
 

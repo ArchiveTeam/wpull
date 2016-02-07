@@ -1,14 +1,13 @@
 import io
 import logging
 
+import wpull.testing.async
 from wpull.backport.logging import BraceMessage as __
-from wpull.connection import Connection
+from wpull.network.connection import Connection
 from wpull.protocol.ftp.request import Command
 from wpull.protocol.ftp.stream import ControlStream, DataStream
 from wpull.protocol.ftp.util import parse_address
-import wpull.testing.async
 from wpull.testing.ftp import FTPTestCase
-
 
 DEFAULT_TIMEOUT = 30
 _logger = logging.getLogger(__name__)

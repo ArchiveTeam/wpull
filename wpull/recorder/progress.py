@@ -8,10 +8,9 @@ import re
 import sys
 import time
 
-from wpull.bandwidth import BandwidthMeter
-from wpull.recorder.base import BaseRecorder, BaseRecorderSession
 import wpull.string
-
+from wpull.network.bandwidth import BandwidthMeter
+from wpull.recorder.base import BaseRecorder, BaseRecorderSession
 
 _ = gettext.gettext
 

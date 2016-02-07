@@ -1,35 +1,34 @@
 # encoding=utf-8
+import asyncio
 import glob
-from http import cookiejar
-import io
-import re
 import gzip
 import hashlib
+import io
 import logging
 import os
+import re
 import socket
 import sys
 import tempfile
 import unittest
+from http import cookiejar
 
-from tornado.testing import AsyncHTTPSTestCase
 import tornado.testing
-import asyncio
+from tornado.testing import AsyncHTTPSTestCase
 
+import wpull.testing.async
 from wpull.builder import Builder
-from wpull.dns import Resolver
 from wpull.errors import ExitStatus, SSLVerificationError
-from wpull.protocol.http.web import WebSession
+from wpull.network.dns import Resolver
 from wpull.options import AppArgumentParser
+from wpull.protocol.http.web import WebSession
 from wpull.testing.async import AsyncTestCase
 from wpull.testing.badapp import BadAppTestCase
+from wpull.testing.ftp import FTPTestCase
 from wpull.testing.goodapp import GoodAppTestCase, GoodAppHTTPSTestCase
 from wpull.testing.util import TempDirMixin
 from wpull.url import URLInfo
 from wpull.util import IS_PYPY
-import wpull.testing.async
-from wpull.testing.ftp import FTPTestCase
-
 
 DEFAULT_TIMEOUT = 30
 

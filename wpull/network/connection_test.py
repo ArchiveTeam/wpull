@@ -1,19 +1,17 @@
 # encoding=utf8
 
+import asyncio
+import functools
 import socket
 import ssl
 import sys
-import functools
 
-import asyncio
-
-from wpull.connection import Connection, ConnectionPool, HostPool, \
-    HappyEyeballsTable
-from wpull.dns import Resolver
-from wpull.errors import NetworkError, NetworkTimedOut, SSLVerificationError
 import wpull.testing.async
+from wpull.errors import NetworkError, NetworkTimedOut, SSLVerificationError
+from wpull.network.connection import Connection, ConnectionPool, HostPool, \
+    HappyEyeballsTable
+from wpull.network.dns import Resolver
 from wpull.testing.badapp import BadAppTestCase, SSLBadAppTestCase
-
 
 DEFAULT_TIMEOUT = 30
 

@@ -1,5 +1,6 @@
 # encoding=utf8
 '''Network connections.'''
+import asyncio
 import contextlib
 import errno
 import functools
@@ -8,16 +9,14 @@ import os
 import socket
 import ssl
 
-from tornado.netutil import SSLCertificateError
 import tornado.netutil
-import asyncio
+from tornado.netutil import SSLCertificateError
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.cache import FIFOCache
-from wpull.dns import Resolver
 from wpull.errors import NetworkError, ConnectionRefused, SSLVerificationError, \
     NetworkTimedOut
-
+from wpull.network.dns import Resolver
 
 _logger = logging.getLogger(__name__)
 
