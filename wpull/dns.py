@@ -1,13 +1,19 @@
 # encoding=utf-8
 '''DNS resolution.'''
+import datetime
+import enum
 import itertools
 import logging
 import random
 import socket
-
-
+import functools
 import asyncio
+
 import dns.resolver
+import dns.exception
+import dns.rdatatype
+import dns.rrset
+from typing import List, Sequence, Optional, Iterable, NamedTuple
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.cache import FIFOCache
@@ -19,212 +25,235 @@ import wpull.util
 _logger = logging.getLogger(__name__)
 
 
-class Resolver(HookableMixin):
+AddressInfo = NamedTuple(
+    '_AddressInfo', [
+        ('ip_address', str),
+        ('family', int),
+        ('flow_info', Optional[int]),
+        ('scope_id', Optional[int])
+    ])
+'''Socket address.'''
+
+_DNSInfo = NamedTuple(
+    '_DNSInfo', [
+        ('fetch_date', datetime.datetime),
+        ('resource_records', List[dns.rrset.RRset])
+    ])
+
+
+class DNSInfo(_DNSInfo):
+    '''DNS resource records.'''
+    __slots__ = ()
+
+    def to_text_format(self):
+        '''Format as detached DNS information as text.'''
+        return '\n'.join(itertools.chain(
+            (self.fetch_date.strftime('%Y%m%d%H%M%S'), ),
+            (rr.to_text() for rr in self.resource_records),
+            (),
+        ))
+
+
+class ResolveResult(object):
+    '''DNS resolution information.'''
+    def __init__(self, address_infos: List[AddressInfo],
+                 dns_infos: Optional[List[DNSInfo]]=None):
+        self._address_infos = address_infos
+        self._dns_infos = dns_infos
+
+    @property
+    def addresses(self) -> Sequence[AddressInfo]:
+        '''The socket addresses.'''
+        return self._address_infos
+
+    @property
+    def dns_infos(self) -> List[DNSInfo]:
+        '''The DNS resource records.'''
+        return self._dns_infos
+
+    @property
+    def first_ipv4(self) -> Optional[AddressInfo]:
+        '''The first IPv4 address.'''
+        for info in self._address_infos:
+            if info.family == socket.AF_INET:
+                return info
+
+    @property
+    def first_ipv6(self) -> Optional[AddressInfo]:
+        '''The first IPV6 address.'''
+        for info in self._address_infos:
+            if info.family == socket.AF_INET6:
+                return info
+
+    def shuffle(self):
+        '''Shuffle the addresses.'''
+        random.shuffle(self._address_infos)
+
+    def rotate(self):
+        '''Move the first address to the last position.'''
+        item = self._address_infos.pop(0)
+        self._address_infos.append(item)
+
+
+@enum.unique
+class IPFamilyPreference(enum.Enum):
+    '''IPv4 and IPV6 preferences.'''
+
+    any = 'any'
+    ipv4_only = socket.AF_INET
+    ipv6_only = socket.AF_INET6
+
+
+class Resolver(object):
     '''Asynchronous resolver with cache and timeout.
 
     Args:
-        cache_enabled (bool): If True, resolved addresses are cached.
-        family: IP address family specified in :mod:`socket`. Typically
-            values are
-
-            * ``None``: no preference to IPv4 or IPv6
-            * :data:`socket.AF_INET`: IPv4 only
-            * :data:`socket.AF_INET6`: IPv6 only
-            * :attr:`PREFER_IPv4` or :attr:`PREFER_IPv6`
-
-        timeout (int): A time in seconds used for timing-out requests. If not
+        family: IPv4 or IPv6 preference.
+        timeout: A time in seconds used for timing-out requests. If not
             specified, this class relies on the underlying libraries.
-        rotate (bool): If True and multiple addresses are resolved, randomly
-            pick one.
-
-    The cache holds 100 items and items expire after 1 hour.
+        bind_address: An IP address to bind DNS requests if possible.
+        cache: Cache to store results of any query.
     '''
-    PREFER_IPv4 = 'prefer_ipv4'
-    '''Prefer IPv4 addresses.'''
-    PREFER_IPv6 = 'prefer_ipv6'
-    '''Prefer IPv6 addresses.'''
 
-    def __init__(self, cache_enabled=True, family=PREFER_IPv4,
-                 timeout=None, rotate=False):
+    def __init__(
+            self,
+            family: IPFamilyPreference=IPFamilyPreference.any,
+            timeout: Optional[float]=None,
+            bind_address: Optional[str]=None,
+            cache: Optional[FIFOCache]=None):
         super().__init__()
-        assert family in (socket.AF_INET, socket.AF_INET6, self.PREFER_IPv4,
-                          self.PREFER_IPv6, None), \
+        assert family in IPFamilyPreference, \
             'Unknown family {}.'.format(family)
-
-        if cache_enabled:
-            self._cache = FIFOCache(max_items=100, time_to_live=3600)
-        else:
-            self._cache = None
 
         self._family = family
         self._timeout = timeout
-        self._rotate = rotate
+        self._bind_address = bind_address
+        self._cache = cache
 
-        self.register_hook('resolve_dns')
+        self._dns_resolver = dns.resolver.Resolver()
+
+        self.dns_python_enabled = True
+
+        if timeout:
+            self._dns_resolver.timeout = timeout
 
     @asyncio.coroutine
-    def resolve_all(self, host, port=0):
-        '''Resolve hostname and return a list of results.
+    def resolve(self, host: str) -> ResolveResult:
+        '''Resolve hostname.
 
         Args:
-            host (str): The hostname.
-            port (int): The port number.
+            host: Hostname.
 
         Returns:
-            list: A list of tuples where each tuple contains the family and
-            the socket address. See :method:`resolve` for the socket address
-            format.
-        '''
-        _logger.debug(__('Lookup address {0} {1}.', host, port))
+            Resolved IP addresses.
 
-        host = self._lookup_hook(host, port)
-        results = None
-
-        if self._cache:
-            results = self._get_cache(host, port, self._family)
-
-        if results is None:
-            results = yield from self._resolve_from_network(host, port)
-
-        if self._cache:
-            self._put_cache(host, port, results)
-
-        if not results:
-            raise DNSNotFound(
-                "DNS resolution for {0} did not return any results."
-                .format(repr(host))
-            )
-
-        _logger.debug(__('Resolved addresses: {0}.', results))
-
-        return results
-
-    @asyncio.coroutine
-    def resolve(self, host, port=0):
-        '''Resolve hostname and return the first result.
-
-        Args:
-            host (str): The hostname.
-            port (int): The port number.
-
-        Returns:
-            tuple: A tuple of length 2 where the first item is the family and
-            the second item is an socket address that can be passed
-            to :func:`socket.connect`.
-
-            Typically in a socket address, the first item is the IP
-            address and the second item is the port number. Note that
-            IPv6 may return a tuple containing more items than 2.
-        '''
-        results = yield from self.resolve_all(host, port)
-
-        if self._rotate:
-            result = random.choice(results)
-        else:
-            result = results[0]
-
-        family, address = result
-        _logger.debug(__('Selected {0} as address.', address))
-
-        assert '.' in address[0] or ':' in address[0], \
-            ('Resolve did not return numerical address. Got {}.'
-             .format(address[0]))
-
-        return (family, address)
-
-    @asyncio.coroutine
-    def resolve_dual(self, host, port=0):
-        '''Resolve hostname and return the first IPv4 & IPv6 result.
-
-        Returns:
-            tuple: Similar to :method:`resolve_all`, except the list of results
-            contains at least 1 IPv4 address and at least 1 IPv6 address.
-        '''
-        results = list((yield from self.resolve_all(host, port)))
-
-        if self._rotate:
-            random.shuffle(results)
-
-        ipv4_result = None
-        ipv6_result = None
-        new_results = []
-
-        for result in results:
-            family, socket_addr = result
-
-            if not ipv4_result and family == socket.AF_INET:
-                ipv4_result = result
-                new_results.append(result)
-            elif not ipv6_result and family == socket.AF_INET6:
-                ipv6_result = result
-                new_results.append(result)
-
-            if ipv4_result and ipv6_result:
-                break
-
-        assert len(new_results) <= 2, new_results
-
-        return new_results
-
-    def _lookup_hook(self, host, port):
-        '''Return the address from callback hook'''
-        try:
-            new_host = self.call_hook('resolve_dns', host, port)
-
-            if new_host:
-                return new_host
-            else:
-                return host
-
-        except HookDisconnected:
-            pass
-
-        return host
-
-    @asyncio.coroutine
-    def _resolve_from_network(self, host, port):
-        '''Resolve the address using network.
-
-        Returns:
-            list: A list of tuples.
-        '''
-        _logger.debug(
-            'Resolving {0} {1} {2}.'.format(host, port, self._family)
-        )
-
-        try:
-            future = self._getaddrinfo_implementation(host, port)
-            results = yield from asyncio.wait_for(future, self._timeout)
-        except asyncio.TimeoutError as error:
-            raise NetworkError('DNS resolve timed out.') from error
-        else:
-            return results
-
-    @asyncio.coroutine
-    def _getaddrinfo_implementation(self, host, port):
-        '''The resolver implementation.
-
-        Returns:
-            list: A list of tuples.
-
-            Each tuple contains:
-
-            1. Family (``AF_INET`` or ``AF_INET6``).
-            2. Address (tuple): At least two values which are
-               IP address and port.
+        Raises:
+            DNSNotFound if the hostname could not be resolved or
+            NetworkError if there was an error connecting to DNS servers.
 
         Coroutine.
         '''
-        if self._family in (None, self.PREFER_IPv4, self.PREFER_IPv6):
-            family_flags = socket.AF_UNSPEC
+
+        _logger.debug(__('Lookup address {0}.', host))
+
+        cache_key = (host, self._family)
+
+        if self._cache and cache_key in self._cache:
+            resolve_result = self._cache[cache_key]
+            _logger.debug(__('Return by cache {0}.', resolve_result))
+            return resolve_result
+
+        address_infos = []
+        dns_infos = []
+
+        if not self.dns_python_enabled:
+            families = ()
+        elif self._family == IPFamilyPreference.any:
+            families = (socket.AF_INET, socket.AF_INET6)
+        elif self._family == IPFamilyPreference.ipv4_only:
+            families = (socket.AF_INET, )
         else:
-            family_flags = self._family
+            families = (socket.AF_INET6, )
+
+        for family in families:
+            datetime_now = datetime.datetime.utcnow()
+            try:
+                answer = yield from self._query_dns(host, family)
+            except DNSNotFound:
+                continue
+            else:
+                dns_infos.append(DNSInfo(datetime_now, answer.response.answer))
+                address_infos.extend(self._convert_dns_answer(answer))
+
+        if not address_infos:
+            # Maybe the address is defined in hosts file or mDNS
+
+            if self._family == IPFamilyPreference.any:
+                family = socket.AF_UNSPEC
+            elif self._family == IPFamilyPreference.ipv4_only:
+                family = socket.AF_INET
+            else:
+                family = socket.AF_INET6
+
+            results = yield from self._getaddrinfo(host, family)
+            address_infos.extend(self._convert_addrinfo(results))
+
+        _logger.debug(__('Resolved addresses: {0}.', address_infos))
+
+        resolve_result = ResolveResult(address_infos, dns_infos)
+
+        if self._cache:
+            self._cache[cache_key] = resolve_result
+
+        return resolve_result
+
+    @asyncio.coroutine
+    def _query_dns(self, host: str, family: int=socket.AF_INET) \
+            -> dns.resolver.Answer:
+        '''Query DNS using Python.
+
+        Coroutine.
+        '''
+        record_type = {socket.AF_INET: 'A', socket.AF_INET6: 'AAAA'}[family]
+
+        event_loop = asyncio.get_event_loop()
+        query = functools.partial(
+            self._dns_resolver.query, host, record_type,
+            source=self._bind_address)
 
         try:
-            results = yield from \
-                asyncio.get_event_loop().getaddrinfo(
-                    host, port, family=family_flags
-                )
+            answer = yield from event_loop.run_in_executor(None, query)
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer) as error:
+            # dnspython doesn't raise an instance with a message, so use the
+            # class name instead.
+            raise DNSNotFound(
+                'DNS resolution failed: {error}'
+                .format(error=wpull.util.get_exception_message(error))
+            ) from error
+        except dns.exception.DNSException as error:
+            raise NetworkError(
+                'DNS resolution error: {error}'
+                .format(error=wpull.util.get_exception_message(error))
+            ) from error
+        else:
+            return answer
+
+    @asyncio.coroutine
+    def _getaddrinfo(self, host: str, family: int=socket.AF_UNSPEC) \
+            -> List[tuple]:
+        '''Query DNS using system resolver.
+
+        Coroutine.
+        '''
+        event_loop = asyncio.get_event_loop()
+        query = event_loop.getaddrinfo(host, 0, family=family,
+                                       proto=socket.IPPROTO_TCP)
+
+        if self._timeout:
+            query = asyncio.wait_for(query, self._timeout)
+
+        try:
+            results = yield from query
         except socket.error as error:
             if error.errno in (
                     socket.EAI_FAIL,
@@ -237,129 +266,57 @@ class Resolver(HookableMixin):
                 raise NetworkError(
                     'DNS resolution error: {error}'.format(error=error)
                 ) from error
-        except OverflowError as error:
-            raise DNSNotFound(
-                'DNS resolution failed: {error}'.format(error=error)
-            ) from error
-
-        results = list([(result[0], result[4]) for result in results])
-
-        if self._family in (self.PREFER_IPv4, self.PREFER_IPv6):
-            results = self.sort_results(results, self._family)
-
-        return results
-
-    def _get_cache(self, host, port, family):
-        '''Return the address from cache.
-
-        Returns:
-            list, None: A list of tuples or None if the cache does not contain
-            the address.
-        '''
-        if self._cache is None:
-            return None
-
-        key = (host, port, family)
-
-        if key in self._cache:
-            return self._cache[key]
-
-    def _put_cache(self, host, port, results):
-        '''Put the address in the cache.'''
-        key = (host, port, self._family)
-        self._cache[key] = results
+        except asyncio.TimeoutError as error:
+            raise NetworkError('DNS resolve timed out.') from error
+        else:
+            return results
 
     @classmethod
-    def sort_results(cls, results, preference):
-        '''Sort getaddrinfo results based on preference.'''
-        assert preference in (cls.PREFER_IPv4, cls.PREFER_IPv6)
+    def _convert_dns_answer(cls, answer: dns.resolver.Answer) \
+            -> Iterable[AddressInfo]:
+        '''Convert the DNS answer to address info.'''
+        assert answer.rdtype in (dns.rdatatype.A, dns.rdatatype.AAAA)
 
-        ipv4_results = [
-            result for result in results if result[0] == socket.AF_INET]
-        ipv6_results = [
-            result for result in results if result[0] == socket.AF_INET6]
-
-        if preference == cls.PREFER_IPv6:
-            return list(itertools.chain(ipv6_results, ipv4_results))
+        if answer.rdtype == dns.rdatatype.A:
+            family = socket.AF_INET
         else:
-            return list(itertools.chain(ipv4_results, ipv6_results))
+            family = socket.AF_INET6
 
+        for record in answer:
+            ip_address = record.to_text()
 
-class PythonResolver(Resolver):
-    '''Resolver using dnspython.'''
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._resolver = dns.resolver.Resolver()
-
-        if self._timeout:
-            self._resolver.timeout = self._timeout
-
-    @asyncio.coroutine
-    def _getaddrinfo_implementation(self, host, port):
-        event_loop = asyncio.get_event_loop()
-
-        results = []
-
-        def query_ipv4():
-            answers = yield from event_loop.run_in_executor(
-                None, self._query, host, 'A'
-            )
-            results.extend(
-                (socket.AF_INET, (answer.address, port)) for answer in answers
-            )
-
-        def query_ipv6():
-            answers = yield from event_loop.run_in_executor(
-                None, self._query, host, 'AAAA'
-            )
-            results.extend(
-                (socket.AF_INET6, (answer.address, port)) for answer in answers
-            )
-
-        if self._family == socket.AF_INET:
-            try:
-                yield from query_ipv4()
-            except DNSNotFound:
-                pass
-        elif self._family == socket.AF_INET6:
-            try:
-                yield from query_ipv6()
-            except DNSNotFound:
-                pass
-        else:
-            if self._family == self.PREFER_IPv4 or \
-                    self._family is None and random.random() > 0.5:
-                funcs = [query_ipv4, query_ipv6]
+            if family == socket.AF_INET6:
+                flow_info, control_id = cls._get_ipv6_info(ip_address)
             else:
-                funcs = [query_ipv6, query_ipv4]
+                flow_info = control_id = None
 
-            for func in funcs:
-                try:
-                    yield from func()
-                except DNSNotFound:
-                    pass
+            yield AddressInfo(ip_address, family, flow_info, control_id)
 
-        if not results:
-            # Maybe defined in hosts file or mDNS
-            results = yield from super()._getaddrinfo_implementation(host, port)
+    @classmethod
+    def _convert_addrinfo(cls, results: List[tuple]) -> Iterable[AddressInfo]:
+        '''Convert the result list to address info.'''
+        for result in results:
+            family = result[0]
+            address = result[4]
+            ip_address = address[0]
 
-        return results
+            if family == socket.AF_INET6:
+                flow_info = address[2]
+                control_id = address[3]
+            else:
+                flow_info = None
+                control_id = None
 
-    def _query(self, host, query_type):
-        try:
-            answer_bundle = self._resolver.query(
-                host, query_type, raise_on_no_answer=False
-            )
-            return answer_bundle.rrset or ()
-        except dns.resolver.NXDOMAIN as error:
-            # dnspython doesn't raise an instance with a message, so use the
-            # class name instead.
-            raise DNSNotFound(
-                'DNS resolution failed: {error}'
-                .format(error=wpull.util.get_exception_message(error))
-            ) from error
-        except dns.exception.DNSException as error:
-            raise NetworkError(
-                'DNS resolution error: {error}'
-                .format(error=wpull.util.get_exception_message(error))
-            ) from error
+            yield AddressInfo(ip_address, family, flow_info, control_id)
+
+    @classmethod
+    def _get_ipv6_info(cls, ip_address: str) -> tuple:
+        '''Extract the flow info and control id.'''
+        results = socket.getaddrinfo(
+            ip_address, 0, proto=socket.IPPROTO_TCP,
+            flags=socket.AI_NUMERICHOST)
+
+        flow_info = results[0][4][2]
+        control_id = results[0][4][3]
+
+        return flow_info, control_id

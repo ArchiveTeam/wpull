@@ -1,9 +1,9 @@
 # encoding=utf-8
 import socket
 
-import asyncio
+import unittest
 
-from wpull.dns import Resolver, PythonResolver
+from wpull.dns import Resolver, IPFamilyPreference
 from wpull.errors import NetworkError, DNSNotFound
 import wpull.testing.async
 
@@ -11,137 +11,102 @@ import wpull.testing.async
 DEFAULT_TIMEOUT = 30
 
 
-class MockFaultyResolver(Resolver):
-    @asyncio.coroutine
-    def _resolve_from_network(self, host, port):
-        yield from asyncio.sleep(2)
-        yield from Resolver._resolve_from_network(self, host, port)
+class TestDNS(wpull.testing.async.AsyncTestCase):
+    def get_resolver(self, *args, **kwargs):
+        return Resolver(*args, **kwargs)
 
-
-class DNSMixin:
-    def get_resolver_class(self):
-        raise NotImplementedError()  # pragma: no cover
-
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test()
     def test_resolver(self):
-        resolver = self.get_resolver_class()()
-        result = yield from resolver.resolve('google.com', 80)
-        self.assertTrue(result)
-        self.assertEqual(2, len(result))
-        self.assertIsInstance(result[0], int, 'is family')
-        self.assertIsInstance(result[1][0], str, 'ip address host')
-        self.assertIsInstance(result[1][1], int, 'ip address port')
+        resolver = self.get_resolver()
+        result = yield from resolver.resolve('google.com')
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_resolver_dual(self):
-        resolver = self.get_resolver_class()(family=Resolver.PREFER_IPv4)
-        result4, result6 = yield from resolver.resolve_dual('google.com', 80)
-        self.assertTrue(result4)
-        self.assertTrue(result6)
+        address4 = result.first_ipv4
+        address6 = result.first_ipv6
 
-        family4, address4 = result4
-        family6, address6 = result6
+        self.assertEqual(socket.AF_INET, address4.family)
+        self.assertIsInstance(address4.ip_address, str)
+        self.assertIn('.', address4.ip_address)
 
-        self.assertEqual(socket.AF_INET, family4)
-        self.assertIsInstance(address4[0], str, 'ip address host')
-        self.assertIsInstance(address4[1], int, 'ip address port')
-        self.assertIn('.', address4[0])
+        self.assertEqual(socket.AF_INET6, address6.family)
+        self.assertIsInstance(address6.ip_address, str)
+        self.assertIsInstance(address6.flow_info, int)
+        self.assertIsInstance(address6.scope_id, int)
+        self.assertIn(':', address6.ip_address)
 
-        self.assertEqual(socket.AF_INET6, family6)
-        self.assertIsInstance(address6[0], str, 'ip address host')
-        self.assertIsInstance(address6[1], int, 'ip address port')
-        self.assertIn(':', address6[0])
-
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test()
     def test_resolver_localhost(self):
-        resolver = self.get_resolver_class()(family=socket.AF_INET)
-        result = yield from resolver.resolve('localhost', 80)
-        self.assertTrue(result)
-        self.assertEqual(2, len(result))
-        self.assertIsInstance(result[0], int, 'is family')
-        self.assertIsInstance(result[1][0], str, 'ip address host')
-        self.assertIsInstance(result[1][1], int, 'ip address port')
+        resolver = self.get_resolver(family=IPFamilyPreference.ipv4_only)
+        result = yield from resolver.resolve('localhost')
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+        address4 = result.first_ipv4
+        address6 = result.first_ipv6
+
+        self.assertEqual(socket.AF_INET, address4.family)
+        self.assertIsInstance(address4.ip_address, str)
+        self.assertIn('.', address4.ip_address)
+
+        self.assertFalse(address6)
+
+    @wpull.testing.async.async_test()
     def test_resolver_ip_address(self):
-        resolver = self.get_resolver_class()()
-        result = yield from resolver.resolve('127.0.0.1', 80)
-        self.assertEqual((socket.AF_INET, ('127.0.0.1', 80)), result)
+        resolver = self.get_resolver()
+        result = yield from resolver.resolve('127.0.0.1')
+        address4 = result.first_ipv4
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+        self.assertEqual(socket.AF_INET, address4.family)
+        self.assertEqual('127.0.0.1', address4.ip_address)
+
+    # TODO: figure out a good way to test other than disconnecting network
+    @unittest.expectedFailure
+    @wpull.testing.async.async_test()
     def test_resolver_timeout(self):
-        resolver = MockFaultyResolver(timeout=0.1)
+        resolver = Resolver(timeout=0.1)
 
         with self.assertRaises(NetworkError):
-            yield from resolver.resolve('test.invalid', 80)
+            yield from resolver.resolve('google.com')
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test()
     def test_resolver_fail(self):
-        resolver = self.get_resolver_class()()
+        resolver = self.get_resolver()
 
         with self.assertRaises(DNSNotFound):
-            yield from resolver.resolve('test.invalid', 80)
+            yield from resolver.resolve('test.invalid')
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_resolver_ipv6(self):
-        resolver = self.get_resolver_class()(family=socket.AF_INET6)
-
-        with self.assertRaises(DNSNotFound):
-            yield from resolver.resolve('test.invalid', 80)
-
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_resolver_port_number_overflow(self):
-        resolver = self.get_resolver_class()(family=socket.AF_INET6)
+    @wpull.testing.async.async_test()
+    def test_resolver_fail_ipv6(self):
+        resolver = self.get_resolver(family=IPFamilyPreference.ipv6_only)
 
         with self.assertRaises(DNSNotFound):
-            yield from resolver.resolve('test.invalid', 99999999999999999999999)
+            yield from resolver.resolve('test.invalid')
 
-    def test_sort_results(self):
-        Resolver_ = self.get_resolver_class()
-        results = [
-            (socket.AF_INET, 'ipv4-1'),
-            (socket.AF_INET, 'ipv4-2'),
-            (socket.AF_INET6, 'ipv6-1'),
-            (socket.AF_INET, 'ipv4-3'),
-        ]
-
-        self.assertEqual(
-            [
-                (socket.AF_INET, 'ipv4-1'),
-                (socket.AF_INET, 'ipv4-2'),
-                (socket.AF_INET, 'ipv4-3'),
-                (socket.AF_INET6, 'ipv6-1'),
-            ],
-            Resolver_.sort_results(results, Resolver.PREFER_IPv4)
-        )
-
-        self.assertEqual(
-            [
-                (socket.AF_INET6, 'ipv6-1'),
-                (socket.AF_INET, 'ipv4-1'),
-                (socket.AF_INET, 'ipv4-2'),
-                (socket.AF_INET, 'ipv4-3'),
-            ],
-            Resolver_.sort_results(results, Resolver.PREFER_IPv6)
-        )
-
-
-class TestDNS(DNSMixin, wpull.testing.async.AsyncTestCase):
-    def get_resolver_class(self):
-        return Resolver
-
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test()
     def test_resolver_hyphen(self):
-        resolver = self.get_resolver_class()()
-        with self.assertRaises(DNSNotFound):
-            yield from resolver.resolve('-kol.deviantart.com', 80)
+        resolver = self.get_resolver()
+        yield from resolver.resolve('-kol.deviantart.com')
 
 
-class TestDNSPython(DNSMixin, wpull.testing.async.AsyncTestCase):
-    def get_resolver_class(self):
-        return PythonResolver
+class TestPythonOnlyDNS(TestDNS):
+    @wpull.testing.async.async_test()
+    def test_dns_info_text_format(self):
+        resolver = self.get_resolver()
+        result = yield from resolver.resolve('google.com')
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+        dns_info = result.dns_infos[0]
+        text = dns_info.to_text_format()
+        lines = text.splitlines()
+
+        self.assertRegex(lines[0], r'\d{14}', 'date string')
+        self.assertEqual(5, len(lines[1].split()), 'resource record')
+
+
+class TestNoPythonDNS(TestDNS):
+    def get_resolver(self, *args, **kwargs):
+        resolver = super().get_resolver(*args, **kwargs)
+        resolver.dns_python_enabled = False
+        return resolver
+
+    @wpull.testing.async.async_test()
     def test_resolver_hyphen(self):
-        resolver = self.get_resolver_class()()
-        yield from resolver.resolve('-kol.deviantart.com', 80)
+        resolver = self.get_resolver()
+        with self.assertRaises(DNSNotFound):
+            yield from resolver.resolve('-kol.deviantart.com')
