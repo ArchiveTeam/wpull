@@ -86,9 +86,16 @@ setup_kwargs = dict(
 )
 
 setup_kwargs['install_requires'] = [
-    'tornado', 'chardet', 'sqlalchemy',
-    'namedlist', 'html5lib', 'dnspython3',
+    'chardet',
+    'dnspython3',
+    'html5lib',
+    'namedlist',
+    'sqlalchemy',
+    'tornado',
 ]
+
+if sys.version_info < (3, 5):
+    setup_kwargs['install_requires'].append('typing')
 
 setup_kwargs['scripts'] = ['scripts/wpull', 'scripts/wpull3']
 
