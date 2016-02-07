@@ -15,6 +15,7 @@ branches:
   except:
     - topic/rewrite_phantomjs
     - topic/rewrite_phantomjs_2
+    - topic/modernize_2016
 
 
 # command to install dependencies
