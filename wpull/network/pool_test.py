@@ -1,7 +1,11 @@
 import asyncio
 
+import functools
+
 import wpull.testing.async
-from wpull.network.pool import ConnectionPool, HostPool
+from wpull.network.connection import Connection
+from wpull.network.dns import Resolver, IPFamilyPreference
+from wpull.network.pool import ConnectionPool, HostPool, HappyEyeballsTable
 from wpull.testing.badapp import BadAppTestCase
 
 
@@ -130,3 +134,48 @@ class TestConnectionPool(BadAppTestCase):
 
         # This line should not KeyError crash:
         yield from pool.release(connection_2)
+
+    @wpull.testing.async.async_test()
+    def test_happy_eyeballs(self):
+        connection_factory = functools.partial(Connection, connect_timeout=10)
+        resolver = Resolver()
+        pool = ConnectionPool(resolver=resolver,
+                              connection_factory=connection_factory)
+
+        conn1 = yield from pool.acquire('google.com', 80)
+        conn2 = yield from pool.acquire('google.com', 80)
+
+        yield from conn1.connect()
+        yield from conn2.connect()
+        conn1.close()
+        conn2.close()
+
+        yield from pool.release(conn1)
+        yield from pool.release(conn2)
+
+        conn3 = yield from pool.acquire('google.com', 80)
+
+        yield from conn3.connect()
+        conn3.close()
+
+        yield from pool.release(conn3)
+
+    def test_happy_eyeballs_table(self):
+        table = HappyEyeballsTable()
+
+        self.assertIsNone(table.get_preferred('127.0.0.1', '::1'))
+
+        table.set_preferred('::1', '127.0.0.1', '::1')
+
+        self.assertEqual('::1', table.get_preferred('127.0.0.1', '::1'))
+        self.assertEqual('::1', table.get_preferred('::1', '127.0.0.1'))
+
+        table.set_preferred('::1', '::1', '127.0.0.1')
+
+        self.assertEqual('::1', table.get_preferred('127.0.0.1', '::1'))
+        self.assertEqual('::1', table.get_preferred('::1', '127.0.0.1'))
+
+        table.set_preferred('127.0.0.1', '::1', '127.0.0.1')
+
+        self.assertEqual('127.0.0.1', table.get_preferred('127.0.0.1', '::1'))
+        self.assertEqual('127.0.0.1', table.get_preferred('::1', '127.0.0.1'))
