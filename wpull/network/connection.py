@@ -457,7 +457,7 @@ class SSLConnection(Connection):
 
     def _verify_cert(self, sock):
         # Based on tornado.iostream.SSLIOStream
-        # Needed for older Python versions
+        # Needed for older OpenSSL (<0.9.8f) versions
         verify_mode = self._ssl_context.verify_mode
 
         assert verify_mode in (ssl.CERT_NONE, ssl.CERT_REQUIRED,
@@ -469,10 +469,13 @@ class SSLConnection(Connection):
 
         cert = sock.getpeercert()
 
-        if cert is None and verify_mode == ssl.CERT_REQUIRED:
+        if not cert and verify_mode == ssl.CERT_OPTIONAL:
+            return
+
+        if not cert:
             raise SSLVerificationError('No SSL certificate given')
 
         try:
-            tornado.netutil.ssl_match_hostname(cert, self._hostname)
-        except SSLCertificateError as error:
+            ssl.match_hostname(cert, self._hostname)
+        except ssl.CertificateError as error:
             raise SSLVerificationError('Invalid SSL certificate') from error
