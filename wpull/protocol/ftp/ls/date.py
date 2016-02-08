@@ -7,6 +7,7 @@ import sys
 import unicodedata
 import pprint
 
+from typing import Iterable, Tuple, Optional
 
 AM_STRINGS = {'a. m', 'am', 'पूर्व', 'vorm', 'ص', '上午', '午前'}
 '''Set of AM day period strings.'''
@@ -136,7 +137,8 @@ TIME_PATTERN = re.compile(
 '''Regex pattern for time in HH:MM[:SS]'''
 
 
-def guess_datetime_format(lines, threshold=5):
+def guess_datetime_format(lines: Iterable[str], threshold: int=5) \
+        -> Tuple[Optional[str], Optional[bool]]:
     '''Guess whether order of the year, month, day and 12/24 hour.
 
     Returns:
@@ -197,12 +199,14 @@ def guess_datetime_format(lines, threshold=5):
     else:
         day_period = None
 
-    return (date_format, day_period)
+    return date_format, day_period
 
 
-def parse_datetime(text, date_format=None, is_day_period=None,
-                   datetime_now=None):
-    '''Parse datetime string into datetime object.'''
+def parse_datetime(text: str, date_format: str=None,
+                   is_day_period: Optional[bool]=None,
+                   datetime_now: datetime.datetime=None) \
+        -> Tuple[datetime.datetime, int, int]:
+    '''Parse date/time from a line of text into datetime object.'''
     datetime_now = datetime_now or \
         datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
     year = datetime_now.year
@@ -305,8 +309,8 @@ def parse_datetime(text, date_format=None, is_day_period=None,
         raise ValueError('Failed to parse date from {}'.format(repr(text)))
 
 
-def parse_month(text):
-    '''Parse month string into int.'''
+def parse_month(text: str) -> int:
+    '''Parse month string into integer.'''
     text = text.lower()
     try:
         return MONTH_MAP[text]
@@ -321,7 +325,7 @@ def parse_month(text):
     raise ValueError('Month {} not found.'.format(repr(text)))
 
 
-def y2k(year):
+def y2k(year: int) -> int:
     '''Convert two digit year to four digit year.'''
     assert 0 <= year <= 99, 'Not a two digit year {}'.format(year)
     return year + 1000 if year >= 69 else year + 2000
