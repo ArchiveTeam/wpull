@@ -3,11 +3,12 @@ import contextlib
 import functools
 import logging
 
+from typing import Callable, Optional, Mapping, Any, Union, Tuple
+
 from wpull.cache import FIFOCache
 from wpull.errors import NetworkError
 from wpull.network.connection import Connection, SSLConnection
-from wpull.network.dns import Resolver
-
+from wpull.network.dns import Resolver, ResolveResult
 
 _logger = logging.getLogger(__name__)
 
@@ -19,7 +20,8 @@ class HostPool(object):
         ready (Queue): Connections not in use.
         busy (set): Connections in use.
     '''
-    def __init__(self, connection_factory, max_connections=6):
+    def __init__(self, connection_factory: Callable[[], Connection],
+                 max_connections: int=6):
         assert max_connections > 0, \
             'num must be positive. got {}'.format(max_connections)
 
@@ -31,16 +33,16 @@ class HostPool(object):
         self._condition = asyncio.Condition(lock=self._lock)
         self._closed = False
 
-    def empty(self):
+    def empty(self) -> bool:
         '''Return whether the pool is empty.'''
         return not self.ready and not self.busy
 
     @asyncio.coroutine
-    def clean(self, force=False):
+    def clean(self, force: bool=False):
         '''Clean closed connections.
 
         Args:
-            force (bool): Clean connected and idle connections too.
+            force: Clean connected and idle connections too.
 
         Coroutine.
         '''
@@ -63,12 +65,12 @@ class HostPool(object):
 
         self._closed = True
 
-    def count(self):
+    def count(self) -> int:
         '''Return total number of connections.'''
         return len(self.ready) + len(self.busy)
 
     @asyncio.coroutine
-    def acquire(self):
+    def acquire(self) -> Connection:
         '''Register and return a connection.
 
         Coroutine.
@@ -85,8 +87,6 @@ class HostPool(object):
                 connection = self._connection_factory()
                 break
             else:
-                # We should be using a Condition but check_in
-                # must be synchronous
                 yield from self._condition.wait()
 
         self.busy.add(connection)
@@ -95,12 +95,12 @@ class HostPool(object):
         return connection
 
     @asyncio.coroutine
-    def release(self, connection, reuse=True):
+    def release(self, connection: Connection, reuse: bool=True):
         '''Unregister a connection.
 
         Args:
             connection: Connection instance returned from :meth:`acquire`.
-            reuse (bool): If True, the connection is made available for reuse.
+            reuse: If True, the connection is made available for reuse.
 
         Coroutine.
         '''
@@ -118,17 +118,21 @@ class ConnectionPool(object):
     '''Connection pool.
 
     Args:
-        max_host_count (int): Number of connections per host.
-        resolver (:class:`.dns.Resolver`): DNS resolver.
+        max_host_count: Number of connections per host.
+        resolver: DNS resolver.
         connection_factory: A function that accepts ``address`` and
             ``hostname`` arguments and returns a :class:`Connection` instance.
         ssl_connection_factory: A function that returns a
             :class:`SSLConnection` instance. See `connection_factory`.
-        max_count (int): Limit on number of connections
+        max_count: Limit on number of connections
     '''
-    def __init__(self, max_host_count=6, resolver=None,
-                 connection_factory=None, ssl_connection_factory=None,
-                 max_count=100):
+    def __init__(self, max_host_count: int=6,
+                 resolver: Optional[Resolver]=None,
+                 connection_factory:
+                 Optional[Callable[[tuple, str], Connection]]=None,
+                 ssl_connection_factory:
+                 Optional[Callable[[tuple, str], SSLConnection]]=None,
+                 max_count: int=100):
         self._max_host_count = max_host_count
         self._resolver = resolver or Resolver()
         self._connection_factory = connection_factory or Connection
@@ -142,17 +146,19 @@ class ConnectionPool(object):
         self._happy_eyeballs_table = HappyEyeballsTable()
 
     @property
-    def host_pools(self):
+    def host_pools(self) -> Mapping[tuple, HostPool]:
         return self._host_pools
 
     @asyncio.coroutine
-    def acquire(self, host, port, use_ssl=False, host_key=None):
+    def acquire(self, host: str, port: int, use_ssl: bool=False,
+                host_key: Optional[Any]=None) \
+            -> Union[Connection, SSLConnection]:
         '''Return an available connection.
 
         Args:
-            host (str): A hostname or IP address.
-            port (int): Port number.
-            use_ssl (bool): Whether to return a SSL connection.
+            host: A hostname or IP address.
+            port: Port number.
+            use_ssl: Whether to return a SSL connection.
             host_key: If provided, it overrides the key used for per-host
                 connection pooling. This is useful for proxies for example.
 
@@ -205,7 +211,7 @@ class ConnectionPool(object):
         return connection
 
     @asyncio.coroutine
-    def release(self, connection):
+    def release(self, connection: Connection):
         '''Put a connection back in the pool.
 
         Coroutine.
@@ -222,7 +228,7 @@ class ConnectionPool(object):
         force = self.count() > self._max_count
         yield from self.clean(force=force)
 
-    def no_wait_release(self, connection):
+    def no_wait_release(self, connection: Connection):
         '''Synchronous version of :meth:`release`.'''
         _logger.debug('No wait check in.')
         release_task = asyncio.get_event_loop().create_task(
@@ -242,7 +248,7 @@ class ConnectionPool(object):
                 yield from release_task
 
     @asyncio.coroutine
-    def session(self, host, port, use_ssl=False):
+    def session(self, host: str, port: int, use_ssl: bool=False):
         '''Return a context manager that returns a connection.
 
         Usage::
@@ -266,11 +272,11 @@ class ConnectionPool(object):
         return context_wrapper()
 
     @asyncio.coroutine
-    def clean(self, force=False):
+    def clean(self, force: bool=False):
         '''Clean all closed connections.
 
         Args:
-            force (bool): Clean connected and idle connections too.
+            force: Clean connected and idle connections too.
 
         Coroutine.
         '''
@@ -297,7 +303,7 @@ class ConnectionPool(object):
 
         self._closed = True
 
-    def count(self):
+    def count(self) -> int:
         '''Return number of connections.'''
         counter = 0
 
@@ -366,15 +372,19 @@ class HappyEyeballsConnection(object):
             yield from self._active_connection.connect()
             return
 
-        results = yield from self._resolver.resolve_dual(self._address[0], self._address[1])
+        result = yield from self._resolver.resolve(self._address[0])
 
-        primary_address, secondary_address = self._get_preferred_address(results)
+        primary_host, secondary_host = self._get_preferred_host(result)
 
-        if not secondary_address:
-            self._primary_connection = self._active_connection = self._connection_factory(primary_address)
+        if not secondary_host:
+            self._primary_connection = self._active_connection = \
+                self._connection_factory((primary_host, self._address[1]))
             yield from self._primary_connection.connect()
         else:
-            yield from self._connect_dual_stack(primary_address, secondary_address)
+            yield from self._connect_dual_stack(
+                (primary_host, self._address[1]),
+                (secondary_host, self._address[1])
+            )
 
     @asyncio.coroutine
     def _connect_dual_stack(self, primary_address, secondary_address):
@@ -423,29 +433,25 @@ class HappyEyeballsConnection(object):
 
                 asyncio.get_event_loop().create_task(cleanup())
 
-        if self._active_connection.address == secondary_address:
-            preferred_addr = secondary_address
+        preferred_host = self._active_connection.host
+
+        self._happy_eyeballs_table.set_preferred(
+            preferred_host, primary_address[0], secondary_address[0])
+
+    def _get_preferred_host(self, result: ResolveResult) -> Tuple[str, str]:
+        '''Get preferred host from DNS results.'''
+        host_1 = result.first_ipv4.ip_address if result.first_ipv4 else None
+        host_2 = result.first_ipv6.ip_address if result.first_ipv6 else None
+
+        if not host_2:
+            return host_1, None
+        elif not host_1:
+            return host_2, None
+
+        preferred_host = self._happy_eyeballs_table.get_preferred(
+            host_1, host_2)
+
+        if preferred_host:
+            return preferred_host, None
         else:
-            preferred_addr = primary_address
-
-        self._happy_eyeballs_table.set_preferred(preferred_addr, primary_address, secondary_address)
-
-    def _get_preferred_address(self, results):
-        '''Get preferred addreses from DNS results.'''
-        primary_result = results[0]
-        primary_address = primary_result[1]
-
-        if len(results) == 1:
-            secondary_address = None
-        else:
-            secondary_result = results[1]
-            secondary_address = secondary_result[1]
-
-            preferred_address = self._happy_eyeballs_table.get_preferred(
-                primary_address, secondary_address)
-
-            if preferred_address:
-                primary_address = preferred_address
-                secondary_address = None
-
-        return primary_address, secondary_address
+            return host_1, host_2
