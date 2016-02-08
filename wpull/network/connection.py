@@ -2,6 +2,7 @@
 '''Network connections.'''
 import asyncio
 import contextlib
+import enum
 import errno
 import logging
 import os
@@ -10,7 +11,7 @@ import ssl
 
 import tornado.netutil
 from tornado.netutil import SSLCertificateError
-
+from typing import Optional, Union
 from wpull.backport.logging import BraceMessage as __
 from wpull.errors import NetworkError, ConnectionRefused, SSLVerificationError, \
     NetworkTimedOut
@@ -71,7 +72,8 @@ class CloseTimer(object):
         finally:
             self._touch_time = None
 
-    def is_timeout(self):
+    def is_timeout(self) -> bool:
+        '''Return whether the timer has timed out.'''
         return self._timed_out
 
 
@@ -88,7 +90,7 @@ class DummyCloseTimer(object):
         pass
 
 
-class ConnectionState(object):
+class ConnectionState(enum.Enum):
     '''State of a connection
 
     Attributes:
@@ -105,25 +107,26 @@ class BaseConnection(object):
     '''Base network stream.
 
     Args:
-        address (tuple): 2-item tuple containing the IP address and port.
-        hostname (str): Hostname of the address (for SSL).
-        timeout (float): Time in seconds before a read/write operation
-            times out.
-        connect_timeout (float): Time in seconds before a connect operation
-            times out.
-        bind_host (str): Host name for binding the socket interface.
-        sock (:class:`socket.socket`): Use given socket. The socket must
-            already by connected.
+        address: 2-item tuple containing the IP address and port or 4-item
+            for IPv6.
+        hostname: Hostname of the address (for SSL).
+        timeout: Time in seconds before a read/write operation times out.
+        connect_timeout: Time in seconds before a connect operation times out.
+        bind_host: Host name for binding the socket interface.
+        sock: Use given socket. The socket must already by connected.
 
     Attributes:
         reader: Stream Reader instance.
         writer: Stream Writer instance.
         address: 2-item tuple containing the IP address.
-        host (str): Host name.
-        port (int): Port number.
+        host: Host name.
+        port: Port number.
     '''
-    def __init__(self, address, hostname=None, timeout=None,
-                 connect_timeout=None, bind_host=None, sock=None):
+    def __init__(self, address: tuple, hostname: Optional[str]=None,
+                 timeout: Optional[float]=None,
+                 connect_timeout: Optional[float]=None,
+                 bind_host: Optional[str]=None,
+                 sock: Optional[socket.socket]=None):
         assert len(address) >= 2, 'Expect str & port. Got {}.'.format(address)
         assert '.' in address[0] or ':' in address[0], \
             'Expect numerical address. Got {}.'.format(address[0])
@@ -140,26 +143,26 @@ class BaseConnection(object):
         self._state = ConnectionState.ready
 
     @property
-    def address(self):
+    def address(self) -> tuple:
         return self._address
 
     @property
-    def hostname(self):
+    def hostname(self) -> Optional[str]:
         return self._hostname
 
     @property
-    def host(self):
+    def host(self) -> str:
         return self._address[0]
 
     @property
-    def port(self):
+    def port(self) -> int:
         return self._address[1]
 
-    def closed(self):
+    def closed(self) -> bool:
         '''Return whether the connection is closed.'''
         return not self.writer or not self.reader or self.reader.at_eof()
 
-    def state(self):
+    def state(self) -> ConnectionState:
         '''Return the state of this connection.'''
         return self._state
 
@@ -227,7 +230,7 @@ class BaseConnection(object):
         self._state = ConnectionState.ready
 
     @asyncio.coroutine
-    def write(self, data, drain=True):
+    def write(self, data: bytes, drain: bool=True):
         '''Write data.'''
         assert self._state == ConnectionState.created, \
             'Expect conn created. Got {}.'.format(self._state)
@@ -242,7 +245,7 @@ class BaseConnection(object):
                     fut, close_timeout=self._timeout, name='Write')
 
     @asyncio.coroutine
-    def read(self, amount=-1):
+    def read(self, amount: int=-1) -> bytes:
         '''Read data.'''
         assert self._state == ConnectionState.created, \
             'Expect conn created. Got {}.'.format(self._state)
@@ -256,7 +259,7 @@ class BaseConnection(object):
         return data
 
     @asyncio.coroutine
-    def readline(self):
+    def readline(self) -> bytes:
         '''Read a line of data.'''
         assert self._state == ConnectionState.created, \
             'Expect conn created. Got {}.'.format(self._state)
@@ -349,7 +352,7 @@ class Connection(BaseConnection):
         wrapped_connection: A wrapped connection for ConnectionPool. Internal
             use only.
 
-        ssl (bool): Whether connection is SSL.
+        is_ssl (bool): Whether connection is SSL.
         proxied (bool): Whether the connection is to a HTTP proxy.
         tunneled (bool): Whether the connection has been tunneled with the
             ``CONNECT`` request.
@@ -364,11 +367,11 @@ class Connection(BaseConnection):
         self._tunneled = False
 
     @property
-    def ssl(self):
+    def is_ssl(self) -> bool:
         return False
 
     @property
-    def tunneled(self):
+    def tunneled(self) -> bool:
         if self.closed():
             self._tunneled = False
 
@@ -379,7 +382,7 @@ class Connection(BaseConnection):
         self._tunneled = value
 
     @property
-    def proxied(self):
+    def proxied(self) -> bool:
         return self._proxied
 
     @proxied.setter
@@ -387,7 +390,7 @@ class Connection(BaseConnection):
         self._proxied = value
 
     @asyncio.coroutine
-    def read(self, amount=-1):
+    def read(self, amount: int=-1) -> bytes:
         data = yield from super().read(amount)
 
         if self._bandwidth_limiter:
@@ -401,7 +404,8 @@ class Connection(BaseConnection):
         return data
 
     @asyncio.coroutine
-    def start_tls(self, ssl_context=True):
+    def start_tls(self, ssl_context: Union[bool, dict, ssl.SSLContext]=True) \
+            -> 'SSLConnection':
         '''Start client TLS on this connection and return SSLConnection.
 
         Coroutine
@@ -426,17 +430,19 @@ class SSLConnection(Connection):
     Args:
         ssl_context: SSLContext
     '''
-    def __init__(self, *args, ssl_context=True, **kwargs):
+    def __init__(self, *args,
+                 ssl_context: Union[bool, dict, ssl.SSLContext]=True, **kwargs):
         super().__init__(*args, **kwargs)
         self._ssl_context = ssl_context
 
         if self._ssl_context is True:
             self._ssl_context = tornado.netutil.ssl_options_to_context({})
         elif isinstance(self._ssl_context, dict):
-            self._ssl_context = tornado.netutil.ssl_options_to_context(self._ssl_context)
+            self._ssl_context = tornado.netutil.ssl_options_to_context(
+                self._ssl_context)
 
     @property
-    def ssl(self):
+    def is_ssl(self) -> bool:
         return True
 
     def _connection_kwargs(self):
@@ -455,7 +461,8 @@ class SSLConnection(Connection):
         self._verify_cert(sock)
         return result
 
-    def _verify_cert(self, sock):
+    def _verify_cert(self, sock: ssl.SSLSocket):
+        '''Check if certificate matches hostname.'''
         # Based on tornado.iostream.SSLIOStream
         # Needed for older OpenSSL (<0.9.8f) versions
         verify_mode = self._ssl_context.verify_mode
