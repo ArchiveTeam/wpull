@@ -61,7 +61,7 @@ class Session(BaseSession):
         self._request = request
         _logger.debug(__('Client fetch request {0}.', request))
 
-        connection = yield from self._acquire_connection(request)
+        connection = yield from self._acquire_request_connection(request)
         full_url = connection.proxied and not connection.tunneled
 
         self._stream = stream = self._stream_factory(connection)

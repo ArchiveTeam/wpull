@@ -53,13 +53,20 @@ class BaseSession(object, metaclass=abc.ABCMeta):
         self._connections.clear()
 
     @asyncio.coroutine
-    def _acquire_connection(self, request):
+    def _acquire_request_connection(self, request):
         '''Return a connection.'''
         host = request.url_info.hostname
         port = request.url_info.port
         use_ssl = request.url_info.scheme == 'https'
         tunnel = request.url_info.scheme != 'http'
 
+        connection = yield from self._acquire_connection(host, port, use_ssl, tunnel)
+
+        return connection
+
+    @asyncio.coroutine
+    def _acquire_connection(self, host, port, use_ssl=False, tunnel=True):
+        '''Return a connection.'''
         if hasattr(self._connection_pool, 'acquire_proxy'):
             connection = yield from \
                 self._connection_pool.acquire_proxy(host, port, use_ssl,
