@@ -1,5 +1,6 @@
 # encoding=utf-8
 '''Basic HTTP Client.'''
+import enum
 import functools
 import gettext
 import logging
@@ -7,9 +8,11 @@ import warnings
 
 import asyncio
 
+from typing import Optional, Union, IO, Callable
 from wpull.protocol.abstract.client import BaseClient, BaseSession, DurationTimeout
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
+from wpull.protocol.http.request import Request, Response
 from wpull.protocol.http.stream import Stream
 
 
@@ -17,17 +20,11 @@ _ = gettext.gettext
 _logger = logging.getLogger(__name__)
 
 
-class Client(BaseClient):
-    '''Stateless HTTP/1.1 client.
-
-    The session object is :class:`Session`.
-    '''
-    def __init__(self, stream_factory=Stream, **kwargs):
-        super().__init__(**kwargs)
-        self._stream_factory = stream_factory
-
-    def _session_class(self):
-        return functools.partial(Session, stream_factory=self._stream_factory)
+class SessionState(enum.Enum):
+    ready = 'ready'
+    request_sent = 'request_sent'
+    response_received = 'response_received'
+    aborted = 'aborted'
 
 
 class Session(BaseSession):
@@ -37,28 +34,31 @@ class Session(BaseSession):
 
         assert stream_factory
         self._stream_factory = stream_factory
-        self._connection = None
         self._stream = None
         self._request = None
         self._response = None
 
-        self._session_complete = True
+        self._session_state = SessionState.ready
 
     @asyncio.coroutine
-    def fetch(self, request):
-        '''Fulfill a request.
+    def start(self, request: Request) -> Response:
+        '''Begin a HTTP request
 
         Args:
-            request (:class:`.http.request.Request`): Request.
+            request: Request information.
 
         Returns:
-            .http.request.Response: A Response populated with the HTTP headers.
+            A response populated with the HTTP headers.
 
-        Once the headers are received, call :meth:`read_content`.
+        Once the headers are received, call :meth:`download`.
 
         Coroutine.
         '''
-        assert not self._connection
+        if self._session_state != SessionState.ready:
+            raise RuntimeError('Session already started')
+
+        assert not self._request
+        self._request = request
         _logger.debug(__('Client fetch request {0}.', request))
 
         connection = yield from self._acquire_connection(request)
@@ -70,11 +70,6 @@ class Session(BaseSession):
 
         request.address = connection.address
 
-        self._connect_data_observer()
-
-        if self._recorder_session:
-            self._recorder_session.pre_request(request)
-
         yield from stream.write_request(request, full_url=full_url)
 
         if request.body:
@@ -82,36 +77,36 @@ class Session(BaseSession):
             length = int(request.fields['Content-Length'])
             yield from stream.write_body(request.body, length=length)
 
-        if self._recorder_session:
-            self._recorder_session.request(request)
-
         self._response = response = yield from stream.read_response()
         response.request = request
 
-        if self._recorder_session:
-            self._recorder_session.pre_response(response)
-
-        self._session_complete = False
+        self._session_state = SessionState.request_sent
 
         return response
 
     @asyncio.coroutine
-    def read_content(self, file=None, raw=False, rewind=True,
-                     duration_timeout=None):
+    def download(
+            self,
+            file: Union[IO[bytes], asyncio.StreamReader, None]=None,
+            raw: bool=False, rewind: bool=True,
+            duration_timeout: Optional[float]=None):
         '''Read the response content into file.
 
         Args:
             file: A file object or asyncio stream.
-            raw (bool): Whether chunked transfer encoding should be included.
-            rewind (bool): Seek the given file back to its original offset after
+            raw: Whether chunked transfer encoding should be included.
+            rewind: Seek the given file back to its original offset after
                 reading is finished.
-            duration_timeout (int): Maximum time in seconds of which the
+            duration_timeout: Maximum time in seconds of which the
                 entire file must be read.
 
-        Be sure to call :meth:`fetch` first.
+        Be sure to call :meth:`start` first.
 
         Coroutine.
         '''
+        if self._session_state != SessionState.request_sent:
+            raise RuntimeError('Request not sent')
+
         if rewind and file and hasattr(file, 'seek'):
             original_offset = file.tell()
         else:
@@ -130,48 +125,48 @@ class Session(BaseSession):
         except asyncio.TimeoutError as error:
             raise DurationTimeout(
                 'Did not finish reading after {} seconds.'
-                .format(duration_timeout)
+                    .format(duration_timeout)
             ) from error
 
-        self._session_complete = True
+        self._session_state = SessionState.response_received
 
         if original_offset is not None:
             file.seek(original_offset)
 
-        if self._recorder_session:
-            self._recorder_session.response(self._response)
+        self.recycle()
 
-    def _connect_data_observer(self):
-        '''Connect the stream data observer to the recorder.'''
-        if self._recorder_session:
-            self._stream.data_observer.add(self._data_callback)
-
-    def _data_callback(self, data_type, data):
-        '''Stream data observer callback.'''
-        if data_type in ('request', 'request_body'):
-            self._recorder_session.request_data(data)
-        elif data_type in ('response', 'response_body'):
-            self._recorder_session.response_data(data)
-
-    def done(self):
+    def done(self) -> bool:
         '''Return whether the session was complete.
 
         A session is complete when it has sent a request,
         read the response header and the response body.
         '''
-        return self._session_complete
+        return self._session_state == SessionState.response_received
 
     def abort(self):
-        if self._connection:
-            self._connection.close()
+        super().abort()
 
-        self._session_complete = True
+        self._session_state = SessionState.aborted
 
     def recycle(self):
-        if not self._session_complete:
+        if not self.done():
+            super().abort()
             warnings.warn(_('HTTP session did not complete.'))
 
-            self.abort()
+        super().recycle()
 
-        if self._connection:
-            self._connection_pool.no_wait_release(self._connection)
+
+class Client(BaseClient[Session]):
+    '''Stateless HTTP/1.1 client.
+
+    The session object is :class:`Session`.
+    '''
+    def __init__(self, *args, stream_factory=Stream, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._stream_factory = stream_factory
+
+    def _session_class(self) -> Callable[[], Session]:
+        return functools.partial(Session, stream_factory=self._stream_factory)
+
+    def session(self) -> Session:
+        return super().session()

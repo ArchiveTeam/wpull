@@ -1,56 +1,16 @@
 # encoding=utf-8
-import contextlib
 import functools
 import io
 import warnings
 
 import wpull.testing.async
 from wpull.errors import NetworkError
-from wpull.network.connection import ConnectionPool, Connection
+from wpull.network.connection import Connection
+from wpull.network.pool import ConnectionPool
 from wpull.protocol.abstract.client import DurationTimeout
 from wpull.protocol.http.client import Client
 from wpull.protocol.http.request import Request
-from wpull.recorder.base import BaseRecorder, BaseRecorderSession
 from wpull.testing.badapp import BadAppTestCase
-
-DEFAULT_TIMEOUT = 30
-
-
-class MockRecorder(BaseRecorder):
-    def __init__(self):
-        self.pre_request = None
-        self.request = None
-        self.pre_response = None
-        self.response = None
-        self.request_data = b''
-        self.response_data = b''
-
-    @contextlib.contextmanager
-    def session(self):
-        yield MockRecorderSession(self)
-
-
-class MockRecorderSession(BaseRecorderSession):
-    def __init__(self, recorder):
-        self.recorder = recorder
-
-    def pre_request(self, request):
-        self.recorder.pre_request = request
-
-    def request(self, request):
-        self.recorder.request = request
-
-    def pre_response(self, response):
-        self.recorder.pre_response = response
-
-    def response(self, response):
-        self.recorder.response = response
-
-    def request_data(self, data):
-        self.recorder.request_data += data
-
-    def response_data(self, data):
-        self.recorder.response_data += data
 
 
 class MyException(ValueError):
@@ -58,19 +18,19 @@ class MyException(ValueError):
 
 
 class TestClient(BadAppTestCase):
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test()
     def test_basic(self):
         client = Client()
 
         with client.session() as session:
             request = Request(self.get_url('/'))
-            response = yield from session.fetch(request)
+            response = yield from session.start(request)
 
             self.assertEqual(200, response.status_code)
             self.assertEqual(request, response.request)
 
             file_obj = io.BytesIO()
-            yield from session.read_content(file_obj)
+            yield from session.download(file_obj)
 
             self.assertEqual(b'hello world!', file_obj.getvalue())
 
@@ -78,7 +38,7 @@ class TestClient(BadAppTestCase):
             self.assertTrue(request.address)
             self.assertTrue(response.body)
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test()
     def test_client_exception_throw(self):
         client = Client()
 
@@ -86,61 +46,37 @@ class TestClient(BadAppTestCase):
             request = Request('http://wpull-no-exist.invalid')
 
         with self.assertRaises(NetworkError):
-            yield from session.fetch(request)
+            yield from session.start(request)
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test()
     def test_client_duration_timeout(self):
         client = Client()
 
         with self.assertRaises(DurationTimeout), client.session() as session:
             request = Request(self.get_url('/sleep_long'))
-            yield from session.fetch(request)
-            yield from session.read_content(duration_timeout=0.1)
+            yield from session.start(request)
+            yield from session.download(duration_timeout=0.1)
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test()
     def test_client_exception_recovery(self):
         connection_factory = functools.partial(Connection, timeout=2.0)
         connection_pool = ConnectionPool(connection_factory=connection_factory)
         client = Client(connection_pool=connection_pool)
 
         for dummy in range(7):
-            with client.session() as session:
+            with self.assertRaises(NetworkError), client.session() as session:
                 request = Request(self.get_url('/header_early_close'))
-                try:
-                    yield from session.fetch(request)
-                except NetworkError:
-                    pass
-                else:
-                    self.fail()  # pragma: no cover
+                yield from session.start(request)
 
         for dummy in range(7):
             with client.session() as session:
                 request = Request(self.get_url('/'))
-                response = yield from session.fetch(request)
+                response = yield from session.start(request)
                 self.assertEqual(200, response.status_code)
-                yield from session.read_content()
+                yield from session.download()
                 self.assertTrue(session.done())
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_client_recorder(self):
-        recorder = MockRecorder()
-        client = Client(recorder=recorder)
-
-        with client.session() as session:
-            request = Request(self.get_url('/'))
-            response = yield from session.fetch(request)
-            yield from session.read_content()
-            self.assertEqual(200, response.status_code)
-
-        self.assertTrue(recorder.pre_request)
-        self.assertTrue(recorder.request)
-        self.assertTrue(recorder.pre_response)
-        self.assertTrue(recorder.response)
-
-        self.assertIn(b'GET', recorder.request_data)
-        self.assertIn(b'hello', recorder.response_data)
-
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test()
     def test_client_did_not_complete(self):
         client = Client()
 
@@ -149,7 +85,7 @@ class TestClient(BadAppTestCase):
 
             with client.session() as session:
                 request = Request(self.get_url('/'))
-                yield from session.fetch(request)
+                yield from session.start(request)
                 self.assertFalse(session.done())
 
             for warn_obj in warn_list:
@@ -170,5 +106,5 @@ class TestClient(BadAppTestCase):
         with self.assertRaises(MyException):
             with client.session() as session:
                 request = Request(self.get_url('/'))
-                yield from session.fetch(request)
+                yield from session.start(request)
                 raise MyException('Oops')
