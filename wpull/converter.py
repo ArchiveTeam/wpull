@@ -8,15 +8,14 @@ import logging
 import os.path
 import shutil
 
+import wpull.string
 from wpull.backport.logging import BraceMessage as __
 from wpull.database.base import NotFound
 from wpull.document.htmlparse.element import Comment, Element, Doctype
-from wpull.item import Status
+from wpull.pipeline.item import Status
 from wpull.scraper.css import CSSScraper
 from wpull.scraper.html import HTMLScraper
 from wpull.url import URLInfo
-import wpull.string
-
 
 _ = gettext.gettext
 _logger = logging.getLogger(__name__)

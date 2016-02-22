@@ -1,13 +1,12 @@
 '''Database SQLAlchemy model.'''
 
+import sqlalchemy.ext.declarative
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql.schema import Column, ForeignKey
-from sqlalchemy.sql.sqltypes import Integer, Enum, Boolean, String
-import sqlalchemy.ext.declarative
+from sqlalchemy.sql.sqltypes import Integer, Enum, String
 
-from wpull.item import Status, URLRecord, LinkType
-
+from wpull.pipeline.item import Status, URLRecord, LinkType
 
 DBBase = sqlalchemy.ext.declarative.declarative_base()
 

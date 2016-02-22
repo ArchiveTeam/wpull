@@ -2,21 +2,18 @@
 import abc
 import contextlib
 import logging
-import urllib.parse
-import os
 
+import sqlalchemy.event
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.pool import SingletonThreadPool
 from sqlalchemy.sql.expression import insert, update, select, and_, delete, \
     bindparam
 from sqlalchemy.sql.functions import func
-import sqlalchemy.event
 
 from wpull.database.base import BaseURLTable, NotFound
 from wpull.database.sqlmodel import URL, URLString, Visit, DBBase
-from wpull.item import Status
-
+from wpull.pipeline.item import Status
 
 _logger = logging.getLogger(__name__)
 

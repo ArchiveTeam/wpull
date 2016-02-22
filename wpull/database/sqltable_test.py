@@ -4,9 +4,9 @@
 import time
 import unittest
 
-from wpull.database.sqltable import SQLiteURLTable
-from wpull.item import Status
 from wpull.database.base import NotFound
+from wpull.database.sqltable import SQLiteURLTable
+from wpull.pipeline.item import Status
 
 
 class TestDatabase(unittest.TestCase):

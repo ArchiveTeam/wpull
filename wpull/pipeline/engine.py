@@ -1,22 +1,19 @@
 # encoding=utf-8
 '''Item queue management and processing.'''
 import abc
+import asyncio
 import contextlib
 import gettext
 import itertools
 import logging
 import os
 
-
-import asyncio
-
+import wpull.string
 from wpull.backport.logging import BraceMessage as __
 from wpull.database.base import NotFound
 from wpull.hook import HookableMixin, HookDisconnected
-from wpull.item import Status, URLItem
+from wpull.pipeline.item import Status, URLItem
 from wpull.url import parse_url_or_log
-import wpull.string
-
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext

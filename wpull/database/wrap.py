@@ -1,8 +1,8 @@
 '''URL table wrappers.'''
 from wpull.database.base import BaseURLTable
 from wpull.hook import HookableMixin, HookDisconnected
+from wpull.pipeline.item import Status
 from wpull.url import parse_url_or_log
-from wpull.item import Status
 
 
 class URLTableHookWrapper(BaseURLTable, HookableMixin):

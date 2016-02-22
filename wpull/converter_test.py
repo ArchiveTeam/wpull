@@ -1,17 +1,15 @@
 # encoding=utf-8
-from tempfile import TemporaryDirectory
 import os.path
 import unittest
 
 from wpull.converter import CSSConverter, HTMLConverter
 from wpull.database.sqltable import URLTable
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
-from wpull.item import Status
+from wpull.pipeline.item import Status
 from wpull.scraper.css import CSSScraper
 from wpull.scraper.html import ElementWalker
 from wpull.testing.util import TempDirMixin
 from wpull.util import IS_PYPY
-
 
 if not IS_PYPY:
     from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser

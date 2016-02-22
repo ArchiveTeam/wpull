@@ -1,6 +1,6 @@
 import unittest
-from wpull.item import LinkType
 
+from wpull.pipeline.item import LinkType
 from wpull.scraper.util import clean_link_soup, parse_refresh, is_likely_link, \
     is_unlikely_link, identify_link_type
 

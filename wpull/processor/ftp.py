@@ -1,4 +1,5 @@
 '''FTP'''
+import asyncio
 import copy
 import fnmatch
 import gettext
@@ -9,23 +10,21 @@ import tempfile
 import urllib.parse
 
 import namedlist
-import asyncio
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
 from wpull.cache import LRUCache
 from wpull.errors import ProtocolError
-from wpull.protocol.ftp.request import Request, ListingResponse
-from wpull.protocol.ftp.util import FTPServerError
 from wpull.hook import Actions
-from wpull.item import LinkType
+from wpull.pipeline.item import LinkType
 from wpull.processor.base import BaseProcessor, BaseProcessorSession, \
     REMOTE_ERRORS
 from wpull.processor.rule import ResultRule, FetchRule
+from wpull.protocol.ftp.request import Request, ListingResponse
+from wpull.protocol.ftp.util import FTPServerError
 from wpull.scraper.util import urljoin_safe
 from wpull.url import parse_url_or_log
 from wpull.writer import NullWriter
-
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext

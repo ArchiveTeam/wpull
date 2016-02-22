@@ -1,9 +1,9 @@
 import gettext
 import logging
 
-from wpull.backport.logging import BraceMessage as __
-from wpull.item import URLRecord, Status
 import wpull.string
+from wpull.backport.logging import BraceMessage as __
+from wpull.pipeline.item import URLRecord, Status
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext

@@ -1,19 +1,17 @@
 import os.path
 import shutil
+import sys
 import unittest
 
-import sys
-
+import wpull.util
 from wpull.body import Body
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
+from wpull.pipeline.item import LinkType
 from wpull.protocol.http.request import Request, Response
-from wpull.item import LinkType
 from wpull.scraper.css import CSSScraper
 from wpull.scraper.html import HTMLScraper, ElementWalker
 from wpull.scraper.javascript import JavaScriptScraper
 from wpull.util import IS_PYPY
-import wpull.util
-
 
 if not IS_PYPY:
     from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser

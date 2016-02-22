@@ -3,13 +3,11 @@
 
 See :ref:`scripting-hooks` for an introduction.
 '''
-import logging
 import functools
+import logging
 
 from wpull.backport.logging import BraceMessage as __
-from wpull.item import Status
 from wpull.url import parse_url_or_log
-
 
 _logger = logging.getLogger(__name__)
 

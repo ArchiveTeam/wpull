@@ -1,13 +1,12 @@
 # encoding=utf-8
+import asyncio
 import random
 
-import asyncio
-
+import wpull.testing.async
 from wpull.database.sqltable import SQLiteURLTable
-from wpull.engine import BaseEngine, Engine
+from wpull.pipeline.engine import BaseEngine, Engine
 from wpull.stats import Statistics
 from wpull.testing.async import AsyncTestCase
-import wpull.testing.async
 
 
 DEFAULT_TIMEOUT = 10

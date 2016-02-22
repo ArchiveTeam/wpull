@@ -3,13 +3,12 @@
 import gettext
 import logging
 
+import wpull.util
 from wpull.backport.logging import BraceMessage as __
 from wpull.document.css import CSSReader
 from wpull.document.util import detect_response_encoding
-from wpull.item import LinkType
+from wpull.pipeline.item import LinkType
 from wpull.scraper.base import BaseTextStreamScraper, LinkContext, ScrapeResult
-import wpull.util
-
 
 _ = gettext.gettext
 _logger = logging.getLogger(__name__)

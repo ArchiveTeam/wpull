@@ -33,7 +33,6 @@ from wpull.database.sqltable import URLTable as SQLURLTable, GenericSQLURLTable
 from wpull.database.wrap import URLTableHookWrapper
 from wpull.debug import DebugConsoleHandler
 from wpull.driver.phantomjs import PhantomJSDriver
-from wpull.engine import Engine
 from wpull.factory import Factory
 from wpull.hook import HookEnvironment, PluginEnvironment
 from wpull.namevalue import NameValueRecord
@@ -43,6 +42,7 @@ from wpull.network.dns import Resolver, PythonResolver
 from wpull.options import LOG_QUIET, LOG_VERY_QUIET, LOG_NO_VERBOSE, LOG_VERBOSE, \
     LOG_DEBUG
 from wpull.path import PathNamer
+from wpull.pipeline.engine import Engine
 from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
     FTPProcessorInstances

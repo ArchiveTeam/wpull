@@ -1,19 +1,14 @@
 '''Fetching rules.'''
+import asyncio
 import logging
 import random
 
-
-import asyncio
-
+import wpull.url
 from wpull.backport.logging import BraceMessage as __
-from wpull.hook import HookableMixin, HookDisconnected, Actions, HookStop
-from wpull.item import Status, LinkType
 from wpull.errors import DNSNotFound, ServerError, ConnectionRefused, \
     SSLVerificationError, ProtocolError
-from wpull.scraper.css import CSSScraper
-from wpull.scraper.html import HTMLScraper
-import wpull.url
-
+from wpull.hook import HookableMixin, HookDisconnected, Actions, HookStop
+from wpull.pipeline.item import Status
 
 _logger = logging.getLogger(__name__)
 
