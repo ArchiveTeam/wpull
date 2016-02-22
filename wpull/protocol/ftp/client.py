@@ -1,4 +1,5 @@
 '''FTP client.'''
+import enum
 import io
 import logging
 import weakref
@@ -7,12 +8,16 @@ import functools
 
 import asyncio
 
+from typing import IO, Tuple
+from typing import Optional
+
 from wpull.protocol.abstract.client import BaseClient, BaseSession, DurationTimeout
 from wpull.body import Body
 from wpull.errors import ProtocolError, AuthenticationError
 from wpull.protocol.ftp.command import Commander
 from wpull.protocol.ftp.ls.listing import ListingError, ListingParser
-from wpull.protocol.ftp.request import Response, Command, ListingResponse
+from wpull.protocol.ftp.request import Response, Command, ListingResponse, \
+    Request
 from wpull.protocol.ftp.stream import ControlStream
 from wpull.protocol.ftp.util import FTPServerError, ReplyCodes
 import wpull.protocol.ftp.util
@@ -21,26 +26,21 @@ import wpull.protocol.ftp.util
 _logger = logging.getLogger(__name__)
 
 
-class Client(BaseClient):
-    '''FTP Client.
-
-    The session object is :class:`Session`.
-    '''
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._login_table = weakref.WeakKeyDictionary()
-
-    def _session_class(self):
-        return functools.partial(Session, login_table=self._login_table)
+class SessionState(enum.Enum):
+    ready = 'ready'
+    file_request_sent = 'file_request_sent'
+    directory_request_sent = 'directory_request_sent'
+    response_received = 'response_received'
+    aborted = 'aborted'
 
 
 class Session(BaseSession):
-    def __init__(self, **kwargs):
-        self._login_table = kwargs.pop('login_table')
+    def __init__(self, login_table: weakref.WeakKeyDictionary, **kwargs):
+        self._login_table = login_table
 
         super().__init__(**kwargs)
 
-        self._connection = None
+        self._control_connection = None
         self._control_stream = None
         self._commander = None
         self._request = None
@@ -48,6 +48,7 @@ class Session(BaseSession):
         self._data_stream = None
         self._data_connection = None
         self._listing_type = None
+        self._session_state = SessionState.ready
 
     @asyncio.coroutine
     def _init_stream(self):
@@ -55,25 +56,22 @@ class Session(BaseSession):
 
         Coroutine.
         '''
-        assert not self._connection
-        self._connection = yield from \
-            self._connection_pool.acquire(
-                self._request.url_info.hostname, self._request.url_info.port
-            )
-        self._control_stream = ControlStream(self._connection)
+        assert not self._control_connection
+        self._control_connection = yield from self._acquire_request_connection(self._request)
+        self._control_stream = ControlStream(self._control_connection)
         self._commander = Commander(self._control_stream)
 
-        if self._recorder_session:
-            def control_data_callback(direction, data):
-                assert direction in ('command', 'reply'), \
-                    'Expect read/write. Got {}'.format(repr(direction))
-
-                if direction == 'reply':
-                    self._recorder_session.response_control_data(data)
-                else:
-                    self._recorder_session.request_control_data(data)
-
-            self._control_stream.data_observer.add(control_data_callback)
+        # if self._recorder_session:
+        #     def control_data_callback(direction, data):
+        #         assert direction in ('command', 'reply'), \
+        #             'Expect read/write. Got {}'.format(repr(direction))
+        #
+        #         if direction == 'reply':
+        #             self._recorder_session.response_control_data(data)
+        #         else:
+        #             self._recorder_session.request_control_data(data)
+        #
+        #     self._control_stream.data_observer.add(control_data_callback)
 
     @asyncio.coroutine
     def _log_in(self):
@@ -84,7 +82,7 @@ class Session(BaseSession):
         username = self._request.url_info.username or self._request.username or 'anonymous'
         password = self._request.url_info.password or self._request.password or '-wpull@'
 
-        cached_login = self._login_table.get(self._connection)
+        cached_login = self._login_table.get(self._control_connection)
 
         if cached_login and cached_login == (username, password):
             _logger.debug('Reusing existing login.')
@@ -96,23 +94,25 @@ class Session(BaseSession):
             raise AuthenticationError('Login error: {}'.format(error)) \
                 from error
 
-        self._login_table[self._connection] = (username, password)
+        self._login_table[self._control_connection] = (username, password)
 
     @asyncio.coroutine
-    def fetch(self, request):
-        '''Fulfill a request.
+    def start(self, request: Request) -> Response:
+        '''Start a file or directory listing download.
 
         Args:
-            request (:class:`.ftp.request.Request`): Request.
+            request: Request.
 
         Returns:
-            .ftp.request.Response: A Response populated with the initial
-            data connection reply.
+            A Response populated with the initial data connection reply.
 
-        Once the response is received, call :meth:`read_content`.
+        Once the response is received, call :meth:`download`.
 
         Coroutine.
         '''
+        if self._session_state != SessionState.ready:
+            raise RuntimeError('Session not ready')
+
         response = Response()
 
         yield from self._prepare_fetch(request, response)
@@ -132,19 +132,28 @@ class Session(BaseSession):
 
         yield from self._begin_stream(command)
 
+        self._session_state = SessionState.file_request_sent
+
         return response
 
     @asyncio.coroutine
-    def fetch_file_listing(self, request):
+    def start_listing(self, request: Request) -> ListingResponse:
         '''Fetch a file listing.
 
-        Returns:
-            .ftp.request.ListingResponse
+        Args:
+            request: Request.
 
-        Once the response is received, call :meth:`read_listing_content`.
+        Returns:
+            A listing response populated with the initial data connection
+            reply.
+
+        Once the response is received, call :meth:`download_listing`.
 
         Coroutine.
         '''
+        if self._session_state != SessionState.ready:
+            raise RuntimeError('Session not ready')
+
         response = ListingResponse()
 
         yield from self._prepare_fetch(request, response)
@@ -171,10 +180,12 @@ class Session(BaseSession):
 
         _logger.debug('Listing type is %s', self._listing_type)
 
+        self._session_state = SessionState.directory_request_sent
+
         return response
 
     @asyncio.coroutine
-    def _prepare_fetch(self, request, response):
+    def _prepare_fetch(self, request: Request, response: Response):
         '''Prepare for a fetch.
 
         Coroutine.
@@ -184,19 +195,19 @@ class Session(BaseSession):
 
         yield from self._init_stream()
 
-        connection_closed = self._connection.closed()
+        connection_closed = self._control_connection.closed()
 
         if connection_closed:
-            self._login_table.pop(self._connection, None)
+            self._login_table.pop(self._control_connection, None)
             yield from self._control_stream.reconnect()
 
-        request.address = self._connection.address
+        request.address = self._control_connection.address
 
-        if self._recorder_session:
-            connection_reused = not connection_closed
-            self._recorder_session.begin_control(
-                request, connection_reused=connection_reused
-            )
+        # if self._recorder_session:
+        #     connection_reused = not connection_closed
+        #     self._recorder_session.begin_control(
+        #         request, connection_reused=connection_reused
+        #     )
 
         if connection_closed:
             yield from self._commander.read_welcome_message()
@@ -206,34 +217,37 @@ class Session(BaseSession):
         self._response.request = request
 
     @asyncio.coroutine
-    def _begin_stream(self, command):
+    def _begin_stream(self, command: Command):
         '''Start data stream transfer.'''
         begin_reply = yield from self._commander.begin_stream(command)
 
         self._response.reply = begin_reply
 
-        if self._recorder_session:
-            self._recorder_session.pre_response(self._response)
+        # if self._recorder_session:
+        #     self._recorder_session.pre_response(self._response)
 
     @asyncio.coroutine
-    def read_content(self, file=None, rewind=True, duration_timeout=None):
+    def download(self, file: Optional[IO]=None, rewind: bool=True,
+                 duration_timeout: Optional[float]=None) -> Response:
         '''Read the response content into file.
 
         Args:
             file: A file object or asyncio stream.
             rewind: Seek the given file back to its original offset after
                 reading is finished.
-            duration_timeout (int): Maximum time in seconds of which the
+            duration_timeout: Maximum time in seconds of which the
                 entire file must be read.
 
         Returns:
-            .ftp.request.Response: A Response populated with the final
-            data connection reply.
+            A Response populated with the final data connection reply.
 
-        Be sure to call :meth:`fetch` first.
+        Be sure to call :meth:`start` first.
 
         Coroutine.
         '''
+        if self._session_state != SessionState.file_request_sent:
+            raise RuntimeError('File request not sent')
+
         if rewind and file and hasattr(file, 'seek'):
             original_offset = file.tell()
         else:
@@ -261,25 +275,38 @@ class Session(BaseSession):
         if original_offset is not None:
             file.seek(original_offset)
 
-        if self._recorder_session:
-            self._recorder_session.response(self._response)
+        # if self._recorder_session:
+        #     self._recorder_session.response(self._response)
+
+        self._session_state = SessionState.response_received
 
         return self._response
 
     @asyncio.coroutine
-    def read_listing_content(self, file, duration_timeout=None):
+    def download_listing(self, file: Optional[IO],
+                         duration_timeout: Optional[float]=None) -> \
+            ListingResponse:
         '''Read file listings.
 
-        Returns:
-            .ftp.request.ListingResponse: A Response populated the
-            file listings
+        Args:
+            file: A file object or asyncio stream.
+            duration_timeout: Maximum time in seconds of which the
+                entire file must be read.
 
-        Be sure to call :meth:`fetch_file_listing` first.
+        Returns:
+            A Response populated the file listings
+
+        Be sure to call :meth:`start_file_listing` first.
 
         Coroutine.
         '''
-        yield from self.read_content(file=file, rewind=False,
-                                     duration_timeout=duration_timeout)
+        if self._session_state != SessionState.directory_request_sent:
+            raise RuntimeError('File request not sent')
+
+        self._session_state = SessionState.file_request_sent
+
+        yield from self.download(file=file, rewind=False,
+                                 duration_timeout=duration_timeout)
 
         try:
             if self._response.body.tell() == 0:
@@ -317,6 +344,9 @@ class Session(BaseSession):
         self._response.files = listings
 
         self._response.body.seek(0)
+
+        self._session_state = SessionState.response_received
+
         return self._response
 
     @asyncio.coroutine
@@ -326,26 +356,25 @@ class Session(BaseSession):
         Coroutine.
         '''
         @asyncio.coroutine
-        def connection_factory(address):
-            self._data_connection = yield from \
-                self._connection_pool.acquire(address[0], address[1])
+        def connection_factory(address: Tuple[int, int]):
+            self._data_connection = yield from self._acquire_connection(address[0], address[1])
             return self._data_connection
 
         self._data_stream = yield from self._commander.setup_data_stream(
             connection_factory
         )
 
-        if self._recorder_session:
-            self._response.data_address = self._data_connection.address
-
-            def data_callback(action, data):
-                if action == 'read':
-                    self._recorder_session.response_data(data)
-
-            self._data_stream.data_observer.add(data_callback)
+        # if self._recorder_session:
+        #     self._response.data_address = self._data_connection.address
+        #
+        #     def data_callback(action, data):
+        #         if action == 'read':
+        #             self._recorder_session.response_data(data)
+        #
+        #     self._data_stream.data_observer.add(data_callback)
 
     @asyncio.coroutine
-    def _fetch_size(self, request):
+    def _fetch_size(self, request: Request) -> int:
         '''Return size of file.
 
         Coroutine.
@@ -357,29 +386,41 @@ class Session(BaseSession):
             return
 
     def abort(self):
+        super().abort()
         self._close_data_connection()
 
-        if self._connection:
-            self._connection.close()
-            self._login_table.pop(self._connection, None)
+        if self._control_connection:
+            self._login_table.pop(self._control_connection, None)
 
     def recycle(self):
+        super().recycle()
         self._close_data_connection()
 
-        if self._connection:
-            if self._recorder_session:
-                self._recorder_session.end_control(
-                    self._response, connection_closed=self._connection.closed()
-                )
-
-            self._connection_pool.no_wait_release(self._connection)
+        # if self._control_connection:
+        #     if self._recorder_session:
+        #         self._recorder_session.end_control(
+        #             self._response, connection_closed=self._control_connection.closed()
+        #         )
 
     def _close_data_connection(self):
         if self._data_connection:
-            self._data_connection.close()
-            self._connection_pool.no_wait_release(self._data_connection)
+            # self._data_connection.close()
+            # self._connection_pool.no_wait_release(self._data_connection)
             self._data_connection = None
 
         if self._data_stream:
             self._data_stream.data_observer.clear()
             self._data_stream = None
+
+
+class Client(BaseClient[Session]):
+    '''FTP Client.
+
+    The session object is :class:`Session`.
+    '''
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._login_table = weakref.WeakKeyDictionary()
+
+    def _session_class(self) -> Session:
+        return functools.partial(Session, login_table=self._login_table)
