@@ -1,6 +1,7 @@
 '''Utils'''
 import re
 
+from typing import Tuple, List, Union, Iterable
 from wpull.errors import ServerError
 import datetime
 from wpull.protocol.ftp.ls.listing import FileEntry
@@ -56,7 +57,7 @@ class FTPServerError(ServerError):
             return self.args[1]
 
 
-def parse_address(text):
+def parse_address(text: str) -> Tuple[str, int]:
     '''Parse PASV address.'''
     match = re.search(
         r'\('
@@ -82,25 +83,26 @@ def parse_address(text):
         raise ValueError('No address found')
 
 
-def reply_code_tuple(code):
+def reply_code_tuple(code: int) -> Tuple[int, int, int]:
     '''Return the reply code as a tuple.
 
     Args:
-        code (int): The reply code.
+        code: The reply code.
 
     Returns:
-        tuple: Each item is the digit.
+        Each item in the tuple is the digit.
     '''
     return code // 100, code // 10 % 10, code % 10
 
 
-def parse_machine_listing(text, convert=True, strict=True):
+def parse_machine_listing(text: str, convert: bool=True, strict: bool=True) -> \
+        List[dict]:
     '''Parse machine listing.
 
     Args:
-        text (str): The listing.
-        convert (bool): Convert sizes and dates.
-        strict (bool): Method of handling errors. ``True`` will raise
+        text: The listing.
+        convert: Convert sizes and dates.
+        strict: Method of handling errors. ``True`` will raise
             ``ValueError``. ``False`` will ignore rows with errors.
 
     Returns:
@@ -108,6 +110,7 @@ def parse_machine_listing(text, convert=True, strict=True):
         The key names must be lowercase. The filename uses the key
         ``name``.
     '''
+    # TODO: this function should be moved into the 'ls' package
     listing = []
 
     for line in text.splitlines(False):
@@ -147,7 +150,8 @@ def parse_machine_listing(text, convert=True, strict=True):
     return listing
 
 
-def convert_machine_list_value(name, value):
+def convert_machine_list_value(name: str, value: str) -> \
+        Union[datetime.datetime, str, int]:
     '''Convert sizes and time values.
 
     Size will be ``int`` while time value will be :class:`datetime.datetime`.
@@ -160,7 +164,7 @@ def convert_machine_list_value(name, value):
         return value
 
 
-def convert_machine_list_time_val(text):
+def convert_machine_list_time_val(text: str) -> datetime.datetime:
     '''Convert RFC 3659 time-val to datetime objects.'''
     # TODO: implement fractional seconds
     text = text[:14]
@@ -179,7 +183,8 @@ def convert_machine_list_time_val(text):
                              tzinfo=datetime.timezone.utc)
 
 
-def machine_listings_to_file_entries(listings):
+def machine_listings_to_file_entries(listings: Iterable[dict]) -> \
+        Iterable[FileEntry]:
     '''Convert results from parsing machine listings to FileEntry list.'''
     for listing in listings:
         yield FileEntry(

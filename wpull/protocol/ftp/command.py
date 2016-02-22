@@ -3,9 +3,13 @@ import logging
 
 
 import asyncio
-from wpull.errors import ProtocolError
 
-from wpull.protocol.ftp.request import Command
+from typing import Sequence, Tuple, Callable, IO
+from typing import Union
+
+from wpull.errors import ProtocolError
+from wpull.network.connection import Connection
+from wpull.protocol.ftp.request import Command, Reply
 from wpull.protocol.ftp.stream import DataStream
 from wpull.protocol.ftp.util import ReplyCodes, FTPServerError
 import wpull.protocol.ftp.util
@@ -25,13 +29,15 @@ class Commander(object):
         self._control_stream = data_stream
 
     @classmethod
-    def raise_if_not_match(cls, action, expected_code, reply):
+    def raise_if_not_match(cls, action: str,
+                           expected_code: Union[int, Sequence[int]],
+                           reply: Reply):
         '''Raise FTPServerError if not expected reply code.
 
         Args:
-            action (str): Label to use in the exception message.
-            expected_code (int, list): Expected 3 digit code.
-            reply (Reply): Reply from the server.
+            action: Label to use in the exception message.
+            expected_code: Expected 3 digit code.
+            reply: Reply from the server.
         '''
         if isinstance(expected_code, int):
             expected_codes = (expected_code,)
@@ -59,7 +65,7 @@ class Commander(object):
             'Server ready', ReplyCodes.service_ready_for_new_user, reply)
 
     @asyncio.coroutine
-    def login(self, username='anonymous', password='-wpull-lib@'):
+    def login(self, username: str='anonymous', password: str='-wpull-lib@'):
         '''Log in.
 
         Coroutine.
@@ -82,11 +88,11 @@ class Commander(object):
             'Login password', ReplyCodes.user_logged_in_proceed, reply)
 
     @asyncio.coroutine
-    def passive_mode(self):
+    def passive_mode(self) -> Tuple[str, int]:
         '''Enable passive mode.
 
         Returns:
-            tuple: The address (IP address, port) of the passive port.
+            The address (IP address, port) of the passive port.
 
         Coroutine.
         '''
@@ -103,18 +109,19 @@ class Commander(object):
             raise ProtocolError(str(error)) from error
 
     @asyncio.coroutine
-    def setup_data_stream(self, connection_factory,
-                          data_stream_factory=DataStream):
+    def setup_data_stream(
+            self,
+            connection_factory: Callable[[tuple], Connection],
+            data_stream_factory: Callable[[Connection], DataStream]=DataStream) -> \
+            DataStream:
         '''Create and setup a data stream.
 
         This function will set up passive and binary mode and handle
         connecting to the data connection.
 
         Args:
-            connection_factory: A coroutine callback that returns
-                :class:`.connection.Connection`.
-            stream_callback: A callback that will be provided an instance of
-                :class:`.ftp.stream.DataStream`.
+            connection_factory: A coroutine callback that returns a connection
+            data_stream_factory: A callback that returns a data stream
 
         Coroutine.
 
@@ -141,17 +148,17 @@ class Commander(object):
         return data_stream
 
     @asyncio.coroutine
-    def begin_stream(self, command):
+    def begin_stream(self, command: Command) -> Reply:
         '''Start sending content on the data stream.
 
         Args:
-            command (:class:`.ftp.request.Command`): A command that
-                tells the server to send data over the data connection.
+            command: A command that tells the server to send data over the
+            data connection.
 
         Coroutine.
 
         Returns:
-            Reply: The begin reply.
+            The begin reply.
         '''
         yield from self._control_stream.write_command(command)
         reply = yield from self._control_stream.read_reply()
@@ -168,13 +175,12 @@ class Commander(object):
         return reply
 
     @asyncio.coroutine
-    def read_stream(self, file, data_stream):
+    def read_stream(self, file: IO, data_stream: DataStream) -> Reply:
         '''Read from the data stream.
 
         Args:
             file: A destination file object or a stream writer.
-            data_stream (:class:`.ftp.stream.DataStream`): The stream of which
-                to read from.
+            data_stream: The stream of which to read from.
 
         Coroutine.
 
@@ -197,7 +203,7 @@ class Commander(object):
         return reply
 
     @asyncio.coroutine
-    def size(self, filename):
+    def size(self, filename: str) -> int:
         '''Get size of file.
 
         Coroutine.
@@ -214,7 +220,7 @@ class Commander(object):
             return
 
     @asyncio.coroutine
-    def restart(self, offset):
+    def restart(self, offset: int):
         '''Send restart command.
 
         Coroutine.

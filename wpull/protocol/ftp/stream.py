@@ -4,9 +4,12 @@ import logging
 
 import asyncio
 
+from typing import IO, Union
+
+from wpull.network.connection import Connection
 from wpull.protocol.abstract.stream import close_stream_on_error
 from wpull.errors import NetworkError
-from wpull.protocol.ftp.request import Reply
+from wpull.protocol.ftp.request import Reply, Command
 from wpull.observer import Observer
 
 
@@ -26,7 +29,7 @@ class DataStream(object):
     Args:
         connection (:class:`.connection.Connection`): Connection.
     '''
-    def __init__(self, connection):
+    def __init__(self, connection: Connection):
         self._connection = connection
         self._data_observer = Observer()
 
@@ -38,13 +41,13 @@ class DataStream(object):
         '''Close connection.'''
         self._connection.close()
 
-    def closed(self):
+    def closed(self) -> bool:
         '''Return whether the connection is closed.'''
         return self._connection.closed()
 
     @asyncio.coroutine
     @close_stream_on_error
-    def read_file(self, file=None):
+    def read_file(self, file: Union[IO, asyncio.StreamWriter]=None):
         '''Read from connection to file.
 
         Args:
@@ -81,9 +84,9 @@ class ControlStream(object):
             2. bytes: The raw data.
 
     Args:
-        connection (:class:`.connection.Connection`): Connection.
+        connection: Connection.
     '''
-    def __init__(self, connection):
+    def __init__(self, connection: Connection):
         self._connection = connection
         self._data_observer = Observer()
 
@@ -95,7 +98,7 @@ class ControlStream(object):
         '''Close the connection.'''
         self._connection.close()
 
-    def closed(self):
+    def closed(self) -> bool:
         '''Return whether the connection is closed.'''
         return self._connection.closed()
 
@@ -112,11 +115,11 @@ class ControlStream(object):
 
     @asyncio.coroutine
     @close_stream_on_error
-    def write_command(self, command):
+    def write_command(self, command: Command):
         '''Write a command to the stream.
 
         Args:
-            command (:class:`.ftp.request.Command`): The command.
+            command: The command.
 
         Coroutine.
         '''
@@ -127,7 +130,7 @@ class ControlStream(object):
 
     @asyncio.coroutine
     @close_stream_on_error
-    def read_reply(self):
+    def read_reply(self) -> Reply:
         '''Read a reply from the stream.
 
         Returns:
