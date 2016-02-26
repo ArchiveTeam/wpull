@@ -1,6 +1,6 @@
 import unittest
 
-from wpull.factory import Factory
+from wpull.application.factory import Factory
 
 
 class TestFactory(unittest.TestCase):
