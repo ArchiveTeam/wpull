@@ -13,7 +13,7 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ServerError, ExitStatus, ProtocolError, \
     SSLVerificationError, DNSNotFound, ConnectionRefused, NetworkError, \
     AuthenticationError
-from wpull.hook import HookableMixin, HookDisconnected, HookStop
+from wpull.application.hook import HookableMixin, HookDisconnected, HookStop
 import wpull.string
 import wpull.observer
 

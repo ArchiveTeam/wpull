@@ -17,10 +17,10 @@ import tornado.testing
 from tornado.testing import AsyncHTTPSTestCase
 
 import wpull.testing.async
-from wpull.builder import Builder
+from wpull.application.builder import Builder
 from wpull.errors import ExitStatus, SSLVerificationError
 from wpull.network.dns import Resolver
-from wpull.options import AppArgumentParser
+from wpull.application.options import AppArgumentParser
 from wpull.protocol.http.web import WebSession
 from wpull.testing.async import AsyncTestCase
 from wpull.testing.badapp import BadAppTestCase

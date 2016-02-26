@@ -22,7 +22,7 @@ import wpull.coprocessor.youtubedl
 import wpull.driver.phantomjs
 import wpull.resmon
 import wpull.version
-from wpull.app import Application
+from wpull.application.app import Application
 from wpull.backport.logging import BraceMessage as __
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy, BetterMozillaCookieJar
@@ -34,12 +34,12 @@ from wpull.database.wrap import URLTableHookWrapper
 from wpull.debug import DebugConsoleHandler
 from wpull.driver.phantomjs import PhantomJSDriver
 from wpull.factory import Factory
-from wpull.hook import HookEnvironment, PluginEnvironment
+from wpull.application.hook import HookEnvironment, PluginEnvironment
 from wpull.namevalue import NameValueRecord
 from wpull.network.bandwidth import BandwidthLimiter
 from wpull.network.connection import Connection, ConnectionPool, SSLConnection
 from wpull.network.dns import Resolver, PythonResolver
-from wpull.options import LOG_QUIET, LOG_VERY_QUIET, LOG_NO_VERBOSE, LOG_VERBOSE, \
+from wpull.application.options import LOG_QUIET, LOG_VERY_QUIET, LOG_NO_VERBOSE, LOG_VERBOSE, \
     LOG_DEBUG
 from wpull.path import PathNamer
 from wpull.pipeline.engine import Engine
