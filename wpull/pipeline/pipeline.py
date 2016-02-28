@@ -165,6 +165,8 @@ class Pipeline(object):
         self._worker_tasks = set()
         self._unpaused_event = asyncio.Event()
 
+        self.skippable = False
+
     @asyncio.coroutine
     def process(self):
         if self._state == PipelineState.stopped:
