@@ -42,7 +42,16 @@ class LinkType(enum.Enum):
     '''FTP directory.'''
 
 
-class URLProperties(object):
+class URLDatabaseMixin:
+    def database_items(self):
+        for name in self.database_attributes:
+            value = getattr(self, name)
+
+            if value is not None:
+                yield name, value
+
+
+class URLProperties(URLDatabaseMixin):
     '''URL properties that determine whether a URL is fetched.
 
     Attributes:
@@ -63,6 +72,8 @@ class URLProperties(object):
             is depth 2.
         link_type (LinkType): Describes the expected document type.
     '''
+    database_attributes = ('parent_url', 'root_url', 'status', 'try_count',
+                           'level', 'inline_level', 'link_type')
 
     def __init__(self):
         self.parent_url = None
@@ -84,22 +95,26 @@ class URLProperties(object):
         return URLInfo.parse(self.parent_url)
 
 
-class URLData(object):
+class URLData(URLDatabaseMixin):
     '''Data associated fetching the URL.
 
     post_data (str): If given, the URL should be fetched as a
         POST request containing `post_data`.
     '''
+    database_attributes = ('post_data',)
+
     def __init__(self):
         self.post_data = None
 
 
-class URLResult(object):
+class URLResult(URLDatabaseMixin):
     '''Data associated with the fetched URL.
 
     status_code (int): The HTTP or FTP status code.
     filename (str): The path to where the file was saved.
     '''
+    database_attributes = ('status_code', 'filename')
+
     def __init__(self):
         self.status_code = None
         self.filename = None
