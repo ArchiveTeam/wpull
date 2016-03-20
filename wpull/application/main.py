@@ -13,9 +13,7 @@ def main(exit=True, install_tornado_bridge=True, use_signals=True):
     args = arg_parser.parse_args()
 
     builder = Builder(args)
-    builder.build()
-
-    application = builder.factory['Application']
+    application = builder.build()
 
     if use_signals:
         application.setup_signal_handlers()
