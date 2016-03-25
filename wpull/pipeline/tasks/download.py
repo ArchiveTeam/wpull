@@ -21,7 +21,7 @@ from wpull.pipeline.pipeline import ItemTask
 from wpull.proxy.client import HTTPProxyConnectionPool
 from wpull.recorder.warc import WARCRecorder, WARCRecorderParams
 from wpull.stats import Statistics
-from wpull.tasks.app import AppSession, new_encoded_stream
+from wpull.pipeline.app import AppSession, new_encoded_stream
 import wpull.resmon
 import wpull.string
 from wpull.urlfilter import HTTPSOnlyFilter, SchemeFilter, RecursiveFilter, \

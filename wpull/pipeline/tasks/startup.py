@@ -24,7 +24,7 @@ import wpull.string
 import wpull.url
 import wpull.util
 import wpull.warc
-from wpull.tasks.app import AppSession, new_encoded_stream
+from wpull.pipline.app import AppSession, new_encoded_stream
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext

@@ -12,7 +12,7 @@ import wpull.url
 import wpull.util
 import wpull.warc
 from wpull.stats import Statistics
-from wpull.tasks.app import AppSession
+from wpull.pipeline.app import AppSession
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext

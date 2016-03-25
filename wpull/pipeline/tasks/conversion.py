@@ -1,7 +1,7 @@
 import asyncio
 
 from wpull.pipeline.pipeline import ItemTask
-from wpull.tasks.app import AppSession
+from wpull.pipeline.app import AppSession
 
 
 class LinkConversionSetupTask(ItemTask[AppSession]):

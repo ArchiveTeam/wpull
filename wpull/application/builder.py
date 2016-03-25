@@ -1,22 +1,19 @@
 # encoding=utf-8
 '''Application support.'''
-import asyncio
-import functools
 import gettext
-import json
 import logging
-import socket
 import sys
 from collections import Sequence
 from http.cookiejar import CookieJar
 
-import tornado.netutil
-import tornado.web
+from wpull.tasks.conversion import LinkConversionSetupTask, LinkConversionTask
+from wpull.tasks.download import StatsStartTask, StatsStopTask, ResmonSetupTask, \
+    ResmonSleepTask, ParserSetupTask, URLFiltersSetupTask, NetworkSetupTask, \
+    ClientSetupTask, ProcessorSetupTask, BackgroundAsyncTask
+from wpull.tasks.shutdown import AppStopTask, LoggingShutdownTask
+from wpull.tasks.startup import SSLContextTask, InputURLTask, ArgWarningTask, \
+    WARCVisitsTask, LoggingSetupTask, DebugConsoleSetupTask, DatabaseSetupTask
 
-import wpull.coprocessor.youtubedl
-import wpull.driver.phantomjs
-import wpull.resmon
-import wpull.version
 from wpull.application.app import Application
 from wpull.application.factory import Factory
 from wpull.converter import BatchDocumentConverter
@@ -32,6 +29,7 @@ from wpull.network.dns import Resolver
 from wpull.network.pool import ConnectionPool
 from wpull.path import PathNamer
 from wpull.pipeline.pipeline import Pipeline
+from wpull.pipeline.tasks.plugin import PluginSetupTask
 from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
     FTPProcessorInstances
@@ -50,7 +48,7 @@ from wpull.recorder.demux import DemuxRecorder
 from wpull.recorder.document import OutputDocumentRecorder
 from wpull.recorder.printing import PrintServerResponseRecorder
 from wpull.recorder.progress import ProgressRecorder
-from wpull.recorder.warc import WARCRecorder, WARCRecorderParams
+from wpull.recorder.warc import WARCRecorder
 from wpull.resmon import ResourceMonitor
 from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper.base import DemuxDocumentScraper
@@ -59,23 +57,13 @@ from wpull.scraper.html import HTMLScraper, ElementWalker
 from wpull.scraper.javascript import JavaScriptScraper
 from wpull.scraper.sitemap import SitemapScraper
 from wpull.stats import Statistics
-from wpull.tasks.app import AppSource, AppSession
-from wpull.tasks.conversion import LinkConversionSetupTask, LinkConversionTask
-from wpull.tasks.download import StatsStartTask, StatsStopTask, ResmonSetupTask, \
-    ResmonSleepTask, ParserSetupTask, URLFiltersSetupTask, NetworkSetupTask, \
-    ClientSetupTask, ProcessorSetupTask, BackgroundAsyncTask
-from wpull.tasks.plugin import PluginSetupTask
-from wpull.tasks.shutdown import AppStopTask, LoggingShutdownTask
-from wpull.tasks.startup import SSLContextTask, InputURLTask, ArgWarningTask, \
-    WARCVisitsTask, LoggingSetupTask, DebugConsoleSetupTask, DatabaseSetupTask
+from wpull.pipeline.app import AppSource, AppSession
 from wpull.url import URLInfo
 from wpull.urlfilter import DemuxURLFilter
 from wpull.urlrewrite import URLRewriter
 from wpull.waiter import LinearWaiter
 from wpull.wrapper import CookieJarWrapper
-from wpull.writer import (NullWriter, OverwriteFileWriter,
-                          IgnoreFileWriter, TimestampingFileWriter,
-                          AntiClobberFileWriter)
+from wpull.writer import (NullWriter)
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext

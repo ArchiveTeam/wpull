@@ -6,7 +6,7 @@ from yapsy.PluginManager import PluginManager
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.pipeline.pipeline import ItemTask
-from wpull.tasks.app import AppSession
+from wpull.pipeline.app import AppSession
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
