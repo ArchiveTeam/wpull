@@ -18,6 +18,7 @@ from wpull.namevalue import NameValueRecord
 from wpull.network.connection import Connection, SSLConnection
 from wpull.network.dns import IPFamilyPreference
 from wpull.pipeline.pipeline import ItemTask
+from wpull.pipeline.session import ItemSession
 from wpull.proxy.client import HTTPProxyConnectionPool
 from wpull.recorder.warc import WARCRecorder, WARCRecorderParams
 from wpull.stats import Statistics
@@ -959,15 +960,15 @@ class ResmonSetupTask(ItemTask[AppSession]):
         )
 
 
-class ResmonSleepTask(ItemTask[WorkItemT]):
+class ResmonSleepTask(ItemTask[ItemSession]):
     @asyncio.coroutine
-    def process(self, work_item: WorkItemT):
-        resource_monitor = work_item.app_session.factory['ResourceMonitor']
+    def process(self, session: ItemSession):
+        resource_monitor = session.app_session.factory['ResourceMonitor']
 
         if not resource_monitor:
             return
 
-        resmon_semaphore = work_item.app_session.resource_monitor_semaphore
+        resmon_semaphore = session.app_session.resource_monitor_semaphore
 
         if resmon_semaphore.locked():
             use_log = False
@@ -1035,9 +1036,9 @@ class DownloadTask(ItemTask[WorkItemT]):
 #         pass
 
 
-class BackgroundAsyncTask(ItemTask[WorkItemT]):
+class BackgroundAsyncTask(ItemTask[ItemSession]):
     @asyncio.coroutine
-    def process(self, work_item: WorkItemT):
-        for task in work_item.session.background_async_tasks:
+    def process(self, session: ItemSession):
+        for task in session.app_session.background_async_tasks:
             if task.done():
                 yield from task

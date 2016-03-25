@@ -1,3 +1,6 @@
+from wpull.pipeline.app import AppSession
+
+
 class URLItem(object):
     '''Item for a URL that needs to processed.'''
     def __init__(self, url_table, url_info, url_record):
@@ -122,4 +125,5 @@ class URLItem(object):
 
 
 class ItemSession(object):
-    pass
+    def __init__(self, app_session: AppSession):
+        self.app_session = app_session

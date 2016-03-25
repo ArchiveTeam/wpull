@@ -2,6 +2,7 @@ import asyncio
 
 from wpull.pipeline.pipeline import ItemTask
 from wpull.pipeline.app import AppSession
+from wpull.pipeline.session import ItemSession
 
 
 class LinkConversionSetupTask(ItemTask[AppSession]):
@@ -27,12 +28,12 @@ class LinkConversionSetupTask(ItemTask[AppSession]):
         return converter
 
 
-class LinkConversionTask(ItemTask[WorkItemT]):
+class LinkConversionTask(ItemTask[ItemSession]):
     def __init__(self, converter):
         self._converter = converter
 
     @asyncio.coroutine
-    def process(self, work_item: WorkItemT):
+    def process(self, session: ItemSession):
         # TODO:
         pass
 
