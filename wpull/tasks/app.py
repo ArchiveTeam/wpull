@@ -21,6 +21,7 @@ class AppSession(object):
         self.async_servers = []
         self.background_async_tasks = []
         self.proxy_server_port = None
+        self.plugin_manager = None
 
 
 class AppSource(ItemSource[AppSession]):

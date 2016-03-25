@@ -64,6 +64,7 @@ from wpull.tasks.conversion import LinkConversionSetupTask, LinkConversionTask
 from wpull.tasks.download import StatsStartTask, StatsStopTask, ResmonSetupTask, \
     ResmonSleepTask, ParserSetupTask, URLFiltersSetupTask, NetworkSetupTask, \
     ClientSetupTask, ProcessorSetupTask, BackgroundAsyncTask
+from wpull.tasks.plugin import PluginSetupTask
 from wpull.tasks.shutdown import AppStopTask, LoggingShutdownTask
 from wpull.tasks.startup import SSLContextTask, InputURLTask, ArgWarningTask, \
     WARCVisitsTask, LoggingSetupTask, DebugConsoleSetupTask, DatabaseSetupTask
@@ -143,12 +144,6 @@ class Builder(object):
             'WebProcessorInstances': WebProcessorInstances,
             'YoutubeDlCoprocessor': YoutubeDlCoprocessor,
         })
-        # self._input_urls_temp_file = tempfile.NamedTemporaryFile(
-        #     prefix='tmp-wpull-input_urls', dir=os.getcwd(),
-        #     suffix='.pickle')
-        self._ca_certs_file = None
-        self._file_log_handler = None
-        self._console_log_handler = None
         self._unit_test = unit_test
 
     @property
@@ -163,11 +158,6 @@ class Builder(object):
     def build(self) -> Application:
         '''Put the application together.
         '''
-
-        # if self._args.plugin_script:
-            #     self._initialize_plugin()
-
-        # self._install_script_hooks()
 
         pipelines = self._build_pipelines()
         self._factory.new('Application', pipelines)
@@ -199,6 +189,7 @@ class Builder(object):
                 ClientSetupTask(),
                 ProcessorSetupTask(),
                 LinkConversionSetupTask(),
+                PluginSetupTask(),
             ])
 
         download_pipeline = Pipeline(
@@ -246,42 +237,6 @@ class Builder(object):
         app = self.build()
         exit_code = app.run_sync()
         return exit_code
-
-    # def _initialize_plugin(self):
-    #     '''Load the plugin script.'''
-    #     filename = self._args.plugin_script
-    #     _logger.info(__(
-    #         _('Using Python hook script {filename}.'),
-    #         filename=filename
-    #     ))
-    #
-    #     plugin_environment = PluginEnvironment(
-    #         self._factory, self, self._args.plugin_args
-    #     )
-    #
-    #     with open(filename, 'rb') as in_file:
-    #         code = compile(in_file.read(), filename, 'exec')
-    #         context = {'wpull_plugin': plugin_environment}
-    #         exec(code, context, context)
-
-    # def _install_script_hooks(self):
-    #     '''Set up the scripts if any.'''
-    #     if self._args.python_script:
-    #         self._install_python_script(self._args.python_script)
-    #
-    # def _install_python_script(self, filename):
-    #     '''Load the Python script into an environment.'''
-    #     _logger.info(__(_('Using Python hook script {filename}.'),
-    #                     filename=filename))
-    #
-    #     hook_environment = HookEnvironment(self._factory)
-    #
-    #     hook_environment.connect_hooks()
-    #
-    #     with open(filename, 'rb') as in_file:
-    #         code = compile(in_file.read(), filename, 'exec')
-    #         context = {'wpull_hook': hook_environment}
-    #         exec(code, context, context)
 
     def get_stderr(self):
         '''Return stderr or something else if under unit testing.'''
