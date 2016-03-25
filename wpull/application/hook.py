@@ -6,58 +6,99 @@ See :ref:`scripting-hooks` for an introduction.
 import functools
 import logging
 
+import asyncio
+
 from wpull.backport.logging import BraceMessage as __
 from wpull.url import parse_url_or_log
 
 _logger = logging.getLogger(__name__)
 
 
-class HookDisconnected(Exception):
+class HookDisconnected(RuntimeError):
     '''No callback is connected.'''
 
 
-class HookAlreadyConnectedError(Exception):
+class HookAlreadyConnectedError(ValueError):
     '''A callback is already connected to the hook.'''
 
 
-class HookableMixin(object):
+class HookDispatcher(object):
     '''Dynamic callback hook system.'''
     def __init__(self):
         super().__init__()
-        self.callback_hooks = {}
+        self._callbacks = {}
 
-    def register_hook(self, *names):
+    def register(self, name: str):
         '''Register hooks that can be connected.'''
-        for name in names:
-            if name not in self.callback_hooks:
-                self.callback_hooks[name] = None
+        if name in self._callbacks:
+            raise ValueError('Hook already registered')
 
-    def unregister_hook(self, *names):
+        self._callbacks[name] = None
+
+    def unregister(self, name: str):
         '''Unregister hook.'''
-        for name in names:
-            del self.callback_hooks[name]
+        del self._callbacks[name]
 
-    def connect_hook(self, name, callback):
+    def connect(self, name, callback):
         '''Add callback to hook.'''
-        if not self.callback_hooks[name]:
-            self.callback_hooks[name] = callback
+        if not self._callbacks[name]:
+            self._callbacks[name] = callback
         else:
             raise HookAlreadyConnectedError('Callback hook already connected.')
 
-    def disconnect_hook(self, name):
+    def disconnect(self, name):
         '''Remove callback from hook.'''
-        self.callback_hooks[name] = None
+        self._callbacks[name] = None
 
-    def call_hook(self, name, *args, **kwargs):
+    def call(self, name, *args, **kwargs):
         '''Invoke the callback.'''
-        if self.callback_hooks[name]:
-            return self.callback_hooks[name](*args, **kwargs)
+        if self._callbacks[name]:
+            return self._callbacks[name](*args, **kwargs)
         else:
             raise HookDisconnected('No callback is connected.')
 
-    def is_hook_connected(self, name):
+    @asyncio.coroutine
+    def call_async(self, name, *args, **kwargs):
+        '''Invoke the callback.'''
+        if self._callbacks[name]:
+            return (yield from self._callbacks[name](*args, **kwargs))
+        else:
+            raise HookDisconnected('No callback is connected.')
+
+    def is_connected(self, name):
         '''Return whether the hook is connected.'''
-        return bool(self.callback_hooks[name])
+        return bool(self._callbacks[name])
+
+
+class EventDispatcher(object):
+    def __init__(self):
+        self._callbacks = {}
+
+    def register(self, name: str):
+        if name in self._callbacks:
+            raise ValueError('Event already registered')
+
+        self._callbacks[name] = set()
+
+    def unregister(self, name: str):
+        del self._callbacks[name]
+
+    def add_listener(self, name, callback):
+        self._callbacks[name].add(callback)
+
+    def remove_listener(self, name, callback):
+        self._callbacks[name].remove(callback)
+
+    def notify(self, name, *args, **kwargs):
+        for callback in self._callbacks[name]:
+            callback(*args, **kwargs)
+
+
+class HookableMixin(object):
+    def __init__(self):
+        super().__init__()
+        self.hook_dispatcher = HookDispatcher()
+        self.event_dispatcher = EventDispatcher()
 
 
 class HookStop(Exception):
