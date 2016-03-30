@@ -46,11 +46,11 @@ class HookDispatcher(object):
         else:
             raise HookAlreadyConnectedError('Callback hook already connected.')
 
-    def disconnect(self, name):
+    def disconnect(self, name: str):
         '''Remove callback from hook.'''
         self._callbacks[name] = None
 
-    def call(self, name, *args, **kwargs):
+    def call(self, name: str, *args, **kwargs):
         '''Invoke the callback.'''
         if self._callbacks[name]:
             return self._callbacks[name](*args, **kwargs)
@@ -58,16 +58,19 @@ class HookDispatcher(object):
             raise HookDisconnected('No callback is connected.')
 
     @asyncio.coroutine
-    def call_async(self, name, *args, **kwargs):
+    def call_async(self, name: str, *args, **kwargs):
         '''Invoke the callback.'''
         if self._callbacks[name]:
             return (yield from self._callbacks[name](*args, **kwargs))
         else:
             raise HookDisconnected('No callback is connected.')
 
-    def is_connected(self, name):
+    def is_connected(self, name: str) -> bool:
         '''Return whether the hook is connected.'''
         return bool(self._callbacks[name])
+
+    def is_registered(self, name: str) -> bool:
+        return name in self._callbacks
 
 
 class EventDispatcher(object):
@@ -83,15 +86,18 @@ class EventDispatcher(object):
     def unregister(self, name: str):
         del self._callbacks[name]
 
-    def add_listener(self, name, callback):
+    def add_listener(self, name: str, callback):
         self._callbacks[name].add(callback)
 
-    def remove_listener(self, name, callback):
+    def remove_listener(self, name: str, callback):
         self._callbacks[name].remove(callback)
 
-    def notify(self, name, *args, **kwargs):
+    def notify(self, name: str, *args, **kwargs):
         for callback in self._callbacks[name]:
             callback(*args, **kwargs)
+
+    def is_registered(self, name: str) -> bool:
+        return name in self._callbacks
 
 
 class HookableMixin(object):
@@ -238,27 +244,6 @@ class CallbacksV2(Callbacks):
     @staticmethod
     def engine_run():
         '''Called when the Engine is about run.'''
-
-    @staticmethod
-    def resolve_dns(host):
-        '''Resolve the hostname to an IP address.
-
-        Args:
-            host (str): The hostname.
-
-        This callback is to override the DNS lookup.
-
-        It is useful when the server is no longer available to the public.
-        Typically, large infrastructures will change the DNS settings to
-        make clients no longer hit the front-ends, but rather go towards
-        a static HTTP server with a "We've been acqui-hired!" page. In these
-        cases, the original servers may still be online.
-
-        Returns:
-            str, None: ``None`` to use the original behavior or a string
-            containing an IP address or an alternate hostname.
-        '''
-        return None
 
     @staticmethod
     def accept_url(url_info, record_info, verdict, reasons):
@@ -485,7 +470,6 @@ class HookEnvironment(object):
     def connect_hooks(self):
         '''Connect callbacks to hooks.'''
 
-        self.factory['Resolver'].connect_hook('resolve_dns', self._resolve_dns)
         self.factory['Engine'].connect_hook('engine_run', self._engine_run)
         self.factory['URLTable'].connect_hook(
             'dequeued_url',
@@ -681,15 +665,22 @@ class HookEnvironment(object):
         url_item.add_child_url(url_info.url, inline=inline, **kwargs)
 
 
-class PluginEnvironment(object):
-    '''Plugin environment for customizing classes.
+def callback_decorator(name: str, category: str):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
 
-    Attributes:
-        factory (:class:`.factory.Factory`): The factory ready to be modified.
-        builder (:class:`.builder.Builder`): Application builder.
-        plugin_args (str): Additional arguments for the plugin.
-    '''
-    def __init__(self, factory, builder, plugin_args):
-        self.factory = factory
-        self.builder = builder
-        self.plugin_args = plugin_args
+        wrapper.callback_name = name
+        wrapper.callback_category = category
+
+        return wrapper
+    return decorator
+
+
+def hook_function(name: str):
+    return functools.partial(callback_decorator, category='hook')
+
+
+def event_function(name: str):
+    return functools.partial(callback_decorator, category='event')

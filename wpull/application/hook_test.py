@@ -13,6 +13,7 @@ class TestHook(AsyncTestCase):
 
         hook.register('a')
         self.assertFalse(hook.is_connected('a'))
+        self.assertTrue(hook.is_registered('a'))
 
         with self.assertRaises(ValueError):
             hook.register('a')
@@ -53,6 +54,7 @@ class TestHook(AsyncTestCase):
         event = EventDispatcher()
 
         event.register('a')
+        self.assertTrue(event.is_registered('a'))
 
         with self.assertRaises(ValueError):
             event.register('a')
