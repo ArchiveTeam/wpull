@@ -1,30 +1,28 @@
+import asyncio
+import gettext
+import logging
+
+from typing import Optional
+
+from wpull.database.base import AddURLInfo
 from wpull.pipeline.app import AppSession
+from wpull.pipeline.item import URLRecord, Status, URLResult, URLProperties, \
+    URLData, LinkType
+from wpull.pipeline.pipeline import ItemSource
+from wpull.backport.logging import BraceMessage as __
+
+_logger = logging.getLogger(__name__)
+_ = gettext.gettext
 
 
-class URLItem(object):
+class ItemSession(object):
     '''Item for a URL that needs to processed.'''
-    def __init__(self, url_table, url_info, url_record):
-        self._url_table = url_table
-        self._url_info = url_info
-        self._url_record = url_record
-        self._url = self._url_record.url
+    def __init__(self, app_session: AppSession, url_record: URLRecord):
+        self.app_session = app_session
+        self.url_record = url_record
         self._processed = False
         self._try_count_incremented = False
-
-    @property
-    def url_info(self):
-        '''Return the :class:`.url.URLInfo`.'''
-        return self._url_info
-
-    @property
-    def url_record(self):
-        '''Return the :class:`URLRecord`.'''
-        return self._url_record
-
-    @property
-    def url_table(self):
-        '''Return the :class:`.database.URLTable`.'''
-        return self._url_table
+        self._add_url_batch = []
 
     @property
     def is_processed(self):
@@ -33,12 +31,13 @@ class URLItem(object):
 
     def skip(self):
         '''Mark the item as processed without download.'''
-        _logger.debug(__(_('Skipping ‘{url}’.'), url=self._url))
-        self._url_table.check_in(self._url, Status.skipped)
+        _logger.debug(__(_('Skipping ‘{url}’.'), url=self.url_record.url))
+        self.app_session.factory['URLTable'].check_in(self.url_record.url, Status.skipped)
 
         self._processed = True
 
-    def set_status(self, status, increment_try_count=True, filename=None):
+    def set_status(self, status: Status, increment_try_count: bool=True,
+                   filename: str=None):
         '''Mark the item with the given status.
 
         Args:
@@ -46,40 +45,49 @@ class URLItem(object):
             increment_try_count (bool): if True, increment the ``try_count``
                 value
         '''
-        assert not self._try_count_incremented, (self._url, status)
+        url = self.url_record.url
+        assert not self._try_count_incremented, (url, status)
 
         if increment_try_count:
             self._try_count_incremented = True
 
-        _logger.debug(__('Marking URL {0} status {1}.', self._url, status))
-        self._url_table.check_in(
-            self._url,
+        _logger.debug(__('Marking URL {0} status {1}.', url, status))
+
+        url_result = URLResult()
+        url_result.filename = filename
+
+        self.app_session.factory['URLTable'].check_in(
+            url,
             status,
             increment_try_count=increment_try_count,
-            filename=filename,
+            url_result=url_result,
         )
 
         self._processed = True
 
-    def set_value(self, **kwargs):
-        '''Set values for the URL in table.'''
-        self._url_table.update_one(self._url, **kwargs)
+    def add_url(self, url: str, url_properites: Optional[URLProperties]=None,
+                url_data: Optional[URLData]=None):
+        url_properties = url_properites or URLProperties()
+        url_data = url_data or URLData()
+        add_url_info = AddURLInfo(url, url_properties, url_data)
 
-    def add_child_url(self, url, inline=False, **kwargs):
-        '''Add a single URL as a child of this item.
+        self._add_url_batch.append(add_url_info)
 
-        See :meth:`add_child_urls` for argument details.
-        '''
-        self.add_child_urls([{'url': url}], inline=inline, **kwargs)
+        if len(self._add_url_batch) >= 1000:
+            self.app_session.factory['URLTable'].add_many(self._add_url_batch)
+            self._add_url_batch.clear()
 
-    def add_child_urls(self, urls, inline=False, level=None, **kwargs):
+    def add_child_url(self, url: str, inline: bool=False,
+                      link_type: Optional[LinkType]=None,
+                      post_data: Optional[str]=None,
+                      level: Optional[int]=None):
         '''Add links scraped from the document with automatic values.
 
         Args:
             urls: An iterable of `str` or `dict`. When a `str` is provided,
                 it is a URL. When a `dict` is provided, it is a mapping
                 of table column names to values.
-            inline (bool): Whether the URL is an embedded object. This
+            inline: Whether the URL is an embedded object. This
                 function automatically calculates the value needed for
                 the table column "inline".
             kwargs: Additional column value to be apllied for all URLs
@@ -94,36 +102,47 @@ class URLItem(object):
 
         See also :meth:`.database.base.BaseSQLURLTable.add_many`.
         '''
-        self._url_table.add_many(
-            [item if isinstance(item, dict) else {'url': item} for item in urls],
-            inline=(self._url_record.inline or 0) + 1 if inline else None,
-            level=self._url_record.level + 1 if level is None else level,
-            referrer=self._url_record.url,
-            top_url=self._url_record.top_url or self._url_record.url,
-            **kwargs
-        )
+        url_properties = URLProperties()
+        url_properties.level = self.url_record.level + 1 if level is None else level,
+        url_properties.inline_level = (self.url_record.inline_level or 0) + 1 if inline else None
+        url_properties.parent_url = self.url_record.url
+        url_properties.root_url = self.url_record.root_url or self.url_record.url
+        url_data = URLData()
+        url_data.post_data = post_data
+        self.add_url(url, url_properties, url_data)
 
-    def child_url_record(self, url_info, inline=False,
-                         link_type=None, post_data=None, level=None):
+    def child_url_record(self, url: str, inline: bool=False,
+                         link_type: Optional[LinkType]=None,
+                         post_data: Optional[str]=None,
+                         level: Optional[int]=None):
         '''Return a child URLRecord.
 
         This function is useful for testing filters before adding to table.
         '''
-        return URLRecord(
-            url_info.url,  # url
-            Status.todo,  # status
-            0,  # try_count
-            self._url_record.level + 1 if level is None else level,  # level
-            self._url_record.top_url or self._url_record.url,  # top_url
-            None,  # status_code
-            self._url_record.url,  # referrer
-            (self._url_record.inline or 0) + 1 if inline else 0,  # inline
-            link_type,  # link_type
-            post_data,  # post_data
-            None  # filename
-        )
+        url_record = URLRecord()
+        url_record.url = url
+        url_record.status = Status.todo
+        url_record.try_count = 0
+        url_record.level = self.url_record.level + 1 if level is None else level
+        url_record.root_url = self.url_record.root_url or self.url_record.url
+        url_record.parent_url = self.url_record.url
+        url_record.inline_level = (self.url_record.inline_level or 0) + 1 if inline else 0
+        url_record.link_type = link_type
+        url_record.post_data = post_data
+
+        return url_record
+
+    def finish(self):
+        self.app_session.factory['URLTable'].add_many(self._add_url_batch)
 
 
-class ItemSession(object):
+class URLItemSource(ItemSource[ItemSession]):
     def __init__(self, app_session: AppSession):
-        self.app_session = app_session
+        self._app_session = app_session
+
+    @asyncio.coroutine
+    def get_item(self) -> Optional[ItemSession]:
+        url_record = self._app_session.factory['URLTable'].get_one()
+
+        item_session = ItemSession(self._app_session, url_record)
+        return item_session
