@@ -317,7 +317,7 @@ class InputURLTask(ItemTask[AppSession]):
             encoding=session.args.local_encoding or 'utf-8'
         )
 
-        for context in scrape_result.link_contexts
+        for context in scrape_result.link_contexts:
             yield context.link
 
 class WARCVisitsTask(ItemTask[AppSession]):
