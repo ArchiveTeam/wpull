@@ -9,7 +9,7 @@ import asyncio
 from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ServerError, ProtocolError, SSLVerificationError, \
     NetworkError
-
+from wpull.pipeline.session import ItemSession
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
@@ -30,11 +30,11 @@ class BaseProcessor(object, metaclass=abc.ABCMeta):
     Processors contain the logic for processing requests.
     '''
     @asyncio.coroutine
-    def process(self, url_item):
+    def process(self, item_session: ItemSession):
         '''Process an URL Item.
 
         Args:
-            url_item (:class:`.item.URLItem`): The URL item.
+            item_session: The URL item.
 
         This function handles the logic for processing a single
         URL item.
@@ -44,11 +44,9 @@ class BaseProcessor(object, metaclass=abc.ABCMeta):
 
         Coroutine.
         '''
-        pass
 
     def close(self):
         '''Run any clean up actions.'''
-        pass
 
 
 class BaseProcessorSession(object, metaclass=abc.ABCMeta):

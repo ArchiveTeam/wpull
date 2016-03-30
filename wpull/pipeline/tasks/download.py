@@ -633,7 +633,11 @@ class ProcessorSetupTask(ItemTask[AppSession]):
         '''
         web_processor = cls._build_web_processor(session)
         ftp_processor = cls._build_ftp_processor(session)
-        return session.factory.new('Processor', web_processor, ftp_processor)
+        delegate_processor = session.factory.new('Processor')
+
+        delegate_processor.register('http', web_processor)
+        delegate_processor.register('https', web_processor)
+        delegate_processor.register('ftp', ftp_processor)
 
     @classmethod
     def _build_web_processor(cls, session: AppSession):
