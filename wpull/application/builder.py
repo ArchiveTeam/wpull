@@ -6,14 +6,6 @@ import sys
 from collections import Sequence
 from http.cookiejar import CookieJar
 
-from wpull.tasks.conversion import LinkConversionSetupTask, LinkConversionTask
-from wpull.tasks.download import StatsStartTask, StatsStopTask, ResmonSetupTask, \
-    ResmonSleepTask, ParserSetupTask, URLFiltersSetupTask, NetworkSetupTask, \
-    ClientSetupTask, ProcessorSetupTask, BackgroundAsyncTask
-from wpull.tasks.shutdown import AppStopTask, LoggingShutdownTask
-from wpull.tasks.startup import SSLContextTask, InputURLTask, ArgWarningTask, \
-    WARCVisitsTask, LoggingSetupTask, DebugConsoleSetupTask, DatabaseSetupTask
-
 from wpull.application.app import Application
 from wpull.application.factory import Factory
 from wpull.converter import BatchDocumentConverter
@@ -29,7 +21,19 @@ from wpull.network.dns import Resolver
 from wpull.network.pool import ConnectionPool
 from wpull.path import PathNamer
 from wpull.pipeline.pipeline import Pipeline
+from wpull.pipeline.session import URLItemSource
+from wpull.pipeline.tasks.conversion import LinkConversionSetupTask, \
+    LinkConversionTask
+from wpull.pipeline.tasks.download import ProcessTask, ResmonSetupTask, \
+    ParserSetupTask, StatsStartTask, URLFiltersSetupTask, NetworkSetupTask, \
+    ClientSetupTask, ProcessorSetupTask, ResmonSleepTask, BackgroundAsyncTask, \
+    StatsStopTask
 from wpull.pipeline.tasks.plugin import PluginSetupTask
+from wpull.pipeline.tasks.shutdown import BackgroundAsyncCleanupTask, \
+    AppStopTask, LoggingShutdownTask
+from wpull.pipeline.tasks.startup import LoggingSetupTask, DebugConsoleSetupTask, \
+    DatabaseSetupTask, InputURLTask, ArgWarningTask, WARCVisitsTask, \
+    SSLContextTask
 from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
     FTPProcessorInstances
@@ -180,11 +184,12 @@ class Builder(object):
                 PluginSetupTask(),
             ])
 
+        url_item_source = URLItemSource(app_session)
+
         download_pipeline = Pipeline(
-            source,  # TODO:
+            url_item_source,
             [
-                task,
-                task,
+                ProcessTask(),
                 ResmonSleepTask(),
                 BackgroundAsyncTask(),
             ]
@@ -198,7 +203,7 @@ class Builder(object):
         download_stop_pipeline.skippable = True
 
         conversion_pipeline = Pipeline(
-            source,
+            AppSource(app_session),
             [
                 LinkConversionTask()
             ]

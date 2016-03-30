@@ -1011,11 +1011,10 @@ class ResmonSleepTask(ItemTask[ItemSession]):
             yield from asyncio.sleep(60)
 
 
-class DownloadTask(ItemTask[WorkItemT]):
+class ProcessTask(ItemTask[ItemSession]):
     @asyncio.coroutine
-    def process(self, work_item: WorkItemT):
-        # TODO:
-        pass
+    def process(self, session: ItemSession):
+        yield from session.app_session.factory['Processor'].process(session)
 
 
 # class ParseTask(ItemTask[WorkItemT]):

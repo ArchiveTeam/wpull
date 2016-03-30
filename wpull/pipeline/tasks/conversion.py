@@ -28,17 +28,10 @@ class LinkConversionSetupTask(ItemTask[AppSession]):
         return converter
 
 
-class LinkConversionTask(ItemTask[ItemSession]):
-    def __init__(self, converter):
-        self._converter = converter
-
+class LinkConversionTask(ItemTask[AppSession]):
     @asyncio.coroutine
-    def process(self, session: ItemSession):
-        # TODO:
-        pass
-
-    def _convert_documents(self):
-        converter = self._builder.factory.instance_map.get(
+    def process(self, session: AppSession):
+        converter = session.factory.instance_map.get(
             'BatchDocumentConverter')
 
         if converter:
