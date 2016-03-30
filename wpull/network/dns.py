@@ -18,8 +18,9 @@ from typing import List, Sequence, Optional, Iterable, NamedTuple
 from wpull.backport.logging import BraceMessage as __
 from wpull.cache import FIFOCache
 from wpull.errors import DNSNotFound, NetworkError
-from wpull.hook import HookableMixin, HookDisconnected
+from wpull.application.hook import HookableMixin, HookDisconnected
 import wpull.util
+import wpull.application.hook
 
 
 _logger = logging.getLogger(__name__)
@@ -104,7 +105,7 @@ class IPFamilyPreference(enum.Enum):
     ipv6_only = socket.AF_INET6
 
 
-class Resolver(object):
+class Resolver(HookableMixin):
     '''Asynchronous resolver with cache and timeout.
 
     Args:
@@ -137,6 +138,9 @@ class Resolver(object):
         if timeout:
             self._dns_resolver.timeout = timeout
 
+        self.hook_dispatcher.register('Resolver.resolve_dns')
+        self.event_dispatcher.register('Resolver.resolve_result')
+
     @asyncio.coroutine
     def resolve(self, host: str) -> ResolveResult:
         '''Resolve hostname.
@@ -155,6 +159,11 @@ class Resolver(object):
         '''
 
         _logger.debug(__('Lookup address {0}.', host))
+
+        try:
+            host = self.hook_dispatcher.call('Resolver.resolve_dns', host)
+        except HookDisconnected:
+            pass
 
         cache_key = (host, self._family)
 
@@ -204,6 +213,8 @@ class Resolver(object):
 
         if self._cache:
             self._cache[cache_key] = resolve_result
+
+        self.event_dispatcher.notify('Resolver.resolve_result', host, resolve_result)
 
         return resolve_result
 
@@ -320,3 +331,30 @@ class Resolver(object):
         control_id = results[0][4][3]
 
         return flow_info, control_id
+
+    @staticmethod
+    @wpull.application.hook.hook_function('Resolver.resolve_dns')
+    def resolve_dns(host: str) -> str:
+        '''Resolve the hostname to an IP address.
+
+        Args:
+            host: The hostname.
+
+        This callback is to override the DNS lookup.
+
+        It is useful when the server is no longer available to the public.
+        Typically, large infrastructures will change the DNS settings to
+        make clients no longer hit the front-ends, but rather go towards
+        a static HTTP server with a "We've been acqui-hired!" page. In these
+        cases, the original servers may still be online.
+
+        Returns:
+            str, None: ``None`` to use the original behavior or a string
+            containing an IP address or an alternate hostname.
+        '''
+        return host
+
+    @staticmethod
+    @wpull.application.hook.event_function('Resolver.resolve_result')
+    def resolve_result(host: str, result: ResolveResult):
+        pass
