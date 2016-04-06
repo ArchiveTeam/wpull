@@ -3,8 +3,9 @@
 import gettext
 import logging
 import sys
-from collections import Sequence
 from http.cookiejar import CookieJar
+
+from typing import Sequence
 
 from wpull.application.app import Application
 from wpull.application.factory import Factory
@@ -27,7 +28,7 @@ from wpull.pipeline.tasks.conversion import LinkConversionSetupTask, \
 from wpull.pipeline.tasks.download import ProcessTask, ResmonSetupTask, \
     ParserSetupTask, StatsStartTask, URLFiltersSetupTask, NetworkSetupTask, \
     ClientSetupTask, ProcessorSetupTask, ResmonSleepTask, BackgroundAsyncTask, \
-    StatsStopTask
+    StatsStopTask, FileWriterSetupTask
 from wpull.pipeline.tasks.plugin import PluginSetupTask
 from wpull.pipeline.tasks.shutdown import BackgroundAsyncCleanupTask, \
     AppStopTask, LoggingShutdownTask
@@ -157,7 +158,7 @@ class Builder(object):
         return self._factory['Application']
 
     def _build_pipelines(self) -> Sequence[Pipeline]:
-        app_session = AppSession(self._factory, self._args)
+        app_session = AppSession(self._factory, self._args, self.get_stderr())
 
         app_start_pipeline = Pipeline(
             AppSource(app_session),
@@ -179,6 +180,7 @@ class Builder(object):
                 URLFiltersSetupTask(),
                 NetworkSetupTask(),
                 ClientSetupTask(),
+                FileWriterSetupTask(),
                 ProcessorSetupTask(),
                 LinkConversionSetupTask(),
                 PluginSetupTask(),

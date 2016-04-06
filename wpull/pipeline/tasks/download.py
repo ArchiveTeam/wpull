@@ -208,24 +208,13 @@ class URLFiltersSetupTask(ItemTask[AppSession]):
                 enabled=args.recursive, page_requisites=args.page_requisites
             ),
             FollowFTPFilter(follow=args.follow_ftp),
+            SpanHostsFilter(
+                tuple(session.factory['URLTable'].get_hostnames()),
+                enabled=args.span_hosts,
+                page_requisites='page-requisites' in args.span_hosts_allow,
+                linked_pages='linked-pages' in args.span_hosts_allow,
+            )
         ]
-
-        with wpull.util.reset_file_offset(self._input_urls_temp_file):
-            input_urls_pickle_stream = GzipPickleStream(
-                file=self._input_urls_temp_file, mode='rb'
-            )
-
-            filters.append(
-                SpanHostsFilter(
-                    input_urls_pickle_stream.iter_load(),
-                    enabled=args.span_hosts,
-                    page_requisites='page-requisites' in args.span_hosts_allow,
-                    linked_pages='linked-pages' in args.span_hosts_allow,
-                )
-            )
-
-            input_urls_pickle_stream.close()
-            del input_urls_pickle_stream
 
         if args.no_parent:
             filters.append(ParentFilter())
@@ -296,7 +285,7 @@ class NetworkSetupTask(ItemTask[AppSession]):
             family=family,
             timeout=dns_timeout,
             rotate=args.rotate_dns,
-            cache_enabled=args.dns_cache,
+            cache=session.factory.class_map['Resolver'].new_cache() if args.dns_cache else None,
         )
 
     @classmethod
@@ -440,7 +429,6 @@ class ClientSetupTask(ItemTask[AppSession]):
         return session.factory.new(
             'HTTPClient',
             connection_pool=session.factory['ConnectionPool'],
-            recorder=recorder,
             stream_factory=stream_factory
          )
 
@@ -501,7 +489,8 @@ class ClientSetupTask(ItemTask[AppSession]):
         return session.factory.new(
             'FTPClient',
             connection_pool=session.factory['ConnectionPool'],
-            recorder=session.factory['DemuxRecorder'],
+            # TODO: recorder
+            # recorder=session.factory['DemuxRecorder'],
         )
 
 

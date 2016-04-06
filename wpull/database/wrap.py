@@ -44,7 +44,7 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
             url_info = parse_url_or_log(url)
             if url_info:
                 self._queue_counter += 1
-                self.event_dispatcher.notify('queued_url', url_info)
+                self.event_dispatcher.notify('URLTable.queued_url', url_info)
 
         return added_urls
 
@@ -52,7 +52,7 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
         url_record = self.url_table.check_out(filter_status, filter_level)
         self._queue_counter -= 1
 
-        self.event_dispatcher.notify('dequeued_url', url_record.url_info, url_record)
+        self.event_dispatcher.notify('URLTable.dequeued_url', url_record.url_info, url_record)
 
         return url_record
 
@@ -63,7 +63,7 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
             url_info = parse_url_or_log(url)
 
             if url_info:
-                self.event_dispatcher.notify('queued_url', url_info)
+                self.event_dispatcher.notify('URLTable.queued_url', url_info)
 
         return self.url_table.check_in(url, new_status, *args, **kwargs)
 
@@ -84,6 +84,9 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
 
     def get_revisit_id(self, url, payload_digest):
         return self.url_table.get_revisit_id(url, payload_digest)
+
+    def get_hostnames(self):
+        return self.url_table.get_hostnames()
 
     @staticmethod
     @wpull.application.hook.event_function('URLTable.queued_url')
