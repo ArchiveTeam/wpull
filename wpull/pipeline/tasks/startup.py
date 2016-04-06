@@ -34,8 +34,7 @@ class LoggingSetupTask(ItemTask[AppSession]):
     @asyncio.coroutine
     def process(self, session: AppSession):
         self._setup_logging(session.args)
-        self._setup_console_logger(session, session.args,
-                                   session.factory['Application'].get_stderr())
+        self._setup_console_logger(session, session.args, session.stderr)
         self._setup_file_logger(session, session.args)
 
     @classmethod

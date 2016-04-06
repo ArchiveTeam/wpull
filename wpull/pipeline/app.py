@@ -9,11 +9,12 @@ import wpull.util
 
 
 class AppSession(object):
-    def __init__(self, factory: Factory, args):
+    def __init__(self, factory: Factory, args, stderr):
         self.default_user_agent = 'Wpull/{0} (gzip)'.format(
             wpull.version.__version__)
         self.factory = factory
         self.args = args
+        self.stderr = stderr
         self.ca_certs_filename = None
         self.console_log_handler = None
         self.resource_monitor_semaphore = asyncio.BoundedSemaphore(1)
