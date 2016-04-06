@@ -7,7 +7,7 @@ import wpull.url
 from wpull.backport.logging import BraceMessage as __
 from wpull.errors import DNSNotFound, ServerError, ConnectionRefused, \
     SSLVerificationError, ProtocolError
-from wpull.hook import HookableMixin, HookDisconnected, Actions, HookStop
+from wpull.application.hook import HookableMixin, HookDisconnected, Actions, HookStop
 from wpull.pipeline.item import Status
 
 _logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ class FetchRule(HookableMixin):
         self.ftp_login = ftp_login
         self.duration_timeout = duration_timeout
 
-        self.register_hook('should_fetch')
+        self.hook_dispatcher.register('FetchRule.should_fetch')
 
     @asyncio.coroutine
     def consult_robots_txt(self, request):
@@ -103,8 +103,8 @@ class FetchRule(HookableMixin):
             tuple: (bool, str)
         '''
         try:
-            verdict = self.call_hook(
-                'should_fetch', url_info, url_record, verdict, reason,
+            verdict = self.hook_dispatcher.call(
+                'FetchRule.should_fetch', url_info, url_record, verdict, reason,
                 test_info,
             )
             reason = 'callback_hook'
@@ -192,10 +192,10 @@ class ResultRule(HookableMixin):
         self._waiter = waiter
         self._statistics = statistics
 
-        self.register_hook(
-            'wait_time', 'handle_response', 'handle_pre_response',
-            'handle_error',
-        )
+        self.hook_dispatcher.register('wait_time')
+        self.hook_dispatcher.register('handle_response')
+        self.hook_dispatcher.register('handle_pre_response')
+        self.hook_dispatcher.register('handle_error')
 
     def handle_pre_response(self, request, response, url_item):
         '''Process a response that is starting.'''
@@ -377,7 +377,7 @@ class ProcessingRule(HookableMixin):
         self._sitemaps = sitemaps
         self._url_rewriter = url_rewriter
 
-        self.register_hook('scrape_document')
+        self.hook_dispatcher.register('scrape_document')
 
     parse_url = staticmethod(wpull.url.parse_url_or_log)
 

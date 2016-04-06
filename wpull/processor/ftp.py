@@ -15,7 +15,7 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
 from wpull.cache import LRUCache
 from wpull.errors import ProtocolError
-from wpull.hook import Actions
+from wpull.application.hook import Actions
 from wpull.pipeline.item import LinkType
 from wpull.processor.base import BaseProcessor, BaseProcessorSession, \
     REMOTE_ERRORS

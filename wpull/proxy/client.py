@@ -6,7 +6,7 @@ import logging
 
 import wpull.string
 from wpull.errors import NetworkError
-from wpull.network.connection import ConnectionPool
+from wpull.network.pool import ConnectionPool
 from wpull.protocol.http.request import RawRequest
 from wpull.protocol.http.stream import Stream
 

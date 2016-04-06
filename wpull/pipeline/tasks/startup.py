@@ -17,6 +17,7 @@ from wpull.application.options import LOG_QUIET, LOG_DEBUG
 from wpull.application.options import LOG_VERY_QUIET, LOG_NO_VERBOSE, \
     LOG_VERBOSE
 from wpull.backport.logging import BraceMessage as __
+from wpull.database.base import AddURLInfo
 from wpull.database.sqltable import GenericSQLURLTable
 from wpull.debug import DebugConsoleHandler
 from wpull.pipeline.pipeline import ItemTask
