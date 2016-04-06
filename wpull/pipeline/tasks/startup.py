@@ -252,7 +252,7 @@ class InputURLTask(ItemTask[AppSession]):
         url_table = session.factory['URLTable']
 
         for batch in wpull.util.grouper(self._read_input_urls(session), 1000):
-            url_table.add_many(url_info.url for url_info in batch if url_info)
+            url_table.add_many(AddURLInfo(url_info.url, None, None) for url_info in batch if url_info)
             # TODO: attach hook for notifying progress
 
             # TODO: raise on error if no urls
@@ -268,7 +268,8 @@ class InputURLTask(ItemTask[AppSession]):
         '''Read the URLs provided by the user.'''
 
         url_string_iter = session.args.urls or ()
-        url_rewriter = session.factory['URLRewriter']
+        # FIXME: url rewriter isn't created yet
+        url_rewriter = session.factory.get('URLRewriter')
 
         if session.args.input_file:
             if session.args.force_html:
@@ -320,10 +321,14 @@ class InputURLTask(ItemTask[AppSession]):
         for context in scrape_result.link_contexts:
             yield context.link
 
+
 class WARCVisitsTask(ItemTask[AppSession]):
     @asyncio.coroutine
     def process(self, session: AppSession):
         '''Populate the visits from the CDX into the URL table.'''
+        if not session.args.warc_dedup:
+            return
+
         iterable = wpull.warc.read_cdx(
             session.args.warc_dedup,
             encoding=session.args.local_encoding or 'utf-8'
@@ -425,7 +430,7 @@ class SSLContextTask(ItemTask[AppSession]):
 
         if args.use_internal_ca_certs:
             pem_filename = os.path.join(
-                os.path.dirname(__file__), 'cert', 'ca-bundle.pem'
+                os.path.dirname(__file__), '..', '..', 'cert', 'ca-bundle.pem'
             )
             certs.update(cls._read_pem_file(pem_filename, from_package=True))
 
