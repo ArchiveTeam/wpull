@@ -83,6 +83,14 @@ class TestDNS(wpull.testing.async.AsyncTestCase):
         resolver = self.get_resolver()
         yield from resolver.resolve('-kol.deviantart.com')
 
+    @wpull.testing.async.async_test()
+    def test_resolver_rotate_cache(self):
+        resolver = self.get_resolver(rotate=True, cache=Resolver.new_cache())
+
+        for dummy in range(5):
+            # FIXME: test if actual result is changed
+            yield from resolver.resolve('localhost')
+
 
 class TestPythonOnlyDNS(TestDNS):
     @wpull.testing.async.async_test()

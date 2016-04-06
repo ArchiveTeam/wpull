@@ -114,6 +114,8 @@ class Resolver(HookableMixin):
             specified, this class relies on the underlying libraries.
         bind_address: An IP address to bind DNS requests if possible.
         cache: Cache to store results of any query.
+        rotate: If result is cached rotates the results, otherwise, shuffle
+            the results.
     '''
 
     def __init__(
@@ -121,7 +123,8 @@ class Resolver(HookableMixin):
             family: IPFamilyPreference=IPFamilyPreference.any,
             timeout: Optional[float]=None,
             bind_address: Optional[str]=None,
-            cache: Optional[FIFOCache]=None):
+            cache: Optional[FIFOCache]=None,
+            rotate: bool=False):
         super().__init__()
         assert family in IPFamilyPreference, \
             'Unknown family {}.'.format(family)
@@ -130,6 +133,7 @@ class Resolver(HookableMixin):
         self._timeout = timeout
         self._bind_address = bind_address
         self._cache = cache
+        self._rotate = rotate
 
         self._dns_resolver = dns.resolver.Resolver()
 
@@ -140,6 +144,11 @@ class Resolver(HookableMixin):
 
         self.hook_dispatcher.register('Resolver.resolve_dns')
         self.event_dispatcher.register('Resolver.resolve_result')
+
+    @classmethod
+    def new_cache(cls) -> FIFOCache:
+        '''Return a default cache'''
+        return FIFOCache(max_items=100, time_to_live=3600)
 
     @asyncio.coroutine
     def resolve(self, host: str) -> ResolveResult:
@@ -170,6 +179,10 @@ class Resolver(HookableMixin):
         if self._cache and cache_key in self._cache:
             resolve_result = self._cache[cache_key]
             _logger.debug(__('Return by cache {0}.', resolve_result))
+
+            if self._rotate:
+                resolve_result.rotate()
+
             return resolve_result
 
         address_infos = []
@@ -215,6 +228,9 @@ class Resolver(HookableMixin):
             self._cache[cache_key] = resolve_result
 
         self.event_dispatcher.notify('Resolver.resolve_result', host, resolve_result)
+
+        if self._rotate:
+            resolve_result.shuffle()
 
         return resolve_result
 
