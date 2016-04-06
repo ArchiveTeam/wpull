@@ -4,6 +4,7 @@ import abc
 import fnmatch
 import re
 
+from wpull.pipeline.item import URLRecord
 from wpull.url import URLInfo, schemes_similar, is_subdir
 
 
@@ -13,17 +14,16 @@ class BaseURLFilter(object, metaclass=abc.ABCMeta):
     The Processor uses filters to determine whether a URL should be downloaded.
     '''
     @abc.abstractmethod
-    def test(self, url_info, url_table_record):
+    def test(self, url_info: URLInfo, url_record: URLRecord) -> bool:
         '''Return whether the URL should be downloaded.
 
         Args:
-            url_info: :class:`.url.URLInfo`
-            url_table_record: :class:`.item.URLRecord`
+            url_info:
+            url_record:
 
         Returns:
-            bool: If True, the fitler passed and the URL should be downloaded.
+           If True, the filter passed and the URL should be downloaded.
         '''
-        pass
 
 
 class DemuxURLFilter(BaseURLFilter):
@@ -91,8 +91,8 @@ class FollowFTPFilter(BaseURLFilter):
 
     def test(self, url_info, url_table_record):
         if url_info.scheme == 'ftp':
-            if url_table_record.referrer and \
-                    url_table_record.referrer_info.scheme in ('http', 'https'):
+            if url_table_record.parent_url and \
+                    url_table_record.parent_url_info.scheme in ('http', 'https'):
                 return self._follow
             else:
                 return True
@@ -152,7 +152,7 @@ class RecursiveFilter(BaseURLFilter):
     def test(self, url_info, url_table_record):
         if url_table_record.level == 0:
             return True
-        if url_table_record.inline:
+        if url_table_record.inline_level:
             if self._page_requisites:
                 return True
         else:
@@ -167,12 +167,12 @@ class LevelFilter(BaseURLFilter):
         self._inline_max_depth = inline_max_depth
 
     def test(self, url_info, url_table_record):
-        if self._inline_max_depth and url_table_record.inline and \
-                url_table_record.inline > self._inline_max_depth:
+        if self._inline_max_depth and url_table_record.inline_level and \
+                url_table_record.inline_level > self._inline_max_depth:
             return False
 
         if self._depth:
-            if url_table_record.inline:
+            if url_table_record.inline_level:
                 # Allow exceeding level to allow fetching html pages with
                 # frames, for example, but no more than that
                 return url_table_record.level <= self._depth + 2
@@ -197,7 +197,7 @@ class TriesFilter(BaseURLFilter):
 class ParentFilter(BaseURLFilter):
     '''Filter URLs that descend up parent paths.'''
     def test(self, url_info, url_table_record):
-        if url_table_record.inline:
+        if url_table_record.inline_level:
             return True
 
         if url_table_record.top_url:
@@ -219,27 +219,25 @@ class ParentFilter(BaseURLFilter):
 
 class SpanHostsFilter(BaseURLFilter):
     '''Filter URLs that go to other hostnames.'''
-    def __init__(self, input_url_infos, enabled=False,
+    def __init__(self, hostnames, enabled=False,
                  page_requisites=False, linked_pages=False):
+        self._hostnames = hostnames
         self._enabled = enabled
         self._page_requisites = page_requisites
         self._linked_pages = linked_pages
-        self._base_urls = frozenset(
-            url_info.hostname for url_info in input_url_infos
-        )
 
     def test(self, url_info, url_table_record):
         if self._enabled:
             return True
 
-        if url_info.hostname in self._base_urls:
+        if url_info.hostname in self._hostnames:
             return True
 
-        if self._page_requisites and url_table_record.inline:
+        if self._page_requisites and url_table_record.inline_level:
             return True
 
-        if self._linked_pages and url_table_record.referrer \
-           and url_table_record.referrer_info.hostname in self._base_urls:
+        if self._linked_pages and url_table_record.parent_url_info \
+           and url_table_record.parent_url_info.hostname in self._hostnames:
             return True
 
 
