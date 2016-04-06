@@ -161,4 +161,10 @@ class WARCVisit(DBBase):
             return row.warc_id
 
 
+class Hostname(DBBase):
+    __tablename__ = 'hostnames'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    hostname = Column(String, nullable=False, unique=True)
+
 __all__ = ('DBBase', 'QueuedURL', 'URLString', 'WARCVisit')

@@ -141,3 +141,8 @@ class BaseURLTable(object, metaclass=abc.ABCMeta):
         Returns:
             str, None
         '''
+
+    @abc.abstractmethod
+    def get_hostnames(self):
+        '''Return list of hostnames
+        '''

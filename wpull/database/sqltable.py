@@ -12,8 +12,10 @@ from sqlalchemy.sql.expression import insert, update, select, delete, \
     bindparam
 
 from wpull.database.base import BaseURLTable, NotFound
-from wpull.database.sqlmodel import QueuedURL, URLString, DBBase, WARCVisit
+from wpull.database.sqlmodel import QueuedURL, URLString, DBBase, WARCVisit, \
+    Hostname
 from wpull.pipeline.item import Status
+from wpull.url import URLInfo
 
 _logger = logging.getLogger(__name__)
 
@@ -100,6 +102,9 @@ class BaseSQLURLTable(BaseURLTable):
 
                 if url_properties:
                     row_values.update(url_properties.database_items())
+                else:
+                    row_values['root_url'] = url
+                    row_values['parent_url'] = url
 
                 if url_data:
                     row_values.update(url_data.database_items())
@@ -112,6 +117,12 @@ class BaseSQLURLTable(BaseURLTable):
                 session.execute(query, all_row_values)
 
                 added_urls = get_inserted_urls()
+
+            hostnames = (URLInfo.parse(url).hostname for url in added_urls)
+            session.execute(
+                insert(Hostname).prefix_with('OR IGNORE'),
+                [{'hostname': hostname} for hostname in hostnames]
+            )
 
         return added_urls
 
@@ -194,6 +205,14 @@ class BaseSQLURLTable(BaseURLTable):
     def get_revisit_id(self, url, payload_digest):
         with self._session() as session:
             return WARCVisit.get_revisit_id(session, url, payload_digest)
+
+    def get_hostnames(self):
+        hostnames = []
+        with self._session() as session:
+            for hostname in session.query(Hostname.hostname):
+                hostnames.append(hostname)
+
+        return hostnames
 
 
 class SQLiteURLTable(BaseSQLURLTable):

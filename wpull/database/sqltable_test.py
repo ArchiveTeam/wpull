@@ -63,6 +63,8 @@ class TestDatabase(unittest.TestCase):
         self.assertEqual(Status.done, url_record.status)
         self.assertEqual(1, url_record.try_count)
 
+        self.assertEqual(1, len(url_table.get_hostnames()))
+
     def test_warc_visits(self):
         url_table = self.get_url_table()
 
