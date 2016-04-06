@@ -269,25 +269,7 @@ class CallbacksV2(Callbacks):
         '''
         return verdict
 
-    @staticmethod
-    def queued_url(url_info):
-        '''Callback fired after an URL was put into the queue.
 
-        Args:
-            url_info (dict): A mapping containing the same information in
-                :class:`.url.URLInfo`.
-        '''
-
-    @staticmethod
-    def dequeued_url(url_info, record_info):
-        '''Callback fired after an URL was retrieved from the queue.
-
-        Args:
-            url_info (dict): A mapping containing the same information in
-                :class:`.url.URLInfo`.
-            record_info (dict): A mapping containing the same information in
-                :class:`.item.URLRecord`.
-        '''
 
     @staticmethod
     def handle_pre_response(url_info, url_record, response_info):
@@ -500,17 +482,6 @@ class HookEnvironment(object):
             'scrape_document',
             self._scrape_document)
 
-    def _resolve_dns(self, host, port):
-        '''Process resolving DNS callback.'''
-        answer = self.callbacks.dispatch_resolve_dns(host)
-
-        _logger.debug(__('Resolve hook returned {0}', answer))
-
-        if answer:
-            return answer
-        else:
-            return host
-
     def _engine_run(self):
         '''Process engine run callback.'''
         self.callbacks.dispatch_engine_run()
@@ -549,19 +520,6 @@ class HookEnvironment(object):
             seconds, url_info_dict, record_info_dict, response_info_dict,
             error_info_dict
         )
-
-    def _queued_url(self, url_info):
-        '''Process queued URL callback.'''
-        url_info_dict = url_info.to_dict()
-
-        self.callbacks.dispatch_queued_url(url_info_dict)
-
-    def _dequeued_url(self, url_info, url_record):
-        '''Process dequeued URL callback.'''
-        url_info_dict = url_info.to_dict()
-        record_info_dict = url_record.to_dict()
-
-        self.callbacks.dispatch_dequeued_url(url_info_dict, record_info_dict)
 
     def _should_fetch(self, url_info, url_record, verdict, reason_slug,
                       test_info):

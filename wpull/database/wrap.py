@@ -1,8 +1,9 @@
 '''URL table wrappers.'''
 from wpull.database.base import BaseURLTable
-from wpull.hook import HookableMixin, HookDisconnected
+from wpull.application.hook import HookableMixin, HookDisconnected
 from wpull.pipeline.item import Status
 from wpull.url import parse_url_or_log
+import wpull.application.hook
 
 
 class URLTableHookWrapper(BaseURLTable, HookableMixin):
@@ -20,7 +21,8 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
         self.url_table = url_table
         self._queue_counter = 0
 
-        self.register_hook('queued_url', 'dequeued_url')
+        self.event_dispatcher.register('URLTable.queued_url')
+        self.event_dispatcher.register('URLTable.dequeued_url')
 
     def queue_count(self):
         '''Return the number of URLs queued in this session.'''
@@ -35,36 +37,33 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
     def get_all(self):
         return self.url_table.get_all()
 
-    def add_many(self, urls, **kwargs):
-        added_urls = tuple(self.url_table.add_many(urls, **kwargs))
+    def add_many(self, urls):
+        added_urls = tuple(self.url_table.add_many(urls))
 
-        if self.is_hook_connected('queued_url'):
-            for url in added_urls:
-                url_info = parse_url_or_log(url)
-                if url_info:
-                    self._queue_counter += 1
-                    self.call_hook('queued_url', url_info)
+        for url in added_urls:
+            url_info = parse_url_or_log(url)
+            if url_info:
+                self._queue_counter += 1
+                self.event_dispatcher.notify('queued_url', url_info)
 
         return added_urls
 
-    def check_out(self, *args, **kwargs):
-        url_record = self.url_table.check_out(*args, **kwargs)
+    def check_out(self, filter_status, filter_level=None):
+        url_record = self.url_table.check_out(filter_status, filter_level)
         self._queue_counter -= 1
 
-        try:
-            self.call_hook('dequeued_url', url_record.url_info, url_record)
-        except HookDisconnected:
-            pass
+        self.event_dispatcher.notify('dequeued_url', url_record.url_info, url_record)
 
         return url_record
 
-    def check_in(self, url, new_status, *args, **kwargs):
-        if new_status == Status.error and self.is_hook_connected('queued_url'):
+    def check_in(self, url, new_status, increment_try_count=True,
+                 url_result=None):
+        if new_status == Status.error:
             self._queue_counter += 1
             url_info = parse_url_or_log(url)
 
             if url_info:
-                self.call_hook('queued_url', url_info)
+                self.event_dispatcher.notify('queued_url', url_info)
 
         return self.url_table.check_in(url, new_status, *args, **kwargs)
 
@@ -85,3 +84,25 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
 
     def get_revisit_id(self, url, payload_digest):
         return self.url_table.get_revisit_id(url, payload_digest)
+
+    @staticmethod
+    @wpull.application.hook.event_function('URLTable.queued_url')
+    def queued_url(url_info):
+        '''Callback fired after an URL was put into the queue.
+
+        Args:
+            url_info (dict): A mapping containing the same information in
+                :class:`.url.URLInfo`.
+        '''
+
+    @staticmethod
+    @wpull.application.hook.event_function('URLTable.dequeued_url')
+    def dequeued_url(url_info, record_info):
+        '''Callback fired after an URL was retrieved from the queue.
+
+        Args:
+            url_info (dict): A mapping containing the same information in
+                :class:`.url.URLInfo`.
+            record_info (dict): A mapping containing the same information in
+                :class:`.item.URLRecord`.
+        '''
