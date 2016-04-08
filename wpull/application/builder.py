@@ -11,9 +11,9 @@ from wpull.application.app import Application
 from wpull.application.factory import Factory
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy
-from wpull.coprocessor.phantomjs import PhantomJSCoprocessor
-from wpull.coprocessor.proxy import ProxyCoprocessor
-from wpull.coprocessor.youtubedl import YoutubeDlCoprocessor
+from wpull.processor.coprocessor.phantomjs import PhantomJSCoprocessor
+from wpull.processor.coprocessor.proxy import ProxyCoprocessor
+from wpull.processor.coprocessor.youtubedl import YoutubeDlCoprocessor
 from wpull.database.sqltable import URLTable as SQLURLTable
 from wpull.database.wrap import URLTableHookWrapper
 from wpull.driver.phantomjs import PhantomJSDriver
