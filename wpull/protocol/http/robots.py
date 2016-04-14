@@ -10,6 +10,7 @@ import asyncio
 from wpull.backport.logging import BraceMessage as __
 import wpull.body
 from wpull.errors import ServerError, ProtocolError
+from wpull.protocol.http.request import Request, Response
 from wpull.protocol.http.web import WebClient
 from wpull.robotstxt import RobotsTxtPool
 from wpull.url import URLInfo
@@ -29,24 +30,24 @@ class RobotsTxtChecker(object):
     '''Robots.txt file fetcher and checker.
 
     args:
-        web_client (:class`.http.web.WebClient`): Web Client.
-        robots_txt_pool (:class:`.robotstxt.RobotsTxtPool`): Robots.txt Pool.
+        web_client: Web Client.
+        robots_txt_pool: Robots.txt Pool.
     '''
-    def __init__(self, web_client=None, robots_txt_pool=None):
+    def __init__(self, web_client: WebClient=None, robots_txt_pool: RobotsTxtPool=None):
         self._web_client = web_client or WebClient()
         self._robots_txt_pool = robots_txt_pool or RobotsTxtPool()
 
     @property
-    def web_client(self):
+    def web_client(self) -> WebClient:
         '''Return the WebClient.'''
         return self._web_client
 
     @property
-    def robots_txt_pool(self):
+    def robots_txt_pool(self) -> RobotsTxtPool:
         '''Return the RobotsTxtPool.'''
         return self._robots_txt_pool
 
-    def can_fetch_pool(self, request):
+    def can_fetch_pool(self, request: Request):
         '''Return whether the request can be fetched based on the pool.'''
         url_info = request.url_info
         user_agent = request.fields.get('User-agent', '')
@@ -57,7 +58,7 @@ class RobotsTxtChecker(object):
             raise NotInPoolError()
 
     @asyncio.coroutine
-    def fetch_robots_txt(self, request, file=None):
+    def fetch_robots_txt(self, request: Request, file=None):
         '''Fetch the robots.txt file for the request.
 
         Coroutine.
@@ -70,14 +71,15 @@ class RobotsTxtChecker(object):
             file = wpull.body.new_temp_file(os.getcwd(), hint='robots')
 
         with contextlib.closing(file):
-            request = self._web_client.request_factory(url)
+            request = Request(url)
 
             session = self._web_client.session(request)
             while not session.done():
                 wpull.util.truncate_file(file.name)
 
                 try:
-                    response = yield from session.fetch(file=file)
+                    response = yield from session.start()
+                    yield from session.download(file=file)
                 except ProtocolError:
                     self._accept_as_blank(url_info)
 
@@ -94,11 +96,11 @@ class RobotsTxtChecker(object):
                 self._accept_as_blank(url_info)
 
     @asyncio.coroutine
-    def can_fetch(self, request, file=None):
+    def can_fetch(self, request: Request, file=None) -> bool:
         '''Return whether the request can fetched.
 
         Args:
-            request (:class:`.http.request.Request`): Request.
+            request: Request.
             file: A file object to where the robots.txt contents are written.
 
         Coroutine.
@@ -112,7 +114,7 @@ class RobotsTxtChecker(object):
 
         return self.can_fetch_pool(request)
 
-    def _read_content(self, response, original_url_info):
+    def _read_content(self, response: Response, original_url_info: URLInfo):
         '''Read response and parse the contents into the pool.'''
         data = response.body.read(4096)
         url_info = original_url_info
@@ -128,7 +130,7 @@ class RobotsTxtChecker(object):
             _logger.debug(__('Got a good robots.txt for {0}.',
                              url_info.url))
 
-    def _accept_as_blank(self, url_info):
+    def _accept_as_blank(self, url_info: URLInfo):
         '''Mark the URL as OK in the pool.'''
         _logger.debug(__('Got empty robots.txt for {0}.', url_info.url))
         self._robots_txt_pool.load_robots_txt(url_info, '')

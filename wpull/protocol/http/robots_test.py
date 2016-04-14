@@ -15,7 +15,6 @@ class MockWebClient(object):
         self.mock_response_callback = None
         self.request = None
         self.session_obj = None
-        self.request_factory = Request
 
     def session(self, request):
         self.request = request
@@ -32,8 +31,12 @@ class MockWebSession(object):
         return self.done_value
 
     @asyncio.coroutine
-    def fetch(self, file=None, callback=None):
-        return self.client.mock_response_callback(self.client.request, file)
+    def start(self):
+        return self.client.mock_response_callback(self.client.request)
+
+    @asyncio.coroutine
+    def download(self, file=None):
+        pass
 
 
 class TestRobots(wpull.testing.async.AsyncTestCase):
@@ -45,7 +48,7 @@ class TestRobots(wpull.testing.async.AsyncTestCase):
 
         self.assertRaises(NotInPoolError, checker.can_fetch_pool, request)
 
-        def response_callback(request, file):
+        def response_callback(request):
             request.prepare_for_send()
             self.assertTrue(request.url_info.url.endswith('robots.txt'))
             response = Response(200, 'OK')
@@ -69,7 +72,7 @@ class TestRobots(wpull.testing.async.AsyncTestCase):
 
         self.assertRaises(NotInPoolError, checker.can_fetch_pool, request)
 
-        def response_callback(request, file):
+        def response_callback(request):
             request.prepare_for_send()
             self.assertTrue(request.url_info.url.endswith('robots.txt'))
             response = Response(200, 'OK')
@@ -93,7 +96,7 @@ class TestRobots(wpull.testing.async.AsyncTestCase):
 
         nonlocal_dict = {'counter': 0}
 
-        def response_callback(request, file):
+        def response_callback(request):
             request.prepare_for_send()
             self.assertTrue(request.url_info.url.endswith('robots.txt'))
             response = Response(302, 'See else')
@@ -118,7 +121,7 @@ class TestRobots(wpull.testing.async.AsyncTestCase):
         request = Request('http://example.com')
         request.prepare_for_send()
 
-        def response_callback(request, file):
+        def response_callback(request):
             request.prepare_for_send()
             self.assertTrue(request.url_info.url.endswith('robots.txt'))
             response = Response(500, 'Oops')
@@ -142,7 +145,7 @@ class TestRobots(wpull.testing.async.AsyncTestCase):
         request.prepare_for_send()
 
         # Try fetch example.com/ (need robots.txt)
-        def response_callback_1(request, file):
+        def response_callback_1(request):
             request.prepare_for_send()
             self.assertEqual('http://example.com/robots.txt',
                              request.url_info.url)
@@ -158,7 +161,7 @@ class TestRobots(wpull.testing.async.AsyncTestCase):
             return response
 
         # Try fetch www.example.com/robots.txt
-        def response_callback_2(request, file):
+        def response_callback_2(request):
             request.prepare_for_send()
             self.assertEqual('http://www.example.com/robots.txt',
                              request.url_info.url)
@@ -174,7 +177,7 @@ class TestRobots(wpull.testing.async.AsyncTestCase):
             return response
 
         # Try fetch www.example.net/robots.txt
-        def response_callback_3(request, file):
+        def response_callback_3(request):
             request.prepare_for_send()
             self.assertEqual('http://www.example.net/robots.txt',
                              request.url_info.url)
