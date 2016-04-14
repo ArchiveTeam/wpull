@@ -33,7 +33,7 @@ class PluginSetupTask(ItemTask[AppSession]):
 
             plugin_info.plugin_object.app_session = session
             session.plugin_manager.activatePluginByName(plugin_info.name)
-            cls._connect_plugin_hooks(session, plugin_info.plugin_object)
+            self._connect_plugin_hooks(session, plugin_info.plugin_object)
 
     @classmethod
     def _connect_plugin_hooks(cls, session: AppSession, plugin_object):
