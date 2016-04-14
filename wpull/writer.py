@@ -328,14 +328,9 @@ class BaseFileWriterSession(BaseWriterSession):
         filename = parse_content_disposition(header_value)
 
         if filename:
-            parts = list(self._filename.split(os.sep))
-
-            if parts:
-                del parts[-1]
-
+            dir_path = os.path.dirname(self._filename)
             new_filename = self._path_namer.safe_filename(filename)
-            parts.append(new_filename)
-            self._filename = os.path.join(*parts)
+            self._filename = os.path.join(dir_path, new_filename)
 
     def _rename_with_last_response(self, response):
         if not self._filename:
