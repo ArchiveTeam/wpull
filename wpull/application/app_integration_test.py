@@ -1332,6 +1332,134 @@ class TestAppHTTPS(AsyncTestCase, AsyncHTTPSTestCase, TempDirMixin):
         self.assertEqual(7, exit_code)
         self.assertEqual(0, builder.factory['Statistics'].files)
 
+    # TODO:
+    # @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    # def test_file_continue(self):
+    #     arg_parser = AppArgumentParser()
+    #     args = arg_parser.parse_args([self.get_url('/static/my_file.txt'),
+    #                                   '--continue', '--debug'])
+    #
+    #     filename = os.path.join(self.temp_dir.name, 'my_file.txt')
+    #
+    #     with open(filename, 'wb') as out_file:
+    #         out_file.write(b'START')
+    #
+    #     app = Builder(args, unit_test=True).build()
+    #     exit_code = yield From(app.run())
+    #
+    #     self.assertEqual(0, exit_code)
+    #
+    #     with open(filename, 'rb') as in_file:
+    #         data = in_file.read()
+    #
+    #         self.assertEqual('54388a281352fdb2cfa66009ac0e35dd8916af7c',
+    #                          hashlib.sha1(data).hexdigest())
+    #
+    # FTP:
+    # @wpull.testing.async.async_test()
+    # def test_file_continue(self):
+    #     arg_parser = AppArgumentParser()
+    #     args = arg_parser.parse_args([self.get_url('/example (copy).txt'),
+    #                                   '--continue', '--debug'])
+    #
+    #     filename = os.path.join(self.temp_dir.name, 'example (copy).txt')
+    #
+    #     with open(filename, 'wb') as out_file:
+    #         out_file.write(b'The')
+    #
+    #     app = Builder(args, unit_test=True).build()
+    #     exit_code = yield from app.run()
+    #
+    #     self.assertEqual(0, exit_code)
+    #
+    #     with open(filename, 'rb') as in_file:
+    #         data = in_file.read()
+    #
+    #         self.assertEqual(
+    #             'The real treasure is in Smaug’s heart 💗.\n'
+    #                 .encode('utf-8'),
+    #             data
+    #         )
+    #
+    # @wpull.testing.async.async_test()
+    # def test_timestamping_hit(self):
+    #     arg_parser = AppArgumentParser()
+    #     args = arg_parser.parse_args([
+    #         self.get_url('/lastmod'),
+    #         '--timestamping'
+    #     ])
+    #
+    #     filename = os.path.join(self.temp_dir.name, 'lastmod')
+    #
+    #     with open(filename, 'wb') as out_file:
+    #         out_file.write(b'HI')
+    #
+    #     os.utime(filename, (631152000, 631152000))
+    #
+    #     builder = Builder(args, unit_test=True)
+    #     app = builder.build()
+    #     exit_code = yield from app.run()
+    #
+    #     self.assertEqual(0, exit_code)
+    #
+    #     with open(filename, 'rb') as in_file:
+    #         self.assertEqual(b'HI', in_file.read())
+    #
+    # @wpull.testing.async.async_test()
+    # def test_timestamping_miss(self):
+    #     arg_parser = AppArgumentParser()
+    #     args = arg_parser.parse_args([
+    #         self.get_url('/lastmod'),
+    #         '--timestamping'
+    #     ])
+    #
+    #     filename = os.path.join(self.temp_dir.name, 'lastmod')
+    #
+    #     with open(filename, 'wb') as out_file:
+    #         out_file.write(b'HI')
+    #
+    #     os.utime(filename, (636249600, 636249600))
+    #
+    #     builder = Builder(args, unit_test=True)
+    #     app = builder.build()
+    #     exit_code = yield from app.run()
+    #
+    #     self.assertEqual(0, exit_code)
+    #
+    #     with open(filename, 'rb') as in_file:
+    #         self.assertEqual(b'HELLO', in_file.read())
+    #
+    # @wpull.testing.async.async_test()
+    # def test_timestamping_hit_orig(self):
+    #     arg_parser = AppArgumentParser()
+    #     args = arg_parser.parse_args([
+    #         self.get_url('/lastmod'),
+    #         '--timestamping'
+    #     ])
+    #
+    #     filename = os.path.join(self.temp_dir.name, 'lastmod')
+    #     filename_orig = os.path.join(self.temp_dir.name, 'lastmod')
+    #
+    #     with open(filename, 'wb') as out_file:
+    #         out_file.write(b'HI')
+    #
+    #     with open(filename_orig, 'wb') as out_file:
+    #         out_file.write(b'HI')
+    #
+    #     os.utime(filename_orig, (631152000, 631152000))
+    #
+    #     builder = Builder(args, unit_test=True)
+    #     app = builder.build()
+    #     exit_code = yield from app.run()
+    #
+    #     self.assertEqual(0, exit_code)
+    #
+    #     with open(filename, 'rb') as in_file:
+    #         self.assertEqual(b'HI', in_file.read())
+    #
+    #     with open(filename_orig, 'rb') as in_file:
+    #         self.assertEqual(b'HI', in_file.read())
+
 
 class PhantomJSMixin(object):
     # FIXME: it stopped working in Travis for a while
