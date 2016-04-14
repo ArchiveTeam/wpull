@@ -4,13 +4,13 @@ import copy
 import re
 
 from wpull.protocol.abstract.request import SerializableMixin, DictableMixin, \
-    URLPropertyMixin, ProtocolResponseMixin
+    URLPropertyMixin, ProtocolResponseMixin, BaseResponse, BaseRequest
 from wpull.errors import ProtocolError
 from wpull.namevalue import NameValueRecord
 import wpull.string
 
 
-class RawRequest(SerializableMixin, DictableMixin):
+class RawRequest(BaseRequest, SerializableMixin, DictableMixin):
     '''Represents an HTTP request.
 
     Attributes:
@@ -97,7 +97,7 @@ class RawRequest(SerializableMixin, DictableMixin):
         self.fields['Range'] = 'bytes={0}-'.format(offset)
 
 
-class Request(RawRequest, URLPropertyMixin):
+class Request(RawRequest):
     '''Represents a higher level of HTTP request.
 
     Attributes:
@@ -158,7 +158,7 @@ class Request(RawRequest, URLPropertyMixin):
                 self.url = self.resource_path
 
 
-class Response(SerializableMixin, DictableMixin, ProtocolResponseMixin):
+class Response(BaseResponse, SerializableMixin, DictableMixin):
     '''Represents the HTTP response.
 
     Attributes:
@@ -174,6 +174,8 @@ class Response(SerializableMixin, DictableMixin, ProtocolResponseMixin):
         encoding (str): The encoding of the status line.
     '''
     def __init__(self, status_code=None, reason=None, version='HTTP/1.1', request=None):
+        super().__init__()
+
         if status_code is not None:
             assert isinstance(status_code, int), \
                 'Expect int, got {}'.format(type(status_code))
@@ -183,7 +185,6 @@ class Response(SerializableMixin, DictableMixin, ProtocolResponseMixin):
         self.reason = reason
         self.version = version
         self.fields = NameValueRecord(encoding='latin-1')
-        self.body = None
         self.request = request
         self.encoding = 'latin-1'
 

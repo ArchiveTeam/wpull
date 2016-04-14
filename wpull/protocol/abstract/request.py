@@ -85,3 +85,16 @@ class ProtocolResponseMixin(object):
         Returns:
             str: The status line reason for HTTP or a reply message for FTP.
         '''
+
+
+class BaseRequest(URLPropertyMixin):
+    @abc.abstractmethod
+    def set_continue(self, offset: int):
+        pass
+
+
+class BaseResponse(ProtocolResponseMixin):
+    def __init__(self):
+        super().__init__()
+        self.body = None
+        self.request = None

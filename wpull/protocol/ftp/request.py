@@ -3,7 +3,7 @@ import re
 import urllib.parse
 
 from wpull.protocol.abstract.request import SerializableMixin, DictableMixin, \
-    URLPropertyMixin, ProtocolResponseMixin
+    URLPropertyMixin, ProtocolResponseMixin, BaseResponse, BaseRequest
 from wpull.errors import ProtocolError
 import wpull.protocol.ftp.util
 
@@ -115,7 +115,7 @@ class Reply(SerializableMixin, DictableMixin):
         return wpull.protocol.ftp.util.reply_code_tuple(self.code)
 
 
-class Request(URLPropertyMixin):
+class Request(BaseRequest, URLPropertyMixin):
     '''FTP request for a file.
 
     Attributes:
@@ -156,7 +156,7 @@ class Request(URLPropertyMixin):
         self.restart_value = offset
 
 
-class Response(DictableMixin, ProtocolResponseMixin):
+class Response(BaseResponse, DictableMixin):
     '''FTP response for a file.
 
     Attributes:
@@ -171,8 +171,7 @@ class Response(DictableMixin, ProtocolResponseMixin):
         restart_value (int): Offset value of restarted transfer.
     '''
     def __init__(self):
-        self.request = None
-        self.body = None
+        super().__init__()
         self.reply = None
         self.data_address = None
         self.file_transfer_size = None
