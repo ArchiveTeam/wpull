@@ -10,6 +10,8 @@ from wpull.pipeline.item import URLRecord, Status, URLResult, URLProperties, \
     URLData, LinkType
 from wpull.pipeline.pipeline import ItemSource
 from wpull.backport.logging import BraceMessage as __
+from wpull.protocol.abstract.request import URLPropertyMixin, \
+    ProtocolResponseMixin, BaseResponse, BaseRequest
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
@@ -24,10 +26,29 @@ class ItemSession(object):
         self._try_count_incremented = False
         self._add_url_batch = []
 
+        self._request = None
+        self._response = None
+
     @property
     def is_processed(self):
         '''Return whether the item has been processed.'''
         return self._processed
+
+    @property
+    def request(self) -> BaseRequest:
+        return self._request
+
+    @request.setter
+    def request(self, request: BaseRequest):
+        self._request = request
+
+    @property
+    def response(self) -> BaseResponse:
+        return self._response
+
+    @response.setter
+    def response(self, response: BaseResponse):
+        self._response = response
 
     def skip(self):
         '''Mark the item as processed without download.'''
@@ -41,8 +62,8 @@ class ItemSession(object):
         '''Mark the item with the given status.
 
         Args:
-            status (int): a value from :class:`Status`.
-            increment_try_count (bool): if True, increment the ``try_count``
+            status: a value from :class:`Status`.
+            increment_try_count: if True, increment the ``try_count``
                 value
         '''
         url = self.url_record.url
