@@ -36,11 +36,9 @@ from wpull.pipeline.tasks.startup import LoggingSetupTask, DebugConsoleSetupTask
     DatabaseSetupTask, InputURLTask, ArgWarningTask, WARCVisitsTask, \
     SSLContextTask
 from wpull.processor.delegate import DelegateProcessor
-from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams, \
-    FTPProcessorInstances
+from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams
 from wpull.processor.rule import FetchRule, ResultRule, ProcessingRule
-from wpull.processor.web import WebProcessor, WebProcessorFetchParams, \
-    WebProcessorInstances
+from wpull.processor.web import WebProcessor, WebProcessorFetchParams
 from wpull.protocol.ftp.client import Client as FTPClient
 from wpull.protocol.http.client import Client as HTTPClient
 from wpull.protocol.http.redirect import RedirectTracker
@@ -101,7 +99,6 @@ class Builder(object):
             'FileWriter': NullWriter,
             'FTPClient': FTPClient,
             'FTPProcessorFetchParams': FTPProcessorFetchParams,
-            'FTPProcessorInstances': FTPProcessorInstances,
             'HTTPProxyServer': HTTPProxyServer,
             'HTMLParser': NotImplemented,
             'HTMLScraper': HTMLScraper,
@@ -134,7 +131,6 @@ class Builder(object):
             'WebClient': WebClient,
             'WebProcessor': WebProcessor,
             'WebProcessorFetchParams': WebProcessorFetchParams,
-            'WebProcessorInstances': WebProcessorInstances,
             'YoutubeDlCoprocessor': YoutubeDlCoprocessor,
         })
         self._unit_test = unit_test

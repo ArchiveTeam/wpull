@@ -700,17 +700,6 @@ class ProcessorSetupTask(ItemTask[AppSession]):
         else:
             youtube_dl_coprocessor = None
 
-        web_processor_instances = session.factory.new(
-            'WebProcessorInstances',
-            fetch_rule=fetch_rule,
-            result_rule=result_rule,
-            processing_rule=processing_rule,
-            file_writer=file_writer,
-            statistics=session.factory['Statistics'],
-            phantomjs_coprocessor=phantomjs_coprocessor,
-            youtube_dl_coprocessor=youtube_dl_coprocessor,
-        )
-
         web_processor_fetch_params = session.factory.new(
             'WebProcessorFetchParams',
             post_data=post_data,
@@ -723,7 +712,6 @@ class ProcessorSetupTask(ItemTask[AppSession]):
             web_client,
             args.directory_prefix,
             web_processor_fetch_params,
-            web_processor_instances)
 
         return processor
 
@@ -740,20 +728,11 @@ class ProcessorSetupTask(ItemTask[AppSession]):
             glob=session.args.glob,
         )
 
-        instances = session.factory.new(
-            'FTPProcessorInstances',
-            fetch_rule=session.factory['FetchRule'],
-            result_rule=session.factory['ResultRule'],
-            processing_rule=session.factory['ProcessingRule'],
-            file_writer=session.factory['FileWriter'],
-        )
-
         return session.factory.new(
             'FTPProcessor',
             ftp_client,
             session.args.directory_prefix,
             fetch_params,
-            instances
         )
 
     @classmethod
