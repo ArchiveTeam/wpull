@@ -12,6 +12,7 @@ import asyncio
 from wpull.backport.logging import BraceMessage as __
 from wpull.document.html import HTMLReader
 from wpull.driver.process import Process
+from wpull.pipeline.session import ItemSession
 from wpull.warc import WARCRecord
 
 
@@ -33,7 +34,7 @@ class YoutubeDlCoprocessor(object):
         self._check_certificate = check_certificate
 
     @asyncio.coroutine
-    def process(self, url_item, request, response, file_writer_session):
+    def process(self, item_session: ItemSession, request, response, file_writer_session):
         if response.status_code != 200:
             return
 
@@ -42,11 +43,11 @@ class YoutubeDlCoprocessor(object):
 
         session = Session(
             self._proxy_address, self._youtube_dl_path, self._root_path,
-            url_item, file_writer_session, self._user_agent,
+            item_session, file_writer_session, self._user_agent,
             self._warc_recorder, self._inet_family, self._check_certificate
         )
 
-        url = url_item.url_info.url
+        url = item_session.url_record.url
         _logger.info(__(_('youtube-dl fetching ‘{url}’.'), url=url))
 
         with contextlib.closing(session):
@@ -57,13 +58,13 @@ class YoutubeDlCoprocessor(object):
 
 class Session(object):
     '''youtube-dl session.'''
-    def __init__(self, proxy_address, youtube_dl_path, root_path, url_item,
+    def __init__(self, proxy_address, youtube_dl_path, root_path, item_session: ItemSession,
                  file_writer_session, user_agent, warc_recorder, inet_family,
                  check_certificate):
         self._proxy_address = proxy_address
         self._youtube_dl_path = youtube_dl_path
         self._root_path = root_path
-        self._url_item = url_item
+        self._item_session = item_session
         self._file_writer_session = file_writer_session
         self._user_agent = user_agent
         self._warc_recorder = warc_recorder
@@ -75,7 +76,7 @@ class Session(object):
     @asyncio.coroutine
     def run(self):
         host, port = self._proxy_address
-        url = self._url_item.url_info.url
+        url = self._item_session.url_record.url
         self._path_prefix, output_template = self._get_output_template()
         args = [
             self._youtube_dl_path,
@@ -139,8 +140,8 @@ class Session(object):
 
         Uses pywb spec.
         '''
-        uri = 'metadata://{}{}'.format(self._url_item.url_info.authority,
-                                       self._url_item.url_info.resource)
+        uri = 'metadata://{}{}'.format(self._item_session.url_record.url_info.authority,
+                                       self._item_session.url_record.url_info.resource)
 
         glob_pattern = self._path_prefix + '*.info.json'
         filenames = list(glob.glob(glob_pattern))

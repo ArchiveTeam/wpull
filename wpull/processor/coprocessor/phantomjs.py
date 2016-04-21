@@ -11,11 +11,15 @@ import io
 import namedlist
 import asyncio
 
+from typing import Callable
+
 from wpull.backport.logging import BraceMessage as __
 from wpull.document.html import HTMLReader
 from wpull.body import Body
-from wpull.driver.phantomjs import PhantomJSDriverParams
+from wpull.driver.phantomjs import PhantomJSDriverParams, PhantomJSDriver
 from wpull.namevalue import NameValueRecord
+from wpull.pipeline.session import ItemSession
+from wpull.processor.rule import ProcessingRule
 from wpull.warc import WARCRecord
 import wpull.url
 
@@ -64,15 +68,15 @@ class PhantomJSCoprocessor(object):
 
     Args:
         phantomjs_driver_factory: Callback function that accepts ``params``
-            argument and returns
-            an instance of :class:`.driver.PhantomJSDrive`
-        processing_rule (:class:`.processor.rule.ProcessingRule`): Processing
+            argument and returns PhantomJSDriver
+        processing_rule: Processing
             rule.
         warc_recorder: WARC recorder.
         root_dir (str): Root directory path for temp files.
     '''
-    def __init__(self, phantomjs_driver_factory, processing_rule,
-                 phantomjs_params,
+    def __init__(self, phantomjs_driver_factory: Callable[..., PhantomJSDriver],
+                 processing_rule: ProcessingRule,
+                 phantomjs_params: PhantomJSParams,
                  warc_recorder=None, root_path='.'):
         self._phantomjs_driver_factory = phantomjs_driver_factory
         self._processing_rule = processing_rule
@@ -83,7 +87,7 @@ class PhantomJSCoprocessor(object):
         self._file_writer_session = None
 
     @asyncio.coroutine
-    def process(self, url_item, request, response, file_writer_session):
+    def process(self, item_session: ItemSession, request, response, file_writer_session):
         '''Process PhantomJS.
 
         Coroutine.
@@ -103,7 +107,7 @@ class PhantomJSCoprocessor(object):
 
         for dummy in range(attempts):
             try:
-                yield from self._run_driver(url_item, request, response)
+                yield from self._run_driver(item_session, request, response)
             except asyncio.TimeoutError:
                 _logger.warning(_('Waiting for page load timed out.'))
                 break
@@ -118,7 +122,7 @@ class PhantomJSCoprocessor(object):
             ))
 
     @asyncio.coroutine
-    def _run_driver(self, url_item, request, response):
+    def _run_driver(self, item_session: ItemSession, request, response):
         '''Start PhantomJS processing.'''
         _logger.debug('Started PhantomJS processing.')
 
@@ -126,7 +130,7 @@ class PhantomJSCoprocessor(object):
             self._phantomjs_driver_factory, self._root_path,
             self._processing_rule, self._file_writer_session,
             request, response,
-            url_item, self._phantomjs_params, self._warc_recorder
+            item_session, self._phantomjs_params, self._warc_recorder
         )
 
         with contextlib.closing(session):
@@ -140,14 +144,14 @@ class PhantomJSCoprocessorSession(object):
     def __init__(self, phantomjs_driver_factory, root_path,
                  processing_rule, file_writer_session,
                  request, response,
-                 url_item, params, warc_recorder):
+                 item_session: ItemSession, params, warc_recorder):
         self._phantomjs_driver_factory = phantomjs_driver_factory
         self._root_path = root_path
         self._processing_rule = processing_rule
         self._file_writer_session = file_writer_session
         self._request = request
         self._response = response
-        self._url_item = url_item
+        self._item_session = item_session
         self._params = params
         self._warc_recorder = warc_recorder
         self._temp_filenames = []
@@ -160,7 +164,7 @@ class PhantomJSCoprocessorSession(object):
         event_log_path = self._get_temp_path('phantom-event', suffix='.txt')
         snapshot_paths = [scrape_snapshot_path]
         snapshot_paths.extend(self._get_snapshot_paths())
-        url = self._url_item.url_record.url
+        url = self._item_session.url_record.url
 
         driver_params = PhantomJSDriverParams(
             url=url,
@@ -296,9 +300,10 @@ class PhantomJSCoprocessorSession(object):
             self._response, self._get_temp_path('phantom', '.html')
         )
 
-        self._processing_rule.scrape_document(
-            self._request, mock_response, self._url_item
-        )
+        self._item_session.request = self._request
+        self._item_session.response = mock_response
+
+        self._processing_rule.scrape_document(item_session)
 
         if mock_response.body:
             mock_response.body.close()
