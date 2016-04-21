@@ -66,13 +66,13 @@ class Application(object):
         self._current_pipeline = None
         self._state = ApplicationState.ready
 
-        # self.register_hook('exit_status', 'finishing_statistics')
+    @property
+    def exit_code(self) -> int:
+        return self._exit_code
 
-    # @property
-    # def builder(self) -> Builder:
-    #     '''The application builder.
-    #     '''
-    #     return self._builder
+    @exit_code.setter
+    def exit_code(self, new_code: int):
+        self._exit_code = new_code
 
     def setup_signal_handlers(self):
         '''Setup Ctrl+C and SIGTERM handlers.'''

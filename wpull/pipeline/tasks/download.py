@@ -10,10 +10,11 @@ import sys
 
 import tornado.netutil
 
+from wpull.application.hook import HookableMixin
 from wpull.application.options import LOG_VERBOSE, LOG_DEBUG
 from wpull.backport.logging import BraceMessage as __
 from wpull.cookie import BetterMozillaCookieJar
-from wpull.coprocessor.phantomjs import PhantomJSParams
+from wpull.processor.coprocessor.phantomjs import PhantomJSParams
 from wpull.namevalue import NameValueRecord
 from wpull.network.connection import Connection, SSLConnection
 from wpull.network.dns import IPFamilyPreference
@@ -31,10 +32,11 @@ from wpull.urlfilter import HTTPSOnlyFilter, SchemeFilter, RecursiveFilter, \
     BackwardFilenameFilter, LevelFilter
 from wpull.protocol.http.stream import Stream as HTTPStream
 import wpull.util
-import wpull.coprocessor.youtubedl
+import wpull.processor.coprocessor.youtubedl
 import wpull.driver.phantomjs
 from wpull.writer import OverwriteFileWriter, IgnoreFileWriter, \
     TimestampingFileWriter, AntiClobberFileWriter
+import wpull.application.hook
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
@@ -48,7 +50,11 @@ class StatsStartTask(ItemTask[AppSession]):
         statistics.start()
 
 
-class StatsStopTask(ItemTask[AppSession]):
+class StatsStopTask(ItemTask[AppSession], HookableMixin):
+    def __init__(self):
+        super().__init__()
+        self.event_dispatcher.register('StatsStopTask.finishing_statistics')
+
     @asyncio.coroutine
     def process(self, session: AppSession):
         statistics = session.factory['Statistics']
@@ -57,14 +63,7 @@ class StatsStopTask(ItemTask[AppSession]):
         # TODO: human_format_speed arg
         self._print_stats(statistics)
 
-        # try:
-        #     self.call_hook(
-        #         'finishing_statistics',
-        #         self._statistics.start_time, self._statistics.stop_time,
-        #         self._statistics.files, self._statistics.size
-        #     )
-        # except HookDisconnected:
-        #     pass
+        self.event_dispatcher.notify('StatsStopTask.finishing_statistics', session, statistics)
 
     @classmethod
     def _print_stats(cls, stats: Statistics, human_format_speed: bool=True):
@@ -105,6 +104,18 @@ class StatsStopTask(ItemTask[AppSession]):
 
         if stats.is_quota_exceeded:
             _logger.info(_('Download quota exceeded.'))
+
+    @staticmethod
+    @wpull.application.hook.event_function('StatsStopTask.finishing_statistics')
+    def plugin_finishing_statistics(app_session: AppSession, statistics: Statistics):
+        '''Callback containing final statistics.
+
+        Args:
+            start_time (float): timestamp when the engine started
+            end_time (float): timestamp when the engine stopped
+            num_urls (int): number of URLs downloaded
+            bytes_downloaded (int): size of files downloaded in bytes
+        '''
 
 
 class ParserSetupTask(ItemTask[AppSession]):
