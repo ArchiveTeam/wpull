@@ -10,6 +10,7 @@ import tempfile
 import urllib.parse
 
 import namedlist
+from typing import cast
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
@@ -17,14 +18,16 @@ from wpull.cache import LRUCache
 from wpull.errors import ProtocolError
 from wpull.application.hook import Actions
 from wpull.pipeline.item import LinkType
+from wpull.pipeline.session import ItemSession
 from wpull.processor.base import BaseProcessor, BaseProcessorSession, \
     REMOTE_ERRORS
 from wpull.processor.rule import ResultRule, FetchRule
-from wpull.protocol.ftp.request import Request, ListingResponse
+from wpull.protocol.ftp.client import Client
+from wpull.protocol.ftp.request import Request, ListingResponse, Response
 from wpull.protocol.ftp.util import FTPServerError
 from wpull.scraper.util import urljoin_safe
-from wpull.url import parse_url_or_log
-from wpull.writer import NullWriter
+from wpull.url import parse_url_or_log, URLInfo
+from wpull.writer import NullWriter, BaseFileWriter
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
@@ -50,24 +53,6 @@ Args:
     follow_symlinks (bool): Follow symlinks.
 '''
 
-FTPProcessorInstances = namedlist.namedtuple(
-    'FTPProcessorInstancesType',
-    [
-        ('fetch_rule', FetchRule()),
-        ('result_rule', ResultRule()),
-        ('processing_rule', None),
-        ('file_writer', NullWriter()),
-    ]
-)
-'''FTPProcessorInstances
-
-Args:
-    fetch_rule ( :class:`.processor.rule.FetchRule`): The fetch rule.
-    result_rule ( :class:`.processor.rule.ResultRule`): The result rule.
-    processing_rule ( :class:`.processor.rule.ProcessingRule`): The processing rule.
-    file_writer (:class`.writer.BaseWriter`): The file writer.
-'''
-
 
 class HookPreResponseBreak(ProtocolError):
     '''Hook pre-response break.'''
@@ -77,56 +62,40 @@ class FTPProcessor(BaseProcessor):
     '''FTP processor.
 
     Args:
-        rich_client (:class:`.http.web.WebClient`): The web client.
-        root_path (str): The root directory path.
+        ftp_client: The FTP client.
         fetch_params (:class:`WebProcessorFetchParams`): Parameters for
             fetching.
-        instances (:class:`WebProcessorInstances`): Instances needed
-            by the processor.
     '''
-    def __init__(self, ftp_client, root_path, fetch_params, instances):
+    def __init__(self, ftp_client: Client, fetch_params):
         super().__init__()
 
         self._ftp_client = ftp_client
-        self._root_path = root_path
         self._fetch_params = fetch_params
-        self._instances = instances
-        self._session_class = FTPProcessorSession
         self._listing_cache = LRUCache(max_items=10, time_to_live=3600)
 
     @property
-    def ftp_client(self):
+    def ftp_client(self) -> Client:
         '''The ftp client.'''
         return self._ftp_client
 
     @property
-    def root_path(self):
-        '''The root path.'''
-        return self._root_path
-
-    @property
-    def instances(self):
-        '''The processor instances.'''
-        return self._instances
-
-    @property
-    def fetch_params(self):
+    def fetch_params(self) -> FTPProcessorFetchParams:
         '''The fetch parameters.'''
         return self._fetch_params
 
     @property
-    def listing_cache(self):
+    def listing_cache(self) -> LRUCache:
         '''Listing cache.
 
         Returns:
-            :class:`.cache.LRUCache`: A cache mapping
+            A cache mapping
             from URL to list of :class:`.ftp.ls.listing.FileEntry`.
         '''
         return self._listing_cache
 
     @asyncio.coroutine
-    def process(self, url_item):
-        session = self._session_class(self, url_item)
+    def process(self, item_session: ItemSession):
+        session = FTPProcessorSession(self, item_session)
         try:
             return (yield from session.process())
         finally:
@@ -139,14 +108,16 @@ class FTPProcessor(BaseProcessor):
 
 class FTPProcessorSession(BaseProcessorSession):
     '''Fetches FTP files or directory listings.'''
-    def __init__(self, processor, url_item):
+    def __init__(self, processor: FTPProcessor, item_session: ItemSession):
         super().__init__()
         self._processor = processor
-        self._url_item = url_item
-        self._fetch_rule = processor.instances.fetch_rule
-        self._result_rule = processor.instances.result_rule
+        self._item_session = item_session
+        self._fetch_rule = cast(FetchRule, item_session.app_session.factory['FetchRule'])
+        self._result_rule = cast(ResultRule, item_session.app_session.factory['ResultRule'])
 
-        self._file_writer_session = processor.instances.file_writer.session()
+        file_writer = cast(BaseFileWriter, item_session.app_session.factory['FileWriter'])
+
+        self._file_writer_session = file_writer.session()
         self._glob_pattern = None
 
     def close(self):
@@ -158,24 +129,19 @@ class FTPProcessorSession(BaseProcessorSession):
 
         Coroutine.
         '''
-        verdict = self._fetch_rule.check_ftp_request(
-            self._url_item.url_info, self._url_item.url_record)[0]
+        verdict = self._fetch_rule.check_ftp_request(self._item_session)[0]
 
         if not verdict:
-            self._url_item.skip()
+            self._item_session.skip()
             return
 
-        request = Request(self._url_item.url_info.url)  # TODO: dependency inject
+        request = Request(self._item_session.url_record.url)
 
-        if self._fetch_rule.ftp_login:
-            request.username, request.password = self._fetch_rule.ftp_login
+        self._add_request_password(request)
 
-        dir_name, filename = self._url_item.url_info.split_path()
+        dir_name, filename = self._item_session.url_record.url_info.split_path()
         if self._processor.fetch_params.glob and frozenset(filename) & GLOB_CHARS:
-            directory_url = to_dir_path_url(request.url_info)
-            directory_request = copy.deepcopy(request)
-            directory_request.url = directory_url
-            request = directory_request
+            request = self._to_directory_request(request)
             is_file = False
             self._glob_pattern = urllib.parse.unquote(filename)
         else:
@@ -189,14 +155,26 @@ class FTPProcessorSession(BaseProcessorSession):
             _logger.debug('Sleeping {0}.'.format(wait_time))
             yield from asyncio.sleep(wait_time)
 
+    def _add_request_password(self, request: Request):
+        if self._fetch_rule.ftp_login:
+            request.username, request.password = self._fetch_rule.ftp_login
+
+    @classmethod
+    def _to_directory_request(cls, request: Request) -> Request:
+        directory_url = to_dir_path_url(request.url_info)
+        directory_request = copy.deepcopy(request)
+        directory_request.url = directory_url
+
+        return directory_request
+
     @asyncio.coroutine
-    def _prepare_request_file_vs_dir(self, request):
+    def _prepare_request_file_vs_dir(self, request: Request) -> bool:
         '''Check if file, modify request, and return whether is a file.
 
         Coroutine.
         '''
-        if self._url_item.url_record.link_type:
-            is_file = self._url_item.url_record.link_type == LinkType.file
+        if self._item_session.url_record.link_type:
+            is_file = self._item_session.url_record.link_type == LinkType.file
         elif request.url_info.path.endswith('/'):
             is_file = False
         else:
@@ -228,7 +206,7 @@ class FTPProcessorSession(BaseProcessorSession):
         return is_file
 
     @asyncio.coroutine
-    def _fetch_parent_path(self, request, use_cache=True):
+    def _fetch_parent_path(self, request: Request, use_cache: bool=True):
         '''Fetch parent directory and return list FileEntry.
 
         Coroutine.
@@ -257,7 +235,8 @@ class FTPProcessorSession(BaseProcessorSession):
                 return
 
             temp_file = tempfile.NamedTemporaryFile(
-                dir=self._processor.root_path, prefix='tmp-wpull-list'
+                dir=self._item_session.app_session.root_path,
+                prefix='tmp-wpull-list'
             )
 
             with temp_file as file:
@@ -271,24 +250,27 @@ class FTPProcessorSession(BaseProcessorSession):
         return directory_response.files
 
     @asyncio.coroutine
-    def _fetch(self, request, is_file, glob_pattern=None):
+    def _fetch(self, request: Request, is_file: bool):
         '''Fetch the request
 
         Coroutine.
         '''
         _logger.info(_('Fetching ‘{url}’.').format(url=request.url))
 
+        self._item_session.request = request
         response = None
 
         try:
             with self._processor.ftp_client.session() as session:
                 if is_file:
-                    response = yield from session.fetch(request)
+                    response = yield from session.start(request)
                 else:
-                    response = yield from session.fetch_file_listing(request)
+                    response = yield from session.start_listing(request)
+
+                self._item_session.response = response
 
                 action = self._result_rule.handle_pre_response(
-                    request, response, self._url_item
+                    self._item_session
                 )
 
                 if action in (Actions.RETRY, Actions.FINISH):
@@ -297,16 +279,17 @@ class FTPProcessorSession(BaseProcessorSession):
                 self._file_writer_session.process_response(response)
 
                 if not response.body:
-                    response.body = Body(directory=self._processor.root_path,
-                                         hint='resp_cb')
+                    response.body = Body(
+                        directory=self._item_session.app_session.root_path,
+                        hint='resp_cb')
 
                 duration_timeout = self._fetch_rule.duration_timeout
 
                 if is_file:
-                    yield from session.read_content(
+                    yield from session.download(
                         response.body, duration_timeout=duration_timeout)
                 else:
-                    yield from session.read_listing_content(
+                    yield from session.download_listing(
                         response.body, duration_timeout=duration_timeout)
 
         except HookPreResponseBreak:
@@ -316,10 +299,10 @@ class FTPProcessorSession(BaseProcessorSession):
         except REMOTE_ERRORS as error:
             self._log_error(request, error)
 
-            self._result_rule.handle_error(request, error, self._url_item)
+            self._result_rule.handle_error(self._item_session, error)
 
             wait_time = self._result_rule.get_wait_time(
-                request, self._url_item.url_record, error=error
+                self._item_session, error=error
             )
 
             if response:
@@ -331,7 +314,7 @@ class FTPProcessorSession(BaseProcessorSession):
             self._handle_response(request, response)
 
             wait_time = self._result_rule.get_wait_time(
-                request, self._url_item.url_record, response=response
+                self._item_session
             )
 
             if is_file and \
@@ -343,14 +326,12 @@ class FTPProcessorSession(BaseProcessorSession):
 
             return wait_time
 
-    def _add_listing_links(self, response):
+    def _add_listing_links(self, response: ListingResponse):
         '''Add links from file listing response.'''
         base_url = response.request.url_info.url
-        dir_urls_to_add = set()
-        file_urls_to_add = set()
 
         if self._glob_pattern:
-            level = self._url_item.url_record.level
+            level = self._item_session.url_record.level
         else:
             level = None
 
@@ -375,21 +356,15 @@ class FTPProcessorSession(BaseProcessorSession):
                 linked_url_info = parse_url_or_log(linked_url)
 
                 if linked_url_info:
-                    linked_url_record = self._url_item.child_url_record(linked_url_info, level=level)
-
-                    verdict = self._fetch_rule.check_ftp_request(
-                        linked_url_info, linked_url_record)[0]
+                    verdict = self._fetch_rule.check_ftp_request(self._item_session)[0]
 
                     if verdict:
                         if linked_url_info.path.endswith('/'):
-                            dir_urls_to_add.add(linked_url_info.url)
+                            self._item_session.add_child_url(linked_url_info.url, link_type=LinkType.directory)
                         else:
-                            file_urls_to_add.add(linked_url_info.url)
+                            self._item_session.add_child_url(linked_url.url, link_type=LinkType.file, level=level)
 
-        self._url_item.add_child_urls(dir_urls_to_add, link_type=LinkType.directory)
-        self._url_item.add_child_urls(file_urls_to_add, link_type=LinkType.file, level=level)
-
-    def _log_response(self, request, response):
+    def _log_response(self, request: Request, response: Response):
         '''Log response.'''
         _logger.info(__(
             _('Fetched ‘{url}’: {reply_code} {reply_text}. '
@@ -400,25 +375,25 @@ class FTPProcessorSession(BaseProcessorSession):
             content_length=response.body.size(),
         ))
 
-    def _handle_response(self, request, response):
+    def _handle_response(self, request: Request, response: Response):
         '''Process a response.'''
-        self._url_item.set_value(status_code=response.reply.code)
+        self._item_session.update_record_value(status_code=response.reply.code)
         is_listing = isinstance(response, ListingResponse)
 
         if is_listing and not self._processor.fetch_params.remove_listing or \
                 not is_listing:
             filename = self._file_writer_session.save_document(response)
-            action = self._result_rule.handle_document(request, response, self._url_item, filename)
+            action = self._result_rule.handle_document(self._item_session, filename)
         else:
             self._file_writer_session.discard_document(response)
-            action = self._result_rule.handle_no_document(request, response, self._url_item)
+            action = self._result_rule.handle_no_document(self._item_session)
 
         if isinstance(response, ListingResponse):
             self._add_listing_links(response)
 
         return action
 
-    def _make_symlink(self, link_name, link_target):
+    def _make_symlink(self, link_name: str, link_target: str):
         '''Make a symlink on the system.'''
         path = self._file_writer_session.extra_resource_path('dummy')
 
@@ -437,7 +412,7 @@ class FTPProcessorSession(BaseProcessorSession):
             ))
 
     @asyncio.coroutine
-    def _apply_unix_permissions(self, request, response):
+    def _apply_unix_permissions(self, request: Request, response: Response):
         '''Fetch and apply Unix permissions.
 
         Coroutine.
@@ -458,7 +433,7 @@ class FTPProcessorSession(BaseProcessorSession):
                 os.chmod(response.body.name, file_entry.perm)
 
 
-def to_dir_path_url(url_info):
+def to_dir_path_url(url_info: URLInfo) -> str:
     '''Return URL string with the path replaced with directory only.'''
     dir_name = posixpath.dirname(url_info.path)
 
@@ -470,6 +445,6 @@ def to_dir_path_url(url_info):
     return url_template.format(url_info.hostname_with_port, dir_name)
 
 
-def append_slash_to_path_url(url_info):
+def append_slash_to_path_url(url_info: URLInfo) -> str:
     '''Return URL string with the path suffixed with a slash.'''
     return 'ftp://{}{}/'.format(url_info.hostname_with_port, url_info.path)
