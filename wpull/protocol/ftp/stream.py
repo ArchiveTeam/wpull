@@ -7,10 +7,10 @@ import asyncio
 from typing import IO, Union
 
 from wpull.network.connection import Connection
-from wpull.protocol.abstract.stream import close_stream_on_error
+from wpull.protocol.abstract.stream import close_stream_on_error, \
+    DataEventDispatcher
 from wpull.errors import NetworkError
 from wpull.protocol.ftp.request import Reply, Command
-from wpull.observer import Observer
 
 
 _logger = logging.getLogger(__name__)
@@ -19,23 +19,16 @@ _logger = logging.getLogger(__name__)
 class DataStream(object):
     '''Stream class for a data connection.
 
-    Attributes:
-        data_observer (:class:`.observer.Observer`): The data observer.
-            The callback function should accept two arguments:
-
-            1. str: The type of data. Can be ``read`` or ``write``.
-            2. bytes: The raw data.
-
     Args:
-        connection (:class:`.connection.Connection`): Connection.
+        connection: Connection.
     '''
     def __init__(self, connection: Connection):
         self._connection = connection
-        self._data_observer = Observer()
+        self._data_event_dispatcher = DataEventDispatcher()
 
     @property
-    def data_observer(self):
-        return self._data_observer
+    def data_event_dispatcher(self) -> DataEventDispatcher:
+        return self._data_event_dispatcher
 
     def close(self):
         '''Close connection.'''
@@ -68,7 +61,7 @@ class DataStream(object):
                 if file_is_async:
                     yield from file.drain()
 
-            self._data_observer.notify('read', data)
+            self._data_event_dispatcher.notify_read(data)
 
     # TODO: def write_file()
 
@@ -76,23 +69,16 @@ class DataStream(object):
 class ControlStream(object):
     '''Stream class for a control connection.
 
-    Attributes:
-        data_observer (:class:`.observer.Observer`): The data observer.
-            The callback function should accept two arguments:
-
-            1. str: The type of data. Can be ``command`` or ``reply``.
-            2. bytes: The raw data.
-
     Args:
         connection: Connection.
     '''
     def __init__(self, connection: Connection):
         self._connection = connection
-        self._data_observer = Observer()
+        self._data_event_dispatcher = DataEventDispatcher()
 
     @property
-    def data_observer(self):
-        return self._data_observer
+    def data_event_dispatcher(self):
+        return self._data_event_dispatcher
 
     def close(self):
         '''Close the connection.'''
@@ -126,7 +112,7 @@ class ControlStream(object):
         _logger.debug('Write command.')
         data = command.to_bytes()
         yield from self._connection.write(data)
-        self._data_observer.notify('command', data)
+        self._data_event_dispatcher.notify_write(data)
 
     @asyncio.coroutine
     @close_stream_on_error
@@ -147,7 +133,7 @@ class ControlStream(object):
             if line[-1:] != b'\n':
                 raise NetworkError('Connection closed.')
 
-            self._data_observer.notify('reply', line)
+            self._data_event_dispatcher.notify_read(line)
             reply.parse(line)
 
             if reply.code is not None:

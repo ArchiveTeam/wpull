@@ -9,7 +9,8 @@ import zlib
 
 import asyncio
 
-from wpull.protocol.abstract.stream import close_stream_on_error
+from wpull.protocol.abstract.stream import close_stream_on_error, \
+    DataEventDispatcher
 from wpull.backport.logging import BraceMessage as __
 import wpull.decompression
 from wpull.errors import NetworkError, ProtocolError
@@ -41,20 +42,13 @@ class Stream(object):
             When using this option, `keep_alive` should be False.
 
     Attributes:
-        data_observer (:class:`.observer.Observer`): An observer called with
-            two arguments:
-
-            1. str: The data type. Can be ``request``, ``request_body``,
-               ``response``, ``response_body``
-            2. bytes: the raw data
-
         connection: The underlying connection.
     '''
     def __init__(self, connection, keep_alive=True, ignore_length=False):
         self._connection = connection
         self._keep_alive = keep_alive
         self._ignore_length = ignore_length
-        self._data_observer = Observer()
+        self._data_event_dispatcher = DataEventDispatcher()
         self._read_size = 4096
         self._decompressor = None
 
@@ -63,8 +57,8 @@ class Stream(object):
         return self._connection
 
     @property
-    def data_observer(self):
-        return self._data_observer
+    def data_event_dispatcher(self) -> DataEventDispatcher:
+        return self._data_event_dispatcher
 
     @asyncio.coroutine
     @close_stream_on_error
@@ -86,7 +80,7 @@ class Stream(object):
 
         data = request.to_bytes()
 
-        self._data_observer.notify('request', data)
+        self._data_event_dispatcher.notify_write(data)
 
         # XXX: Connection lost is raised too early on Python 3.2, 3.3 so
         # don't flush but check for connection closed on reads
@@ -125,7 +119,7 @@ class Stream(object):
             if not data:
                 break
 
-            self._data_observer.notify('request_body', data)
+            self._data_event_dispatcher.notify_write(data)
 
             if bytes_left <= self._read_size:
                 # XXX: Connection lost is raised too early on Python 3.2, 3.3
@@ -162,7 +156,7 @@ class Stream(object):
                 raise ProtocolError(
                     'Invalid header: {0}'.format(error)) from error
 
-            self._data_observer.notify('response', data)
+            self._data_event_dispatcher.notify_read(data)
 
             if not data.endswith(b'\n'):
                 raise NetworkError('Connection closed.')
@@ -232,7 +226,7 @@ class Stream(object):
             if not data:
                 break
 
-            self._data_observer.notify('response_body', data)
+            self._data_event_dispatcher.notify_read(data)
 
             content_data = self._decompress_data(data)
 
@@ -290,7 +284,7 @@ class Stream(object):
                 _logger.warning(_('Content overrun.'))
                 self.close()
 
-            self._data_observer.notify('response_body', data)
+            self._data_event_dispatcher.notify_read(data)
 
             content_data = self._decompress_data(data)
 
@@ -324,7 +318,7 @@ class Stream(object):
         while True:
             chunk_size, data = yield from reader.read_chunk_header()
 
-            self._data_observer.notify('response_body', data)
+            self._data_event_dispatcher.notify_read(data)
             if raw:
                 file.write(data)
 
@@ -334,7 +328,7 @@ class Stream(object):
             while True:
                 content, data = yield from reader.read_chunk_body()
 
-                self._data_observer.notify('response_body', data)
+                self._data_event_dispatcher.notify_read(data)
 
                 if not content:
                     if raw:
@@ -360,7 +354,7 @@ class Stream(object):
 
         trailer_data = yield from reader.read_trailer()
 
-        self._data_observer.notify('response_body', trailer_data)
+        self._data_event_dispatcher.notify_read(trailer_data)
 
         if file and raw:
             file.write(trailer_data)

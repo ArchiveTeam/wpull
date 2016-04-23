@@ -23,6 +23,7 @@ class DurationTimeout(NetworkTimedOut):
 class BaseSession(object, metaclass=abc.ABCMeta):
     '''Base session.'''
     def __init__(self, connection_pool):
+        super().__init__()
         self._connection_pool = connection_pool
         self._connections = set()
 
@@ -90,6 +91,7 @@ class BaseClient(Generic[SessionT], metaclass=abc.ABCMeta):
         Args:
             connection_pool: Connection pool.
         '''
+        super().__init__()
         if connection_pool is not None:
             self._connection_pool = connection_pool
         else:

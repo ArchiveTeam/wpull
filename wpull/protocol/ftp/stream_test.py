@@ -1,6 +1,8 @@
 import io
 import logging
 
+import functools
+
 import wpull.testing.async
 from wpull.backport.logging import BraceMessage as __
 from wpull.network.connection import Connection
@@ -23,7 +25,10 @@ class TestStream(FTPTestCase):
         yield from connection.connect()
 
         control_stream = ControlStream(connection)
-        control_stream.data_observer.add(log_cb)
+        control_stream.data_event_dispatcher.add_read_listener(
+            functools.partial(log_cb, 'read'))
+        control_stream.data_event_dispatcher.add_write_listener(
+            functools.partial(log_cb, 'write'))
 
         reply = yield from control_stream.read_reply()
         self.assertEqual(220, reply.code)

@@ -11,6 +11,7 @@ import asyncio
 from typing import IO, Tuple
 from typing import Optional
 
+from wpull.application.hook import HookableMixin
 from wpull.protocol.abstract.client import BaseClient, BaseSession, DurationTimeout
 from wpull.body import Body
 from wpull.errors import ProtocolError, AuthenticationError
@@ -34,7 +35,7 @@ class SessionState(enum.Enum):
     aborted = 'aborted'
 
 
-class Session(BaseSession):
+class Session(BaseSession, HookableMixin):
     def __init__(self, login_table: weakref.WeakKeyDictionary, **kwargs):
         self._login_table = login_table
 
@@ -50,6 +51,15 @@ class Session(BaseSession):
         self._listing_type = None
         self._session_state = SessionState.ready
 
+        self.event_dispatcher.register('begin_control')
+        self.event_dispatcher.register('control_send_data')
+        self.event_dispatcher.register('control_receive_data')
+        self.event_dispatcher.register('end_control')
+        self.event_dispatcher.register('begin_transfer')
+        self.event_dispatcher.register('transfer_send_data')
+        self.event_dispatcher.register('transfer_receive_data')
+        self.event_dispatcher.register('end_transfer')
+
     @asyncio.coroutine
     def _init_stream(self):
         '''Create streams and commander.
@@ -61,17 +71,11 @@ class Session(BaseSession):
         self._control_stream = ControlStream(self._control_connection)
         self._commander = Commander(self._control_stream)
 
-        # if self._recorder_session:
-        #     def control_data_callback(direction, data):
-        #         assert direction in ('command', 'reply'), \
-        #             'Expect read/write. Got {}'.format(repr(direction))
-        #
-        #         if direction == 'reply':
-        #             self._recorder_session.response_control_data(data)
-        #         else:
-        #             self._recorder_session.request_control_data(data)
-        #
-        #     self._control_stream.data_observer.add(control_data_callback)
+        read_callback = functools.partial(self.event_dispatcher.notify, 'control_receive_data')
+        self._control_stream.data_event_dispatcher.add_read_listener(read_callback)
+
+        write_callback = functools.partial(self.event_dispatcher.notify, 'control_send_data')
+        self._control_stream.data_event_dispatcher.add_write_listener(write_callback)
 
     @asyncio.coroutine
     def _log_in(self):
@@ -203,11 +207,8 @@ class Session(BaseSession):
 
         request.address = self._control_connection.address
 
-        # if self._recorder_session:
-        #     connection_reused = not connection_closed
-        #     self._recorder_session.begin_control(
-        #         request, connection_reused=connection_reused
-        #     )
+        connection_reused = not connection_closed
+        self.event_dispatcher.notify('begin_control', request, connection_reused=connection_reused)
 
         if connection_closed:
             yield from self._commander.read_welcome_message()
@@ -223,8 +224,7 @@ class Session(BaseSession):
 
         self._response.reply = begin_reply
 
-        # if self._recorder_session:
-        #     self._recorder_session.pre_response(self._response)
+        self.event_dispatcher.notify('begin_transfer', self._response)
 
     @asyncio.coroutine
     def download(self, file: Optional[IO]=None, rewind: bool=True,
@@ -275,8 +275,7 @@ class Session(BaseSession):
         if original_offset is not None:
             file.seek(original_offset)
 
-        # if self._recorder_session:
-        #     self._recorder_session.response(self._response)
+        self.event_dispatcher.notify('end_transfer', self._response)
 
         self._session_state = SessionState.response_received
 
@@ -364,14 +363,11 @@ class Session(BaseSession):
             connection_factory
         )
 
-        # if self._recorder_session:
-        #     self._response.data_address = self._data_connection.address
-        #
-        #     def data_callback(action, data):
-        #         if action == 'read':
-        #             self._recorder_session.response_data(data)
-        #
-        #     self._data_stream.data_observer.add(data_callback)
+        read_callback = functools.partial(self.event_dispatcher.notify, 'transfer_receive_data')
+        self._data_stream.data_event_dispatcher.add_read_listener(read_callback)
+
+        write_callback = functools.partial(self.event_dispatcher.notify, 'transfer_send_data')
+        self._data_stream.data_event_dispatcher.add_write_listener(write_callback)
 
     @asyncio.coroutine
     def _fetch_size(self, request: Request) -> int:
@@ -396,11 +392,10 @@ class Session(BaseSession):
         super().recycle()
         self._close_data_connection()
 
-        # if self._control_connection:
-        #     if self._recorder_session:
-        #         self._recorder_session.end_control(
-        #             self._response, connection_closed=self._control_connection.closed()
-        #         )
+        self.event_dispatcher.notify(
+            'end_control', self._response,
+            connection_closed=self._control_connection.closed()
+        )
 
     def _close_data_connection(self):
         if self._data_connection:
@@ -409,11 +404,10 @@ class Session(BaseSession):
             self._data_connection = None
 
         if self._data_stream:
-            self._data_stream.data_observer.clear()
             self._data_stream = None
 
 
-class Client(BaseClient[Session]):
+class Client(BaseClient, HookableMixin):
     '''FTP Client.
 
     The session object is :class:`Session`.
@@ -421,6 +415,12 @@ class Client(BaseClient[Session]):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._login_table = weakref.WeakKeyDictionary()
+        self.event_dispatcher.register('new_session')
 
     def _session_class(self) -> Session:
         return functools.partial(Session, login_table=self._login_table)
+
+    def session(self) -> Session:
+        session = super().session()
+        self.event_dispatcher.notify('new_session', session)
+        return session

@@ -6,6 +6,7 @@ import os.path
 import ssl
 import unittest
 
+import functools
 import tornado.netutil
 
 import wpull.testing.async
@@ -53,7 +54,10 @@ class StreamTestsMixin(object):
                 if non_local_dict['count'] == 50:
                     _logger.debug('Discarding for performance.')
 
-        stream.data_observer.add(debug_handler)
+        stream.data_event_dispatcher.add_read_listener(
+            functools.partial(debug_handler, 'read'))
+        stream.data_event_dispatcher.add_write_listener(
+            functools.partial(debug_handler, 'write'))
 
         return stream
 

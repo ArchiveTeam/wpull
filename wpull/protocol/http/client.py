@@ -9,6 +9,8 @@ import warnings
 import asyncio
 
 from typing import Optional, Union, IO, Callable
+
+from wpull.application.hook import HookableMixin
 from wpull.protocol.abstract.client import BaseClient, BaseSession, DurationTimeout
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
@@ -27,9 +29,9 @@ class SessionState(enum.Enum):
     aborted = 'aborted'
 
 
-class Session(BaseSession):
+class Session(BaseSession, HookableMixin):
     '''HTTP request and response session.'''
-    def __init__(self, stream_factory=None, **kwargs):
+    def __init__(self, stream_factory: Callable[..., Stream]=None, **kwargs):
         super().__init__(**kwargs)
 
         assert stream_factory
@@ -39,6 +41,13 @@ class Session(BaseSession):
         self._response = None
 
         self._session_state = SessionState.ready
+
+        self.event_dispatcher.register('begin_request')
+        self.event_dispatcher.register('request_data')
+        self.event_dispatcher.register('end_request')
+        self.event_dispatcher.register('begin_response')
+        self.event_dispatcher.register('response_data')
+        self.event_dispatcher.register('end_response')
 
     @asyncio.coroutine
     def start(self, request: Request) -> Response:
@@ -70,6 +79,10 @@ class Session(BaseSession):
 
         request.address = connection.address
 
+        self.event_dispatcher.notify('begin_request', request)
+        write_callback = functools.partial(self.event_dispatcher.notify, 'request_data')
+        stream.data_event_dispatcher.add_write_listener(write_callback)
+
         yield from stream.write_request(request, full_url=full_url)
 
         if request.body:
@@ -77,8 +90,16 @@ class Session(BaseSession):
             length = int(request.fields['Content-Length'])
             yield from stream.write_body(request.body, length=length)
 
+        stream.data_event_dispatcher.remove_write_listener(write_callback)
+        self.event_dispatcher.notify('end_request', request)
+
+        read_callback = functools.partial(self.event_dispatcher.notify, 'response_data')
+        stream.data_event_dispatcher.add_read_listener(read_callback)
+
         self._response = response = yield from stream.read_response()
         response.request = request
+
+        self.event_dispatcher.notify('begin_response', response)
 
         self._session_state = SessionState.request_sent
 
@@ -133,6 +154,7 @@ class Session(BaseSession):
         if original_offset is not None:
             file.seek(original_offset)
 
+        self.event_dispatcher.notify('end_response', self._response)
         self.recycle()
 
     def done(self) -> bool:
@@ -156,7 +178,7 @@ class Session(BaseSession):
         super().recycle()
 
 
-class Client(BaseClient[Session]):
+class Client(BaseClient, HookableMixin):
     '''Stateless HTTP/1.1 client.
 
     The session object is :class:`Session`.
@@ -164,9 +186,12 @@ class Client(BaseClient[Session]):
     def __init__(self, *args, stream_factory=Stream, **kwargs):
         super().__init__(*args, **kwargs)
         self._stream_factory = stream_factory
+        self.event_dispatcher.register('new_session')
 
     def _session_class(self) -> Callable[[], Session]:
         return functools.partial(Session, stream_factory=self._stream_factory)
 
     def session(self) -> Session:
-        return super().session()
+        session = super().session()
+        self.event_dispatcher.notify('new_session', session)
+        return session
