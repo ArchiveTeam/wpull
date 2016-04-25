@@ -31,6 +31,15 @@ class SessionState(enum.Enum):
 
 class Session(BaseSession, HookableMixin):
     '''HTTP request and response session.'''
+
+    class Event(enum.Enum):
+        begin_request = 'begin_request'
+        request_data = 'request_data'
+        end_request = 'end_request'
+        begin_response = 'begin_response'
+        response_data = 'response_data'
+        end_response = 'end_response'
+
     def __init__(self, stream_factory: Callable[..., Stream]=None, **kwargs):
         super().__init__(**kwargs)
 
@@ -42,12 +51,12 @@ class Session(BaseSession, HookableMixin):
 
         self._session_state = SessionState.ready
 
-        self.event_dispatcher.register('begin_request')
-        self.event_dispatcher.register('request_data')
-        self.event_dispatcher.register('end_request')
-        self.event_dispatcher.register('begin_response')
-        self.event_dispatcher.register('response_data')
-        self.event_dispatcher.register('end_response')
+        self.event_dispatcher.register(self.Event.begin_request)
+        self.event_dispatcher.register(self.Event.request_data)
+        self.event_dispatcher.register(self.Event.end_request)
+        self.event_dispatcher.register(self.Event.begin_response)
+        self.event_dispatcher.register(self.Event.response_data)
+        self.event_dispatcher.register(self.Event.end_response)
 
     @asyncio.coroutine
     def start(self, request: Request) -> Response:
@@ -79,8 +88,8 @@ class Session(BaseSession, HookableMixin):
 
         request.address = connection.address
 
-        self.event_dispatcher.notify('begin_request', request)
-        write_callback = functools.partial(self.event_dispatcher.notify, 'request_data')
+        self.event_dispatcher.notify(self.Event.begin_request, request)
+        write_callback = functools.partial(self.event_dispatcher.notify, self.Event.request_data)
         stream.data_event_dispatcher.add_write_listener(write_callback)
 
         yield from stream.write_request(request, full_url=full_url)
@@ -91,15 +100,15 @@ class Session(BaseSession, HookableMixin):
             yield from stream.write_body(request.body, length=length)
 
         stream.data_event_dispatcher.remove_write_listener(write_callback)
-        self.event_dispatcher.notify('end_request', request)
+        self.event_dispatcher.notify(self.Event.end_request, request)
 
-        read_callback = functools.partial(self.event_dispatcher.notify, 'response_data')
+        read_callback = functools.partial(self.event_dispatcher.notify, self.Event.response_data)
         stream.data_event_dispatcher.add_read_listener(read_callback)
 
         self._response = response = yield from stream.read_response()
         response.request = request
 
-        self.event_dispatcher.notify('begin_response', response)
+        self.event_dispatcher.notify(self.Event.begin_response, response)
 
         self._session_state = SessionState.request_sent
 
@@ -154,7 +163,7 @@ class Session(BaseSession, HookableMixin):
         if original_offset is not None:
             file.seek(original_offset)
 
-        self.event_dispatcher.notify('end_response', self._response)
+        self.event_dispatcher.notify(self.Event.end_response, self._response)
         self.recycle()
 
     def done(self) -> bool:
@@ -183,15 +192,19 @@ class Client(BaseClient, HookableMixin):
 
     The session object is :class:`Session`.
     '''
+
+    class Event(enum.Enum):
+        new_session = 'new_session'
+
     def __init__(self, *args, stream_factory=Stream, **kwargs):
         super().__init__(*args, **kwargs)
         self._stream_factory = stream_factory
-        self.event_dispatcher.register('new_session')
+        self.event_dispatcher.register(self.Event.new_session)
 
     def _session_class(self) -> Callable[[], Session]:
         return functools.partial(Session, stream_factory=self._stream_factory)
 
     def session(self) -> Session:
         session = super().session()
-        self.event_dispatcher.notify('new_session', session)
+        self.event_dispatcher.notify(self.Event.new_session, session)
         return session

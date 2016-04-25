@@ -36,6 +36,16 @@ class SessionState(enum.Enum):
 
 
 class Session(BaseSession, HookableMixin):
+    class Event(enum.Enum):
+        begin_control = 'begin_control'
+        control_send_data = 'control_send_data'
+        control_receive_data = 'control_receive_data'
+        end_control = 'end_control'
+        begin_transfer = 'begin_transfer'
+        transfer_send_data = 'transfer_send_data'
+        transfer_receive_data = 'transfer_receive_data'
+        end_transfer = 'end_transfer'
+
     def __init__(self, login_table: weakref.WeakKeyDictionary, **kwargs):
         self._login_table = login_table
 
@@ -51,14 +61,14 @@ class Session(BaseSession, HookableMixin):
         self._listing_type = None
         self._session_state = SessionState.ready
 
-        self.event_dispatcher.register('begin_control')
-        self.event_dispatcher.register('control_send_data')
-        self.event_dispatcher.register('control_receive_data')
-        self.event_dispatcher.register('end_control')
-        self.event_dispatcher.register('begin_transfer')
-        self.event_dispatcher.register('transfer_send_data')
-        self.event_dispatcher.register('transfer_receive_data')
-        self.event_dispatcher.register('end_transfer')
+        self.event_dispatcher.register(self.Event.begin_control)
+        self.event_dispatcher.register(self.Event.control_send_data)
+        self.event_dispatcher.register(self.Event.control_receive_data)
+        self.event_dispatcher.register(self.Event.end_control)
+        self.event_dispatcher.register(self.Event.begin_transfer)
+        self.event_dispatcher.register(self.Event.transfer_send_data)
+        self.event_dispatcher.register(self.Event.transfer_receive_data)
+        self.event_dispatcher.register(self.Event.end_transfer)
 
     @asyncio.coroutine
     def _init_stream(self):
@@ -71,10 +81,10 @@ class Session(BaseSession, HookableMixin):
         self._control_stream = ControlStream(self._control_connection)
         self._commander = Commander(self._control_stream)
 
-        read_callback = functools.partial(self.event_dispatcher.notify, 'control_receive_data')
+        read_callback = functools.partial(self.event_dispatcher.notify, self.Event.control_receive_data)
         self._control_stream.data_event_dispatcher.add_read_listener(read_callback)
 
-        write_callback = functools.partial(self.event_dispatcher.notify, 'control_send_data')
+        write_callback = functools.partial(self.event_dispatcher.notify, self.Event.control_send_data)
         self._control_stream.data_event_dispatcher.add_write_listener(write_callback)
 
     @asyncio.coroutine
@@ -208,7 +218,7 @@ class Session(BaseSession, HookableMixin):
         request.address = self._control_connection.address
 
         connection_reused = not connection_closed
-        self.event_dispatcher.notify('begin_control', request, connection_reused=connection_reused)
+        self.event_dispatcher.notify(self.Event.begin_control, request, connection_reused=connection_reused)
 
         if connection_closed:
             yield from self._commander.read_welcome_message()
@@ -224,7 +234,7 @@ class Session(BaseSession, HookableMixin):
 
         self._response.reply = begin_reply
 
-        self.event_dispatcher.notify('begin_transfer', self._response)
+        self.event_dispatcher.notify(self.Event.begin_transfer, self._response)
 
     @asyncio.coroutine
     def download(self, file: Optional[IO]=None, rewind: bool=True,
@@ -275,7 +285,7 @@ class Session(BaseSession, HookableMixin):
         if original_offset is not None:
             file.seek(original_offset)
 
-        self.event_dispatcher.notify('end_transfer', self._response)
+        self.event_dispatcher.notify(self.Event.end_transfer, self._response)
 
         self._session_state = SessionState.response_received
 
@@ -363,10 +373,10 @@ class Session(BaseSession, HookableMixin):
             connection_factory
         )
 
-        read_callback = functools.partial(self.event_dispatcher.notify, 'transfer_receive_data')
+        read_callback = functools.partial(self.event_dispatcher.notify, self.Event.transfer_receive_data)
         self._data_stream.data_event_dispatcher.add_read_listener(read_callback)
 
-        write_callback = functools.partial(self.event_dispatcher.notify, 'transfer_send_data')
+        write_callback = functools.partial(self.event_dispatcher.notify, self.Event.transfer_send_data)
         self._data_stream.data_event_dispatcher.add_write_listener(write_callback)
 
     @asyncio.coroutine
@@ -393,7 +403,7 @@ class Session(BaseSession, HookableMixin):
         self._close_data_connection()
 
         self.event_dispatcher.notify(
-            'end_control', self._response,
+            self.Event.end_control, self._response,
             connection_closed=self._control_connection.closed()
         )
 
@@ -412,15 +422,19 @@ class Client(BaseClient, HookableMixin):
 
     The session object is :class:`Session`.
     '''
+
+    class Event(enum.Enum):
+        new_session = 'new_session'
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._login_table = weakref.WeakKeyDictionary()
-        self.event_dispatcher.register('new_session')
+        self.event_dispatcher.register(self.Event.new_session)
 
     def _session_class(self) -> Session:
         return functools.partial(Session, login_table=self._login_table)
 
     def session(self) -> Session:
         session = super().session()
-        self.event_dispatcher.notify('new_session', session)
+        self.event_dispatcher.notify(self.Event.new_session, session)
         return session
