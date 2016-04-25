@@ -3,7 +3,7 @@
 import io
 import unittest
 
-from wpull.warc import read_cdx
+from wpull.warc.format import read_cdx
 
 
 class TestWARC(unittest.TestCase):

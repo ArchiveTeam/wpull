@@ -15,7 +15,7 @@ import namedlist
 from wpull.backport.logging import BraceMessage as __
 from wpull.namevalue import NameValueRecord
 from wpull.recorder.base import BaseRecorder, BaseRecorderSession
-from wpull.warc import WARCRecord
+from wpull.warc.format import WARCRecord
 import wpull.util
 import wpull.version
 

@@ -8,8 +8,8 @@ from wpull.body import Body
 from wpull.database.sqltable import URLTable
 from wpull.protocol.http.request import Request as HTTPRequest, Response as HTTPResponse
 from wpull.recorder.base_test import BaseRecorderTest
-from wpull.recorder.warc import WARCRecorder, WARCRecorderParams
-from wpull.warc import WARCRecord
+from wpull.warc.recorder import WARCRecorder, WARCRecorderParams
+from wpull.warc.format import WARCRecord
 import wpull.util
 from wpull.protocol.ftp.request import Request as FTPRequest, Response as FTPResponse, Reply as FTPReply
 
