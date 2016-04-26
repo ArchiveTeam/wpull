@@ -64,14 +64,15 @@ class TestWARC(BaseRecorderTest):
         with wpull.util.reset_file_offset(response.body):
             response.body.write(b'KITTEH DOGE')
 
-        with warc_recorder.session() as session:
-            session.pre_request(request)
-            session.request_data(request.to_bytes())
-            session.request(request)
-            session.pre_response(response)
-            session.response_data(response.to_bytes())
-            session.response_data(response.body.content())
-            session.response(response)
+        session = warc_recorder.new_http_recorder_session()
+        session.begin_request(request)
+        session.request_data(request.to_bytes())
+        session.end_request(request)
+        session.begin_response(response)
+        session.response_data(response.to_bytes())
+        session.response_data(response.body.content())
+        session.end_response(response)
+        session.close()
 
         _logger.info('FINISHED')
 
@@ -170,14 +171,15 @@ class TestWARC(BaseRecorderTest):
         with wpull.util.reset_file_offset(response.body):
             response.body.write(b'KITTEH DOGE')
 
-        with warc_recorder.session() as session:
-            session.begin_control(request)
-            session.request_control_data(b'GIMMEH example.txt')
-            session.response_control_data(b'200 OK, no need to yell.')
-            session.pre_response(response)
-            session.response_data(b'KITTEH DOGE')
-            session.response(response)
-            session.end_control(response)
+        session = warc_recorder.new_ftp_recorder_session()
+        session.begin_control(request)
+        session.control_send_data(b'GIMMEH example.txt')
+        session.control_receive_data(b'200 OK, no need to yell.')
+        session.begin_transfer(response)
+        session.transfer_receive_data(b'KITTEH DOGE')
+        session.end_transfer(response)
+        session.end_control(response)
+        session.close()
 
         warc_recorder.close()
 
@@ -250,14 +252,15 @@ class TestWARC(BaseRecorderTest):
         with wpull.util.reset_file_offset(response.body):
             response.body.write(b'KITTEH DOGE')
 
-        with warc_recorder.session() as session:
-            session.pre_request(request)
-            session.request_data(request.to_bytes())
-            session.request(request)
-            session.pre_response(response)
-            session.response_data(response.to_bytes())
-            session.response_data(response.body.content())
-            session.response(response)
+        session = warc_recorder.new_http_recorder_session()
+        session.begin_request(request)
+        session.request_data(request.to_bytes())
+        session.end_request(request)
+        session.begin_response(response)
+        session.response_data(response.to_bytes())
+        session.response_data(response.body.content())
+        session.end_response(response)
+        session.close()
 
         request = HTTPRequest('http://example.com/2')
         request.address = ('0.0.0.0', 80)
@@ -267,14 +270,15 @@ class TestWARC(BaseRecorderTest):
         with wpull.util.reset_file_offset(response.body):
             response.body.write(b'DOGE KITTEH')
 
-        with warc_recorder.session() as session:
-            session.pre_request(request)
-            session.request_data(request.to_bytes())
-            session.request(request)
-            session.pre_response(response)
-            session.response_data(response.to_bytes())
-            session.response_data(response.body.content())
-            session.response(response)
+        session = warc_recorder.new_http_recorder_session()
+        session.begin_request(request)
+        session.request_data(request.to_bytes())
+        session.end_request(request)
+        session.begin_response(response)
+        session.response_data(response.to_bytes())
+        session.response_data(response.body.content())
+        session.end_response(response)
+        session.close()
 
         _logger.info('FINISHED')
 
@@ -339,33 +343,32 @@ class TestWARC(BaseRecorderTest):
         with wpull.util.reset_file_offset(response.body):
             response.body.write(b'KITTEH DOGE')
 
-        with warc_recorder.session() as session:
-            session.pre_request(request)
-            session.request_data(request.to_bytes())
+        session = warc_recorder.new_http_recorder_session()
+        session.begin_request(request)
+        session.request_data(request.to_bytes())
 
-            class BadRecord(WARCRecord):
-                def __init__(self, original_record):
-                    super().__init__()
-                    self.block_file = original_record.block_file
-                    self.fields = original_record.fields
+        class BadRecord(WARCRecord):
+            def __init__(self, original_record):
+                super().__init__()
+                self.block_file = original_record.block_file
+                self.fields = original_record.fields
 
-                def __iter__(self):
-                    for dummy in range(1000):
-                        yield b"where's my elephant?"
-                    raise OSError('Oops')
+            def __iter__(self):
+                for dummy in range(1000):
+                    yield b"where's my elephant?"
+                raise OSError('Oops')
 
-            session._child_session._request_record = \
-                BadRecord(session._child_session._request_record)
-            original_offset = os.path.getsize(warc_filename)
+        session._request_record = BadRecord(session._request_record)
+        original_offset = os.path.getsize(warc_filename)
 
-            with self.assertRaises((OSError, IOError)):
-                session.request(request)
+        with self.assertRaises((OSError, IOError)):
+            session.end_request(request)
 
-            new_offset = os.path.getsize(warc_filename)
-            self.assertEqual(new_offset, original_offset)
-            self.assertFalse(os.path.exists(warc_filename + '-wpullinc'))
+        new_offset = os.path.getsize(warc_filename)
+        self.assertEqual(new_offset, original_offset)
+        self.assertFalse(os.path.exists(warc_filename + '-wpullinc'))
 
-            _logger.debug('original offset {0}'.format(original_offset))
+        _logger.debug('original offset {0}'.format(original_offset))
 
     def test_warc_recorder_journal(self):
         warc_filename = 'asdf.warc'
@@ -386,32 +389,31 @@ class TestWARC(BaseRecorderTest):
         with wpull.util.reset_file_offset(response.body):
             response.body.write(b'KITTEH DOGE')
 
-        with warc_recorder.session() as session:
-            session.pre_request(request)
-            session.request_data(request.to_bytes())
-            test_instance = self
+        session = warc_recorder.new_http_recorder_session()
+        session.begin_request(request)
+        session.request_data(request.to_bytes())
+        test_instance = self
 
-            class MockRecord(WARCRecord):
-                def __init__(self, original_record):
-                    super().__init__()
-                    self.block_file = original_record.block_file
-                    self.fields = original_record.fields
+        class MockRecord(WARCRecord):
+            def __init__(self, original_record):
+                super().__init__()
+                self.block_file = original_record.block_file
+                self.fields = original_record.fields
 
-                def __iter__(self):
-                    print(list(os.walk('.')))
-                    test_instance.assertTrue(
-                        os.path.exists(warc_filename + '-wpullinc')
-                    )
+            def __iter__(self):
+                print(list(os.walk('.')))
+                test_instance.assertTrue(
+                    os.path.exists(warc_filename + '-wpullinc')
+                )
 
-                    for dummy in range(1000):
-                        yield b"where's my elephant?"
+                for dummy in range(1000):
+                    yield b"where's my elephant?"
 
-            session._child_session._request_record = \
-                MockRecord(session._child_session._request_record)
+        session._request_record = MockRecord(session._request_record)
 
-            session.request(request)
+        session.end_request(request)
 
-            self.assertFalse(os.path.exists(warc_filename + '-wpullinc'))
+        self.assertFalse(os.path.exists(warc_filename + '-wpullinc'))
 
     def test_warc_recorder_journal_raise_error(self):
         warc_filename = 'asdf.warc'
@@ -454,14 +456,15 @@ class TestWARC(BaseRecorderTest):
         with wpull.util.reset_file_offset(response.body):
             response.body.write(b'kitbit')
 
-        with warc_recorder.session() as session:
-            session.pre_request(request)
-            session.request_data(request.to_bytes())
-            session.request(request)
-            session.pre_response(response)
-            session.response_data(response.to_bytes())
-            session.response_data(response.body.content())
-            session.response(response)
+        session = warc_recorder.new_http_recorder_session()
+        session.begin_request(request)
+        session.request_data(request.to_bytes())
+        session.end_request(request)
+        session.begin_response(response)
+        session.response_data(response.to_bytes())
+        session.response_data(response.body.content())
+        session.end_response(response)
+        session.close()
 
         request = HTTPRequest('http://example.com/horse')
         request.address = ('0.0.0.0', 80)
@@ -471,14 +474,15 @@ class TestWARC(BaseRecorderTest):
         with wpull.util.reset_file_offset(response.body):
             response.body.write(b'kitbit')
 
-        with warc_recorder.session() as session:
-            session.pre_request(request)
-            session.request_data(request.to_bytes())
-            session.request(request)
-            session.pre_response(response)
-            session.response_data(response.to_bytes())
-            session.response_data(response.body.content())
-            session.response(response)
+        session = warc_recorder.new_http_recorder_session()
+        session.begin_request(request)
+        session.request_data(request.to_bytes())
+        session.end_request(request)
+        session.begin_response(response)
+        session.response_data(response.to_bytes())
+        session.response_data(response.body.content())
+        session.end_response(response)
+        session.close()
 
         _logger.info('FINISHED')
 
@@ -567,14 +571,15 @@ class TestWARC(BaseRecorderTest):
         with wpull.util.reset_file_offset(response.body):
             response.body.write(b'BLAH')
 
-        with warc_recorder.session() as session:
-            session.pre_request(request)
-            session.request_data(request.to_bytes())
-            session.request(request)
-            session.pre_response(response)
-            session.response_data(response.to_bytes())
-            session.response_data(response.body.content())
-            session.response(response)
+        session = warc_recorder.new_http_recorder_session()
+        session.begin_request(request)
+        session.request_data(request.to_bytes())
+        session.end_request(request)
+        session.begin_response(response)
+        session.response_data(response.to_bytes())
+        session.response_data(response.body.content())
+        session.end_response(response)
+        session.close()
 
         warc_recorder.close()
 
@@ -609,14 +614,15 @@ class TestWARC(BaseRecorderTest):
         with wpull.util.reset_file_offset(response.body):
             response.body.write(b'BLAH')
 
-        with warc_recorder.session() as session:
-            session.pre_request(request)
-            session.request_data(request.to_bytes())
-            session.request(request)
-            session.pre_response(response)
-            session.response_data(response.to_bytes())
-            session.response_data(response.body.content())
-            session.response(response)
+        session = warc_recorder.new_http_recorder_session()
+        session.begin_request(request)
+        session.request_data(request.to_bytes())
+        session.end_request(request)
+        session.begin_response(response)
+        session.response_data(response.to_bytes())
+        session.response_data(response.body.content())
+        session.end_response(response)
+        session.close()
 
         warc_recorder.close()
 

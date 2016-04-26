@@ -14,8 +14,15 @@ import namedlist
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.namevalue import NameValueRecord
-from wpull.recorder.base import BaseRecorder, BaseRecorderSession
 from wpull.warc.format import WARCRecord
+from wpull.protocol.ftp.client import Client as FTPClient
+from wpull.protocol.ftp.client import Session as FTPSession
+from wpull.protocol.ftp.request import Request as FTPRequest
+from wpull.protocol.ftp.request import Response as FTPResponse
+from wpull.protocol.http.client import Client as HTTPClient
+from wpull.protocol.http.client import Session as HTTPSession
+from wpull.protocol.http.request import Request as HTTPRequest
+from wpull.protocol.http.request import Response as HTTPResponse
 import wpull.util
 import wpull.version
 
@@ -62,7 +69,7 @@ Args:
 '''
 
 
-class WARCRecorder(BaseRecorder):
+class WARCRecorder(object):
     '''Record to WARC file.
 
     Args:
@@ -203,17 +210,73 @@ class WARCRecorder(BaseRecorder):
         logger.addHandler(handler)
         handler.setLevel(logging.INFO)
 
-    @contextlib.contextmanager
-    def session(self):
-        recorder_session = WARCRecorderSessionDelegate(
-            self,
-            temp_dir=self._params.temp_dir, url_table=self._params.url_table
-        )
-        try:
-            yield recorder_session
-        finally:
-            recorder_session.close()
+    def listen_to_http_client(self, client: HTTPClient):
+        client.event_dispatcher.add_listener(HTTPClient.ClientEvent.new_session,
+                                             self._http_session_callback)
 
+    def _http_session_callback(self, http_session: HTTPSession):
+        recorder_session = self.new_http_recorder_session()
+
+        http_session.event_dispatcher.add_listener(
+            HTTPSession.Event.begin_request, recorder_session.begin_request)
+        http_session.event_dispatcher.add_listener(
+            HTTPSession.Event.request_data, recorder_session.request_data)
+        http_session.event_dispatcher.add_listener(
+            HTTPSession.Event.end_request, recorder_session.end_request)
+        http_session.event_dispatcher.add_listener(
+            HTTPSession.Event.begin_response, recorder_session.begin_response)
+        http_session.event_dispatcher.add_listener(
+            HTTPSession.Event.response_data, recorder_session.response_data)
+        http_session.event_dispatcher.add_listener(
+            HTTPSession.Event.end_response, recorder_session.end_response)
+
+        http_session.event_dispatcher.add_listener(
+            HTTPSession.SessionEvent.end_session, recorder_session.close
+        )
+
+    def new_http_recorder_session(self) -> 'HTTPWARCRecorderSession':
+        return HTTPWARCRecorderSession(
+            self, temp_dir=self._params.temp_dir,
+            url_table=self._params.url_table
+        )
+
+    def listen_to_ftp_client(self, client: FTPClient):
+        client.event_dispatcher.add_listener(FTPClient.ClientEvent.new_session,
+                                             self._ftp_session_callback)
+
+    def _ftp_session_callback(self, ftp_session: FTPSession):
+        recorder_session = self.new_ftp_recorder_session()
+
+        ftp_session.event_dispatcher.add_listener(
+            FTPSession.Event.begin_control, recorder_session.begin_control)
+        ftp_session.event_dispatcher.add_listener(
+            FTPSession.Event.control_receive_data,
+            recorder_session.control_receive_data)
+        ftp_session.event_dispatcher.add_listener(
+            FTPSession.Event.control_send_data,
+            recorder_session.control_send_data)
+        ftp_session.event_dispatcher.add_listener(
+            FTPSession.Event.end_control, recorder_session.end_control)
+
+        ftp_session.event_dispatcher.add_listener(
+            FTPSession.Event.begin_transfer, recorder_session.begin_transfer)
+        ftp_session.event_dispatcher.add_listener(
+            FTPSession.Event.transfer_receive_data,
+            recorder_session.transfer_receive_data)
+        ftp_session.event_dispatcher.add_listener(
+            FTPSession.Event.end_transfer, recorder_session.end_transfer)
+
+        ftp_session.event_dispatcher.add_listener(
+            FTPSession.SessionEvent.end_session, recorder_session.close
+        )
+
+    def new_ftp_recorder_session(self) -> 'FTPWARCRecorderSession':
+        return FTPWARCRecorderSession(
+            self, temp_dir=self._params.temp_dir,
+            url_table=self._params.url_table
+        )
+
+    def flush_session(self):
         if self._params.max_size is not None \
            and os.path.getsize(self._warc_filename) > self._params.max_size:
             self._sequence_num += 1
@@ -433,7 +496,7 @@ class WARCRecorder(BaseRecorder):
             return match.group(1)
 
 
-class BaseWARCRecorderSession(BaseRecorderSession):
+class BaseWARCRecorderSession(object):
     '''Base WARC recorder session.'''
     def __init__(self, recorder, temp_dir=None, url_table=None):
         self._recorder = recorder
@@ -446,62 +509,8 @@ class BaseWARCRecorderSession(BaseRecorderSession):
             directory=self._temp_dir, hint=hint
         )
 
-
-class WARCRecorderSessionDelegate(BaseWARCRecorderSession):
-    '''Delegate to either HTTP or FTP recorder session.'''
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._child_session = None
-
     def close(self):
-        if self._child_session:
-            return self._child_session.close()
-
-    def pre_request(self, request):
-        if not self._child_session:
-            self._child_session = HTTPWARCRecorderSession(
-                self._recorder, temp_dir=self._temp_dir,
-                url_table=self._url_table
-            )
-
-        self._child_session.pre_request(request)
-
-    def request(self, request):
-        self._child_session.request(request)
-
-    def request_data(self, data):
-        self._child_session.request_data(data)
-
-    def pre_response(self, response):
-        self._child_session.pre_response(response)
-
-    def response(self, response):
-        self._child_session.response(response)
-
-    def response_data(self, data):
-        self._child_session.response_data(data)
-
-    def begin_control(self, request, connection_reused=False):
-        if not self._child_session:
-            self._child_session = FTPWARCRecorderSession(
-                self._recorder, temp_dir=self._temp_dir,
-                url_table=self._url_table
-            )
-
-        self._child_session.begin_control(
-            request, connection_reused=connection_reused
-        )
-
-    def request_control_data(self, data):
-        self._child_session.request_control_data(data)
-
-    def response_control_data(self, data):
-        self._child_session.response_control_data(data)
-
-    def end_control(self, response, connection_closed=False):
-        self._child_session.end_control(
-            response, connection_closed=connection_closed
-        )
+        self._recorder.flush_session()
 
 
 class HTTPWARCRecorderSession(BaseWARCRecorderSession):
@@ -514,6 +523,8 @@ class HTTPWARCRecorderSession(BaseWARCRecorderSession):
         self._response_temp_file = self._new_temp_file(hint='warcsesrsp')
 
     def close(self):
+        super().close()
+
         if self._response_temp_file:
             self._response_temp_file.close()
 
@@ -523,7 +534,7 @@ class HTTPWARCRecorderSession(BaseWARCRecorderSession):
         if self._response_record and self._response_record.block_file:
             self._response_record.block_file.close()
 
-    def pre_request(self, request):
+    def begin_request(self, request: HTTPRequest):
         assert re.match(
             r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[a-f0-9:.]+)$',
             request.address[0]), \
@@ -536,10 +547,10 @@ class HTTPWARCRecorderSession(BaseWARCRecorderSession):
         record.fields['WARC-IP-Address'] = request.address[0]
         record.block_file = self._new_temp_file(hint='warcsesreq')
 
-    def request_data(self, data):
+    def request_data(self, data: bytes):
         self._request_record.block_file.write(data)
 
-    def request(self, request):
+    def end_request(self, request: HTTPRequest):
         payload_offset = len(request.to_bytes())
 
         self._request_record.block_file.seek(0)
@@ -548,7 +559,7 @@ class HTTPWARCRecorderSession(BaseWARCRecorderSession):
         )
         self._recorder.write_record(self._request_record)
 
-    def pre_response(self, response):
+    def begin_response(self, response: HTTPResponse):
         assert re.match(
             r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[a-f0-9:.]+)$',
             self._request.address[0]), \
@@ -562,10 +573,10 @@ class HTTPWARCRecorderSession(BaseWARCRecorderSession):
             WARCRecord.WARC_RECORD_ID]
         record.block_file = self._response_temp_file
 
-    def response_data(self, data):
+    def response_data(self, data: bytes):
         self._response_temp_file.write(data)
 
-    def response(self, response):
+    def end_response(self, response: HTTPResponse):
         payload_offset = len(response.to_bytes())
 
         self._response_record.block_file.seek(0)
@@ -579,7 +590,7 @@ class HTTPWARCRecorderSession(BaseWARCRecorderSession):
 
         self._recorder.write_record(self._response_record)
 
-    def _record_revisit(self, payload_offset):
+    def _record_revisit(self, payload_offset: int):
         '''Record the revisit if possible.'''
         fields = self._response_record.fields
 
@@ -619,13 +630,15 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
         self._response_record = None
 
     def close(self):
+        super().close()
+
         if self._control_record and self._control_record.block_file:
             self._control_record.block_file.close()
 
         if self._response_record and self._response_record.block_file:
             self._response_record.block_file.close()
 
-    def begin_control(self, request, connection_reused=False):
+    def begin_control(self, request: FTPRequest, connection_reused: bool=False):
         self._request = request
         self._control_record = record = WARCRecord()
 
@@ -646,7 +659,7 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
             connection_string.format(hostname=hostname, port=port)
         )
 
-    def end_control(self, response, connection_closed=False):
+    def end_control(self, response: FTPResponse, connection_closed=False):
         hostname, port = self._request_hostname_port()
 
         if connection_closed:
@@ -662,7 +675,7 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
         self._recorder.set_length_and_maybe_checksums(self._control_record)
         self._recorder.write_record(self._control_record)
 
-    def request_control_data(self, data):
+    def control_send_data(self, data):
         text = textwrap.indent(
             data.decode('utf-8', errors='surrogateescape'),
             '> ', predicate=lambda line: True
@@ -674,7 +687,7 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
         if not data.endswith(b'\n'):
             self._control_record.block_file.write(b'\n')
 
-    def response_control_data(self, data):
+    def control_receive_data(self, data):
         text = textwrap.indent(
             data.decode('utf-8', errors='surrogateescape'),
             '< ', predicate=lambda line: True
@@ -705,7 +718,7 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
 
         return hostname, port
 
-    def pre_response(self, response):
+    def begin_transfer(self, response: FTPResponse):
         hostname, port = response.data_address
         self._write_control_event(
             'Opened data connection to {hostname}:{port}'
@@ -720,10 +733,10 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
             WARCRecord.WARC_RECORD_ID]
         record.block_file = self._new_temp_file('warcresp')
 
-    def response_data(self, data):
+    def transfer_receive_data(self, data: bytes):
         self._response_record.block_file.write(data)
 
-    def response(self, response):
+    def end_transfer(self, response: FTPResponse):
         hostname, port = response.data_address
         self._write_control_event(
             'Closed data connection to {hostname}:{port}'

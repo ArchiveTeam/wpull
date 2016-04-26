@@ -14,6 +14,8 @@ import hashlib
 import re
 import uuid
 
+from typing import Optional
+
 from wpull.protocol.http.request import Response
 from wpull.namevalue import NameValueRecord
 import wpull.util
@@ -69,7 +71,7 @@ class WARCRecord(object):
         self.fields = NameValueRecord(normalize_overrides=self.NAME_OVERRIDES)
         self.block_file = None
 
-    def set_common_fields(self, warc_type, content_type):
+    def set_common_fields(self, warc_type: str, content_type: str):
         '''Set the required fields for the record.'''
         self.fields[self.WARC_TYPE] = warc_type
         self.fields[self.CONTENT_TYPE] = content_type
@@ -89,7 +91,7 @@ class WARCRecord(object):
             wpull.util.seek_file_end(self.block_file)
             self.fields['Content-Length'] = str(self.block_file.tell())
 
-    def compute_checksum(self, payload_offset=None):
+    def compute_checksum(self, payload_offset: Optional[int]=None):
         '''Compute and add the checksum data to the record fields.
 
         This function also sets the content length.
@@ -149,7 +151,7 @@ class WARCRecord(object):
         '''Return the record as bytes.'''
         return b''.join(iter(self))
 
-    def get_http_header(self):
+    def get_http_header(self) -> Response:
         '''Return the HTTP header.
 
         It only attempts to read the first 4 KiB of the payload.
