@@ -35,7 +35,7 @@ class SessionState(enum.Enum):
     aborted = 'aborted'
 
 
-class Session(BaseSession, HookableMixin):
+class Session(BaseSession):
     class Event(enum.Enum):
         begin_control = 'begin_control'
         control_send_data = 'control_send_data'
@@ -417,24 +417,18 @@ class Session(BaseSession, HookableMixin):
             self._data_stream = None
 
 
-class Client(BaseClient, HookableMixin):
+class Client(BaseClient):
     '''FTP Client.
 
     The session object is :class:`Session`.
     '''
 
-    class Event(enum.Enum):
-        new_session = 'new_session'
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._login_table = weakref.WeakKeyDictionary()
-        self.event_dispatcher.register(self.Event.new_session)
 
     def _session_class(self) -> Session:
         return functools.partial(Session, login_table=self._login_table)
 
     def session(self) -> Session:
-        session = super().session()
-        self.event_dispatcher.notify(self.Event.new_session, session)
-        return session
+        return super().session()

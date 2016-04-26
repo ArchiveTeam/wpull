@@ -29,7 +29,7 @@ class SessionState(enum.Enum):
     aborted = 'aborted'
 
 
-class Session(BaseSession, HookableMixin):
+class Session(BaseSession):
     '''HTTP request and response session.'''
 
     class Event(enum.Enum):
@@ -187,24 +187,17 @@ class Session(BaseSession, HookableMixin):
         super().recycle()
 
 
-class Client(BaseClient, HookableMixin):
+class Client(BaseClient):
     '''Stateless HTTP/1.1 client.
 
     The session object is :class:`Session`.
     '''
-
-    class Event(enum.Enum):
-        new_session = 'new_session'
-
     def __init__(self, *args, stream_factory=Stream, **kwargs):
         super().__init__(*args, **kwargs)
         self._stream_factory = stream_factory
-        self.event_dispatcher.register(self.Event.new_session)
 
     def _session_class(self) -> Callable[[], Session]:
         return functools.partial(Session, stream_factory=self._stream_factory)
 
     def session(self) -> Session:
-        session = super().session()
-        self.event_dispatcher.notify(self.Event.new_session, session)
-        return session
+        return super().session()

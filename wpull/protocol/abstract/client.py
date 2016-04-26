@@ -2,9 +2,12 @@
 import abc
 import asyncio
 import contextlib
+import enum
 import logging
 
 from typing import Optional, Callable, TypeVar, Generic
+
+from wpull.application.hook import HookableMixin
 from wpull.errors import NetworkTimedOut
 from wpull.network.pool import ConnectionPool
 
@@ -20,22 +23,35 @@ class DurationTimeout(NetworkTimedOut):
     '''Download did not complete within specified time.'''
 
 
-class BaseSession(object, metaclass=abc.ABCMeta):
+class BaseSession(HookableMixin, metaclass=abc.ABCMeta):
     '''Base session.'''
+
+    class SessionEvent(enum.Enum):
+        begin_session = 'begin_session'
+        end_session = 'end_session'
+
     def __init__(self, connection_pool):
         super().__init__()
         self._connection_pool = connection_pool
         self._connections = set()
 
+        self.event_dispatcher.register(self.SessionEvent.begin_session)
+        self.event_dispatcher.register(self.SessionEvent.end_session)
+
     def __enter__(self):
+        self.event_dispatcher.notify(self.SessionEvent.begin_session)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_val and not isinstance(exc_val, StopIteration):
             _logger.debug('Early close session.')
+            error = True
             self.abort()
+        else:
+            error = False
 
         self.recycle()
+        self.event_dispatcher.notify(self.SessionEvent.end_session, error=error)
 
     def abort(self):
         '''Terminate early and close any connections.'''
@@ -84,8 +100,12 @@ class BaseSession(object, metaclass=abc.ABCMeta):
 SessionT = TypeVar('SessionT')
 
 
-class BaseClient(Generic[SessionT], metaclass=abc.ABCMeta):
+class BaseClient(Generic[SessionT], HookableMixin, metaclass=abc.ABCMeta):
     '''Base client.'''
+
+    class ClientEvent(enum.Enum):
+        new_session = 'new_session'
+
     def __init__(self, connection_pool: Optional[ConnectionPool]=None):
         '''
         Args:
@@ -97,6 +117,8 @@ class BaseClient(Generic[SessionT], metaclass=abc.ABCMeta):
         else:
             self._connection_pool = ConnectionPool()
 
+        self.event_dispatcher.register(self.ClientEvent.new_session)
+
     @abc.abstractmethod
     def _session_class(self) -> Callable[[], SessionT]:
         '''Return session class.'''
@@ -107,6 +129,7 @@ class BaseClient(Generic[SessionT], metaclass=abc.ABCMeta):
         session = self._session_class()(
             connection_pool=self._connection_pool,
         )
+        self.event_dispatcher.notify(self.ClientEvent.new_session, session)
         return session
 
     def close(self):
