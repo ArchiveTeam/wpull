@@ -11,6 +11,8 @@ from wpull.application.app import Application
 from wpull.application.factory import Factory
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy
+from wpull.pipeline.tasks.warc import WARCRecorderSetupTask, \
+    WARCRecorderTeardownTask
 from wpull.processor.coprocessor.phantomjs import PhantomJSCoprocessor
 from wpull.processor.coprocessor.proxy import ProxyCoprocessor
 from wpull.processor.coprocessor.youtubedl import YoutubeDlCoprocessor
@@ -172,6 +174,7 @@ class Builder(object):
         download_start_pipeline = Pipeline(
             AppSource(app_session), [
                 ParserSetupTask(),
+                WARCRecorderSetupTask(),
                 StatsStartTask(),
                 URLFiltersSetupTask(),
                 NetworkSetupTask(),
@@ -213,6 +216,7 @@ class Builder(object):
             [
                 BackgroundAsyncCleanupTask(),
                 AppStopTask(),
+                WARCRecorderTeardownTask(),
                 LoggingShutdownTask(),
             ])
 
