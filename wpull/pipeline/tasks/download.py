@@ -11,7 +11,6 @@ import sys
 import tornado.netutil
 
 from wpull.application.hook import HookableMixin
-from wpull.application.options import LOG_VERBOSE, LOG_DEBUG
 from wpull.backport.logging import BraceMessage as __
 from wpull.cookie import BetterMozillaCookieJar
 from wpull.processor.coprocessor.phantomjs import PhantomJSParams
@@ -21,9 +20,8 @@ from wpull.network.dns import IPFamilyPreference
 from wpull.pipeline.pipeline import ItemTask
 from wpull.pipeline.session import ItemSession
 from wpull.proxy.client import HTTPProxyConnectionPool
-from wpull.recorder.warc import WARCRecorder, WARCRecorderParams
 from wpull.stats import Statistics
-from wpull.pipeline.app import AppSession, new_encoded_stream
+from wpull.pipeline.app import AppSession
 import wpull.resmon
 import wpull.string
 from wpull.urlfilter import HTTPSOnlyFilter, SchemeFilter, RecursiveFilter, \
@@ -853,20 +851,7 @@ class ProcessorSetupTask(ItemTask[AppSession]):
         assert args.verbosity, \
             'Expect logging level. Got {}.'.format(args.verbosity)
 
-        if args.verbosity in (LOG_VERBOSE, LOG_DEBUG) and args.progress != 'none':
-            stream = new_encoded_stream(session.factory['Application'].get_stderr())
 
-            bar_style = args.progress == 'bar'
-
-            if not stream.isatty():
-                bar_style = False
-
-            recorders.append(session.factory.new(
-                'ProgressRecorder',
-                bar_style=bar_style,
-                stream=stream,
-                human_format=not args.report_speed,
-            ))
 
         if args.output_document:
             recorders.append(session.factory.new(
