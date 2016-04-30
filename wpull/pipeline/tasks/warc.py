@@ -44,7 +44,7 @@ class WARCRecorderSetupTask(ItemTask[AppSession]):
 
         url_table = session.factory['URLTable'] if args.warc_dedup else None
 
-        session.factory.new(
+        warc_recorder = session.factory.new(
             'WARCRecorder',
             args.warc_file,
             params=WARCRecorderParams(
@@ -61,6 +61,8 @@ class WARCRecorderSetupTask(ItemTask[AppSession]):
                 software_string=software_string,
             ),
         )
+        warc_recorder.listen_to_http_client(session.factory['HTTPClient'])
+        warc_recorder.listen_to_ftp_client(session.factory['FTPClient'])
 
 
 class WARCRecorderTeardownTask(ItemTask[AppSession]):
