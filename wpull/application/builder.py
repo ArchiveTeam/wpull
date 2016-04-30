@@ -11,6 +11,8 @@ from wpull.application.app import Application
 from wpull.application.factory import Factory
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy
+from wpull.pipeline.progress import Progress
+from wpull.pipeline.tasks.progress import ProgressSetupTask
 from wpull.pipeline.tasks.warc import WARCRecorderSetupTask, \
     WARCRecorderTeardownTask
 from wpull.processor.coprocessor.phantomjs import PhantomJSCoprocessor
@@ -52,8 +54,6 @@ from wpull.proxy.server import HTTPProxyServer
 from wpull.recorder.demux import DemuxRecorder
 from wpull.recorder.document import OutputDocumentRecorder
 from wpull.recorder.printing import PrintServerResponseRecorder
-from wpull.recorder.progress import ProgressRecorder
-from wpull.recorder.warc import WARCRecorder
 from wpull.resmon import ResourceMonitor
 from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper.base import DemuxDocumentScraper
@@ -67,6 +67,7 @@ from wpull.url import URLInfo
 from wpull.urlfilter import DemuxURLFilter
 from wpull.urlrewrite import URLRewriter
 from wpull.waiter import LinearWaiter
+from wpull.warc.recorder import WARCRecorder
 from wpull.wrapper import CookieJarWrapper
 from wpull.writer import (NullWriter)
 
@@ -114,7 +115,7 @@ class Builder(object):
             'Processor': DelegateProcessor,
             'ProxyCoprocessor': ProxyCoprocessor,
             'ProxyHostFilter': ProxyHostFilter,
-            'ProgressRecorder': ProgressRecorder,
+            'Progress': Progress,
             'RedirectTracker': RedirectTracker,
             'Request': Request,
             'Resolver': Resolver,
@@ -182,6 +183,7 @@ class Builder(object):
                 FileWriterSetupTask(),
                 ProcessorSetupTask(),
                 LinkConversionSetupTask(),
+                ProgressSetupTask(),
                 PluginSetupTask(),
             ])
 
