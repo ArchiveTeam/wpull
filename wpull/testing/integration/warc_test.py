@@ -4,6 +4,7 @@ import os
 from wpull.application.builder import Builder
 from wpull.application.options import AppArgumentParser
 from wpull.testing.integration.base import HTTPGoodAppTestCase
+import wpull.testing.async
 
 
 class TestWARCHTTPGoodApp(HTTPGoodAppTestCase):

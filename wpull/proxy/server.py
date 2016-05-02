@@ -11,7 +11,6 @@ import asyncio
 from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ProtocolError
 from wpull.protocol.http.request import Request
-from wpull.recorder.progress import ProgressRecorder
 import wpull.util
 
 
@@ -241,7 +240,7 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.DEBUG)
 
-    http_client = Client(recorder=ProgressRecorder())
+    http_client = Client()
     proxy = HTTPProxyServer(http_client)
 
     asyncio.get_event_loop().run_until_complete(asyncio.start_server(proxy, port=8888))

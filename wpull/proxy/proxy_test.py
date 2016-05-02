@@ -10,7 +10,6 @@ from wpull.protocol.http.request import Request
 from wpull.protocol.http.web import WebClient
 from wpull.proxy.client import HTTPProxyConnectionPool
 from wpull.proxy.server import HTTPProxyServer
-from wpull.recorder.printing import DebugPrintRecorder
 import wpull.testing.badapp
 import wpull.testing.goodapp
 import wpull.testing.async
@@ -22,15 +21,14 @@ DEFAULT_TIMEOUT = 30
 class Mixin:
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_basic_requests(self):
-        proxy_http_client = Client(recorder=DebugPrintRecorder())
+        proxy_http_client = Client()
         proxy_server = HTTPProxyServer(proxy_http_client)
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
 
         yield from asyncio.start_server(proxy_server, sock=proxy_socket)
 
         connection_pool = HTTPProxyConnectionPool(('127.0.0.1', proxy_port))
-        http_client = Client(connection_pool=connection_pool,
-                             recorder=DebugPrintRecorder())
+        http_client = Client(connection_pool=connection_pool)
 
         for dummy in range(3):
             with http_client.session() as session:

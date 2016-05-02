@@ -13,7 +13,7 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.document.html import HTMLReader
 from wpull.driver.process import Process
 from wpull.pipeline.session import ItemSession
-from wpull.warc import WARCRecord
+from wpull.warc.format import WARCRecord
 
 
 _logger = logging.getLogger(__name__)

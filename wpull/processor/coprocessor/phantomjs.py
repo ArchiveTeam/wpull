@@ -20,7 +20,7 @@ from wpull.driver.phantomjs import PhantomJSDriverParams, PhantomJSDriver
 from wpull.namevalue import NameValueRecord
 from wpull.pipeline.session import ItemSession
 from wpull.processor.rule import ProcessingRule
-from wpull.warc import WARCRecord
+from wpull.warc.format import WARCRecord
 import wpull.url
 
 
