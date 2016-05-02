@@ -4,7 +4,7 @@ import logging
 
 from typing import Optional
 
-from wpull.database.base import AddURLInfo
+from wpull.database.base import AddURLInfo, NotFound
 from wpull.pipeline.app import AppSession
 from wpull.pipeline.item import URLRecord, Status, URLResult, URLProperties, \
     URLData, LinkType
@@ -168,7 +168,13 @@ class URLItemSource(ItemSource[ItemSession]):
 
     @asyncio.coroutine
     def get_item(self) -> Optional[ItemSession]:
-        url_record = self._app_session.factory['URLTable'].get_one()
+        try:
+            url_record = self._app_session.factory['URLTable'].check_out(Status.todo)
+        except NotFound:
+            try:
+                url_record = self._app_session.factory['URLTable'].check_out(Status.error)
+            except NotFound:
+                return None
 
         item_session = ItemSession(self._app_session, url_record)
         return item_session
