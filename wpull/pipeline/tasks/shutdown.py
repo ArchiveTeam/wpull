@@ -32,27 +32,6 @@ class BackgroundAsyncCleanupTask(ItemTask[AppSession]):
             yield from task
 
 
-class LoggingShutdownTask(ItemTask[AppSession]):
-    @asyncio.coroutine
-    def process(self, session: AppSession):
-        self._close_console_logger(session)
-        self._close_file_logger(session)
-
-    @classmethod
-    def _close_console_logger(cls, session: AppSession):
-        if session.console_log_handler:
-            logger = logging.getLogger()
-            logger.removeHandler(session.console_log_handler)
-            session.console_log_handler = None
-
-    @classmethod
-    def _close_file_logger(cls, session: AppSession):
-        if session.file_log_handler:
-            logger = logging.getLogger()
-            logger.removeHandler(session.file_log_handler)
-            session.file_log_handler = None
-
-
 class AppStopTask(ItemTask[AppSession], HookableMixin):
     def __init__(self):
         super().__init__()

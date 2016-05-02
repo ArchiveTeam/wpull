@@ -1,13 +1,21 @@
 import asyncio
+import gettext
 import json
+import logging
 
 import sys
 
+from wpull.backport.logging import BraceMessage as __
 from wpull.pipeline.app import AppSession
 from wpull.pipeline.pipeline import ItemTask
 from wpull.warc.recorder import WARCRecorder, WARCRecorderParams
 import wpull.driver.phantomjs
 import wpull.processor.coprocessor.youtubedl
+import wpull.warc.format
+
+
+_logger = logging.getLogger(__name__)
+_ = gettext.gettext
 
 
 class WARCRecorderSetupTask(ItemTask[AppSession]):
@@ -72,3 +80,53 @@ class WARCRecorderTeardownTask(ItemTask[AppSession]):
 
         if warc_recorder:
             warc_recorder.close()
+
+
+class WARCVisitsTask(ItemTask[AppSession]):
+    @asyncio.coroutine
+    def process(self, session: AppSession):
+        '''Populate the visits from the CDX into the URL table.'''
+        if not session.args.warc_dedup:
+            return
+
+        iterable = wpull.warc.format.read_cdx(
+            session.args.warc_dedup,
+            encoding=session.args.local_encoding or 'utf-8'
+        )
+
+        missing_url_msg = _('The URL ("a") is missing from the CDX file.')
+        missing_id_msg = _('The record ID ("u") is missing from the CDX file.')
+        missing_checksum_msg = \
+            _('The SHA1 checksum ("k") is missing from the CDX file.')
+
+        counter = 0
+
+        def visits():
+            nonlocal counter
+            checked_fields = False
+
+            for record in iterable:
+                if not checked_fields:
+                    if 'a' not in record:
+                        raise ValueError(missing_url_msg)
+                    if 'u' not in record:
+                        raise ValueError(missing_id_msg)
+                    if 'k' not in record:
+                        raise ValueError(missing_checksum_msg)
+
+                    checked_fields = True
+
+                yield record['a'], record['u'], record['k']
+                counter += 1
+
+        url_table = session.factory['URLTable']
+        url_table.add_visits(visits())
+
+        _logger.info(__(
+            gettext.ngettext(
+                'Loaded {num} record from CDX file.',
+                'Loaded {num} records from CDX file.',
+                counter
+            ),
+            num=counter
+        ))

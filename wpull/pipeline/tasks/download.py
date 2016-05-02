@@ -1,119 +1,28 @@
 import asyncio
-import datetime
 import gettext
-import json
 import logging
-import tempfile
-import itertools
 import functools
-import sys
 
 import tornado.netutil
 
-from wpull.application.hook import HookableMixin
 from wpull.backport.logging import BraceMessage as __
 from wpull.cookie import BetterMozillaCookieJar
 from wpull.processor.coprocessor.phantomjs import PhantomJSParams
 from wpull.namevalue import NameValueRecord
-from wpull.network.connection import Connection, SSLConnection
-from wpull.network.dns import IPFamilyPreference
 from wpull.pipeline.pipeline import ItemTask
 from wpull.pipeline.session import ItemSession
-from wpull.proxy.client import HTTPProxyConnectionPool
-from wpull.stats import Statistics
 from wpull.pipeline.app import AppSession
 import wpull.resmon
 import wpull.string
-from wpull.urlfilter import HTTPSOnlyFilter, SchemeFilter, RecursiveFilter, \
-    FollowFTPFilter, SpanHostsFilter, ParentFilter, BackwardDomainFilter, \
-    HostnameFilter, TriesFilter, RegexFilter, DirectoryFilter, \
-    BackwardFilenameFilter, LevelFilter
+
 from wpull.protocol.http.stream import Stream as HTTPStream
 import wpull.util
 import wpull.processor.coprocessor.youtubedl
 import wpull.driver.phantomjs
-from wpull.writer import OverwriteFileWriter, IgnoreFileWriter, \
-    TimestampingFileWriter, AntiClobberFileWriter
 import wpull.application.hook
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
-
-
-class StatsStartTask(ItemTask[AppSession]):
-    @asyncio.coroutine
-    def process(self, session: AppSession):
-        statistics = session.factory.new('Statistics')
-        statistics.quota = session.args.quota
-        statistics.start()
-
-
-class StatsStopTask(ItemTask[AppSession], HookableMixin):
-    def __init__(self):
-        super().__init__()
-        self.event_dispatcher.register('StatsStopTask.finishing_statistics')
-
-    @asyncio.coroutine
-    def process(self, session: AppSession):
-        statistics = session.factory['Statistics']
-        statistics.stop()
-
-        # TODO: human_format_speed arg
-        self._print_stats(statistics)
-
-        self.event_dispatcher.notify('StatsStopTask.finishing_statistics', session, statistics)
-
-    @classmethod
-    def _print_stats(cls, stats: Statistics, human_format_speed: bool=True):
-        '''Log the final statistics to the user.'''
-        time_length = datetime.timedelta(
-            seconds=int(stats.stop_time - stats.start_time)
-        )
-        file_size = wpull.string.format_size(stats.size)
-
-        if stats.bandwidth_meter.num_samples:
-            speed = stats.bandwidth_meter.speed()
-
-            if human_format_speed:
-                speed_size_str = wpull.string.format_size(speed)
-            else:
-                speed_size_str = '{:.1f} b'.format(speed * 8)
-        else:
-            speed_size_str = _('-- B')
-
-        _logger.info(_('FINISHED.'))
-        _logger.info(__(
-            _(
-                'Duration: {preformatted_timedelta}. '
-                'Speed: {preformatted_speed_size}/s.'
-            ),
-            preformatted_timedelta=time_length,
-            preformatted_speed_size=speed_size_str,
-        ))
-        _logger.info(__(
-            gettext.ngettext(
-                'Downloaded: {num_files} file, {preformatted_file_size}.',
-                'Downloaded: {num_files} files, {preformatted_file_size}.',
-                stats.files
-            ),
-            num_files=stats.files,
-            preformatted_file_size=file_size
-        ))
-
-        if stats.is_quota_exceeded:
-            _logger.info(_('Download quota exceeded.'))
-
-    @staticmethod
-    @wpull.application.hook.event_function('StatsStopTask.finishing_statistics')
-    def plugin_finishing_statistics(app_session: AppSession, statistics: Statistics):
-        '''Callback containing final statistics.
-
-        Args:
-            start_time (float): timestamp when the engine started
-            end_time (float): timestamp when the engine stopped
-            num_urls (int): number of URLs downloaded
-            bytes_downloaded (int): size of files downloaded in bytes
-        '''
 
 
 class ParserSetupTask(ItemTask[AppSession]):
@@ -184,199 +93,6 @@ class ParserSetupTask(ItemTask[AppSession]):
             ))
 
         return scrapers
-
-
-class URLFiltersSetupTask(ItemTask[AppSession]):
-    @asyncio.coroutine
-    def process(self, session: AppSession):
-        self._build_url_rewriter(session)
-        session.factory.new('DemuxURLFilter', self._build_url_filters(session))
-
-    @classmethod
-    def _build_url_rewriter(cls, session: AppSession):
-        '''Build URL rewriter if needed.'''
-        if session.args.escaped_fragment or session.args.strip_session_id:
-            return session.factory.new(
-                'URLRewriter',
-                hash_fragment=session.args.escaped_fragment,
-                session_id=session.args.strip_session_id
-            )
-
-    @classmethod
-    def _build_url_filters(cls, session: AppSession):
-        '''Create the URL filter instances.
-
-        Returns:
-            A list of URL filter instances
-        '''
-        args = session.args
-
-        filters = [
-            HTTPSOnlyFilter() if args.https_only else SchemeFilter(),
-            RecursiveFilter(
-                enabled=args.recursive, page_requisites=args.page_requisites
-            ),
-            FollowFTPFilter(follow=args.follow_ftp),
-            SpanHostsFilter(
-                tuple(session.factory['URLTable'].get_hostnames()),
-                enabled=args.span_hosts,
-                page_requisites='page-requisites' in args.span_hosts_allow,
-                linked_pages='linked-pages' in args.span_hosts_allow,
-            )
-        ]
-
-        if args.no_parent:
-            filters.append(ParentFilter())
-
-        if args.domains or args.exclude_domains:
-            filters.append(
-                BackwardDomainFilter(args.domains, args.exclude_domains)
-            )
-
-        if args.hostnames or args.exclude_hostnames:
-            filters.append(
-                HostnameFilter(args.hostnames, args.exclude_hostnames)
-            )
-
-        if args.tries:
-            filters.append(TriesFilter(args.tries))
-
-        if args.level and args.recursive or args.page_requisites_level:
-            filters.append(
-                LevelFilter(args.level,
-                            inline_max_depth=args.page_requisites_level)
-            )
-
-        if args.accept_regex or args.reject_regex:
-            filters.append(RegexFilter(args.accept_regex, args.reject_regex))
-
-        if args.include_directories or args.exclude_directories:
-            filters.append(
-                DirectoryFilter(
-                    args.include_directories, args.exclude_directories
-                )
-            )
-
-        if args.accept or args.reject:
-            filters.append(BackwardFilenameFilter(args.accept, args.reject))
-
-        return filters
-
-
-class NetworkSetupTask(ItemTask[AppSession]):
-    @asyncio.coroutine
-    def process(self, session: AppSession):
-        self._build_resolver(session)
-        self._build_connection_pool(session)
-
-    @classmethod
-    def _build_resolver(cls, session: AppSession):
-        '''Build resolver.'''
-        args = session.args
-        dns_timeout = args.dns_timeout
-
-        if args.timeout:
-            dns_timeout = args.timeout
-
-        if args.inet_family == 'IPv4':
-            family = IPFamilyPreference.ipv4_only
-        elif args.inet_family == 'IPv6':
-            family = IPFamilyPreference.ipv6_only
-        elif args.prefer_family == 'IPv6':
-            family = IPFamilyPreference.prefer_ipv6
-        elif args.prefer_family == 'IPv4':
-            family = IPFamilyPreference.prefer_ipv4
-        else:
-            family = IPFamilyPreference.any
-
-        return session.factory.new(
-            'Resolver',
-            family=family,
-            timeout=dns_timeout,
-            rotate=args.rotate_dns,
-            cache=session.factory.class_map['Resolver'].new_cache() if args.dns_cache else None,
-        )
-
-    @classmethod
-    def _build_connection_pool(cls, session: AppSession):
-        '''Create connection pool.'''
-        args = session.args
-        connect_timeout = args.connect_timeout
-        read_timeout = args.read_timeout
-
-        if args.timeout:
-            connect_timeout = read_timeout = args.timeout
-
-        if args.limit_rate:
-            bandwidth_limiter = session.factory.new('BandwidthLimiter',
-                                                    args.limit_rate)
-        else:
-            bandwidth_limiter = None
-
-        connection_factory = functools.partial(
-            Connection,
-            timeout=read_timeout,
-            connect_timeout=connect_timeout,
-            bind_host=session.args.bind_address,
-            bandwidth_limiter=bandwidth_limiter,
-        )
-
-        ssl_connection_factory = functools.partial(
-            SSLConnection,
-            timeout=read_timeout,
-            connect_timeout=connect_timeout,
-            bind_host=session.args.bind_address,
-            ssl_context=session.ssl_context,
-        )
-
-        if not session.args.no_proxy:
-            if session.args.https_proxy:
-                http_proxy = session.args.http_proxy.split(':', 1)
-                proxy_ssl = True
-            elif session.args.http_proxy:
-                http_proxy = session.args.http_proxy.split(':', 1)
-                proxy_ssl = False
-            else:
-                http_proxy = None
-                proxy_ssl = None
-
-            if http_proxy:
-                http_proxy[1] = int(http_proxy[1])
-
-                if session.args.proxy_user:
-                    authentication = (session.args.proxy_user,
-                                      session.args.proxy_password)
-                else:
-                    authentication = None
-
-                session.factory.class_map['ConnectionPool'] = \
-                    HTTPProxyConnectionPool
-
-                host_filter = session.factory.new(
-                    'ProxyHostFilter',
-                    accept_domains=session.args.proxy_domains,
-                    reject_domains=session.args.proxy_exclude_domains,
-                    accept_hostnames=session.args.proxy_hostnames,
-                    reject_hostnames=session.args.proxy_exclude_hostnames
-                )
-
-                return session.factory.new(
-                    'ConnectionPool',
-                    http_proxy,
-                    proxy_ssl=proxy_ssl,
-                    authentication=authentication,
-                    resolver=session.factory['Resolver'],
-                    connection_factory=connection_factory,
-                    ssl_connection_factory=ssl_connection_factory,
-                    host_filter=host_filter,
-                )
-
-        return session.factory.new(
-            'ConnectionPool',
-            resolver=session.factory['Resolver'],
-            connection_factory=connection_factory,
-            ssl_connection_factory=ssl_connection_factory
-        )
 
 
 class ClientSetupTask(ItemTask[AppSession]):
@@ -500,82 +216,6 @@ class ClientSetupTask(ItemTask[AppSession]):
             connection_pool=session.factory['ConnectionPool'],
             # TODO: recorder
             # recorder=session.factory['DemuxRecorder'],
-        )
-
-
-class FileWriterSetupTask(ItemTask[AppSession]):
-    @asyncio.coroutine
-    def process(self, session: AppSession):
-        self._build_file_writer(session)
-
-    @classmethod
-    def _build_file_writer(cls, session: AppSession):
-        '''Create the File Writer.
-
-        Returns:
-            FileWriter: An instance of :class:`.writer.BaseFileWriter`.
-        '''
-        args = session.args
-
-        if args.delete_after or args.output_document:
-            return session.factory.new('FileWriter')  # is a NullWriter
-
-        use_dir = (len(args.urls) != 1 or args.page_requisites
-                   or args.recursive)
-
-        if args.use_directories == 'force':
-            use_dir = True
-        elif args.use_directories == 'no':
-            use_dir = False
-
-        os_type = 'windows' if 'windows' in args.restrict_file_names \
-            else 'unix'
-        ascii_only = 'ascii' in args.restrict_file_names
-        no_control = 'nocontrol' not in args.restrict_file_names
-
-        if 'lower' in args.restrict_file_names:
-            case = 'lower'
-        elif 'upper' in args.restrict_file_names:
-            case = 'upper'
-        else:
-            case = None
-
-        path_namer = session.factory.new(
-            'PathNamer',
-            args.directory_prefix,
-            index=args.default_page,
-            use_dir=use_dir,
-            cut=args.cut_dirs,
-            protocol=args.protocol_directories,
-            hostname=args.host_directories,
-            os_type=os_type,
-            ascii_only=ascii_only,
-            no_control=no_control,
-            case=case,
-            max_filename_length=args.max_filename_length,
-        )
-
-        if args.recursive or args.page_requisites or args.continue_download:
-            if args.clobber_method == 'disable':
-                file_class = OverwriteFileWriter
-            else:
-                file_class = IgnoreFileWriter
-        elif args.timestamping:
-            file_class = TimestampingFileWriter
-        else:
-            file_class = AntiClobberFileWriter
-
-        session.factory.class_map['FileWriter'] = file_class
-
-        return session.factory.new(
-            'FileWriter',
-            path_namer,
-            file_continuing=args.continue_download,
-            headers_included=args.save_headers,
-            local_timestamping=args.use_server_timestamps,
-            adjust_extension=args.adjust_extension,
-            content_disposition=args.content_disposition,
-            trust_server_names=args.trust_server_names,
         )
 
 
@@ -860,76 +500,6 @@ class ProcessorSetupTask(ItemTask[AppSession]):
             ))
 
         return session.factory.new('DemuxRecorder', recorders)
-
-
-class ResmonSetupTask(ItemTask[AppSession]):
-    @asyncio.coroutine
-    def process(self, session: AppSession):
-        if not wpull.resmon.psutil:
-            return
-
-        paths = [session.args.directory_prefix, tempfile.gettempdir()]
-
-        if session.args.warc_file:
-            paths.append(session.args.warc_tempdir)
-
-        session.factory.new(
-            'ResourceMonitor',
-            resource_paths=paths,
-            min_memory=session.args.monitor_memory,
-            min_disk=session.args.monitor_disk,
-        )
-
-
-class ResmonSleepTask(ItemTask[ItemSession]):
-    @asyncio.coroutine
-    def process(self, session: ItemSession):
-        resource_monitor = session.app_session.factory['ResourceMonitor']
-
-        if not resource_monitor:
-            return
-
-        resmon_semaphore = session.app_session.resource_monitor_semaphore
-
-        if resmon_semaphore.locked():
-            use_log = False
-        else:
-            use_log = True
-            yield from resmon_semaphore.acquire()
-
-        yield from self._polling_sleep(resource_monitor, log=use_log)
-
-        if use_log:
-            resmon_semaphore.release()
-
-    @classmethod
-    @asyncio.coroutine
-    def _polling_sleep(cls, resource_monitor, log=False):
-        for counter in itertools.count():
-            resource_info = resource_monitor.check()
-
-            if not resource_info:
-                if log and counter:
-                    _logger.info(_('Situation cleared.'))
-
-                break
-
-            if log and counter % 15 == 0:
-                if resource_info.path:
-                    _logger.warning(__(
-                        _('Low disk space on {path} ({size} free).'),
-                        path=resource_info.path,
-                        size=wpull.string.format_size(resource_info.free)
-                    ))
-                else:
-                    _logger.warning(__(
-                        _('Low memory ({size} free).'),
-                        size=wpull.string.format_size(resource_info.free)
-                    ))
-
-                _logger.warning(_('Waiting for operator to clear situation.'))
-
-            yield from asyncio.sleep(60)
 
 
 class ProcessTask(ItemTask[ItemSession]):
