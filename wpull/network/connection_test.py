@@ -165,7 +165,8 @@ class TestConnectionSSL(SSLBadAppTestCase):
 
         ssl_connection = yield from connection.start_tls()
 
-        self.assertTrue(connection.is_ssl)
+        self.assertFalse(connection.is_ssl)
+        self.assertTrue(ssl_connection.is_ssl)
 
         yield from ssl_connection.write(b'GET / HTTP/1.1\r\n\r\n')
 
