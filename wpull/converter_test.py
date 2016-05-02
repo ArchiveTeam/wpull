@@ -3,6 +3,7 @@ import os.path
 import unittest
 
 from wpull.converter import CSSConverter, HTMLConverter
+from wpull.database.base import AddURLInfo
 from wpull.database.sqltable import URLTable
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
 from wpull.pipeline.item import Status
@@ -75,10 +76,10 @@ class Mixin(object):
         new_css_filename = os.path.join(self.temp_dir.name, 'styles.css-new')
 
         url_table.add_many([
-            {'url': 'http://example.com/styles.css'},
-            {'url': 'http://example.com/image.png'},
-            {'url': 'http://example.com/cat.jpg'},
-            {'url': 'http://example.com/cat.jpg'},
+            AddURLInfo('http://example.com/styles.css', None, None),
+            AddURLInfo('http://example.com/image.png', None, None),
+            AddURLInfo('http://example.com/cat.jpg', None, None),
+            AddURLInfo('http://example.com/cat.jpg', None, None),
         ])
         url_table.update_one(
             'http://example.com/styles.css',
@@ -119,12 +120,12 @@ class Mixin(object):
         ferret_filename = os.path.join(self.temp_dir.name, 'ferret.jpg')
 
         url_table.add_many([
-            {'url': 'http://example.com/styles.css'},
-            {'url': 'http://example.com/image.png'},
-            {'url': 'http://example.com/cat.jpg'},
-            {'url': 'http://example.com/fox.jpg'},
-            {'url': 'http://example.com/ferret.jpg'},
-            {'url': 'http://example.com/tubes.html'},
+            AddURLInfo('http://example.com/styles.css', None, None),
+            AddURLInfo('http://example.com/image.png', None, None),
+            AddURLInfo('http://example.com/cat.jpg', None, None),
+            AddURLInfo('http://example.com/fox.jpg', None, None),
+            AddURLInfo('http://example.com/ferret.jpg', None, None),
+            AddURLInfo('http://example.com/tubes.html', None, None),
         ])
         url_table.update_one(
             'http://example.com/styles.css',
@@ -186,12 +187,12 @@ class Mixin(object):
         ferret_filename = os.path.join(self.temp_dir.name, 'ferret.jpg')
 
         url_table.add_many([
-            {'url': 'http://example.com/styles.css'},
-            {'url': 'http://example.com/image.png'},
-            {'url': 'http://example.com/cat.jpg'},
-            {'url': 'http://example.com/fox.jpg'},
-            {'url': 'http://example.com/ferret.jpg'},
-            {'url': 'http://example.com/tubes.html'},
+            AddURLInfo('http://example.com/styles.css', None, None),
+            AddURLInfo('http://example.com/image.png', None, None),
+            AddURLInfo('http://example.com/cat.jpg', None, None),
+            AddURLInfo('http://example.com/fox.jpg', None, None),
+            AddURLInfo('http://example.com/ferret.jpg', None, None),
+            AddURLInfo('http://example.com/tubes.html', None, None),
         ])
         url_table.update_one(
             'http://example.com/styles.css',
