@@ -708,8 +708,8 @@ class ProcessorSetupTask(ItemTask[AppSession]):
         processor = session.factory.new(
             'WebProcessor',
             web_client,
-            args.directory_prefix,
             web_processor_fetch_params,
+        )
 
         return processor
 
@@ -729,7 +729,6 @@ class ProcessorSetupTask(ItemTask[AppSession]):
         return session.factory.new(
             'FTPProcessor',
             ftp_client,
-            session.args.directory_prefix,
             fetch_params,
         )
 
@@ -901,7 +900,7 @@ class ResmonSleepTask(ItemTask[ItemSession]):
         yield from self._polling_sleep(resource_monitor, log=use_log)
 
         if use_log:
-            resource_monitor.release()
+            resmon_semaphore.release()
 
     @classmethod
     @asyncio.coroutine

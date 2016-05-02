@@ -17,6 +17,7 @@ class AppSession(object):
         self.stderr = stderr
         self.ca_certs_filename = None
         self.console_log_handler = None
+        self.file_log_handler = None
         self.resource_monitor_semaphore = asyncio.BoundedSemaphore(1)
         self.ssl_context = None
         self.async_servers = []

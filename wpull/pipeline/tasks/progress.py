@@ -20,7 +20,7 @@ class ProgressSetupTask(ItemTask[AppSession]):
         args = session.args
 
         if args.verbosity in (LOG_VERBOSE, LOG_DEBUG) and args.progress != 'none':
-            stream = new_encoded_stream(args, session.factory.get_stderr())
+            stream = new_encoded_stream(args, session.stderr)
 
             bar_style = args.progress == 'bar'
 
