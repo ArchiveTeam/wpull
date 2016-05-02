@@ -177,7 +177,7 @@ class BaseSQLURLTable(BaseURLTable):
             subquery = select([URLString.id]).where(URLString.url == url)\
                 .limit(1)
             query = update(QueuedURL).values(values)\
-                .where(QueuedURL.url_str_id == subquery)
+                .where(QueuedURL.url_string_id == subquery)
 
             session.execute(query)
 

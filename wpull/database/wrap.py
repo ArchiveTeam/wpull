@@ -65,7 +65,7 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
             if url_info:
                 self.event_dispatcher.notify('URLTable.queued_url', url_info)
 
-        return self.url_table.check_in(url, new_status, *args, **kwargs)
+        return self.url_table.check_in(url, new_status, increment_try_count=increment_try_count, url_result=url_result)
 
     def update_one(self, *args, **kwargs):
         return self.url_table.update_one(*args, **kwargs)
