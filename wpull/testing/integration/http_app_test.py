@@ -1055,7 +1055,7 @@ class TestHTTPBadApp(HTTPBadAppTestCase):
         self.assertEqual(1, builder.factory['Statistics'].files)
 
     # XXX: slow on pypy
-    @wpull.testing.async.async_test(120)
+    @wpull.testing.async.async_test(timeout=120)
     def test_bad_utf8(self):
         arg_parser = AppArgumentParser()
         args = arg_parser.parse_args([

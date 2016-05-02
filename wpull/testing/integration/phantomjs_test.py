@@ -71,7 +71,7 @@ class PhantomJSMixin(object):
 
     @unittest.skipIf(os.environ.get('TRAVIS'), 'Broken under Travis CI')
     @wpull.testing.async.async_test(
-         30 * 3 if IS_PYPY else 30
+         timeout=30 * 3 if IS_PYPY else 30
     )
     def test_app_phantomjs_scroll(self):
         arg_parser = AppArgumentParser()
