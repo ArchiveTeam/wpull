@@ -1,10 +1,13 @@
 import asyncio
+import logging
 
 from typing import Optional, List, Iterable
 
 from wpull.pipeline.pipeline import ItemTask, ItemSource, Pipeline, ItemQueue
 from wpull.testing.async import AsyncTestCase
 import wpull.testing.async
+
+_logger = logging.getLogger(__name__)
 
 
 class MyItem(object):
@@ -77,7 +80,7 @@ class MyItemTask(ItemTask[MyItem]):
         if work_item.value % 2 == 0:
             yield from asyncio.sleep(0.01)
         else:
-            yield from asyncio.sleep(0.05)
+            yield from asyncio.sleep(0.1)
 
         self._current_work -= 1
 
@@ -180,6 +183,7 @@ class TestPipeline(AsyncTestCase):
 
         def task_callback():
             if task.item_count == 20:
+                _logger.debug('Set concurrency 10')
                 pipeline.concurrency = 10
 
         task.callback = task_callback
@@ -201,6 +205,7 @@ class TestPipeline(AsyncTestCase):
                 self.assertEqual(10, task.peak_work)
 
             if task.item_count == 20:
+                _logger.debug('Set concurrency 1')
                 pipeline.concurrency = 1
 
             if task.item_count == 30:
@@ -222,9 +227,11 @@ class TestPipeline(AsyncTestCase):
 
         def task_callback():
             if task.item_count == 10:
+                _logger.debug('Set concurrency to 0')
                 pipeline.concurrency = 0
 
                 def callback():
+                    _logger.debug('Set concurrency to 10')
                     pipeline.concurrency = 10
 
                 asyncio.get_event_loop().call_later(0.5, callback)

@@ -59,6 +59,10 @@ class ItemQueue(Generic[WorkItemT]):
     def get(self) -> WorkItemT:
         priority, entry_count, item = yield from self._queue.get()
 
+        yield from self._worker_ready_condition.acquire()
+        self._worker_ready_condition.notify_all()
+        self._worker_ready_condition.release()
+
         return item
 
     @asyncio.coroutine
@@ -85,18 +89,21 @@ class Worker(object):
     def __init__(self, item_queue: ItemQueue, tasks: Sequence[ItemTask]):
         self._item_queue = item_queue
         self._tasks = tasks
+        self._worker_id_counter = 0
 
     @asyncio.coroutine
-    def process_one(self):
+    def process_one(self, _worker_id=None):
         item = yield from self._item_queue.get()
 
         if item == POISON_PILL:
             return item
 
-        _logger.debug(__('Processing item {}', item))
+        _logger.debug(__('Worker id {} Processing item {}', _worker_id, item))
 
         for task in self._tasks:
             yield from task.process(item)
+
+        _logger.debug(__('Worker id {} Processed item {}', _worker_id, item))
 
         yield from self._item_queue.item_done()
 
@@ -104,8 +111,13 @@ class Worker(object):
 
     @asyncio.coroutine
     def process(self):
+        worker_id = self._worker_id_counter
+        self._worker_id_counter += 1
+
+        _logger.debug('Worker process id=%s', worker_id)
+
         while True:
-            item = yield from self.process_one()
+            item = yield from self.process_one(_worker_id=worker_id)
 
             if item == POISON_PILL:
                 _logger.debug('Worker quitting.')
@@ -192,6 +204,8 @@ class Pipeline(object):
             wait_coroutine = asyncio.wait(
                 self._worker_tasks, return_when=asyncio.FIRST_COMPLETED)
             done_tasks = (yield from wait_coroutine)[0]
+
+            _logger.debug('%d worker tasks completed', len(done_tasks))
 
             for task in done_tasks:
                 task.result()
