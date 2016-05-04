@@ -155,6 +155,7 @@ class ItemSession(object):
 
     def finish(self):
         self.app_session.factory['URLTable'].add_many(self._add_url_batch)
+        self._add_url_batch.clear()
 
     def update_record_value(self, **kwargs):
         self.app_session.factory['URLTable'].update_one(self.url_record.url, **kwargs)

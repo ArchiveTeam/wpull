@@ -507,6 +507,10 @@ class ProcessTask(ItemTask[ItemSession]):
     def process(self, session: ItemSession):
         yield from session.app_session.factory['Processor'].process(session)
 
+        assert session.is_processed
+
+        session.finish()
+
 
 # class ParseTask(ItemTask[WorkItemT]):
 #     @asyncio.coroutine
