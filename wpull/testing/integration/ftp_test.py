@@ -1,3 +1,4 @@
+import gzip
 import os
 
 from wpull.application.builder import Builder

@@ -878,7 +878,7 @@ class TestHTTPGoodApp(HTTPGoodAppTestCase):
             out_file.write(b'START')
 
         app = Builder(args, unit_test=True).build()
-        exit_code = yield From(app.run())
+        exit_code = yield from app.run()
 
         self.assertEqual(0, exit_code)
 

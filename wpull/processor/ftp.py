@@ -225,7 +225,7 @@ class FTPProcessorSession(BaseProcessorSession):
 
         with self._processor.ftp_client.session() as session:
             try:
-                yield from session.fetch_file_listing(directory_request)
+                yield from session.start_listing(directory_request)
             except FTPServerError:
                 _logger.debug('Got an error. Assume is file.')
 
@@ -240,7 +240,7 @@ class FTPProcessorSession(BaseProcessorSession):
             )
 
             with temp_file as file:
-                directory_response = yield from session.read_listing_content(
+                directory_response = yield from session.download_listing(
                     file, duration_timeout=self._fetch_rule.duration_timeout)
 
         if use_cache:
@@ -362,7 +362,7 @@ class FTPProcessorSession(BaseProcessorSession):
                         if linked_url_info.path.endswith('/'):
                             self._item_session.add_child_url(linked_url_info.url, link_type=LinkType.directory)
                         else:
-                            self._item_session.add_child_url(linked_url.url, link_type=LinkType.file, level=level)
+                            self._item_session.add_child_url(linked_url_info.url, link_type=LinkType.file, level=level)
 
     def _log_response(self, request: Request, response: Response):
         '''Log response.'''

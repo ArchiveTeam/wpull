@@ -3,6 +3,9 @@ import logging
 import asyncio
 import os
 import ssl
+import tempfile
+
+import atexit
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.pipeline.pipeline import ItemTask

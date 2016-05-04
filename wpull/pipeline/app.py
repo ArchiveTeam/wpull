@@ -24,6 +24,7 @@ class AppSession(object):
         self.background_async_tasks = []
         self.proxy_server_port = None
         self.plugin_manager = None
+        self.root_path = args.directory_prefix
 
 
 class AppSource(ItemSource[AppSession]):

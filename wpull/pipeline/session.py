@@ -124,7 +124,7 @@ class ItemSession(object):
         See also :meth:`.database.base.BaseSQLURLTable.add_many`.
         '''
         url_properties = URLProperties()
-        url_properties.level = self.url_record.level + 1 if level is None else level,
+        url_properties.level = self.url_record.level + 1 if level is None else level
         url_properties.inline_level = (self.url_record.inline_level or 0) + 1 if inline else None
         url_properties.parent_url = self.url_record.url
         url_properties.root_url = self.url_record.root_url or self.url_record.url

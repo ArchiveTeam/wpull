@@ -1,6 +1,8 @@
 import gettext
 import logging
 
+import asyncio
+
 from wpull.urlfilter import HTTPSOnlyFilter, SchemeFilter, RecursiveFilter, \
     FollowFTPFilter, SpanHostsFilter, ParentFilter, BackwardDomainFilter, \
     HostnameFilter, TriesFilter, RegexFilter, DirectoryFilter, \

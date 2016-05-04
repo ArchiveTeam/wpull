@@ -493,7 +493,7 @@ class ProcessingRule(HookableMixin):
                 self.parse_url(
                     '{0}://{1}/robots.txt'.format(
                         item_session.url_record.url_info.scheme,
-                        item_session.url_record.hostname_with_port)
+                        item_session.url_record.url_info.hostname_with_port)
                 ),
                 self.parse_url(
                     '{0}://{1}/sitemap.xml'.format(

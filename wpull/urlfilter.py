@@ -200,8 +200,8 @@ class ParentFilter(BaseURLFilter):
         if url_table_record.inline_level:
             return True
 
-        if url_table_record.top_url:
-            top_url_info = URLInfo.parse(url_table_record.top_url)
+        if url_table_record.root_url:
+            top_url_info = URLInfo.parse(url_table_record.root_url)
         else:
             top_url_info = url_info
 
