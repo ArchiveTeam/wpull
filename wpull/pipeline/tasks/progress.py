@@ -68,7 +68,8 @@ class ProgressSetupTask(ItemTask[AppSession]):
     def ftp_session_callback(cls, progress: ProtocolProgress, ftp_session: FTPSession):
         ftp_session.event_dispatcher.add_listener(
             FTPSession.Event.begin_control,
-            progress.update_from_begin_request)
+            lambda request, connection_reused:
+            progress.update_from_begin_request(request))
         ftp_session.event_dispatcher.add_listener(
             FTPSession.Event.begin_transfer,
             progress.update_from_begin_response)

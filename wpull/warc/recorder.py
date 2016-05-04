@@ -629,7 +629,7 @@ class FTPWARCRecorderSession(BaseWARCRecorderSession):
         self._control_record = None
         self._response_record = None
 
-    def close(self):
+    def close(self, error=None):
         super().close()
 
         if self._control_record and self._control_record.block_file:

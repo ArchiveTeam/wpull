@@ -373,6 +373,8 @@ class Session(BaseSession):
             connection_factory
         )
 
+        self._response.data_address = self._data_connection.address
+
         read_callback = functools.partial(self.event_dispatcher.notify, self.Event.transfer_receive_data)
         self._data_stream.data_event_dispatcher.add_read_listener(read_callback)
 
@@ -402,10 +404,11 @@ class Session(BaseSession):
         super().recycle()
         self._close_data_connection()
 
-        self.event_dispatcher.notify(
-            self.Event.end_control, self._response,
-            connection_closed=self._control_connection.closed()
-        )
+        if self._control_connection:
+            self.event_dispatcher.notify(
+                self.Event.end_control, self._response,
+                connection_closed=self._control_connection.closed()
+            )
 
     def _close_data_connection(self):
         if self._data_connection:
