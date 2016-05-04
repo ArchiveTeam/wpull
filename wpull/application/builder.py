@@ -12,9 +12,19 @@ from wpull.application.factory import Factory
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy
 from wpull.pipeline.progress import Progress
+from wpull.pipeline.tasks.database import DatabaseSetupTask
+from wpull.pipeline.tasks.database import InputURLTask
+from wpull.pipeline.tasks.log import LoggingSetupTask, LoggingShutdownTask
+from wpull.pipeline.tasks.network import NetworkSetupTask
 from wpull.pipeline.tasks.progress import ProgressSetupTask
+from wpull.pipeline.tasks.resmon import ResmonSetupTask, ResmonSleepTask
+from wpull.pipeline.tasks.rule import URLFiltersSetupTask
+from wpull.pipeline.tasks.sslcontext import SSLContextTask
+from wpull.pipeline.tasks.startup import DebugConsoleSetupTask, ArgWarningTask
+from wpull.pipeline.tasks.stats import StatsStartTask, StatsStopTask
 from wpull.pipeline.tasks.warc import WARCRecorderSetupTask, \
-    WARCRecorderTeardownTask
+    WARCRecorderTeardownTask, WARCVisitsTask
+from wpull.pipeline.tasks.writer import FileWriterSetupTask
 from wpull.processor.coprocessor.phantomjs import PhantomJSCoprocessor
 from wpull.processor.coprocessor.proxy import ProxyCoprocessor
 from wpull.processor.coprocessor.youtubedl import YoutubeDlCoprocessor
@@ -29,16 +39,11 @@ from wpull.pipeline.pipeline import Pipeline
 from wpull.pipeline.session import URLItemSource
 from wpull.pipeline.tasks.conversion import LinkConversionSetupTask, \
     LinkConversionTask
-from wpull.pipeline.tasks.download import ProcessTask, ResmonSetupTask, \
-    ParserSetupTask, StatsStartTask, URLFiltersSetupTask, NetworkSetupTask, \
-    ClientSetupTask, ProcessorSetupTask, ResmonSleepTask, BackgroundAsyncTask, \
-    StatsStopTask, FileWriterSetupTask
+from wpull.pipeline.tasks.download import ProcessTask, ParserSetupTask, ClientSetupTask, ProcessorSetupTask, \
+    BackgroundAsyncTask
 from wpull.pipeline.tasks.plugin import PluginSetupTask
 from wpull.pipeline.tasks.shutdown import BackgroundAsyncCleanupTask, \
-    AppStopTask, LoggingShutdownTask
-from wpull.pipeline.tasks.startup import LoggingSetupTask, DebugConsoleSetupTask, \
-    DatabaseSetupTask, InputURLTask, ArgWarningTask, WARCVisitsTask, \
-    SSLContextTask
+    AppStopTask
 from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams
 from wpull.processor.rule import FetchRule, ResultRule, ProcessingRule
@@ -165,21 +170,17 @@ class Builder(object):
                 LoggingSetupTask(),
                 DebugConsoleSetupTask(),
                 DatabaseSetupTask(),
+                ParserSetupTask(),
                 InputURLTask(),
                 ArgWarningTask(),
                 WARCVisitsTask(),
                 SSLContextTask(),
                 ResmonSetupTask(),
-            ])
-
-        download_start_pipeline = Pipeline(
-            AppSource(app_session), [
-                ParserSetupTask(),
-                WARCRecorderSetupTask(),
                 StatsStartTask(),
                 URLFiltersSetupTask(),
                 NetworkSetupTask(),
                 ClientSetupTask(),
+                WARCRecorderSetupTask(),
                 FileWriterSetupTask(),
                 ProcessorSetupTask(),
                 LinkConversionSetupTask(),
@@ -222,7 +223,7 @@ class Builder(object):
                 LoggingShutdownTask(),
             ])
 
-        return (app_start_pipeline, download_start_pipeline, download_pipeline,
+        return (app_start_pipeline, download_pipeline,
                 download_stop_pipeline, conversion_pipeline, app_stop_pipeline)
 
     def build_and_run(self):
