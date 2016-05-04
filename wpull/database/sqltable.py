@@ -209,8 +209,8 @@ class BaseSQLURLTable(BaseURLTable):
     def get_hostnames(self):
         hostnames = []
         with self._session() as session:
-            for hostname in session.query(Hostname.hostname):
-                hostnames.append(hostname)
+            for row in session.query(Hostname.hostname):
+                hostnames.append(row[0])
 
         return hostnames
 
