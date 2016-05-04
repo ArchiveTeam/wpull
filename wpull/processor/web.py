@@ -152,7 +152,7 @@ class WebProcessorSession(BaseProcessorSession):
         url_record = self._item_session.url_record
 
         # Note that referrer may have already been set by the --referer option
-        if url_record.referrer and not request.fields.get('Referer'):
+        if url_record.parent_url and not request.fields.get('Referer'):
             self._add_referrer(request, url_record)
 
         if self._fetch_rule.http_login:
@@ -184,9 +184,6 @@ class WebProcessorSession(BaseProcessorSession):
 
         yield from self._process_loop()
 
-        if self._request and self._request.body:
-            self._request.body.close()
-
         if not self._item_session.is_processed:
             _logger.debug('Was not processed. Skipping.')
             self._item_session.skip()
@@ -199,8 +196,8 @@ class WebProcessorSession(BaseProcessorSession):
         '''
         try:
             request = self._new_initial_request(with_body=False)
-            verdict = (yield from self._should_fetch_reason_with_robots(
-                request))[0]
+            verdict, reason = (yield from self._should_fetch_reason_with_robots(
+                request))
         except REMOTE_ERRORS as error:
             _logger.error(__(
                 _('Fetching robots.txt for ‘{url}’ '
@@ -219,6 +216,8 @@ class WebProcessorSession(BaseProcessorSession):
 
             return False
         else:
+            _logger.debug(__('Robots filter verdict {} reason {}', verdict, reason))
+
             if not verdict:
                 self._item_session.skip()
                 return False
@@ -234,7 +233,9 @@ class WebProcessorSession(BaseProcessorSession):
         while not self._web_client_session.done():
             self._item_session.request = self._web_client_session.next_request()
 
-            verdict = self._should_fetch_reason()[0]
+            verdict, reason = self._should_fetch_reason()
+
+            _logger.debug(__('Filter verdict {} reason {}', verdict, reason))
 
             if not verdict:
                 self._item_session.skip()
@@ -243,7 +244,7 @@ class WebProcessorSession(BaseProcessorSession):
             exit_early, wait_time = yield from self._fetch_one(cast(Request, self._item_session.request))
 
             if wait_time:
-                _logger.debug('Sleeping {0}.'.format(wait_time))
+                _logger.debug(__('Sleeping {}', wait_time))
                 yield from asyncio.sleep(wait_time)
 
             if exit_early:
@@ -295,6 +296,9 @@ class WebProcessorSession(BaseProcessorSession):
                 self._item_session, error=error
             )
 
+            if request.body:
+                request.body.close()
+
             if response:
                 response.body.close()
 
@@ -307,6 +311,9 @@ class WebProcessorSession(BaseProcessorSession):
             yield from self._run_coprocessors(request, response)
 
             response.body.close()
+
+            if request.body:
+                request.body.close()
 
             return action != Actions.NORMAL, wait_time
 
@@ -441,22 +448,19 @@ class WebProcessorSession(BaseProcessorSession):
             instance.body.close()
 
     def _run_coprocessors(self, request: Request, response: Response):
-        phantomjs_coprocessor = cast(
-            PhantomJSCoprocessor,
-            self._item_session.app_session.factory['PhantomJSCoprocessor']
-        )
+        phantomjs_coprocessor = self._item_session.app_session.factory.get('PhantomJSCoprocessor')
 
         if phantomjs_coprocessor:
+            phantomjs_coprocessor = cast(PhantomJSCoprocessor, phantomjs_coprocessor)
             yield from phantomjs_coprocessor.process(
                 self._item_session, request, response, self._file_writer_session
             )
 
-        youtube_dl_coprocessor = cast(
-            YoutubeDlCoprocessor,
-            self._item_session.app_session.factory['YoutubeDlCoprocessor']
-        )
+        youtube_dl_coprocessor = self._item_session.app_session.factory.get('YoutubeDlCoprocessor')
 
         if youtube_dl_coprocessor:
+            youtube_dl_coprocessor = cast(YoutubeDlCoprocessor, youtube_dl_coprocessor)
+
             yield from youtube_dl_coprocessor.process(
                 self._item_session, request, response, self._file_writer_session
             )
