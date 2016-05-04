@@ -37,19 +37,14 @@ class ProxyCoprocessor(object):
     @classmethod
     def _new_url_record(cls, request):
         '''Return new empty URLRecord.'''
-        return URLRecord(
-            url=request.url_info.url,
-            status=Status.in_progress,
-            try_count=0,
-            level=0,
-            top_url='',
-            status_code=None,
-            referrer=None,
-            inline=None,
-            link_type=None,
-            post_data=None,
-            filename=None
-        )
+        url_record = URLRecord()
+
+        url_record.url = request.url_info.url
+        url_record.status = Status.in_progress
+        url_record.try_count = 0
+        url_record.level = 0
+
+        return url_record
 
     def _request_callback(self, request):
         '''Request callback handler.'''
