@@ -9,6 +9,7 @@ import logging
 
 import asyncio
 
+from wpull.application.plugin import WpullPlugin, PluginFunctionCategory
 from wpull.backport.logging import BraceMessage as __
 
 _logger = logging.getLogger(__name__)
@@ -106,6 +107,13 @@ class HookableMixin(object):
         self.hook_dispatcher = HookDispatcher()
         self.event_dispatcher = EventDispatcher()
 
+    def connect_plugin(self, plugin: WpullPlugin):
+        for func, name, category in plugin.get_plugin_functions():
+            if category == PluginFunctionCategory.hook and self.hook_dispatcher.is_registered(name):
+                self.hook_dispatcher.connect(name, func)
+            elif category == PluginFunctionCategory.event and self.event_dispatcher.is_registered(name):
+                self.event_dispatcher.add_listener(name, func)
+
 
 class HookStop(Exception):
     '''Stop the engine.
@@ -128,24 +136,3 @@ class Actions(enum.Enum):
     RETRY = 'retry'
     FINISH = 'finish'
     STOP = 'stop'
-
-
-def callback_decorator(name: str, category: str):
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
-
-        wrapper.callback_name = name
-        wrapper.callback_category = category
-
-        return wrapper
-    return decorator
-
-
-def hook_function(name: str):
-    return functools.partial(callback_decorator, category='hook')
-
-
-def event_function(name: str):
-    return functools.partial(callback_decorator, category='event')

@@ -6,6 +6,7 @@ import logging
 from yapsy.PluginManager import PluginManager
 
 from wpull.application.hook import HookableMixin
+from wpull.application.plugin import WpullPlugin
 from wpull.backport.logging import BraceMessage as __
 from wpull.pipeline.pipeline import ItemTask
 from wpull.pipeline.app import AppSession
@@ -36,39 +37,9 @@ class PluginSetupTask(ItemTask[AppSession]):
             self._connect_plugin_hooks(session, plugin_info.plugin_object)
 
     @classmethod
-    def _connect_plugin_hooks(cls, session: AppSession, plugin_object):
-        for callback_func in cls._get_plugin_callbacks(plugin_object):
-            dispatcher = cls._get_dispatcher(
-                session, callback_func.callback_name,
-                callback_func.callback_category
-            )
-
-            if not dispatcher:
-                continue
-
-            if callback_func.callback_category == 'hook':
-                dispatcher.connect(callback_func.callback_name, callback_func)
-            else:
-                dispatcher.listen(callback_func.callback_name, callback_func)
-
-    @classmethod
-    def _get_plugin_callbacks(cls, plugin_object):
-        funcs = inspect.getmembers(plugin_object, predicate=inspect.ismethod)
-
-        for func in funcs:
-            if hasattr(func, 'callback_name'):
-                yield func
-
-    @classmethod
-    def _get_dispatcher(cls, session: AppSession, name: str,
-                        callback_category: str):
+    def _connect_plugin_hooks(cls, session: AppSession, plugin_object: WpullPlugin):
         for instance in session.factory.instance_map.values():
             if not isinstance(instance, HookableMixin):
                 continue
 
-            if callback_category == 'hook':
-                if instance.hook_dispatcher.is_registered(name):
-                    return instance.hook_dispatcher
-            else:
-                if instance.event_dispatcher.is_registered(name):
-                    return instance.event_dispatcher
+            instance.connect_plugin(plugin_object)

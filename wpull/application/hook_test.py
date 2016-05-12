@@ -1,9 +1,27 @@
 import asyncio
 
 from wpull.application.hook import HookDispatcher, HookAlreadyConnectedError, \
-    HookDisconnected, EventDispatcher
+    HookDisconnected, EventDispatcher, HookableMixin
+from wpull.application.plugin import WpullPlugin, event, hook
 from wpull.testing.async import AsyncTestCase
 import wpull.testing.async
+
+
+class MyClass(HookableMixin):
+    def __init__(self):
+        super().__init__()
+        self.event_dispatcher.register('event_test')
+        self.hook_dispatcher.register('event_test')
+
+
+class MyPlugin(WpullPlugin):
+    @event('event_test')
+    def my_event_test_callback(self):
+        pass
+
+    @hook('hook_test')
+    def my_hook_test_callback(self):
+        pass
 
 
 class TestHook(AsyncTestCase):
@@ -81,3 +99,9 @@ class TestHook(AsyncTestCase):
         event.remove_listener('a', callback1)
 
         event.unregister('a')
+
+    def test_plugin_connect(self):
+        tester = MyClass()
+        plugin = MyPlugin()
+
+        tester.connect_plugin(plugin)
