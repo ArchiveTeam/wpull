@@ -6,6 +6,7 @@ import random
 from typing import Optional, Tuple
 
 import wpull.url
+from wpull.application.plugin import PluginFunctions, hook_interface
 from wpull.scraper.base import DemuxDocumentScraper, BaseScraper, ScrapeResult
 from wpull.stats import Statistics
 from wpull.url import URLInfo
@@ -39,7 +40,7 @@ class FetchRule(HookableMixin):
         self.ftp_login = ftp_login
         self.duration_timeout = duration_timeout
 
-        self.hook_dispatcher.register('FetchRule.accept_url')
+        self.hook_dispatcher.register(PluginFunctions.accept_url)
 
     @asyncio.coroutine
     def consult_robots_txt(self, request: HTTPRequest) -> bool:
@@ -134,7 +135,7 @@ class FetchRule(HookableMixin):
         return verdict, reason
 
     @staticmethod
-    @wpull.application.hook.hook_function('FetchRule.accept_url')
+    @hook_interface(PluginFunctions.accept_url)
     def plugin_accept_url(item_session: ItemSession, verdict: bool, reasons: dict) -> bool:
         '''Return whether to download this URL.
 
@@ -235,10 +236,10 @@ class ResultRule(HookableMixin):
         self._waiter = waiter
         self._statistics = statistics
 
-        self.hook_dispatcher.register('ResultRule.wait_time')
-        self.hook_dispatcher.register('ResultRule.handle_response')
-        self.hook_dispatcher.register('ResultRule.handle_pre_response')
-        self.hook_dispatcher.register('ResultRule.handle_error')
+        self.hook_dispatcher.register(PluginFunctions.wait_time)
+        self.hook_dispatcher.register(PluginFunctions.handle_response)
+        self.hook_dispatcher.register(PluginFunctions.handle_pre_response)
+        self.hook_dispatcher.register(PluginFunctions.handle_error)
 
     def handle_pre_response(self, item_session: ItemSession) -> Actions:
         '''Process a response that is starting.'''
@@ -371,13 +372,13 @@ class ResultRule(HookableMixin):
         '''Return the wait time in seconds between requests.'''
         seconds = self._waiter.get()
         try:
-            return self.hook_dispatcher.call('ResultRule.wait_time', seconds,
+            return self.hook_dispatcher.call(PluginFunctions.wait_time, seconds,
                                              item_session, error)
         except HookDisconnected:
             return seconds
 
     @staticmethod
-    @wpull.application.hook.hook_function('ResultRule.wait_time')
+    @hook_interface(PluginFunctions.wait_time)
     def plugin_wait_time(seconds: float, item_session: ItemSession, error: Optional[Exception]=None) -> float:
         '''Return the wait time between requests.
 
@@ -395,14 +396,14 @@ class ResultRule(HookableMixin):
         '''Return scripting action when a response begins.'''
         try:
             return self.hook_dispatcher.call(
-                'ResultRule.handle_pre_response',
+                PluginFunctions.handle_pre_response,
                 item_session
             )
         except HookDisconnected:
             return Actions.NORMAL
 
     @staticmethod
-    @wpull.application.hook.hook_function('ResultRule.handle_pre_response')
+    @hook_interface(PluginFunctions.handle_pre_response)
     def plugin_handle_pre_response(item_session: ItemSession) -> Actions:
         '''Return an action to handle a response status before a download.
 
@@ -419,13 +420,13 @@ class ResultRule(HookableMixin):
         '''Return scripting action when a response ends.'''
         try:
             return self.hook_dispatcher.call(
-                'ResultRule.handle_response', item_session
+                PluginFunctions.handle_response, item_session
             )
         except HookDisconnected:
             return Actions.NORMAL
 
     @staticmethod
-    @wpull.application.hook.hook_function('FetchResult.handle_response')
+    @hook_interface(PluginFunctions.handle_response)
     def plugin_handle_response(item_session: ItemSession) -> Actions:
         '''Return an action to handle the response.
 
@@ -442,12 +443,12 @@ class ResultRule(HookableMixin):
         '''Return scripting action when an error occured.'''
         try:
             return self.hook_dispatcher.call(
-                'ResultRule.handle_error', item_session, error)
+                PluginFunctions.handle_error, item_session, error)
         except HookDisconnected:
             return Actions.NORMAL
 
     @staticmethod
-    @wpull.application.hook.hook_function('FetchResult.handle_error')
+    @hook_interface(PluginFunctions.handle_error)
     def plugin_handle_error(item_session: ItemSession, error: BaseException) -> Actions:
         '''Return an action to handle the error.
 
@@ -481,7 +482,7 @@ class ProcessingRule(HookableMixin):
         self._sitemaps = sitemaps
         self._url_rewriter = url_rewriter
 
-        self.hook_dispatcher.register('ProcessingRule.get_urls')
+        self.hook_dispatcher.register(PluginFunctions.get_urls)
 
     parse_url = staticmethod(wpull.url.parse_url_or_log)
 
@@ -509,7 +510,7 @@ class ProcessingRule(HookableMixin):
         '''Process document for links.'''
         try:
             self.hook_dispatcher.call(
-                'ProcessingRule.get_urls', item_session
+                PluginFunctions.get_urls, item_session
             )
         except HookDisconnected:
             pass
@@ -537,7 +538,7 @@ class ProcessingRule(HookableMixin):
         ))
 
     @staticmethod
-    @wpull.application.hook.hook_function('ProcessingRule.get_urls')
+    @hook_interface(PluginFunctions.get_urls)
     def plugin_get_urls(item_session: ItemSession):
         '''Return additional URLs to be added to the URL Table.
 

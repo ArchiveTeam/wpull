@@ -110,3 +110,16 @@ def event_interface(
     return _plugin_interface_decorator(name, PluginFunctionCategory.event,
                                        interface_registry)
 
+
+class PluginFunctions(enum.Enum):
+    queued_url = 'queued_url'
+    dequeued_url = 'dequeued_url'
+    resolve_dns = 'resolve_dns'
+    resolve_dns_result = 'resolve_dns_result'
+    accept_url = 'accept_url'
+    wait_time = 'wait_time'
+    handle_response = 'handle_response'
+    handle_pre_response = 'handle_pre_response'
+    handle_error = 'handle_error'
+    get_urls = 'get_urls'
+    finishing_statistics = 'finishing_statistics'

@@ -4,6 +4,7 @@ import logging
 
 import asyncio
 
+from wpull.application.plugin import PluginFunctions, event_interface
 from wpull.backport.logging import BraceMessage as __
 from wpull.pipeline.pipeline import ItemTask
 from wpull.pipeline.app import AppSession
@@ -27,7 +28,7 @@ class StatsStartTask(ItemTask[AppSession]):
 class StatsStopTask(ItemTask[AppSession], HookableMixin):
     def __init__(self):
         super().__init__()
-        self.event_dispatcher.register('StatsStopTask.finishing_statistics')
+        self.event_dispatcher.register(PluginFunctions.finishing_statistics)
 
     @asyncio.coroutine
     def process(self, session: AppSession):
@@ -37,7 +38,7 @@ class StatsStopTask(ItemTask[AppSession], HookableMixin):
         # TODO: human_format_speed arg
         self._print_stats(statistics)
 
-        self.event_dispatcher.notify('StatsStopTask.finishing_statistics', session, statistics)
+        self.event_dispatcher.notify(PluginFunctions.finishing_statistics, session, statistics)
 
     @classmethod
     def _print_stats(cls, stats: Statistics, human_format_speed: bool=True):
@@ -80,7 +81,7 @@ class StatsStopTask(ItemTask[AppSession], HookableMixin):
             _logger.info(_('Download quota exceeded.'))
 
     @staticmethod
-    @wpull.application.hook.event_function('StatsStopTask.finishing_statistics')
+    @event_interface(PluginFunctions.finishing_statistics)
     def plugin_finishing_statistics(app_session: AppSession, statistics: Statistics):
         '''Callback containing final statistics.
 

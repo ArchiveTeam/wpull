@@ -1,4 +1,5 @@
 '''URL table wrappers.'''
+from wpull.application.plugin import event_interface, PluginFunctions
 from wpull.database.base import BaseURLTable
 from wpull.application.hook import HookableMixin, HookDisconnected
 from wpull.pipeline.item import Status
@@ -21,8 +22,8 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
         self.url_table = url_table
         self._queue_counter = 0
 
-        self.event_dispatcher.register('URLTable.queued_url')
-        self.event_dispatcher.register('URLTable.dequeued_url')
+        self.event_dispatcher.register(PluginFunctions.queued_url)
+        self.event_dispatcher.register(PluginFunctions.dequeued_url)
 
     def queue_count(self):
         '''Return the number of URLs queued in this session.'''
@@ -44,7 +45,7 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
             url_info = parse_url_or_log(url)
             if url_info:
                 self._queue_counter += 1
-                self.event_dispatcher.notify('URLTable.queued_url', url_info)
+                self.event_dispatcher.notify(PluginFunctions.queued_url, url_info)
 
         return added_urls
 
@@ -52,7 +53,7 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
         url_record = self.url_table.check_out(filter_status, filter_level)
         self._queue_counter -= 1
 
-        self.event_dispatcher.notify('URLTable.dequeued_url', url_record.url_info, url_record)
+        self.event_dispatcher.notify(PluginFunctions.dequeued_url, url_record.url_info, url_record)
 
         return url_record
 
@@ -89,7 +90,7 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
         return self.url_table.get_hostnames()
 
     @staticmethod
-    @wpull.application.hook.event_function('URLTable.queued_url')
+    @event_interface(PluginFunctions.queued_url)
     def queued_url(url_info):
         '''Callback fired after an URL was put into the queue.
 
@@ -99,7 +100,7 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
         '''
 
     @staticmethod
-    @wpull.application.hook.event_function('URLTable.dequeued_url')
+    @event_interface(PluginFunctions.dequeued_url)
     def dequeued_url(url_info, record_info):
         '''Callback fired after an URL was retrieved from the queue.
 

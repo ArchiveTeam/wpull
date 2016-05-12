@@ -15,6 +15,8 @@ import dns.rdatatype
 import dns.rrset
 from typing import List, Sequence, Optional, Iterable, NamedTuple
 
+from wpull.application.plugin import PluginFunctions, hook_interface, \
+    event_interface
 from wpull.backport.logging import BraceMessage as __
 from wpull.cache import FIFOCache
 from wpull.errors import DNSNotFound, NetworkError
@@ -142,8 +144,8 @@ class Resolver(HookableMixin):
         if timeout:
             self._dns_resolver.timeout = timeout
 
-        self.hook_dispatcher.register('Resolver.resolve_dns')
-        self.event_dispatcher.register('Resolver.resolve_result')
+        self.hook_dispatcher.register(PluginFunctions.resolve_dns)
+        self.event_dispatcher.register(PluginFunctions.resolve_dns_result)
 
     @classmethod
     def new_cache(cls) -> FIFOCache:
@@ -170,7 +172,7 @@ class Resolver(HookableMixin):
         _logger.debug(__('Lookup address {0}.', host))
 
         try:
-            host = self.hook_dispatcher.call('Resolver.resolve_dns', host)
+            host = self.hook_dispatcher.call(PluginFunctions.resolve_dns, host)
         except HookDisconnected:
             pass
 
@@ -227,7 +229,7 @@ class Resolver(HookableMixin):
         if self._cache:
             self._cache[cache_key] = resolve_result
 
-        self.event_dispatcher.notify('Resolver.resolve_result', host, resolve_result)
+        self.event_dispatcher.notify(PluginFunctions.resolve_dns_result, host, resolve_result)
 
         if self._rotate:
             resolve_result.shuffle()
@@ -349,7 +351,7 @@ class Resolver(HookableMixin):
         return flow_info, control_id
 
     @staticmethod
-    @wpull.application.hook.hook_function('Resolver.resolve_dns')
+    @hook_interface(PluginFunctions.resolve_dns)
     def resolve_dns(host: str) -> str:
         '''Resolve the hostname to an IP address.
 
@@ -371,6 +373,6 @@ class Resolver(HookableMixin):
         return host
 
     @staticmethod
-    @wpull.application.hook.event_function('Resolver.resolve_result')
-    def resolve_result(host: str, result: ResolveResult):
+    @event_interface(PluginFunctions.resolve_dns_result)
+    def resolve_dns_result(host: str, result: ResolveResult):
         pass
