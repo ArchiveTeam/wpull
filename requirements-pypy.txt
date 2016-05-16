@@ -4,5 +4,5 @@ chardet>=2.0.1
 sqlalchemy>=0.9
 namedlist>=1.3
 html5lib>=0.999
-dnspython3>=1.12
+dnspython>=1.13
 psutil>=2.0
