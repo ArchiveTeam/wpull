@@ -12,7 +12,7 @@ import re
 import shutil
 import time
 
-from typing import cast
+from typing import cast, BinaryIO
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.body import Body
@@ -21,7 +21,8 @@ from wpull.document.html import HTMLReader
 from wpull.path import anti_clobber_dir_path, parse_content_disposition, \
     PathNamer
 import wpull.util
-from wpull.protocol.abstract.request import BaseRequest, BaseResponse
+from wpull.protocol.abstract.request import BaseRequest, BaseResponse, \
+    SerializableMixin
 from wpull.protocol.http.request import Response as HTTPResponse
 from wpull.protocol.ftp.request import Response as FTPResponse
 
@@ -476,3 +477,36 @@ class NullWriter(BaseWriter):
         return NullWriterSession()
 
 
+class SingleDocumentWriterSession(BaseWriterSession):
+    def __init__(self, stream: BinaryIO, headers_included: bool):
+        self._stream = stream
+        self._headers_included = headers_included
+
+    def process_request(self, request):
+        return request
+
+    def process_response(self, response: BaseResponse):
+        if self._headers_included and isinstance(response, SerializableMixin):
+            self._stream.write(response.to_bytes())
+
+        response.body = Body(self._stream)
+
+        return response
+
+    def discard_document(self, response):
+        pass
+
+    def save_document(self, response):
+        pass
+
+    def extra_resource_path(self, suffix):
+        pass
+
+
+class SingleDocumentWriter(BaseWriter):
+    def __init__(self, stream: BinaryIO, headers_included: bool=False):
+        self._stream = stream
+        self._headers_included = headers_included
+
+    def session(self) -> SingleDocumentWriterSession:
+        return SingleDocumentWriterSession(self._stream, self._headers_included)

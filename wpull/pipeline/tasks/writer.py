@@ -6,7 +6,7 @@ import asyncio
 from wpull.pipeline.pipeline import ItemTask
 from wpull.pipeline.app import AppSession
 from wpull.writer import OverwriteFileWriter, IgnoreFileWriter, \
-    TimestampingFileWriter, AntiClobberFileWriter
+    TimestampingFileWriter, AntiClobberFileWriter, SingleDocumentWriter
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
@@ -26,8 +26,13 @@ class FileWriterSetupTask(ItemTask[AppSession]):
         '''
         args = session.args
 
-        if args.delete_after or args.output_document:
+        if args.delete_after:
             return session.factory.new('FileWriter')  # is a NullWriter
+
+        elif args.output_document:
+            session.factory.class_map['FileWriter'] = SingleDocumentWriter(
+                args.output_document, headers_included=args.save_headers)
+            return session.factory.new('FileWriter')
 
         use_dir = (len(args.urls) != 1 or args.page_requisites
                    or args.recursive)

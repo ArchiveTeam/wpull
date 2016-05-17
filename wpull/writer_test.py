@@ -1,5 +1,6 @@
 # encoding=utf-8
 import hashlib
+import io
 import os.path
 import unittest
 
@@ -9,7 +10,7 @@ from wpull.testing.ftp import FTPTestCase
 from wpull.testing.goodapp import GoodAppTestCase
 from wpull.testing.util import TempDirMixin
 from wpull.writer import NullWriter, AntiClobberFileWriter, OverwriteFileWriter, \
-    TimestampingFileWriter
+    TimestampingFileWriter, SingleDocumentWriter
 from wpull.protocol.http.request import Response as HTTPResponse
 from wpull.protocol.http.request import Request as HTTPRequest
 from wpull.protocol.ftp.request import Response as FTPResponse
@@ -215,3 +216,36 @@ class TestWriter(unittest.TestCase, TempDirMixin):
         print(list(os.walk('.')))
         self.assertTrue(os.path.exists('my_file.html'))
 
+    def test_single_document_writer(self):
+        stream = io.BytesIO()
+
+        writer = SingleDocumentWriter(stream, headers_included=True)
+        session = writer.session()
+
+        request1 = HTTPRequest('http://example.com/my_file1.txt')
+        response1 = HTTPResponse(status_code=200, reason='OK', request=request1)
+
+        session.process_request(request1)
+        session.process_response(response1)
+
+        response1.body.write(b'The content')
+
+        session.save_document(response1)
+
+        session = writer.session()
+
+        request2 = HTTPRequest('http://example.com/my_file2.txt')
+        response2 = HTTPResponse(status_code=200, reason='OK', request=request2)
+
+        session.process_request(request2)
+        session.process_response(response2)
+
+        response1.body.write(b'Another thing')
+
+        session.save_document(response2)
+
+        data = stream.getvalue()
+
+        self.assertIn(b'HTTP', data)
+        self.assertIn(b'The content', data)
+        self.assertIn(b'Another thing', data)

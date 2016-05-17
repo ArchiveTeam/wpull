@@ -490,15 +490,6 @@ class ProcessorSetupTask(ItemTask[AppSession]):
         assert args.verbosity, \
             'Expect logging level. Got {}.'.format(args.verbosity)
 
-
-
-        if args.output_document:
-            recorders.append(session.factory.new(
-                'OutputDocumentRecorder',
-                args.output_document,
-                with_headers=args.save_headers,
-            ))
-
         return session.factory.new('DemuxRecorder', recorders)
 
 
