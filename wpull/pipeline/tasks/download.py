@@ -329,12 +329,12 @@ class ProcessorSetupTask(ItemTask[AppSession]):
             proxy_port = session.proxy_server_port
 
         if args.phantomjs:
-            phantomjs_coprocessor = self._build_phantomjs_coprocessor(session, proxy_port)
+            phantomjs_coprocessor = cls._build_phantomjs_coprocessor(session, proxy_port)
         else:
             phantomjs_coprocessor = None
 
         if args.youtube_dl:
-            youtube_dl_coprocessor = self._build_youtube_dl_coprocessor(session, proxy_port)
+            youtube_dl_coprocessor = cls._build_youtube_dl_coprocessor(session, proxy_port)
         else:
             youtube_dl_coprocessor = None
 

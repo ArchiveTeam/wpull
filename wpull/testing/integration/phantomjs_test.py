@@ -6,6 +6,7 @@ from wpull.application.options import AppArgumentParser
 from wpull.testing.integration.base import HTTPGoodAppTestCase
 import wpull.testing.async
 from wpull.testing.integration.http_app_test import MockDNSResolver
+from wpull.testing.util import TempDirMixin
 from wpull.util import IS_PYPY
 
 
@@ -16,7 +17,7 @@ class PhantomJSMixin(object):
     def test_app_phantomjs(self):
         arg_parser = AppArgumentParser()
         script_filename = os.path.join(os.path.dirname(__file__),
-                                       'testing', 'boring_script.py')
+                                       'sample_user_scripts', 'boring.plugin.py')
 
         # Change localhost into something else to test proxy
         args = arg_parser.parse_args([
@@ -30,7 +31,7 @@ class PhantomJSMixin(object):
             '--phantomjs-wait', '0.1',
             '--phantomjs-scroll', '2',
             '--header', 'accept-language: dragon',
-            '--python-script', script_filename,
+            '--plugin-script', script_filename,
             '--no-check-certificate',
         ])
         builder = Builder(args, unit_test=True)
@@ -100,20 +101,8 @@ class PhantomJSMixin(object):
 
 
 class TestPhantomJS(HTTPGoodAppTestCase, PhantomJSMixin):
-    def setUp(self):
-        HTTPGoodAppTestCase.setUp(self)
-        self.set_up_temp_dir()
-
-    def tearDown(self):
-        HTTPGoodAppTestCase.tearDown(self)
-        self.tear_down_temp_dir()
+    pass
 
 
 class TestPhantomJSHTTPS(HTTPGoodAppTestCase, PhantomJSMixin, TempDirMixin):
-    def setUp(self):
-        HTTPGoodAppTestCase.setUp(self)
-        self.set_up_temp_dir()
-
-    def tearDown(self):
-        HTTPGoodAppTestCase.tearDown(self)
-        self.tear_down_temp_dir()
+    pass
