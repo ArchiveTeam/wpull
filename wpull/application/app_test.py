@@ -4,7 +4,8 @@ from typing import Optional
 
 import wpull.testing.async
 from wpull.application.app import Application
-from wpull.pipeline.pipeline import Pipeline, ItemSource, ItemTask
+from wpull.pipeline.pipeline import Pipeline, ItemSource, ItemTask, \
+    PipelineSeries
 
 
 class MyItemTask(ItemTask[int]):
@@ -36,7 +37,7 @@ class TestAppliation(wpull.testing.async.AsyncTestCase):
         pipeline1 = Pipeline(source1, [MyItemTask()])
         pipeline2 = Pipeline(source2, [MyItemTask()])
 
-        app = Application([pipeline1, pipeline2])
+        app = Application(PipelineSeries([pipeline1, pipeline2]))
 
         exit_code = yield from app.run()
 
@@ -53,7 +54,7 @@ class TestAppliation(wpull.testing.async.AsyncTestCase):
 
                 task = MyItemTask(callback=callback)
                 pipeline = Pipeline(source, [task])
-                app = Application([pipeline])
+                app = Application(PipelineSeries([pipeline]))
 
                 exit_code = yield from app.run()
 
@@ -73,7 +74,7 @@ class TestAppliation(wpull.testing.async.AsyncTestCase):
 
         pipeline2.skippable = True
 
-        app = Application([pipeline1, pipeline2, pipeline3])
+        app = Application(PipelineSeries([pipeline1, pipeline2, pipeline3]))
 
         def callback(work_item):
             app.stop()

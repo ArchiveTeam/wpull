@@ -3,7 +3,8 @@ import logging
 
 from typing import Optional, List, Iterable
 
-from wpull.pipeline.pipeline import ItemTask, ItemSource, Pipeline, ItemQueue
+from wpull.pipeline.pipeline import ItemTask, ItemSource, Pipeline, ItemQueue, \
+    PipelineSeries
 from wpull.testing.async import AsyncTestCase
 import wpull.testing.async
 
@@ -242,3 +243,21 @@ class TestPipeline(AsyncTestCase):
 
         self._check_item_values(items)
         self.assertEqual(10, task.peak_work)
+
+    def test_pipeline_series(self):
+        items = self._new_items(100)
+        item_queue = ItemQueue()
+        task = MyItemTask()
+        pipeline_1 = Pipeline(MySource(items), [task], item_queue)
+        pipeline_2 = Pipeline(MySource(items), [task], item_queue)
+
+        series = PipelineSeries((pipeline_1, pipeline_2))
+        series.concurrency_pipelines.add(pipeline_2)
+
+        self.assertEqual(1, series.concurrency)
+
+        series.concurrency = 2
+
+        self.assertEqual(2, series.concurrency)
+        self.assertEqual(1, pipeline_1.concurrency)
+        self.assertEqual(2, pipeline_2.concurrency)

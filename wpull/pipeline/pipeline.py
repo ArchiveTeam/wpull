@@ -5,7 +5,7 @@ import gettext
 import logging
 
 import time
-from typing import Optional, Sequence, TypeVar, Generic
+from typing import Optional, Sequence, TypeVar, Generic, Iterator, Tuple, Set
 from wpull.backport.logging import BraceMessage as __
 
 _logger = logging.getLogger(__name__)
@@ -294,3 +294,30 @@ class Pipeline(object):
             ),
             num=self._item_queue.unfinished_items
         ))
+
+
+class PipelineSeries(object):
+    def __init__(self, pipelines: Iterator[Pipeline]):
+        self._pipelines = tuple(pipelines)
+        self._concurrency = 1
+        self._concurrency_pipelines = set()
+
+    @property
+    def pipelines(self) -> Tuple[Pipeline]:
+        return self._pipelines
+
+    @property
+    def concurrency(self) -> int:
+        return self._concurrency
+
+    @concurrency.setter
+    def concurrency(self, new_concurrency: int):
+        self._concurrency = new_concurrency
+
+        for pipeline in self._pipelines:
+            if pipeline in self._concurrency_pipelines:
+                pipeline.concurrency = new_concurrency
+
+    @property
+    def concurrency_pipelines(self) -> Set[Pipeline]:
+        return self._concurrency_pipelines

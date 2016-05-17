@@ -9,14 +9,12 @@ import signal
 
 import asyncio
 
-from typing import Iterable
-
 from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ServerError, ExitStatus, ProtocolError, \
     SSLVerificationError, DNSNotFound, ConnectionRefused, NetworkError, \
     AuthenticationError
 from wpull.application.hook import  HookStop
-from wpull.pipeline.pipeline import Pipeline
+from wpull.pipeline.pipeline import PipelineSeries
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
@@ -59,9 +57,9 @@ class Application(object):
     )
     '''Exception classes that are not crashes.'''
 
-    def __init__(self, pipelines: Iterable[Pipeline]):
+    def __init__(self, pipeline_series: PipelineSeries):
         super().__init__()
-        self._pipelines = pipelines
+        self._pipeline_series = pipeline_series
         self._exit_code = 0
         self._current_pipeline = None
         self._state = ApplicationState.ready
@@ -133,7 +131,7 @@ class Application(object):
 
         self._state = ApplicationState.running
 
-        for pipeline in self._pipelines:
+        for pipeline in self._pipeline_series.pipelines:
             self._current_pipeline = pipeline
 
             if self._state == ApplicationState.stopping and pipeline.skippable:
@@ -166,12 +164,6 @@ class Application(object):
 
         if self._exit_code == ExitStatus.ssl_verification_error:
             self._print_ssl_error()
-
-        # try:
-        #     self._exit_code = self.call_hook('exit_status', self._exit_code)
-        #     assert self._exit_code is not None
-        # except HookDisconnected:
-        #     pass
 
         _logger.info(__(_('Exiting with status {0}.'), self._exit_code))
 

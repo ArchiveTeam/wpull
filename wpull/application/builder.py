@@ -35,7 +35,7 @@ from wpull.network.bandwidth import BandwidthLimiter
 from wpull.network.dns import Resolver
 from wpull.network.pool import ConnectionPool
 from wpull.path import PathNamer
-from wpull.pipeline.pipeline import Pipeline
+from wpull.pipeline.pipeline import Pipeline, PipelineSeries
 from wpull.pipeline.session import URLItemSource
 from wpull.pipeline.tasks.conversion import LinkConversionSetupTask, \
     LinkConversionTask
@@ -115,6 +115,7 @@ class Builder(object):
             'PathNamer': PathNamer,
             'PhantomJSDriver': PhantomJSDriver,
             'PhantomJSCoprocessor': PhantomJSCoprocessor,
+            'PipelineSeries': PipelineSeries,
             'PrintServerResponseRecorder': PrintServerResponseRecorder,
             'ProcessingRule': ProcessingRule,
             'Processor': DelegateProcessor,
@@ -161,7 +162,7 @@ class Builder(object):
 
         return self._factory['Application']
 
-    def _build_pipelines(self) -> Sequence[Pipeline]:
+    def _build_pipelines(self) -> PipelineSeries:
         app_session = AppSession(self._factory, self._args, self.get_stderr())
 
         app_start_pipeline = Pipeline(
@@ -223,8 +224,15 @@ class Builder(object):
                 LoggingShutdownTask(),
             ])
 
-        return (app_start_pipeline, download_pipeline,
-                download_stop_pipeline, conversion_pipeline, app_stop_pipeline)
+        pipeline_series = self._factory.new(
+            'PipelineSeries',
+            (
+                app_start_pipeline, download_pipeline,
+                download_stop_pipeline, conversion_pipeline, app_stop_pipeline
+            ))
+        pipeline_series.concurrency_pipelines.add(download_pipeline)
+
+        return pipeline_series
 
     def build_and_run(self):
         '''Build and run the application.
