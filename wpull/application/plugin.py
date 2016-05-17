@@ -123,3 +123,4 @@ class PluginFunctions(enum.Enum):
     handle_error = 'handle_error'
     get_urls = 'get_urls'
     finishing_statistics = 'finishing_statistics'
+    exit_status = 'exit_status'

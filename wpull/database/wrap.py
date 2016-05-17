@@ -64,7 +64,7 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
             url_info = parse_url_or_log(url)
 
             if url_info:
-                self.event_dispatcher.notify('URLTable.queued_url', url_info)
+                self.event_dispatcher.notify(PluginFunctions.queued_url, url_info)
 
         return self.url_table.check_in(url, new_status, increment_try_count=increment_try_count, url_result=url_result)
 

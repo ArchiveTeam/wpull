@@ -6,6 +6,7 @@ import asyncio
 
 from wpull.application.app import Application
 from wpull.application.hook import HookableMixin
+from wpull.application.plugin import PluginFunctions, hook_interface
 from wpull.backport.logging import BraceMessage as __
 from wpull.pipeline.pipeline import ItemTask
 import wpull.string
@@ -35,7 +36,7 @@ class BackgroundAsyncCleanupTask(ItemTask[AppSession]):
 class AppStopTask(ItemTask[AppSession], HookableMixin):
     def __init__(self):
         super().__init__()
-        self.hook_dispatcher.register('AppStopTask.exit_status')
+        self.hook_dispatcher.register(PluginFunctions.exit_status)
 
     @asyncio.coroutine
     def process(self, session: AppSession):
@@ -44,7 +45,7 @@ class AppStopTask(ItemTask[AppSession], HookableMixin):
         self._update_exit_code_from_stats(statistics, app)
 
         try:
-            new_exit_code = self.hook_dispatcher.call('AppStopTask.exit_status', session, app.exit_code)
+            new_exit_code = self.hook_dispatcher.call(PluginFunctions.exit_status, session, app.exit_code)
             app.exit_code = new_exit_code
         except HookDisconnected:
             pass
@@ -59,7 +60,7 @@ class AppStopTask(ItemTask[AppSession], HookableMixin):
                 app.update_exit_code(exit_code)
 
     @staticmethod
-    @wpull.application.hook.hook_function('AppStopTask.exit_status')
+    @hook_interface(PluginFunctions.exit_status)
     def plugin_exit_status(app_session: AppSession, exit_code: int) -> int:
         '''Return the program exit status code.
 

@@ -6,7 +6,8 @@ import random
 from typing import Optional, Tuple
 
 import wpull.url
-from wpull.application.plugin import PluginFunctions, hook_interface
+from wpull.application.plugin import PluginFunctions, hook_interface, \
+    event_interface
 from wpull.scraper.base import DemuxDocumentScraper, BaseScraper, ScrapeResult
 from wpull.stats import Statistics
 from wpull.url import URLInfo
@@ -126,7 +127,7 @@ class FetchRule(HookableMixin):
             }
 
             verdict = self.hook_dispatcher.call(
-                'FetchRule.accept_url', item_session, verdict, reasons,
+                PluginFunctions.accept_url, item_session, verdict, reasons,
             )
             reason = 'callback_hook'
         except HookDisconnected:
@@ -482,7 +483,7 @@ class ProcessingRule(HookableMixin):
         self._sitemaps = sitemaps
         self._url_rewriter = url_rewriter
 
-        self.hook_dispatcher.register(PluginFunctions.get_urls)
+        self.event_dispatcher.register(PluginFunctions.get_urls)
 
     parse_url = staticmethod(wpull.url.parse_url_or_log)
 
@@ -508,12 +509,9 @@ class ProcessingRule(HookableMixin):
 
     def scrape_document(self, item_session: ItemSession):
         '''Process document for links.'''
-        try:
-            self.hook_dispatcher.call(
-                PluginFunctions.get_urls, item_session
-            )
-        except HookDisconnected:
-            pass
+        self.event_dispatcher.notify(
+            PluginFunctions.get_urls, item_session
+        )
 
         if not self._document_scraper:
             return
@@ -538,7 +536,7 @@ class ProcessingRule(HookableMixin):
         ))
 
     @staticmethod
-    @hook_interface(PluginFunctions.get_urls)
+    @event_interface(PluginFunctions.get_urls)
     def plugin_get_urls(item_session: ItemSession):
         '''Return additional URLs to be added to the URL Table.
 
