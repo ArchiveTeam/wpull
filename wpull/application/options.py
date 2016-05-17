@@ -229,12 +229,6 @@ class AppArgumentParser(argparse.ArgumentParser):
 #             action='append',
 #             help=_('runs Wgetrc COMMAND'),
 #         )
-        script_group = group.add_mutually_exclusive_group()
-        script_group.add_argument(
-            '--python-script',
-            metavar='FILE',
-            help=_('load Python hook script from FILE')
-        )
         group.add_argument(
             '--plugin-script',
             metavar='FILE',

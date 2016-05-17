@@ -110,8 +110,10 @@ class HookableMixin(object):
     def connect_plugin(self, plugin: WpullPlugin):
         for func, name, category in plugin.get_plugin_functions():
             if category == PluginFunctionCategory.hook and self.hook_dispatcher.is_registered(name):
+                _logger.debug('Connected hook %s %s', name, func)
                 self.hook_dispatcher.connect(name, func)
             elif category == PluginFunctionCategory.event and self.event_dispatcher.is_registered(name):
+                _logger.debug('Connected event %s %s', name, func)
                 self.event_dispatcher.add_listener(name, func)
 
 

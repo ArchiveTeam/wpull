@@ -8,50 +8,31 @@ import wpull.testing.async
 
 class TestScriptGoodApp(HTTPGoodAppTestCase):
     @wpull.testing.async.async_test()
-    def test_app_python_script_api_2(self):
+    def test_app_empty_plugin_script(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
-                                'testing', 'py_hook_script2.py')
+                                'sample_user_scripts', 'boring.plugin.py')
         args = arg_parser.parse_args([
             self.get_url('/'),
-            self.get_url('/some_page'),
-            self.get_url('/mordor'),
-            'localhost:1/wolf',
-            '--python-script', filename,
-            '--page-requisites',
-            '--reject-regex', '/post/',
-            '--wait', '12',
-            '--retry-connrefused', '--tries', '1'
+            '--plugin-script', filename,
         ])
         builder = Builder(args, unit_test=True)
-    
         app = builder.build()
         exit_code = yield from app.run()
-        print(list(os.walk('.')))
-    
-        self.assertEqual(42, exit_code)
-    
-        engine = builder.factory['Engine']
-        self.assertEqual(2, engine.concurrent)
-    
-        stats = builder.factory['Statistics']
-    
-        self.assertEqual(3, stats.files)
-    
-        # duration should be virtually 0 but account for slowness on travis ci
-        self.assertGreater(10.0, stats.duration)
-    
+
+        self.assertEqual(0, exit_code)
+
     @wpull.testing.async.async_test()
-    def test_app_python_script_api_3(self):
+    def test_app_python_plugin_script(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
-                                'testing', 'py_hook_script3.py')
+                                'sample_user_scripts', 'extensive.plugin.py')
         args = arg_parser.parse_args([
             self.get_url('/'),
             self.get_url('/some_page'),
             self.get_url('/mordor'),
             'localhost:1/wolf',
-            '--python-script', filename,
+            '--plugin-script', filename,
             '--page-requisites',
             '--reject-regex', '/post/',
             '--wait', '12',
@@ -79,23 +60,7 @@ class TestScriptGoodApp(HTTPGoodAppTestCase):
     def test_app_python_script_stop(self):
         arg_parser = AppArgumentParser()
         filename = os.path.join(os.path.dirname(__file__),
-                                'testing', 'py_hook_script_stop.py')
-        args = arg_parser.parse_args([
-            self.get_url('/'),
-            '--python-script', filename,
-        ])
-        builder = Builder(args, unit_test=True)
-        app = builder.build()
-        exit_code = yield from app.run()
-    
-        self.assertEqual(1, exit_code)
-    
-    @wpull.testing.async.async_test()
-    def test_app_plugin_script(self):
-        arg_parser = AppArgumentParser()
-        filename = os.path.join(
-            os.path.dirname(__file__), 'testing', 'plugin_script.py'
-        )
+                                'sample_user_scripts', 'stopper.plugin.py')
         args = arg_parser.parse_args([
             self.get_url('/'),
             '--plugin-script', filename,
@@ -104,4 +69,4 @@ class TestScriptGoodApp(HTTPGoodAppTestCase):
         app = builder.build()
         exit_code = yield from app.run()
     
-        self.assertEqual(42, exit_code)
+        self.assertEqual(1, exit_code)

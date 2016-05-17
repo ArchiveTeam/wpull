@@ -2,7 +2,11 @@ import asyncio
 import gettext
 import inspect
 import logging
+import os
+import re
 
+from yapsy.PluginFileLocator import PluginFileAnalyzerMathingRegex, \
+    PluginFileLocator
 from yapsy.PluginManager import PluginManager
 
 from wpull.application.hook import HookableMixin
@@ -18,10 +22,20 @@ _ = gettext.gettext
 class PluginSetupTask(ItemTask[AppSession]):
     @asyncio.coroutine
     def process(self, session: AppSession):
-        session.plugin_manager = PluginManager(plugin_info_ext='wpull-plugin')
+        if session.args.plugin_script:
+            analyzer = PluginFileAnalyzerMathingRegex(
+                'file',
+                '^{}$'.format(re.escape(os.path.basename(session.args.plugin_script)))
+            )
+            locator = PluginFileLocator([analyzer])
+            locator.disableRecursiveScan()
+        else:
+            locator = None
+
+        session.plugin_manager = PluginManager(plugin_locator=locator)
 
         if session.args.plugin_script:
-            session.plugin_manager.setPluginPlaces([session.args.plugin_script])
+            session.plugin_manager.setPluginPlaces([os.path.dirname(session.args.plugin_script)])
 
         session.plugin_manager.collectPlugins()
 

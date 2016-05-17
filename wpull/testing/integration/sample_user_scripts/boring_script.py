@@ -1,1 +1,0 @@
-assert wpull_hook
