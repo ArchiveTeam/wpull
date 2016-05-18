@@ -11,7 +11,7 @@ class MyClass(HookableMixin):
     def __init__(self):
         super().__init__()
         self.event_dispatcher.register('event_test')
-        self.hook_dispatcher.register('event_test')
+        self.hook_dispatcher.register('hook_test')
 
 
 class MyPlugin(WpullPlugin):
@@ -21,6 +21,18 @@ class MyPlugin(WpullPlugin):
 
     @hook('hook_test')
     def my_hook_test_callback(self):
+        pass
+
+
+class MyPluginHookAsEvent(WpullPlugin):
+    @event('hook_test')
+    def my_hook_as_a_event_test_callback(self):
+        pass
+
+
+class MyPluginEventAsHook(WpullPlugin):
+    @hook('event_test')
+    def my_event_as_a_hook_test_callback(self):
         pass
 
 
@@ -105,3 +117,16 @@ class TestHook(AsyncTestCase):
         plugin = MyPlugin()
 
         tester.connect_plugin(plugin)
+
+    def test_plugin_connect_hook_as_event(self):
+        tester = MyClass()
+        plugin = MyPluginHookAsEvent()
+
+        tester.connect_plugin(plugin)
+
+    def test_plugin_connect_event_as_hook(self):
+        tester = MyClass()
+        plugin = MyPluginEventAsHook()
+
+        with self.assertRaises(RuntimeError):
+            tester.connect_plugin(plugin)

@@ -5,13 +5,17 @@ See :ref:`scripting-hooks` for an introduction.
 '''
 import enum
 import functools
+import gettext
 import logging
 
 import asyncio
 
+from typing import Optional
+
 from wpull.application.plugin import WpullPlugin, PluginFunctionCategory
 from wpull.backport.logging import BraceMessage as __
 
+_ = gettext.gettext
 _logger = logging.getLogger(__name__)
 
 
@@ -25,9 +29,10 @@ class HookAlreadyConnectedError(ValueError):
 
 class HookDispatcher(object):
     '''Dynamic callback hook system.'''
-    def __init__(self):
+    def __init__(self, event_dispatcher_transclusion: Optional['EventDispatcher']=None):
         super().__init__()
         self._callbacks = {}
+        self._event_dispatcher = event_dispatcher_transclusion
 
     def register(self, name: str):
         '''Register hooks that can be connected.'''
@@ -36,9 +41,15 @@ class HookDispatcher(object):
 
         self._callbacks[name] = None
 
+        if self._event_dispatcher:
+            self._event_dispatcher.register(name)
+
     def unregister(self, name: str):
         '''Unregister hook.'''
         del self._callbacks[name]
+
+        if self._event_dispatcher:
+            self._event_dispatcher.unregister(name)
 
     def connect(self, name, callback):
         '''Add callback to hook.'''
@@ -104,17 +115,26 @@ class EventDispatcher(object):
 class HookableMixin(object):
     def __init__(self):
         super().__init__()
-        self.hook_dispatcher = HookDispatcher()
         self.event_dispatcher = EventDispatcher()
+        self.hook_dispatcher = HookDispatcher(event_dispatcher_transclusion=self.event_dispatcher)
 
     def connect_plugin(self, plugin: WpullPlugin):
         for func, name, category in plugin.get_plugin_functions():
-            if category == PluginFunctionCategory.hook and self.hook_dispatcher.is_registered(name):
-                _logger.debug('Connected hook %s %s', name, func)
-                self.hook_dispatcher.connect(name, func)
+            if category == PluginFunctionCategory.hook:
+                print(name, category, self.hook_dispatcher.is_registered(name))
+                if self.hook_dispatcher.is_registered(name):
+                    _logger.debug('Connected hook %s %s', name, func)
+                    self.hook_dispatcher.connect(name, func)
+                    continue
+                elif self.event_dispatcher.is_registered(name):
+                    raise RuntimeError('Plugin event ‘{name}’ cannot be attached as a hook function.'.format(name=name))
+
             elif category == PluginFunctionCategory.event and self.event_dispatcher.is_registered(name):
                 _logger.debug('Connected event %s %s', name, func)
                 self.event_dispatcher.add_listener(name, func)
+                continue
+
+            raise RuntimeError('Plugin function ‘{function_name}’ could not be attached to plugin hook/event ‘{name}’.'.format(name=name, function_name=func))
 
 
 class HookStop(Exception):
