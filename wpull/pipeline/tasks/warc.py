@@ -23,6 +23,9 @@ class WARCRecorderSetupTask(ItemTask[AppSession]):
     def process(self, session: AppSession):
         args = session.args
 
+        assert args.verbosity, \
+            'Expect logging level. Got {}.'.format(args.verbosity)
+
         if not args.warc_file:
             return
 

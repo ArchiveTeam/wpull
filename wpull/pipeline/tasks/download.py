@@ -481,14 +481,6 @@ class ProcessorSetupTask(ItemTask[AppSession]):
         Returns:
             DemuxRecorder: An instance of :class:`.recorder.DemuxRecorder`.
         '''
-        args = session.args
-        recorders = []
-
-        if args.server_response:
-            recorders.append(session.factory.new('PrintServerResponseRecorder'))
-
-        assert args.verbosity, \
-            'Expect logging level. Got {}.'.format(args.verbosity)
 
         return session.factory.new('DemuxRecorder', recorders)
 

@@ -56,9 +56,6 @@ from wpull.protocol.http.robots import RobotsTxtChecker
 from wpull.protocol.http.web import WebClient
 from wpull.proxy.hostfilter import HostFilter as ProxyHostFilter
 from wpull.proxy.server import HTTPProxyServer
-from wpull.recorder.demux import DemuxRecorder
-from wpull.recorder.document import OutputDocumentRecorder
-from wpull.recorder.printing import PrintServerResponseRecorder
 from wpull.resmon import ResourceMonitor
 from wpull.robotstxt import RobotsTxtPool
 from wpull.scraper.base import DemuxDocumentScraper
@@ -99,7 +96,6 @@ class Builder(object):
             'ConnectionPool': ConnectionPool,
             'CSSScraper': CSSScraper,
             'DemuxDocumentScraper': DemuxDocumentScraper,
-            'DemuxRecorder': DemuxRecorder,
             'DemuxURLFilter': DemuxURLFilter,
             'FTPProcessor': FTPProcessor,
             'ElementWalker': ElementWalker,
@@ -111,12 +107,10 @@ class Builder(object):
             'HTMLParser': NotImplemented,
             'HTMLScraper': HTMLScraper,
             'JavaScriptScraper': JavaScriptScraper,
-            'OutputDocumentRecorder': OutputDocumentRecorder,
             'PathNamer': PathNamer,
             'PhantomJSDriver': PhantomJSDriver,
             'PhantomJSCoprocessor': PhantomJSCoprocessor,
             'PipelineSeries': PipelineSeries,
-            'PrintServerResponseRecorder': PrintServerResponseRecorder,
             'ProcessingRule': ProcessingRule,
             'Processor': DelegateProcessor,
             'ProxyCoprocessor': ProxyCoprocessor,

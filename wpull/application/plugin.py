@@ -27,6 +27,9 @@ class WpullPlugin(IPlugin):
         super().__init__()
         self.app_session = None
 
+    def should_activate(self) -> bool:
+        return True
+
     def get_plugin_functions(self) -> Iterator[PluginClientFunctionInfo]:
         funcs = inspect.getmembers(self)
 
