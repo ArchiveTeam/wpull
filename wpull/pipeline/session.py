@@ -12,6 +12,7 @@ from wpull.pipeline.pipeline import ItemSource
 from wpull.backport.logging import BraceMessage as __
 from wpull.protocol.abstract.request import URLPropertyMixin, \
     ProtocolResponseMixin, BaseResponse, BaseRequest
+from wpull.url import parse_url_or_log
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
@@ -88,6 +89,10 @@ class ItemSession(object):
 
     def add_url(self, url: str, url_properites: Optional[URLProperties]=None,
                 url_data: Optional[URLData]=None):
+        url_info = parse_url_or_log(url)
+        if not url_info:
+            return
+
         url_properties = url_properites or URLProperties()
         url_data = url_data or URLData()
         add_url_info = AddURLInfo(url, url_properties, url_data)
