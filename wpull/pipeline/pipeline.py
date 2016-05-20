@@ -168,6 +168,7 @@ class Pipeline(object):
     def __init__(self, item_source: ItemSource, tasks: Sequence[ItemTask],
                  item_queue: Optional[ItemQueue]=None):
         self._item_queue = item_queue or ItemQueue()
+        self._tasks = tasks
         self._producer = Producer(item_source, self._item_queue)
         self._worker = Worker(self._item_queue, tasks)
 
@@ -178,6 +179,10 @@ class Pipeline(object):
         self._unpaused_event = asyncio.Event()
 
         self.skippable = False
+
+    @property
+    def tasks(self):
+        return self._tasks
 
     @asyncio.coroutine
     def process(self):

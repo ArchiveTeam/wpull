@@ -6,6 +6,7 @@ import os
 import re
 from configparser import ConfigParser
 
+from typing import cast
 from yapsy.IPluginLocator import IPluginLocator
 from yapsy.PluginFileLocator import PluginFileAnalyzerMathingRegex, \
     PluginFileLocator
@@ -15,7 +16,7 @@ from yapsy.PluginManager import PluginManager
 from wpull.application.hook import HookableMixin
 from wpull.application.plugin import WpullPlugin
 from wpull.backport.logging import BraceMessage as __
-from wpull.pipeline.pipeline import ItemTask
+from wpull.pipeline.pipeline import ItemTask, PipelineSeries
 from wpull.pipeline.app import AppSession
 from wpull.util import get_package_filename
 
@@ -68,6 +69,8 @@ class PluginLocator(IPluginLocator):
 class PluginSetupTask(ItemTask[AppSession]):
     @asyncio.coroutine
     def process(self, session: AppSession):
+        self._debug_log_registered_hooks(session)
+
         plugin_locations = [get_package_filename(os.path.join('application', 'plugins'))]
 
         plugin_filenames = []
@@ -94,9 +97,27 @@ class PluginSetupTask(ItemTask[AppSession]):
                 self._connect_plugin_hooks(session, plugin_info.plugin_object)
 
     @classmethod
-    def _connect_plugin_hooks(cls, session: AppSession, plugin_object: WpullPlugin):
-        for instance in session.factory.instance_map.values():
-            if not isinstance(instance, HookableMixin):
-                continue
+    def _get_candidate_instances(cls, session: AppSession):
+        instances = list(session.factory.instance_map.values())
+        pipeline_series = cast(PipelineSeries, session.factory['PipelineSeries'])
+        for pipeline in pipeline_series.pipelines:
+            instances.extend(pipeline.tasks)
 
+        return (instance for instance in instances if isinstance(instance, HookableMixin))
+
+    @classmethod
+    def _connect_plugin_hooks(cls, session: AppSession, plugin_object: WpullPlugin):
+        for instance in cls._get_candidate_instances(session):
             instance.connect_plugin(plugin_object)
+
+        # TODO: raise error if any function is left unattached
+        # raise RuntimeError('Plugin function ‘{function_name}’ could not be attached to plugin hook/event ‘{name}’.'.format(name=name, function_name=func))
+
+    @classmethod
+    def _debug_log_registered_hooks(cls, session: AppSession):
+        for instance in cls._get_candidate_instances(session):
+            for event_name in instance.event_dispatcher:
+                _logger.debug('Instance %s registered event %s', instance, event_name)
+
+            for hook_name in instance.hook_dispatcher:
+                _logger.debug('Instance %s registered hook %s', instance, hook_name)
