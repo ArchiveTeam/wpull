@@ -314,12 +314,12 @@ class TestURLFilter(unittest.TestCase):
         record = URLRecord()
         url_filter = ParentFilter()
 
-        record.top_url = 'http://example.com/blog/topic2/'
+        record.root_url = 'http://example.com/blog/topic2/'
         self.assertTrue(url_filter.test(
             URLInfo.parse('http://example.com/blog/topic2/'),
             record
         ))
-        record.top_url = 'http://example.com/blog/topic1/'
+        record.root_url = 'http://example.com/blog/topic1/'
         self.assertTrue(url_filter.test(
             URLInfo.parse('http://example.com/blog/topic1/blah.html'),
             record
