@@ -45,12 +45,6 @@ class URLFiltersSetupTask(ItemTask[AppSession]):
                 enabled=args.recursive, page_requisites=args.page_requisites
             ),
             FollowFTPFilter(follow=args.follow_ftp),
-            SpanHostsFilter(
-                tuple(session.factory['URLTable'].get_hostnames()),
-                enabled=args.span_hosts,
-                page_requisites='page-requisites' in args.span_hosts_allow,
-                linked_pages='linked-pages' in args.span_hosts_allow,
-            )
         ]
 
         if args.no_parent:
@@ -89,3 +83,18 @@ class URLFiltersSetupTask(ItemTask[AppSession]):
             filters.append(BackwardFilenameFilter(args.accept, args.reject))
 
         return filters
+
+
+class URLFiltersPostURLImportSetupTask(ItemTask[AppSession]):
+    @asyncio.coroutine
+    def process(self, session: AppSession):
+        args = session.args
+        span_hosts_filter = SpanHostsFilter(
+            tuple(session.factory['URLTable'].get_hostnames()),
+            enabled=args.span_hosts,
+            page_requisites='page-requisites' in args.span_hosts_allow,
+            linked_pages='linked-pages' in args.span_hosts_allow,
+        )
+
+        demux_url_filter = session.factory['DemuxURLFilter']
+        demux_url_filter.url_filters.append(span_hosts_filter)

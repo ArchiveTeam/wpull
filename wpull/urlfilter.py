@@ -4,6 +4,8 @@ import abc
 import fnmatch
 import re
 
+from typing import List
+
 from wpull.pipeline.item import URLRecord
 from wpull.url import URLInfo, schemes_similar, is_subdir
 
@@ -30,6 +32,10 @@ class DemuxURLFilter(BaseURLFilter):
     '''Puts multiple url filters into one.'''
     def __init__(self, url_filters):
         self._url_filters = url_filters
+
+    @property
+    def url_filters(self) -> List[BaseURLFilter]:
+        return self._url_filters
 
     def test(self, url_info, url_table_record):
         return self.test_info(url_info, url_table_record)['verdict']

@@ -18,7 +18,8 @@ from wpull.pipeline.tasks.log import LoggingSetupTask, LoggingShutdownTask
 from wpull.pipeline.tasks.network import NetworkSetupTask
 from wpull.pipeline.tasks.progress import ProgressSetupTask
 from wpull.pipeline.tasks.resmon import ResmonSetupTask, ResmonSleepTask
-from wpull.pipeline.tasks.rule import URLFiltersSetupTask
+from wpull.pipeline.tasks.rule import URLFiltersSetupTask, \
+    URLFiltersPostURLImportSetupTask
 from wpull.pipeline.tasks.sslcontext import SSLContextTask
 from wpull.pipeline.tasks.startup import DebugConsoleSetupTask, ArgWarningTask
 from wpull.pipeline.tasks.stats import StatsStartTask, StatsStopTask
@@ -166,7 +167,6 @@ class Builder(object):
                 DebugConsoleSetupTask(),
                 DatabaseSetupTask(),
                 ParserSetupTask(),
-                InputURLTask(),
                 ArgWarningTask(),
                 WARCVisitsTask(),
                 SSLContextTask(),
@@ -181,6 +181,8 @@ class Builder(object):
                 LinkConversionSetupTask(),
                 ProgressSetupTask(),
                 PluginSetupTask(),
+                InputURLTask(),
+                URLFiltersPostURLImportSetupTask(),
             ])
 
         url_item_source = URLItemSource(app_session)
