@@ -1,3 +1,4 @@
+import argparse
 import unittest
 
 from wpull.application.hook import Actions
@@ -5,6 +6,8 @@ from wpull.pipeline.app import AppSession
 from wpull.pipeline.item import URLRecord
 from wpull.pipeline.session import ItemSession
 from wpull.processor.rule import ProcessingRule, FetchRule, ResultRule
+from wpull.protocol.abstract.request import BaseRequest
+from wpull.url import URLInfo
 from wpull.urlfilter import DemuxURLFilter, SchemeFilter
 
 
@@ -20,9 +23,10 @@ class TestFetchRule(unittest.TestCase):
     def test_consult_filters(self):
         fetch_rule = self.get_fetch_rule()
 
+        url_info = URLInfo.parse('http://example.com')
         url_record = new_mock_url_record()
 
-        verdict, reason, test_info = fetch_rule.consult_filters(url_record)
+        verdict, reason, test_info = fetch_rule.consult_filters(url_info, url_record)
 
         self.assertTrue(verdict)
         self.assertEqual('filters', reason)
@@ -92,8 +96,11 @@ def new_mock_url_record():
 
 
 def new_mock_item_session():
-    app_session = AppSession(None, None, None)
+    args = argparse.Namespace(directory_prefix='/tmp/')
+    app_session = AppSession(None, args, None)
     url_record = new_mock_url_record()
     item_session = ItemSession(app_session, url_record)
+    item_session.request = BaseRequest()
+    item_session.request.url = 'http://example.com'
 
     return item_session

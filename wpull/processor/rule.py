@@ -71,7 +71,7 @@ class FetchRule(HookableMixin):
 
         return random.random() < 0.75
 
-    def consult_filters(self, url_record: URLRecord, is_redirect: bool=False) \
+    def consult_filters(self, url_info: URLInfo, url_record: URLRecord, is_redirect: bool=False) \
             -> Tuple[bool, str, dict]:
         '''Consult the URL filter.
 
@@ -90,7 +90,7 @@ class FetchRule(HookableMixin):
         if not self._url_filter:
             return True, 'nofilters', None
 
-        test_info = self._url_filter.test_info(url_record.url_info, url_record)
+        test_info = self._url_filter.test_info(url_info, url_record)
 
         verdict = test_info['verdict']
 
@@ -166,7 +166,7 @@ class FetchRule(HookableMixin):
 
         Coroutine.
         '''
-        verdict, reason, test_info = self.consult_filters(item_session.url_record)
+        verdict, reason, test_info = self.consult_filters(item_session.request.url_info, item_session.url_record)
 
         if verdict and self._robots_txt_checker:
             can_fetch = yield from self.consult_robots_txt(request)
@@ -189,6 +189,7 @@ class FetchRule(HookableMixin):
             tuple: (bool, str)
         '''
         verdict, reason, test_info = self.consult_filters(
+            item_session.request.url_info,
             item_session.url_record, is_redirect=is_redirect)
 
         verdict, reason = self.consult_hook(item_session, verdict,
@@ -203,6 +204,7 @@ class FetchRule(HookableMixin):
             tuple: (bool, str)
         '''
         verdict, reason, test_info = self.consult_filters(
+            item_session.request.url_info,
             item_session.url_record)
 
         verdict, reason = self.consult_hook(item_session, verdict,
@@ -587,7 +589,7 @@ class ProcessingRule(HookableMixin):
             child_url_record = item_session.child_url_record(
                 url_info.url, inline=link_context.inline
             )
-            if not self._fetch_rule.consult_filters(child_url_record)[0]:
+            if not self._fetch_rule.consult_filters(item_session.request.url_info, child_url_record)[0]:
                 continue
 
             if link_context.inline:

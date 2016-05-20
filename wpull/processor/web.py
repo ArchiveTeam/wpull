@@ -195,7 +195,7 @@ class WebProcessorSession(BaseProcessorSession):
         Coroutine.
         '''
         try:
-            request = self._new_initial_request(with_body=False)
+            self._item_session.request = request = self._new_initial_request(with_body=False)
             verdict, reason = (yield from self._should_fetch_reason_with_robots(
                 request))
         except REMOTE_ERRORS as error:
