@@ -94,6 +94,7 @@ class BaseSQLURLTable(BaseURLTable):
             query = insert(QueuedURL).prefix_with('OR IGNORE').values(bind_values)
 
             all_row_values = []
+            column_names = set()
 
             for url, url_properties, url_data in new_urls:
                 row_values = {
@@ -112,6 +113,12 @@ class BaseSQLURLTable(BaseURLTable):
                 convert_dict_enum_values(row_values)
 
                 all_row_values.append(row_values)
+                column_names.update(row_values.keys())
+
+            for row_value in all_row_values:
+                for name in column_names:
+                    if name not in row_value:
+                        row_value[name] = None
 
             with QueuedURL.watch_urls_inserted(session) as get_inserted_urls:
                 session.execute(query, all_row_values)
@@ -195,7 +202,7 @@ class BaseSQLURLTable(BaseURLTable):
             for url in urls:
                 url_str_id = session.query(URLString.id)\
                     .filter_by(url=url).scalar()
-                query = delete(QueuedURL).where(QueuedURL.url_str_id == url_str_id)
+                query = delete(QueuedURL).where(QueuedURL.url_string_id == url_str_id)
                 session.execute(query)
 
     def add_visits(self, visits):
