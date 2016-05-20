@@ -33,7 +33,7 @@ class Plugin(WpullPlugin):
 
     @hook(PluginFunctions.accept_url)
     def accept_url(self, item_session: ItemSession, verdict: bool, reasons: dict):
-        url_info = item_session.url_record.url_info
+        url_info = item_session.request.url_info
         url_record = item_session.url_record
         print('accept_url', url_info)
         assert url_info
@@ -88,40 +88,40 @@ class Plugin(WpullPlugin):
 
     @hook(PluginFunctions.handle_pre_response)
     def handle_pre_response(self, item_session: ItemSession):
-        if item_session.url_record.url_info.path == '/mordor':
+        if item_session.request.url_info.path == '/mordor':
             return Actions.FINISH
 
         return Actions.NORMAL
 
     @hook(PluginFunctions.handle_response)
     def handle_response(self, item_session: ItemSession):
-        url_info = item_session.url_record.url_info
+        url_info = item_session.request.url_info
         print('handle_response', url_info)
         assert isinstance(item_session.response, HTTPResponse)
 
         response = cast(HTTPResponse, item_session.response)
 
-        if url_info['path'] == '/':
-            assert response.body.content_size
+        if url_info.path == '/':
+            assert response.body.size
             assert response.status_code == 200
-        elif url_info['path'] == '/post/':
+        elif url_info.path == '/post/':
             assert response.status_code == 200
             self.injected_url_found = True
             return Actions.FINISH
-        elif url_info['path'] == '/some_page/':
+        elif url_info.path == '/some_page/':
             self.got_redirected_page = True
 
         return Actions.NORMAL
 
     @hook(PluginFunctions.handle_error)
     def handle_error(self, item_session: ItemSession, error: BaseException):
-        print('handle_response', item_session.url_record.url, error)
+        print('handle_response', item_session.request.url, error)
         return Actions.NORMAL
 
     @event(PluginFunctions.get_urls)
     def get_urls(self, item_session: ItemSession):
-        filename = item_session.response.body.filename
-        url_info = item_session.url_record.url_info
+        filename = item_session.response.body.name
+        url_info = item_session.request.url_info
         print('get_urls', filename)
         assert filename
         assert os.path.isfile(filename)
@@ -129,7 +129,7 @@ class Plugin(WpullPlugin):
 
         if url_info.path == '/':
             item_session.add_child_url(
-                'http://localhost:' + str(url_info['port']) + '/post/',
+                'http://localhost:' + str(url_info.port) + '/post/',
                 inline=True,
                 post_data='text=hello',
                 replace=True
@@ -150,7 +150,7 @@ class Plugin(WpullPlugin):
         print('queue counter', self.counter)
         assert self.counter == 0
 
-    @event(PluginFunctions.exit_status)
+    @hook(PluginFunctions.exit_status)
     def exit_status(self, app_session: AppSession, exit_code: int):
         assert exit_code == 4
         assert self.injected_url_found

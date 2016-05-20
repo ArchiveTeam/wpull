@@ -46,8 +46,8 @@ class TestScriptGoodApp(HTTPGoodAppTestCase):
     
         self.assertEqual(42, exit_code)
     
-        engine = builder.factory['Engine']
-        self.assertEqual(2, engine.concurrent)
+        engine = builder.factory['PipelineSeries']
+        self.assertEqual(2, engine.concurrency)
     
         stats = builder.factory['Statistics']
     
