@@ -7,4 +7,4 @@ psutil>=2.0
 sqlalchemy>=0.9
 tornado>=3.2.2,<5.0
 typing>=3.5
-
+yapsy>=1.11.223

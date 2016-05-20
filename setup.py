@@ -92,6 +92,7 @@ setup_kwargs['install_requires'] = [
     'namedlist',
     'sqlalchemy',
     'tornado',
+    'yapsy',
 ]
 
 if sys.version_info < (3, 5):
