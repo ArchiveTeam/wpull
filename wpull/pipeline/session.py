@@ -101,7 +101,8 @@ class ItemSession(object):
     def add_child_url(self, url: str, inline: bool=False,
                       link_type: Optional[LinkType]=None,
                       post_data: Optional[str]=None,
-                      level: Optional[int]=None):
+                      level: Optional[int]=None,
+                      replace: bool=False):
         '''Add links scraped from the document with automatic values.
 
         Args:
@@ -130,6 +131,10 @@ class ItemSession(object):
         url_properties.root_url = self.url_record.root_url or self.url_record.url
         url_data = URLData()
         url_data.post_data = post_data
+
+        if replace:
+            self.app_session.factory['URLTable'].remove_many([url])
+
         self.add_url(url, url_properties, url_data)
 
     def child_url_record(self, url: str, inline: bool=False,
