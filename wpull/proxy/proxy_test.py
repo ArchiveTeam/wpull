@@ -15,11 +15,9 @@ import wpull.testing.goodapp
 import wpull.testing.async
 
 
-DEFAULT_TIMEOUT = 30
-
 
 class Mixin:
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    @wpull.testing.async.async_test()
     def test_basic_requests(self):
         proxy_http_client = Client()
         proxy_server = HTTPProxyServer(proxy_http_client)
@@ -32,22 +30,22 @@ class Mixin:
 
         for dummy in range(3):
             with http_client.session() as session:
-                response = yield from session.fetch(Request(self.get_url('/')))
+                response = yield from session.start(Request(self.get_url('/')))
                 self.assertEqual(200, response.status_code)
 
                 file = io.BytesIO()
-                yield from session.read_content(file=file)
+                yield from session.download(file=file)
                 data = file.getvalue().decode('ascii', 'replace')
                 self.assertTrue(data.endswith('</html>'))
 
             with http_client.session() as session:
-                response = yield from session.fetch(Request(
+                response = yield from session.start(Request(
                     self.get_url('/always_error')))
                 self.assertEqual(500, response.status_code)
                 self.assertEqual('Dragon In Data Center', response.reason)
 
                 file = io.BytesIO()
-                yield from session.read_content(file=file)
+                yield from session.download(file=file)
                 data = file.getvalue().decode('ascii', 'replace')
                 self.assertEqual('Error', data)
 

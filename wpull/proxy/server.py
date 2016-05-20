@@ -136,8 +136,11 @@ class Session(object):
                 if 'Content-Length' in request.fields:
                     request.body = self._reader
 
-                response = yield from session.fetch(request)
+                response = yield from session.start(request)
 
+                # TODO: we need to call the FetchRule and etc
+
+                # FIXME: remove this hack since scripting uses plugins now
                 # XXX: scripting hook tries to call to_dict() on body.
                 # we set it to None so it doesn't error
                 if request.body:
@@ -148,7 +151,7 @@ class Session(object):
 
                 self._writer.write(response.to_bytes())
                 yield from self._writer.drain()
-                yield from session.read_content(file=self._writer, raw=True)
+                yield from session.download(file=self._writer, raw=True)
 
                 if self._response_callback:
                     self._response_callback(request, response)

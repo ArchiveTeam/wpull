@@ -10,7 +10,6 @@ import asyncio
 from wpull.cookie import BetterMozillaCookieJar, DeFactoCookiePolicy
 from wpull.protocol.http.client import Client
 from wpull.proxy.server import HTTPProxyServer
-from wpull.recorder.printing import DebugPrintRecorder
 from wpull.wrapper import CookieJarWrapper
 import wpull.testing.badapp
 import wpull.testing.goodapp
@@ -39,7 +38,7 @@ class TestProxy(wpull.testing.goodapp.GoodAppTestCase):
         cookie_jar.set_policy(policy)
         cookie_jar_wrapper = CookieJarWrapper(cookie_jar)
 
-        http_client = Client(recorder=DebugPrintRecorder())
+        http_client = Client()
         proxy = HTTPProxyServer(http_client)
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
 
@@ -78,7 +77,7 @@ class TestProxy(wpull.testing.goodapp.GoodAppTestCase):
     @unittest.skipIf(pycurl is None, "pycurl module not present")
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_post(self):
-        http_client = Client(recorder=DebugPrintRecorder())
+        http_client = Client()
         proxy = HTTPProxyServer(http_client)
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
 
@@ -106,7 +105,7 @@ class TestProxy2(wpull.testing.badapp.BadAppTestCase):
     @unittest.skipIf(pycurl is None, "pycurl module not present")
     @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_no_content(self):
-        http_client = Client(recorder=DebugPrintRecorder())
+        http_client = Client()
         proxy = HTTPProxyServer(http_client)
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
 
