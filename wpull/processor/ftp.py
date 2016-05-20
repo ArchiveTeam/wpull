@@ -129,13 +129,12 @@ class FTPProcessorSession(BaseProcessorSession):
 
         Coroutine.
         '''
+        self._item_session.request = request = Request(self._item_session.url_record.url)
         verdict = self._fetch_rule.check_ftp_request(self._item_session)[0]
 
         if not verdict:
             self._item_session.skip()
             return
-
-        request = Request(self._item_session.url_record.url)
 
         self._add_request_password(request)
 

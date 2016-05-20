@@ -243,25 +243,25 @@ class WebClient(object):
         self._cookie_jar = cookie_jar
         self._loop_type = None
 
-    # @property
-    # def redirect_tracker_factory(self) -> Callable[..., RedirectTracker]:
-    #     '''Return the Redirect Tracker factory.'''
-    #     return self._redirect_tracker_factory
+    @property
+    def redirect_tracker_factory(self) -> Callable[..., RedirectTracker]:
+        '''Return the Redirect Tracker factory.'''
+        return self._redirect_tracker_factory
 
-    # @property
-    # def request_factory(self) -> Callable[..., Request]:
-    #     '''Return the Request factory.'''
-    #     return self._request_factory
-    #
-    # @property
-    # def cookie_jar(self) -> CookieJarWrapper:
-    #     '''Return the Cookie Jar.'''
-    #     return self._cookie_jar
-    #
-    # @property
-    # def http_client(self) -> Client:
-    #     '''Return the HTTP Client.'''
-    #     return self._http_client
+    @property
+    def request_factory(self) -> Callable[..., Request]:
+        '''Return the Request factory.'''
+        return self._request_factory
+
+    @property
+    def cookie_jar(self) -> CookieJarWrapper:
+        '''Return the Cookie Jar.'''
+        return self._cookie_jar
+
+    @property
+    def http_client(self) -> Client:
+        '''Return the HTTP Client.'''
+        return self._http_client
 
     def session(self, request: Request) -> WebSession:
         '''Return a fetch session.

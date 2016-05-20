@@ -3,6 +3,7 @@ import asyncio
 from wpull.application.builder import Builder
 from wpull.application.options import AppArgumentParser
 from wpull.errors import SSLVerificationError
+from wpull.protocol.http.request import Request
 from wpull.protocol.http.web import WebSession
 from wpull.testing.integration.base import HTTPSSimpleAppTestCase
 import wpull.testing.async
@@ -54,12 +55,12 @@ class TestHTTPSApp(HTTPSSimpleAppTestCase):
 
         class MockWebSession(WebSession):
             @asyncio.coroutine
-            def fetch(self, file=None, callback=None, duration_timeout=None):
+            def start(self):
                 raise SSLVerificationError('A very bad certificate!')
 
         class MockWebClient(builder.factory.class_map['WebClient']):
             def session(self, request):
-                return MockWebSession(self, request)
+                return MockWebSession(request, self._http_client, self._redirect_tracker_factory(), Request)
 
         builder.factory.class_map['WebClient'] = MockWebClient
 

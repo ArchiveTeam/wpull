@@ -134,7 +134,7 @@ class WebProcessorSession(BaseProcessorSession):
         url_record = self._item_session.url_record
         url_info = url_record.url_info
 
-        request = Request(url_info.url)
+        request = self._item_session.app_session.factory['WebClient'].request_factory(url_info.url)
 
         self._populate_common_request(request)
 
