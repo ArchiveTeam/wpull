@@ -3,11 +3,12 @@ import os.path
 import subprocess
 import sys
 import re
+import unittest
 
 from wpull.body import Body
 from wpull.database.sqltable import URLTable
 from wpull.protocol.http.request import Request as HTTPRequest, Response as HTTPResponse
-from wpull.recorder.base_test import BaseRecorderTest
+from wpull.testing.util import TempDirMixin
 from wpull.warc.recorder import WARCRecorder, WARCRecorderParams
 from wpull.warc.format import WARCRecord
 import wpull.util
@@ -17,7 +18,12 @@ from wpull.protocol.ftp.request import Request as FTPRequest, Response as FTPRes
 _logger = logging.getLogger(__name__)
 
 
-class TestWARC(BaseRecorderTest):
+class TestWARC(unittest.TestCase, TempDirMixin):
+    def setUp(self):
+        self.set_up_temp_dir()
+
+    def tearDown(self):
+        self.tear_down_temp_dir()
 
     def validate_warc(self, filename, ignore_minor_error=False):
         proc = subprocess.Popen(
