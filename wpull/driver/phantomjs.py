@@ -75,6 +75,7 @@ class PhantomJSDriver(Process):
 
         self._params = params
 
+    @asyncio.coroutine
     def _stderr_callback(self, line):
         _logger.warning(line.decode('utf-8', 'replace').rstrip())
 

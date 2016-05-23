@@ -33,6 +33,10 @@ class YoutubeDlCoprocessor(object):
         self._inet_family = inet_family
         self._check_certificate = check_certificate
 
+        assert len(proxy_address) == 2, len(proxy_address)
+        assert isinstance(proxy_address[0], str), proxy_address
+        assert isinstance(proxy_address[1], int), proxy_address
+
     @asyncio.coroutine
     def process(self, item_session: ItemSession, request, response, file_writer_session):
         if response.status_code != 200:
@@ -129,9 +133,11 @@ class Session(object):
 
         return path, '{}.%(id)s.%(format_id)s.%(ext)s'.format(path)
 
+    @asyncio.coroutine
     def _stderr_callback(self, line):
         _logger.warning(line.decode('utf-8', 'replace').rstrip())
 
+    @asyncio.coroutine
     def _stdout_callback(self, line):
         _logger.info(line.decode('utf-8', 'replace').rstrip())
 
