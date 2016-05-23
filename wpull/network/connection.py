@@ -457,7 +457,7 @@ class SSLConnection(Connection):
     @asyncio.coroutine
     def connect(self):
         result = yield from super().connect()
-        sock = self.writer.transport.get_extra_info('socket')
+        sock = self.writer.transport.get_extra_info('ssl_object', self.writer.transport.get_extra_info('socket'))
         self._verify_cert(sock)
         return result
 
