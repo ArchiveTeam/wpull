@@ -83,13 +83,13 @@ class Mixin(object):
         ])
         url_table.update_one(
             'http://example.com/styles.css',
-            status=Status.done,
+            status=Status.done.value,
             link_type='css',
             filename=os.path.relpath(css_filename, self.temp_dir.name)
         )
         url_table.update_one(
             'http://example.com/image.png',
-            status=Status.done,
+            status=Status.done.value,
             filename=os.path.relpath(image_filename, self.temp_dir.name)
         )
 
@@ -129,22 +129,22 @@ class Mixin(object):
         ])
         url_table.update_one(
             'http://example.com/styles.css',
-            status=Status.done,
+            status=Status.done.value,
             link_type='css'
         )
         url_table.update_one(
             'http://example.com/image.png',
-            status=Status.done,
+            status=Status.done.value,
             filename=os.path.relpath(image_filename, self.temp_dir.name)
         )
         url_table.update_one(
             'http://example.com/tubes.html',
-            status=Status.done,
+            status=Status.done.value,
             filename=os.path.relpath(tubes_filename, self.temp_dir.name)
         )
         url_table.update_one(
             'http://example.com/ferret.jpg',
-            status=Status.done,
+            status=Status.done.value,
             filename=os.path.relpath(ferret_filename, self.temp_dir.name)
         )
 
@@ -196,22 +196,22 @@ class Mixin(object):
         ])
         url_table.update_one(
             'http://example.com/styles.css',
-            status=Status.done,
+            status=Status.done.value,
             link_type='css'
         )
         url_table.update_one(
             'http://example.com/image.png',
-            status=Status.done,
+            status=Status.done.value,
             filename=os.path.relpath(image_filename, self.temp_dir.name)
         )
         url_table.update_one(
             'http://example.com/tubes.html',
-            status=Status.done,
+            status=Status.done.value,
             filename=os.path.relpath(tubes_filename, self.temp_dir.name)
         )
         url_table.update_one(
             'http://example.com/ferret.jpg',
-            status=Status.done,
+            status=Status.done.value,
             filename=os.path.relpath(ferret_filename, self.temp_dir.name)
         )
 
