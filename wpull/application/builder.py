@@ -41,7 +41,7 @@ from wpull.pipeline.session import URLItemSource
 from wpull.pipeline.tasks.conversion import LinkConversionSetupTask, \
     LinkConversionTask
 from wpull.pipeline.tasks.download import ProcessTask, ParserSetupTask, ClientSetupTask, ProcessorSetupTask, \
-    BackgroundAsyncTask
+    BackgroundAsyncTask, ProxyServerSetupTask, CoprocessorSetupTask
 from wpull.pipeline.tasks.plugin import PluginSetupTask
 from wpull.pipeline.tasks.shutdown import BackgroundAsyncCleanupTask, \
     AppStopTask
@@ -178,6 +178,8 @@ class Builder(object):
                 WARCRecorderSetupTask(),
                 FileWriterSetupTask(),
                 ProcessorSetupTask(),
+                ProxyServerSetupTask(),
+                CoprocessorSetupTask(),
                 LinkConversionSetupTask(),
                 ProgressSetupTask(),
                 PluginSetupTask(),

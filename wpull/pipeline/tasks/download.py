@@ -222,12 +222,11 @@ class ClientSetupTask(ItemTask[AppSession]):
 class ProxyServerSetupTask(ItemTask[AppSession]):
     @asyncio.coroutine
     def process(self, session: AppSession):
-        pass
-
-
-    @classmethod
-    def _build_proxy_server(cls, session: AppSession):
         '''Build MITM proxy server.'''
+        args = session.args
+        if not (args.phantomjs or args.youtube_dl or args.proxy_server):
+            return
+
         proxy_server = session.factory.new(
             'HTTPProxyServer',
             session.factory['HTTPClient'],
@@ -248,12 +247,9 @@ class ProxyServerSetupTask(ItemTask[AppSession]):
         )[0]
         proxy_port = proxy_socket.getsockname()[1]
 
-        proxy_server_task = asyncio.async(
-            asyncio.start_server(proxy_server, sock=proxy_socket)
-        )
+        proxy_async_server = yield from asyncio.start_server(proxy_server, sock=proxy_socket)
 
-        session.background_async_tasks.append(proxy_server_task)
-        session.async_servers.append(proxy_server_task)
+        session.async_servers.append(proxy_async_server)
         session.proxy_server_port = proxy_port
 
 
@@ -325,19 +321,6 @@ class ProcessorSetupTask(ItemTask[AppSession]):
             url_rewriter=session.factory.get('URLRewriter'),
         )
 
-        if args.phantomjs or args.youtube_dl or args.proxy_server:
-            proxy_port = session.proxy_server_port
-
-        if args.phantomjs:
-            phantomjs_coprocessor = cls._build_phantomjs_coprocessor(session, proxy_port)
-        else:
-            phantomjs_coprocessor = None
-
-        if args.youtube_dl:
-            youtube_dl_coprocessor = cls._build_youtube_dl_coprocessor(session, proxy_port)
-        else:
-            youtube_dl_coprocessor = None
-
         web_processor_fetch_params = session.factory.new(
             'WebProcessorFetchParams',
             post_data=post_data,
@@ -379,6 +362,48 @@ class ProcessorSetupTask(ItemTask[AppSession]):
             return args.post_data
         elif args.post_file:
             return args.post_file.read()
+
+    @classmethod
+    def _build_robots_txt_checker(cls, session: AppSession):
+        '''Build robots.txt checker.'''
+        if session.args.robots:
+            robots_txt_pool = session.factory.new('RobotsTxtPool')
+            robots_txt_checker = session.factory.new(
+                'RobotsTxtChecker',
+                web_client=session.factory['WebClient'],
+                robots_txt_pool=robots_txt_pool
+            )
+
+            return robots_txt_checker
+
+    @classmethod
+    def _build_recorder(cls, session: AppSession):
+        '''Create the Recorder.
+
+        Returns:
+            DemuxRecorder: An instance of :class:`.recorder.DemuxRecorder`.
+        '''
+
+        return session.factory.new('DemuxRecorder', recorders)
+
+
+class CoprocessorSetupTask(ItemTask[ItemSession]):
+    @asyncio.coroutine
+    def process(self, session: AppSession):
+        args = session.args
+        if args.phantomjs or args.youtube_dl or args.proxy_server:
+            proxy_port = session.proxy_server_port
+            assert proxy_port
+
+        if args.phantomjs:
+            phantomjs_coprocessor = self._build_phantomjs_coprocessor(session, proxy_port)
+        else:
+            phantomjs_coprocessor = None
+
+        if args.youtube_dl:
+            youtube_dl_coprocessor = self._build_youtube_dl_coprocessor(session, proxy_port)
+        else:
+            youtube_dl_coprocessor = None
 
     @classmethod
     def _build_phantomjs_coprocessor(cls, session: AppSession, proxy_port: int):
@@ -446,7 +471,7 @@ class ProcessorSetupTask(ItemTask[AppSession]):
         '''Build youtube-dl coprocessor.'''
 
         # Test early for executable
-        wpull.coprocessor.youtubedl.get_version(session.args.youtube_dl_exe)
+        wpull.processor.coprocessor.youtubedl.get_version(session.args.youtube_dl_exe)
 
         coprocessor = session.factory.new(
             'YoutubeDlCoprocessor',
@@ -456,33 +481,12 @@ class ProcessorSetupTask(ItemTask[AppSession]):
             user_agent=session.args.user_agent or session.default_user_agent,
             warc_recorder=session.factory.get('WARCRecorder'),
             inet_family=session.args.inet_family,
-            check_certificate=session.args.check_certificate
+            # Proxy will always present a invalid MITM cert
+            #check_certificate=session.args.check_certificate
+            check_certificate=False
         )
 
         return coprocessor
-
-    @classmethod
-    def _build_robots_txt_checker(cls, session: AppSession):
-        '''Build robots.txt checker.'''
-        if session.args.robots:
-            robots_txt_pool = session.factory.new('RobotsTxtPool')
-            robots_txt_checker = session.factory.new(
-                'RobotsTxtChecker',
-                web_client=session.factory['WebClient'],
-                robots_txt_pool=robots_txt_pool
-            )
-
-            return robots_txt_checker
-
-    @classmethod
-    def _build_recorder(cls, session: AppSession):
-        '''Create the Recorder.
-
-        Returns:
-            DemuxRecorder: An instance of :class:`.recorder.DemuxRecorder`.
-        '''
-
-        return session.factory.new('DemuxRecorder', recorders)
 
 
 class ProcessTask(ItemTask[ItemSession]):
