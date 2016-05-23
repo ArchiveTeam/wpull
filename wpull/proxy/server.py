@@ -56,8 +56,8 @@ class HTTPProxyServer(object):
             yield from session()
         except Exception as error:
             if not isinstance(error, StopIteration):
-                if isinstance(error, (asyncio.ConnectionAbortedError,
-                                      asyncio.ConnectionResetError)):
+                if isinstance(error, (ConnectionAbortedError,
+                                      ConnectionResetError)):
                     # Client using the proxy has closed the connection
                     _logger.debug('Proxy error', exc_info=True)
                 else:
@@ -186,7 +186,7 @@ class Session(object):
         try:
             asyncio.get_event_loop().remove_reader(socket_.fileno())
         except ValueError as error:
-            raise asyncio.ConnectionAbortedError() from error
+            raise ConnectionAbortedError() from error
 
         self._writer.write(b'HTTP/1.1 200 Connection established\r\n\r\n')
         yield from self._writer.drain()
@@ -194,7 +194,7 @@ class Session(object):
         try:
             asyncio.get_event_loop().remove_writer(socket_.fileno())
         except ValueError as error:
-            raise asyncio.ConnectionAbortedError() from error
+            raise ConnectionAbortedError() from error
 
         ssl_socket = ssl.wrap_socket(
             socket_, server_side=True,
@@ -218,7 +218,7 @@ class Session(object):
             _logger.error(_('Unable to handshake.'))
             ssl_socket.close()
             self._reject_request('Could not start TLS')
-            raise asyncio.ConnectionAbortedError('Could not start TLS')
+            raise ConnectionAbortedError('Could not start TLS')
 
         loop = asyncio.get_event_loop()
         reader = asyncio.StreamReader(loop=loop)
