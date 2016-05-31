@@ -1,4 +1,5 @@
 import asyncio
+from unittest.mock import MagicMock
 
 from wpull.application.hook import HookDispatcher, HookAlreadyConnectedError, \
     HookDisconnected, EventDispatcher, HookableMixin
@@ -111,6 +112,22 @@ class TestHook(AsyncTestCase):
         event.remove_listener('a', callback1)
 
         event.unregister('a')
+
+    def test_hook_as_event_dispatcher_transclusion(self):
+        event_dispatcher = EventDispatcher()
+        hook_dispatcher = HookDispatcher(
+            event_dispatcher_transclusion=event_dispatcher)
+        hook_dispatcher.register('test_hook')
+
+        callback_mock = MagicMock()
+        event_dispatcher.add_listener('test_hook', callback_mock)
+
+        try:
+            hook_dispatcher.call('test_hook', 'a')
+        except HookDisconnected:
+            pass
+
+        callback_mock.assert_called_once_with('a')
 
     def test_plugin_connect(self):
         tester = MyClass()

@@ -51,14 +51,14 @@ class HookDispatcher(collections.abc.Mapping):
 
         self._callbacks[name] = None
 
-        if self._event_dispatcher:
+        if self._event_dispatcher is not None:
             self._event_dispatcher.register(name)
 
     def unregister(self, name: str):
         '''Unregister hook.'''
         del self._callbacks[name]
 
-        if self._event_dispatcher:
+        if self._event_dispatcher is not None:
             self._event_dispatcher.unregister(name)
 
     def connect(self, name, callback):
@@ -74,6 +74,9 @@ class HookDispatcher(collections.abc.Mapping):
 
     def call(self, name: str, *args, **kwargs):
         '''Invoke the callback.'''
+        if self._event_dispatcher is not None:
+            self._event_dispatcher.notify(name, *args, **kwargs)
+
         if self._callbacks[name]:
             return self._callbacks[name](*args, **kwargs)
         else:
@@ -82,6 +85,9 @@ class HookDispatcher(collections.abc.Mapping):
     @asyncio.coroutine
     def call_async(self, name: str, *args, **kwargs):
         '''Invoke the callback.'''
+        if self._event_dispatcher is not None:
+            self._event_dispatcher.notify(name, *args, **kwargs)
+
         if self._callbacks[name]:
             return (yield from self._callbacks[name](*args, **kwargs))
         else:
