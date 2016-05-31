@@ -1,4 +1,5 @@
 import glob
+import os
 import re
 import unittest
 
@@ -38,7 +39,7 @@ class TestYoutubeDl(AppTestCase):
             self.assertTrue(b'WARC-Target-URI: metadata://www.youtube.com/watch?v=tPEE9ZwTmy0' in data)
             self.assertTrue(b'Content-Type: application/vnd.youtube-dl_formats+json' in data)
 
-        video_files = tuple(glob.glob('*.mp4') + glob.glob('*.webm'))
+        video_files = tuple(glob.glob('*.mp4') + glob.glob('*.webm') + glob.glob('*.mkv'))
         self.assertTrue(video_files)
 
         annotations = tuple(glob.glob('*.annotation*'))
@@ -47,9 +48,8 @@ class TestYoutubeDl(AppTestCase):
         info_json = tuple(glob.glob('*.info.json'))
         self.assertTrue(info_json)
 
-        # FIXME: version 2015.01.25 doesn't have thumbnail?
-        # thumbnails = tuple(glob.glob('*.jpg'))
-        # self.assertTrue(thumbnails)
+        thumbnails = tuple(glob.glob('*.jpg'))
+        self.assertTrue(thumbnails)
 
     @unittest.skip('not a good idea to test continuously on external servers')
     @wpull.testing.async.async_test()
@@ -101,5 +101,7 @@ class TestYoutubeDl(AppTestCase):
             data = test_log.read()
 
             self.assertFalse(re.search(b'Starting process \[\'youtube-dl.*--force-ipv4', data))
-            self.assertFalse(re.search(b'Starting process \[\'youtube-dl.*--no-check-certificate', data))
+            # XXX: --no-check-certificate required regardless since MITM proxy
+            # uses invalid cert
+            # self.assertFalse(re.search(b'Starting process \[\'youtube-dl.*--no-check-certificate', data))
 
