@@ -117,7 +117,7 @@ class Session(BaseSession):
     @asyncio.coroutine
     def download(
             self,
-            file: Union[IO[bytes], asyncio.StreamReader, None]=None,
+            file: Union[IO[bytes], asyncio.StreamWriter, None]=None,
             raw: bool=False, rewind: bool=True,
             duration_timeout: Optional[float]=None):
         '''Read the response content into file.
