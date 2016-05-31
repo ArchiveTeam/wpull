@@ -9,7 +9,7 @@ import asyncio
 
 from wpull.cookie import BetterMozillaCookieJar, DeFactoCookiePolicy
 from wpull.protocol.http.client import Client
-from wpull.proxy.server import HTTPProxyServer
+from wpull.proxy.server import HTTPProxyServer, HTTPProxySession
 from wpull.wrapper import CookieJarWrapper
 import wpull.testing.badapp
 import wpull.testing.goodapp
@@ -42,16 +42,28 @@ class TestProxy(wpull.testing.goodapp.GoodAppTestCase):
         proxy = HTTPProxyServer(http_client)
         proxy_socket, proxy_port = tornado.testing.bind_unused_port()
 
-        def request_callback(request):
-            print(request)
-            cookie_jar_wrapper.add_cookie_header(request)
+        client_request = None
 
-        def pre_response_callback(request, response):
-            print(response)
-            cookie_jar_wrapper.extract_cookies(response, request)
+        def request_callback(client_request_):
+            nonlocal client_request
+            client_request = client_request_
+            print('client request', client_request)
+            cookie_jar_wrapper.add_cookie_header(client_request)
 
-        proxy.request_callback = request_callback
-        proxy.pre_response_callback = pre_response_callback
+        def server_response_callback(server_response):
+            print('server response', server_response)
+            assert client_request
+            cookie_jar_wrapper.extract_cookies(server_response, client_request)
+
+        def new_sesssion_callback(session: HTTPProxySession):
+            session.event_dispatcher.add_listener(
+                HTTPProxySession.Event.client_request, request_callback)
+            session.event_dispatcher.add_listener(
+                HTTPProxySession.Event.server_end_response,
+                server_response_callback)
+
+        proxy.event_dispatcher.add_listener(
+            HTTPProxyServer.Event.begin_session, new_sesssion_callback)
 
         yield from asyncio.start_server(proxy, sock=proxy_socket)
 
