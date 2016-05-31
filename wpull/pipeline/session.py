@@ -31,6 +31,10 @@ class ItemSession(object):
         self._response = None
 
     @property
+    def is_virtual(self) -> bool:
+        return False
+
+    @property
     def is_processed(self):
         '''Return whether the item has been processed.'''
         return self._processed

@@ -235,10 +235,7 @@ class ProxyServerSetupTask(ItemTask[AppSession]):
         cookie_jar = session.factory.get('CookieJarWrapper')
         proxy_coprocessor = session.factory.new(
             'ProxyCoprocessor',
-            proxy_server,
-            session.factory['FetchRule'],
-            session.factory['ResultRule'],
-            cookie_jar=cookie_jar
+            session
         )
 
         proxy_socket = tornado.netutil.bind_sockets(

@@ -192,6 +192,10 @@ class FetchRule(HookableMixin):
             item_session.request.url_info,
             item_session.url_record, is_redirect=is_redirect)
 
+        # TODO: provide an option to change this
+        if item_session.is_virtual:
+            verdict = True
+
         verdict, reason = self.consult_hook(item_session, verdict,
                                             reason, test_info)
 
