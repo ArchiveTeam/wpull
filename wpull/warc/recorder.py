@@ -231,7 +231,8 @@ class WARCRecorder(object):
             HTTPSession.Event.end_response, recorder_session.end_response)
 
         http_session.event_dispatcher.add_listener(
-            HTTPSession.SessionEvent.end_session, recorder_session.close
+            HTTPSession.SessionEvent.end_session,
+            lambda error: recorder_session.close()
         )
 
     def new_http_recorder_session(self) -> 'HTTPWARCRecorderSession':
@@ -267,7 +268,8 @@ class WARCRecorder(object):
             FTPSession.Event.end_transfer, recorder_session.end_transfer)
 
         ftp_session.event_dispatcher.add_listener(
-            FTPSession.SessionEvent.end_session, recorder_session.close
+            FTPSession.SessionEvent.end_session,
+            lambda error: recorder_session.close()
         )
 
     def new_ftp_recorder_session(self) -> 'FTPWARCRecorderSession':
