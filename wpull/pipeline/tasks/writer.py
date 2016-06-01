@@ -30,9 +30,9 @@ class FileWriterSetupTask(ItemTask[AppSession]):
             return session.factory.new('FileWriter')  # is a NullWriter
 
         elif args.output_document:
-            session.factory.class_map['FileWriter'] = SingleDocumentWriter(
-                args.output_document, headers_included=args.save_headers)
-            return session.factory.new('FileWriter')
+            session.factory.class_map['FileWriter'] = SingleDocumentWriter
+            return session.factory.new('FileWriter', args.output_document,
+                                       headers_included=args.save_headers)
 
         use_dir = (len(args.urls) != 1 or args.page_requisites
                    or args.recursive)
