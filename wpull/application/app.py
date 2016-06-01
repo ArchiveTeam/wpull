@@ -13,7 +13,7 @@ from wpull.backport.logging import BraceMessage as __
 from wpull.errors import ServerError, ExitStatus, ProtocolError, \
     SSLVerificationError, DNSNotFound, ConnectionRefused, NetworkError, \
     AuthenticationError
-from wpull.application.hook import  HookStop
+from wpull.application.hook import  HookStop, HookableMixin
 from wpull.pipeline.pipeline import PipelineSeries
 
 _logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class ApplicationState(enum.Enum):
     stopped = 'stopped'
 
 
-class Application(object):
+class Application(HookableMixin):
     '''Default non-interactive application user interface.
 
     This class manages process signals and displaying warnings.
@@ -57,12 +57,19 @@ class Application(object):
     )
     '''Exception classes that are not crashes.'''
 
+    class Event(enum.Enum):
+        pipeline_begin = 'pipeline_begin'
+        pipeline_end = 'pipeline_end'
+
     def __init__(self, pipeline_series: PipelineSeries):
         super().__init__()
         self._pipeline_series = pipeline_series
         self._exit_code = 0
         self._current_pipeline = None
         self._state = ApplicationState.ready
+
+        self.event_dispatcher.register(self.Event.pipeline_begin)
+        self.event_dispatcher.register(self.Event.pipeline_end)
 
     @property
     def exit_code(self) -> int:
@@ -137,6 +144,8 @@ class Application(object):
             if self._state == ApplicationState.stopping and pipeline.skippable:
                 continue
 
+            self.event_dispatcher.notify(self.Event.pipeline_begin, pipeline)
+
             try:
                 yield from pipeline.process()
             except Exception as error:
@@ -149,7 +158,11 @@ class Application(object):
                 if show_traceback:
                     _logger.exception('Fatal exception.')
                 else:
-                    _logger.error('{}'.format(error))
+                    try:
+                        text = '{}: {}'.format(type(error).__name__, error)
+                    except AttributeError:
+                        text = str(error)
+                    _logger.error(text)
 
                 self._update_exit_code_from_error(error)
 
@@ -158,6 +171,8 @@ class Application(object):
                     self._print_report_bug_message()
 
                 break
+
+            self.event_dispatcher.notify(self.Event.pipeline_end, pipeline)
 
         self._current_pipeline = None
         self._state = ApplicationState.stopping

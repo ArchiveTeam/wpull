@@ -5,30 +5,32 @@ import logging
 import sys
 from http.cookiejar import CookieJar
 
-from typing import Sequence
+from wpull.application.tasks.conversion import LinkConversionSetupTask, \
+    LinkConversionTask
+from wpull.application.tasks.database import DatabaseSetupTask
+from wpull.application.tasks.database import InputURLTask
+from wpull.application.tasks.download import ProcessTask, ParserSetupTask, ClientSetupTask, ProcessorSetupTask, \
+    BackgroundAsyncTask, ProxyServerSetupTask, CoprocessorSetupTask
+from wpull.application.tasks.log import LoggingSetupTask, LoggingShutdownTask
+from wpull.application.tasks.network import NetworkSetupTask
+from wpull.application.tasks.plugin import PluginSetupTask
+from wpull.application.tasks.progress import ProgressSetupTask
+from wpull.application.tasks.resmon import ResmonSetupTask, ResmonSleepTask
+from wpull.application.tasks.rule import URLFiltersSetupTask, \
+    URLFiltersPostURLImportSetupTask
+from wpull.application.tasks.sslcontext import SSLContextTask
+from wpull.application.tasks.startup import DebugConsoleSetupTask, ArgWarningTask
+from wpull.application.tasks.stats import StatsStartTask, StatsStopTask
+from wpull.application.tasks.warc import WARCRecorderSetupTask, \
+    WARCRecorderTeardownTask, WARCVisitsTask
+from wpull.application.tasks.writer import FileWriterSetupTask
 
 from wpull.application.app import Application
 from wpull.application.factory import Factory
+from wpull.application.tasks.shutdown import BackgroundAsyncCleanupTask, \
+    AppStopTask, CookieJarTeardownTask
 from wpull.converter import BatchDocumentConverter
 from wpull.cookie import DeFactoCookiePolicy
-from wpull.pipeline.progress import Progress
-from wpull.pipeline.tasks.database import DatabaseSetupTask
-from wpull.pipeline.tasks.database import InputURLTask
-from wpull.pipeline.tasks.log import LoggingSetupTask, LoggingShutdownTask
-from wpull.pipeline.tasks.network import NetworkSetupTask
-from wpull.pipeline.tasks.progress import ProgressSetupTask
-from wpull.pipeline.tasks.resmon import ResmonSetupTask, ResmonSleepTask
-from wpull.pipeline.tasks.rule import URLFiltersSetupTask, \
-    URLFiltersPostURLImportSetupTask
-from wpull.pipeline.tasks.sslcontext import SSLContextTask
-from wpull.pipeline.tasks.startup import DebugConsoleSetupTask, ArgWarningTask
-from wpull.pipeline.tasks.stats import StatsStartTask, StatsStopTask
-from wpull.pipeline.tasks.warc import WARCRecorderSetupTask, \
-    WARCRecorderTeardownTask, WARCVisitsTask
-from wpull.pipeline.tasks.writer import FileWriterSetupTask
-from wpull.processor.coprocessor.phantomjs import PhantomJSCoprocessor
-from wpull.processor.coprocessor.proxy import ProxyCoprocessor
-from wpull.processor.coprocessor.youtubedl import YoutubeDlCoprocessor
 from wpull.database.sqltable import URLTable as SQLURLTable
 from wpull.database.wrap import URLTableHookWrapper
 from wpull.driver.phantomjs import PhantomJSDriver
@@ -36,15 +38,13 @@ from wpull.network.bandwidth import BandwidthLimiter
 from wpull.network.dns import Resolver
 from wpull.network.pool import ConnectionPool
 from wpull.path import PathNamer
+from wpull.pipeline.app import AppSource, AppSession
 from wpull.pipeline.pipeline import Pipeline, PipelineSeries
+from wpull.pipeline.progress import Progress
 from wpull.pipeline.session import URLItemSource
-from wpull.pipeline.tasks.conversion import LinkConversionSetupTask, \
-    LinkConversionTask
-from wpull.pipeline.tasks.download import ProcessTask, ParserSetupTask, ClientSetupTask, ProcessorSetupTask, \
-    BackgroundAsyncTask, ProxyServerSetupTask, CoprocessorSetupTask
-from wpull.pipeline.tasks.plugin import PluginSetupTask
-from wpull.pipeline.tasks.shutdown import BackgroundAsyncCleanupTask, \
-    AppStopTask, CookieJarTeardownTask
+from wpull.processor.coprocessor.phantomjs import PhantomJSCoprocessor
+from wpull.processor.coprocessor.proxy import ProxyCoprocessor
+from wpull.processor.coprocessor.youtubedl import YoutubeDlCoprocessor
 from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams
 from wpull.processor.rule import FetchRule, ResultRule, ProcessingRule
@@ -65,7 +65,6 @@ from wpull.scraper.html import HTMLScraper, ElementWalker
 from wpull.scraper.javascript import JavaScriptScraper
 from wpull.scraper.sitemap import SitemapScraper
 from wpull.stats import Statistics
-from wpull.pipeline.app import AppSource, AppSession
 from wpull.url import URLInfo
 from wpull.urlfilter import DemuxURLFilter
 from wpull.urlrewrite import URLRewriter
