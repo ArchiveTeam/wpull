@@ -182,7 +182,8 @@ class WebProcessorSession(BaseProcessorSession):
             self._new_initial_request()
         )
 
-        yield from self._process_loop()
+        with self._web_client_session:
+            yield from self._process_loop()
 
         if not self._item_session.is_processed:
             _logger.debug('Was not processed. Skipping.')
