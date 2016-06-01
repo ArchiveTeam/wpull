@@ -14,7 +14,7 @@ from wpull.protocol.http.client import Client
 from wpull.protocol.http.redirect import RedirectTracker
 from wpull.protocol.http.request import Request, Response
 from wpull.url import URLInfo
-from wpull.wrapper import CookieJarWrapper
+from wpull.cookiewrapper import CookieJarWrapper
 
 _ = gettext.gettext
 _logger = logging.getLogger(__name__)

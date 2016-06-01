@@ -10,7 +10,7 @@ import asyncio
 from wpull.cookie import BetterMozillaCookieJar, DeFactoCookiePolicy
 from wpull.protocol.http.client import Client
 from wpull.proxy.server import HTTPProxyServer, HTTPProxySession
-from wpull.wrapper import CookieJarWrapper
+from wpull.cookiewrapper import CookieJarWrapper
 import wpull.testing.badapp
 import wpull.testing.goodapp
 import wpull.testing.async

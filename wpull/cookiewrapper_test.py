@@ -3,7 +3,7 @@ import sys
 import unittest
 
 from wpull.protocol.http.request import Request, Response
-from wpull.wrapper import convert_http_request, HTTPResponseInfoWrapper
+from wpull.cookiewrapper import convert_http_request, HTTPResponseInfoWrapper
 
 
 class TestWrapper(unittest.TestCase):

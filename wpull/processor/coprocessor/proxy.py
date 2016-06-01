@@ -15,7 +15,7 @@ from wpull.processor.rule import FetchRule, ResultRule, ProcessingRule
 from wpull.processor.web import WebProcessor
 from wpull.protocol.http.request import Request, Response
 from wpull.proxy.server import HTTPProxyServer, HTTPProxySession
-from wpull.wrapper import CookieJarWrapper
+from wpull.cookiewrapper import CookieJarWrapper
 from wpull.writer import BaseFileWriter
 
 _logger = logging.getLogger(__name__)

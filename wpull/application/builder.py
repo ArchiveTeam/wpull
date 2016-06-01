@@ -70,7 +70,7 @@ from wpull.urlfilter import DemuxURLFilter
 from wpull.urlrewrite import URLRewriter
 from wpull.waiter import LinearWaiter
 from wpull.warc.recorder import WARCRecorder
-from wpull.wrapper import CookieJarWrapper
+from wpull.cookiewrapper import CookieJarWrapper
 from wpull.writer import (NullWriter)
 
 _logger = logging.getLogger(__name__)
