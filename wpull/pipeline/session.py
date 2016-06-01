@@ -138,6 +138,7 @@ class ItemSession(object):
         url_properties.inline_level = (self.url_record.inline_level or 0) + 1 if inline else None
         url_properties.parent_url = self.url_record.url
         url_properties.root_url = self.url_record.root_url or self.url_record.url
+        url_properties.link_type = link_type
         url_data = URLData()
         url_data.post_data = post_data
 
