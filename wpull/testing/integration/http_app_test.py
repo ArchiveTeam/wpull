@@ -8,6 +8,7 @@ import sys
 
 import asyncio
 
+from wpull.application.app import Application
 from wpull.application.builder import Builder
 from wpull.application.options import AppArgumentParser
 from wpull.errors import ExitStatus
@@ -316,9 +317,22 @@ class TestHTTPGoodApp(HTTPGoodAppTestCase):
 
             app = builder.build()
 
-            self.assertEqual(2, len(builder.factory['CookieJar']))
+            callback_called = False
+
+            def callback(pipeline):
+                nonlocal callback_called
+
+                if callback_called:
+                    return
+
+                callback_called = True
+                self.assertEqual(2, len(builder.factory['CookieJar']))
+
+            app.event_dispatcher.add_listener(Application.Event.pipeline_end, callback)
 
             exit_code = yield from app.run()
+
+            self.assertTrue(callback_called)
 
             self.assertEqual(0, exit_code)
             self.assertEqual(1, builder.factory['Statistics'].files)
@@ -452,11 +466,16 @@ class TestHTTPGoodApp(HTTPGoodAppTestCase):
         builder = Builder(args, unit_test=True)
 
         app = builder.build()
-        robots_txt_pool = builder.factory['RobotsTxtPool']
-        robots_txt_pool.load_robots_txt(
-            URLInfo.parse(self.get_url('/')),
-            'User-Agent: *\nDisallow: *\n'
-        )
+
+        def callback(pipeline):
+            robots_txt_pool = builder.factory['RobotsTxtPool']
+            robots_txt_pool.load_robots_txt(
+                URLInfo.parse(self.get_url('/')),
+                'User-Agent: *\nDisallow: *\n'
+            )
+
+        app.event_dispatcher.add_listener(Application.Event.pipeline_end, callback)
+
         exit_code = yield from app.run()
 
         self.assertEqual(0, exit_code)
