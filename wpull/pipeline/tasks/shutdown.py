@@ -73,3 +73,10 @@ class AppStopTask(ItemTask[AppSession], HookableMixin):
             int: The exit code that Wpull will return.
         '''
         return exit_code
+
+
+class CookieJarTeardownTask(ItemTask[AppSession]):
+    @asyncio.coroutine
+    def process(self, session: AppSession):
+        if 'CookieJarWrapper' in session.factory:
+            session.factory['CookieJarWrapper'].close()

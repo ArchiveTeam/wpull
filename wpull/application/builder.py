@@ -44,7 +44,7 @@ from wpull.pipeline.tasks.download import ProcessTask, ParserSetupTask, ClientSe
     BackgroundAsyncTask, ProxyServerSetupTask, CoprocessorSetupTask
 from wpull.pipeline.tasks.plugin import PluginSetupTask
 from wpull.pipeline.tasks.shutdown import BackgroundAsyncCleanupTask, \
-    AppStopTask
+    AppStopTask, CookieJarTeardownTask
 from wpull.processor.delegate import DelegateProcessor
 from wpull.processor.ftp import FTPProcessor, FTPProcessorFetchParams
 from wpull.processor.rule import FetchRule, ResultRule, ProcessingRule
@@ -219,6 +219,7 @@ class Builder(object):
                 BackgroundAsyncCleanupTask(),
                 AppStopTask(),
                 WARCRecorderTeardownTask(),
+                CookieJarTeardownTask(),
                 LoggingShutdownTask(),
             ])
 
