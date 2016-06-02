@@ -7,6 +7,7 @@
 .. automodule:: wpull.errors
     :members:
     :show-inheritance:
+    :undoc-members:
     :private-members:
     :special-members:
     :exclude-members: __dict__,__weakref__

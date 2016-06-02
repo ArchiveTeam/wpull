@@ -1,0 +1,13 @@
+.. This document was automatically generated.
+   DO NOT EDIT!
+
+:mod:`processor.coprocessor` Module
+===================================
+
+.. automodule:: wpull.processor.coprocessor
+    :members:
+    :show-inheritance:
+    :undoc-members:
+    :private-members:
+    :special-members:
+    :exclude-members: __dict__,__weakref__

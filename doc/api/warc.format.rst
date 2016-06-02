@@ -1,12 +1,13 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`recorder.base` Module
-===========================
+:mod:`warc.format` Module
+=========================
 
-.. automodule:: wpull.recorder.base
+.. automodule:: wpull.warc.format
     :members:
     :show-inheritance:
+    :undoc-members:
     :private-members:
     :special-members:
     :exclude-members: __dict__,__weakref__

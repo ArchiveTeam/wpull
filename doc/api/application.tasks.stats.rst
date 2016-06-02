@@ -1,12 +1,13 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`recorder.document` Module
-===============================
+:mod:`application.tasks.stats` Module
+=====================================
 
-.. automodule:: wpull.recorder.document
+.. automodule:: wpull.application.tasks.stats
     :members:
     :show-inheritance:
+    :undoc-members:
     :private-members:
     :special-members:
     :exclude-members: __dict__,__weakref__

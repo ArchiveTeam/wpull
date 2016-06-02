@@ -1,12 +1,13 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`wrapper` Module
-=====================
+:mod:`processor.coprocessor.youtubedl` Module
+=============================================
 
-.. automodule:: wpull.wrapper
+.. automodule:: wpull.processor.coprocessor.youtubedl
     :members:
     :show-inheritance:
+    :undoc-members:
     :private-members:
     :special-members:
     :exclude-members: __dict__,__weakref__

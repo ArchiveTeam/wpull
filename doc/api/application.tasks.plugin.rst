@@ -1,12 +1,13 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`bandwidth` Module
-=======================
+:mod:`application.tasks.plugin` Module
+======================================
 
-.. automodule:: wpull.bandwidth
+.. automodule:: wpull.application.tasks.plugin
     :members:
     :show-inheritance:
+    :undoc-members:
     :private-members:
     :special-members:
     :exclude-members: __dict__,__weakref__

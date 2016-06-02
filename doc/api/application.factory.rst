@@ -1,12 +1,13 @@
 .. This document was automatically generated.
    DO NOT EDIT!
 
-:mod:`coprocessor.youtubedl` Module
-===================================
+:mod:`application.factory` Module
+=================================
 
-.. automodule:: wpull.coprocessor.youtubedl
+.. automodule:: wpull.application.factory
     :members:
     :show-inheritance:
+    :undoc-members:
     :private-members:
     :special-members:
     :exclude-members: __dict__,__weakref__
