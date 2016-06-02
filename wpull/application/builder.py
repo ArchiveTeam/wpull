@@ -10,7 +10,8 @@ from wpull.application.tasks.conversion import LinkConversionSetupTask, \
 from wpull.application.tasks.database import DatabaseSetupTask
 from wpull.application.tasks.database import InputURLTask
 from wpull.application.tasks.download import ProcessTask, ParserSetupTask, ClientSetupTask, ProcessorSetupTask, \
-    BackgroundAsyncTask, ProxyServerSetupTask, CoprocessorSetupTask
+    BackgroundAsyncTask, ProxyServerSetupTask, CoprocessorSetupTask, \
+    CheckQuotaTask
 from wpull.application.tasks.log import LoggingSetupTask, LoggingShutdownTask
 from wpull.application.tasks.network import NetworkSetupTask
 from wpull.application.tasks.plugin import PluginSetupTask
@@ -194,6 +195,7 @@ class Builder(object):
                 ProcessTask(),
                 ResmonSleepTask(),
                 BackgroundAsyncTask(),
+                CheckQuotaTask(),
             ]
         )
 

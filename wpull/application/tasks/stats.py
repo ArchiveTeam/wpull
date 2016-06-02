@@ -20,7 +20,8 @@ _ = gettext.gettext
 class StatsStartTask(ItemTask[AppSession]):
     @asyncio.coroutine
     def process(self, session: AppSession):
-        statistics = session.factory.new('Statistics')
+        statistics = session.factory.new('Statistics',
+                                         url_table=session.factory['URLTable'])
         statistics.quota = session.args.quota
         statistics.start()
 

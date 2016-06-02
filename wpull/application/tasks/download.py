@@ -496,27 +496,18 @@ class ProcessTask(ItemTask[ItemSession]):
         session.finish()
 
 
-# class ParseTask(ItemTask[WorkItemT]):
-#     @asyncio.coroutine
-#     def process(self, work_item: WorkItemT):
-#         pass
-#
-#
-# class ExtractTask(ItemTask[WorkItemT]):
-#     @asyncio.coroutine
-#     def process(self, work_item: WorkItemT):
-#         pass
-#
-#
-# class WaitTask(ItemTask[WorkItemT]):
-#     @asyncio.coroutine
-#     def process(self, work_item: WorkItemT):
-#         pass
-
-
 class BackgroundAsyncTask(ItemTask[ItemSession]):
     @asyncio.coroutine
     def process(self, session: ItemSession):
         for task in session.app_session.background_async_tasks:
             if task.done():
                 yield from task
+
+
+class CheckQuotaTask(ItemTask[ItemSession]):
+    @asyncio.coroutine
+    def process(self, session: ItemSession):
+        statistics = session.app_session.factory['Statistics']
+
+        if statistics.is_quota_exceeded:
+            session.app_session.factory['Application'].stop()
