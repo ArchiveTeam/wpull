@@ -9,10 +9,14 @@ Summary of notable changes.
 Unreleased
 ==========
 
-* Removed: Lua scripting support.
+* Removed: Lua scripting support and its Python counterpart (``--lua-script`` and ``--python-script``).
 * Removed: Python 3.2 & 3.3 support.
 * Removed: PyPy support.
 * Changed: IP addresses are normalized to a standard notation to avoid fetching duplicates such as IPv4 addresses written in hexadecimal or long-hand IPv6 addresses.
+* Changed: Scripting is now done using plugin interface via ``--plugin-script``.
+
+This release contains backwards incompatible changes to the scripting
+interface.
 
 
 1.2.3 (2016-02-03)
