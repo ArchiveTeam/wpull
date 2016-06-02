@@ -146,3 +146,7 @@ class BaseURLTable(object, metaclass=abc.ABCMeta):
     def get_hostnames(self):
         '''Return list of hostnames
         '''
+
+    @abc.abstractmethod
+    def get_root_url_todo_count(self) -> int:
+        pass

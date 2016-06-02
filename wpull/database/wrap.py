@@ -110,3 +110,6 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
             record_info (dict): A mapping containing the same information in
                 :class:`.item.URLRecord`.
         '''
+
+    def get_root_url_todo_count(self):
+        return self.url_table.get_root_url_todo_count()

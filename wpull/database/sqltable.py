@@ -5,6 +5,7 @@ import enum
 import logging
 
 import sqlalchemy.event
+from sqlalchemy import func
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.pool import SingletonThreadPool
@@ -220,6 +221,12 @@ class BaseSQLURLTable(BaseURLTable):
                 hostnames.append(row[0])
 
         return hostnames
+
+    def get_root_url_todo_count(self):
+        with self._session() as session:
+            return session.query(func.count(QueuedURL.id))\
+                .filter_by(status=Status.todo.value)\
+                .filter_by(level=0).scalar()
 
 
 class SQLiteURLTable(BaseSQLURLTable):

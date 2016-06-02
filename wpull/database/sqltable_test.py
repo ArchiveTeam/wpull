@@ -35,6 +35,7 @@ class TestDatabase(unittest.TestCase):
         self.assertTrue(url_table.contains(urls[1]))
         self.assertTrue(url_table.contains(urls[2]))
         self.assertEqual(3, url_table.count())
+        self.assertEqual(3, url_table.get_root_url_todo_count())
 
         for i in range(3):
             url_record = url_table.get_one(urls[i])
@@ -62,6 +63,7 @@ class TestDatabase(unittest.TestCase):
         self.assertEqual(200, url_record.status_code)
         self.assertEqual(Status.done, url_record.status)
         self.assertEqual(1, url_record.try_count)
+        self.assertEqual(2, url_table.get_root_url_todo_count())
 
         hostnames = tuple(url_table.get_hostnames())
         self.assertEqual(1, len(hostnames))
