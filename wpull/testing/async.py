@@ -2,15 +2,15 @@ import functools
 import unittest
 
 from tornado.platform.asyncio import BaseAsyncIOLoop
-import trollius
+import asyncio
 
 
 # http://stackoverflow.com/q/23033939/1524507
 class AsyncTestCase(unittest.TestCase):
     def setUp(self):
-        self.event_loop = trollius.new_event_loop()
+        self.event_loop = asyncio.new_event_loop()
         self.event_loop.set_debug(True)
-        trollius.set_event_loop(self.event_loop)
+        asyncio.set_event_loop(self.event_loop)
 
     def tearDown(self):
         self.event_loop.stop()
@@ -20,13 +20,13 @@ class AsyncTestCase(unittest.TestCase):
 def async_test(func=None, timeout=30):
     # tornado.testing
     def wrap(f):
-        f = trollius.coroutine(f)
+        f = asyncio.coroutine(f)
 
         @functools.wraps(f)
         def wrapper(self):
             return self.event_loop.run_until_complete(
-                trollius.wait_for(f(self), timeout=timeout,
-                                  loop=self.event_loop)
+                asyncio.wait_for(f(self), timeout=timeout,
+                                 loop=self.event_loop)
             )
         return wrapper
 

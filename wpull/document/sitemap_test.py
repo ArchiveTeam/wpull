@@ -1,3 +1,4 @@
+import codecs
 import gzip
 import io
 import unittest
@@ -5,7 +6,7 @@ import unittest
 from wpull.document.base_test import CODEC_NAMES, EBCDIC
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
 from wpull.document.sitemap import SitemapReader
-from wpull.http.request import Request
+from wpull.protocol.http.request import Request
 from wpull.url import URLInfo
 from wpull.util import IS_PYPY
 
@@ -21,7 +22,16 @@ class Mixin(object):
         raise NotImplementedError()
 
     def test_sitemap_encoding(self):
-        reader = SitemapReader(self.get_html_parser())
+        parser = self.get_html_parser()
+        is_lxml = isinstance(parser, LxmlHTMLParser)
+        reader = SitemapReader(parser)
+
+        bom_map = {
+            'utf_16_le': codecs.BOM_UTF16_LE,
+            'utf_16_be': codecs.BOM_UTF16_BE,
+            'utf_32_le': codecs.BOM_UTF32_LE,
+            'utf_32_be': codecs.BOM_UTF32_BE,
+        }
 
         for name in CODEC_NAMES:
             if name in EBCDIC or name == 'utf_8_sig':
@@ -29,15 +39,19 @@ class Mixin(object):
                 # compatable
                 continue
 
-            if name.endswith('_le') or name.endswith('_be'):
-                # XXX: Assume BOM is always included
+            if is_lxml and (name.startswith('utf_16') or name.startswith('utf_32')):
+                # FIXME: libxml/lxml doesn't like it when we pass in a codec
+                # name but don't specify the endian but BOM is included
                 continue
 
             data = io.BytesIO(
+                bom_map.get(name, b'') +
                 '<?xml version="1.0" encoding="UTF-8"?>'
                 '<urlset><url><loc>blah</loc></url></urlset>'.encode(name)
             )
+
             print('->', name)
+
             links = tuple(reader.iter_links(data, encoding=name))
             link = links[0]
             self.assertEqual('blah', link)

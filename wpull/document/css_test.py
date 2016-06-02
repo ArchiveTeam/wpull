@@ -3,7 +3,7 @@ import unittest
 
 from wpull.document.base import VeryFalse
 from wpull.document.css import CSSReader
-from wpull.http.request import Request, Response
+from wpull.protocol.http.request import Request, Response
 from wpull.url import URLInfo
 
 

@@ -2,11 +2,11 @@ import os.path
 import shutil
 import unittest
 
-from wpull.body import Body
-from wpull.http.request import Request, Response
-from wpull.item import LinkType
-from wpull.scraper.css import CSSScraper
 import wpull.util
+from wpull.body import Body
+from wpull.pipeline.item import LinkType
+from wpull.protocol.http.request import Request, Response
+from wpull.scraper.css import CSSScraper
 
 ROOT_PATH = os.path.join(os.path.dirname(__file__), '..')
 

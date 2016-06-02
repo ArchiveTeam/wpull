@@ -88,7 +88,7 @@ class LastModifiedHandler(tornado.web.RequestHandler):
             timestamp = time.mktime(time_tuple[:9])
 
             if timestamp < 634521600:
-                self.set_status(http.client.NOT_MODIFIED)
+                self.set_status(int(http.client.NOT_MODIFIED))
                 return
 
         self.write('HELLO')

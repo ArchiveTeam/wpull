@@ -1,16 +1,14 @@
 '''Proxy support for HTTP requests.'''
+import asyncio
 import base64
 import io
 import logging
 
-from trollius import From, Return
-import trollius
-from wpull.connection import ConnectionPool
-
-from wpull.errors import NetworkError
-from wpull.http.request import RawRequest
-from wpull.http.stream import Stream
 import wpull.string
+from wpull.errors import NetworkError
+from wpull.network.pool import ConnectionPool
+from wpull.protocol.http.request import RawRequest
+from wpull.protocol.http.stream import Stream
 
 _logger = logging.getLogger(__name__)
 
@@ -51,12 +49,12 @@ class HTTPProxyConnectionPool(ConnectionPool):
 
         self._connection_map = {}
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def acquire(self, host, port, use_ssl=False, host_key=None):
-        yield From(self.acquire_proxy(host, port, use_ssl=use_ssl,
-                                      host_key=host_key))
+        yield from self.acquire_proxy(host, port, use_ssl=use_ssl,
+                                      host_key=host_key)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def acquire_proxy(self, host, port, use_ssl=False, host_key=None,
                       tunnel=True):
         '''Check out a connection.
@@ -67,55 +65,55 @@ class HTTPProxyConnectionPool(ConnectionPool):
         Coroutine.
         '''
         if self._host_filter and not self._host_filter.test(host):
-            connection = yield From(
+            connection = yield from \
                 super().acquire(host, port, use_ssl, host_key)
-            )
-            raise Return(connection)
+
+            return connection
 
         host_key = host_key or (host, port, use_ssl)
         proxy_host, proxy_port = self._proxy_address
 
-        connection = yield From(super().acquire(
+        connection = yield from super().acquire(
             proxy_host, proxy_port, self._proxy_ssl, host_key=host_key
-        ))
+        )
         connection.proxied = True
 
         _logger.debug('Request for proxy connection.')
 
         if connection.closed():
             _logger.debug('Connecting to proxy.')
-            yield From(connection.connect())
+            yield from connection.connect()
 
             if tunnel:
-                yield From(self._establish_tunnel(connection, (host, port)))
+                yield from self._establish_tunnel(connection, (host, port))
 
             if use_ssl:
-                ssl_connection = yield From(connection.start_tls(self._ssl_context))
+                ssl_connection = yield from connection.start_tls(self._ssl_context)
                 ssl_connection.proxied = True
                 ssl_connection.tunneled = True
 
                 self._connection_map[ssl_connection] = connection
                 connection.wrapped_connection = ssl_connection
 
-                raise Return(ssl_connection)
+                return ssl_connection
 
         if connection.wrapped_connection:
             ssl_connection = connection.wrapped_connection
             self._connection_map[ssl_connection] = connection
-            raise Return(ssl_connection)
+            return ssl_connection
         else:
-            raise Return(connection)
+            return connection
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def release(self, proxy_connection):
         connection = self._connection_map.pop(proxy_connection, proxy_connection)
-        yield From(super().release(connection))
+        yield from super().release(connection)
 
     def no_wait_release(self, proxy_connection):
         connection = self._connection_map.pop(proxy_connection, proxy_connection)
         super().no_wait_release(connection)
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _establish_tunnel(self, connection, address):
         '''Establish a TCP tunnel.
 
@@ -130,15 +128,15 @@ class HTTPProxyConnectionPool(ConnectionPool):
         stream = Stream(connection, keep_alive=True)
 
         _logger.debug('Sending Connect.')
-        yield From(stream.write_request(request))
+        yield from stream.write_request(request)
 
         _logger.debug('Read proxy response.')
-        response = yield From(stream.read_response())
+        response = yield from stream.read_response()
 
         if response.status_code != 200:
             debug_file = io.BytesIO()
             _logger.debug('Read proxy response body.')
-            yield From(stream.read_body(request, response, file=debug_file))
+            yield from stream.read_body(request, response, file=debug_file)
 
             debug_file.seek(0)
             _logger.debug(ascii(debug_file.read()))

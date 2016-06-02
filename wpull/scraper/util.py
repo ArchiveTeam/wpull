@@ -1,18 +1,16 @@
 '''Misc functions.'''
 
-
+import functools
 import gettext
 import itertools
 import logging
 import mimetypes
 import re
 import string
-import functools
 
-from wpull.backport.logging import BraceMessage as __
-from wpull.item import LinkType
 import wpull.url
-
+from wpull.backport.logging import BraceMessage as __
+from wpull.pipeline.item import LinkType
 
 _ = gettext.gettext
 _logger = logging.getLogger(__name__)

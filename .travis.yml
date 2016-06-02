@@ -2,16 +2,8 @@ sudo: false
 
 language: python
 python:
-  - 3.2
-  - 3.3
   - 3.4
   - 3.5
-  - pypy3
-
-addons:
-  apt:
-    packages:
-      - liblua5.2-dev
 
 cache:
   directories:
@@ -23,32 +15,20 @@ branches:
   except:
     - topic/rewrite_phantomjs
     - topic/rewrite_phantomjs_2
+    - topic/modernize_2016
 
 
 # command to install dependencies
 install:
-  - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' ]]; then
-      travis_retry pip install -q -r requirements.txt;
-    else
-      travis_retry pip install -q -r requirements-pypy.txt;
-    fi
-  - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' ]]; then
-      pip install -q git+https://github.com/bastibe/lunatic-python.git@f3f68d2c8638c6f423912264aeb750f5f7eb14ee#egg=lunatic-python;
-    fi
+  - travis_retry pip install -q -r requirements.txt;
   - travis_retry pip install -q coverage python-coveralls warcat youtube-dl
 
 
 # command to run tests
 script:
   - pip install . -t thematrix/ --no-dependencies
-  - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' && $TRAVIS_PYTHON_VERSION != '3.2' ]]; then
-      cd thematrix/ && nosetests --with-coverage --cover-package=wpull --cover-branches;
-    else
-      cd thematrix/ && nosetests;
-    fi
+  - cd thematrix/ && nosetests --with-coverage --cover-package=wpull --cover-branches
 
 
 after_success:
-  - if [[ $TRAVIS_PYTHON_VERSION != 'pypy3' && $TRAVIS_PYTHON_VERSION != '3.2' ]]; then
-      coveralls;
-    fi
+  - coveralls

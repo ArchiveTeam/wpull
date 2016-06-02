@@ -5,17 +5,16 @@ import itertools
 import logging
 import re
 
+import wpull.util
 from wpull.backport.logging import BraceMessage as __
 from wpull.document.html import HTMLReader
 from wpull.document.htmlparse.element import Element
 from wpull.document.util import detect_response_encoding
-from wpull.item import LinkType
+from wpull.pipeline.item import LinkType
 from wpull.scraper.base import BaseHTMLScraper, ScrapeResult, LinkContext
 from wpull.scraper.util import urljoin_safe, clean_link_soup, parse_refresh, \
     is_likely_inline, is_likely_link, is_unlikely_link, identify_link_type
 from wpull.url import percent_decode
-import wpull.util
-
 
 _ = gettext.gettext
 _logger = logging.getLogger(__name__)

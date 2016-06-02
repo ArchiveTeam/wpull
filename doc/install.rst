@@ -7,9 +7,8 @@ Requirements
 
 Wpull requires the following:
 
-* `Python 3.2 or greater <http://python.org/download/>`_
+* `Python 3.4.3 or greater <http://python.org/download/>`_
 * `Tornado <https://pypi.python.org/pypi/tornado>`_
-* `Trollius <https://pypi.python.org/pypi/trollius>`_
 * `html5lib <https://pypi.python.org/pypi/html5lib>`_
 
   * Or `lxml <https://pypi.python.org/pypi/lxml>`_ for faster
@@ -25,8 +24,6 @@ Wpull requires the following:
 The following are optional:
 
 * `psutil` for monitoring disk space
-* `Lunatic Python (bastibe version)
-  <https://github.com/bastibe/lunatic-python>`_ for Lua support
 * `Manhole <https://pypi.python.org/pypi/manhole>`_ for a REPL debugging socket
 * `PhantomJS <http://phantomjs.org/>`_ for capturing interactive
   JavaScript pages
@@ -94,12 +91,10 @@ Python
 ++++++
 
 Please obtain the latest Python release from http://python.org/download/
-or your package manager. It is recommended to use Python 3.3 or greater.
-Versions 3.2, 3.3, 3.4 are officially supported.
+or your package manager. It is recommended to use Python 3.4.3 or greater.
+Versions 3.4 and 3.4 are officially supported.
 
-PyPy 2.3.1 (Python 3.2 implementation) is supported.
-
-Python 2 is not supported.
+Python 2 and PyPy are not supported.
 
 
 lxml
@@ -119,38 +114,6 @@ If pip is not installed on your system yet, please follow the instructions
 at http://www.pip-installer.org/en/latest/installing.html to install
 pip. Note for Linux users, ensure you are executing the appropriate
 Python version when installing pip.
-
-
-Lua Scripting
-+++++++++++++
-
-To enable optional Lua scripting support, Lunatic Python (bastibe version)
-can be installed using pip::
-
-    pip3 install git+https://github.com/bastibe/lunatic-python.git#egg=lunatic-python
-
-.. Note:: At time of writing, Lunatic Python uses Lua 5.2. If you desire a
-   different version of Lua, please see below.
-
-   At time of writing, Lunatic Python does not support Python 3.2.
-
-   The version of Lunatic Python in the Python Package Index (PyPI)
-   is out of date.
-
-
-Specify Lua version
--------------------
-
-Download lunatic-python from https://github.com/bastibe/lunatic-python using
-the "Download ZIP" link or ``git clone``.
-
-Inside ``setup.py``, edit ``LUAVERSION`` to reflect the current Lua library
-installed. On Debian/Ubuntu it is known by ``libluaX.Y-dev``.
-
-Run pip to install Lunatic Python with ``LOCATION`` replaced with the
-location of the Lunatic Python source code.::
-
-    pip install LOCATION
 
 
 PhantomJS (Optional)

@@ -28,16 +28,16 @@ StrictVersion(version)
 
 PROJECT_PACKAGES = [
     'wpull',
-    'wpull.abstract',
+    'wpull.protocol.abstract',
     'wpull.backport',
     'wpull.coprocessor',
     'wpull.database',
     'wpull.document',
     'wpull.document.htmlparse',
     'wpull.driver',
-    'wpull.ftp',
-    'wpull.ftp.ls',
-    'wpull.http',
+    'wpull.protocol.ftp',
+    'wpull.protocol.ftp.ls',
+    'wpull.protocol.http',
     'wpull.processor',
     'wpull.proxy',
     'wpull.recorder.',
@@ -76,8 +76,6 @@ setup_kwargs = dict(
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.2',
-        'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Topic :: Internet :: File Transfer Protocol (FTP)',
         'Topic :: Internet :: WWW/HTTP',
@@ -88,56 +86,19 @@ setup_kwargs = dict(
 )
 
 setup_kwargs['install_requires'] = [
-    'tornado', 'trollius', 'chardet', 'sqlalchemy',
-    'namedlist', 'html5lib', 'dnspython3',
+    'chardet',
+    'dnspython3',
+    'html5lib',
+    'namedlist',
+    'sqlalchemy',
+    'tornado',
+    'yapsy',
 ]
 
+if sys.version_info < (3, 5):
+    setup_kwargs['install_requires'].append('typing')
+
 setup_kwargs['scripts'] = ['scripts/wpull', 'scripts/wpull3']
-
-
-if os.environ.get('USE_CX_FREEZE'):
-    from cx_Freeze import setup, Executable
-
-    wpull_package_dir = '.'
-    wpull_package_src_dir = './wpull/'
-
-    sys.path.insert(0, os.path.dirname(wpull_package_dir))
-
-    extension = '.exe' if platform.system() == 'Windows' else ''
-
-    setup_kwargs['executables'] = [
-        Executable(
-            os.path.join(wpull_package_src_dir, '__main__.py'),
-            targetName='wpull' + extension,
-            shortcutName='Wpull ' + version,
-        )
-    ]
-    setup_kwargs['options'] = {
-        'build_exe': {
-            'includes': [
-                'lxml._elementpath',
-                'sqlalchemy.dialects.sqlite',
-            ],
-            'zip_includes': [
-                (os.path.join(wpull_package_src_dir, 'cert', 'ca-bundle.pem'),
-                 'wpull/cert/ca-bundle.pem'),
-            ],
-            'include_files': [
-                (
-                    os.path.join(wpull_package_src_dir, 'driver', 'phantomjs.js'),
-                    'phantomjs.js'
-                ),
-                (
-                    os.path.join(wpull_package_src_dir, 'proxy', 'proxy.crt'),
-                    'proxy.crt'
-                ),
-                (
-                    os.path.join(wpull_package_src_dir, 'proxy', 'proxy.key'),
-                    'proxy.key'
-                ),
-            ]
-        }
-    }
 
 
 if __name__ == '__main__':

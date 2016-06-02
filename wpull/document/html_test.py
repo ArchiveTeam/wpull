@@ -1,3 +1,4 @@
+import codecs
 import io
 import unittest
 
@@ -5,7 +6,7 @@ from wpull.document.base_test import CODEC_NAMES, EBCDIC
 from wpull.document.html import HTMLReader
 from wpull.document.htmlparse.element import Element
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
-from wpull.http.request import Request, Response
+from wpull.protocol.http.request import Request, Response
 from wpull.url import URLInfo
 from wpull.util import IS_PYPY
 
@@ -101,7 +102,15 @@ class Mixin(object):
 
     def test_html_encoding(self):
         html_parser = self.get_html_parser()
+        is_lxml = isinstance(html_parser, LxmlHTMLParser)
         reader = HTMLReader(html_parser)
+
+        bom_map = {
+            'utf_16_le': codecs.BOM_UTF16_LE,
+            'utf_16_be': codecs.BOM_UTF16_BE,
+            'utf_32_le': codecs.BOM_UTF32_LE,
+            'utf_32_be': codecs.BOM_UTF32_BE,
+        }
 
         for name in CODEC_NAMES:
             if name in EBCDIC or name == 'utf_8_sig':
@@ -109,12 +118,14 @@ class Mixin(object):
                 # compatable
                 continue
 
-            if name.endswith('_le') or name.endswith('_be'):
-                # XXX: Assume BOM is always included
+            if is_lxml and (name.startswith('utf_16') or name.startswith('utf_32')):
+                # FIXME: libxml/lxml doesn't like it when we pass in a codec
+                # name but don't specify the endian but BOM is included
                 continue
 
-            print(name)
-            data = io.BytesIO('<img>'.encode(name))
+            print('->', name)
+
+            data = io.BytesIO( bom_map.get(name, b'') +'<img>'.encode(name))
             elements = tuple(reader.iter_elements(data, encoding=name))
 
             html_element = elements[0]

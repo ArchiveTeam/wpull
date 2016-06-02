@@ -4,32 +4,38 @@
 import time
 import unittest
 
+from wpull.database.base import NotFound, AddURLInfo
 from wpull.database.sqltable import SQLiteURLTable
-from wpull.item import Status
-from wpull.database.base import NotFound
+from wpull.pipeline.item import Status, URLProperties, URLResult
 
 
 class TestDatabase(unittest.TestCase):
-    def test_sqlite_url_table(self):
-        url_table = SQLiteURLTable(':memory:')
-        self._generic_url_table_tester(url_table)
+    def get_url_table(self):
+        return SQLiteURLTable(':memory:')
 
-    def _generic_url_table_tester(self, url_table):
+    def test_url_add_and_update(self):
+        url_table = self.get_url_table()
+
         urls = [
             'http://example.com',
             'http://example.com/kitteh',
             'http://example.com/doge',
         ]
+        url_properties = URLProperties()
+        url_properties.parent_url = 'http://example.com'
+        url_properties.level = 0
+        url_properties.root_url = 'http://example.net'
+
         url_table.add_many(
-            [{'url': url} for url in urls],
-            referrer='http://example.com', level=0,
-            top_url='http://example.net',
+            [AddURLInfo(url, url_properties, None) for url in urls],
+
         )
 
         self.assertTrue(url_table.contains(urls[0]))
         self.assertTrue(url_table.contains(urls[1]))
         self.assertTrue(url_table.contains(urls[2]))
         self.assertEqual(3, url_table.count())
+        self.assertEqual(3, url_table.get_root_url_todo_count())
 
         for i in range(3):
             url_record = url_table.get_one(urls[i])
@@ -37,8 +43,8 @@ class TestDatabase(unittest.TestCase):
             self.assertEqual(urls[i], url_record.url)
             self.assertEqual(Status.todo, url_record.status)
             self.assertEqual(0, url_record.try_count)
-            self.assertEqual('http://example.com', url_record.referrer)
-            self.assertEqual('http://example.net', url_record.top_url)
+            self.assertEqual('http://example.com', url_record.parent_url)
+            self.assertEqual('http://example.net', url_record.root_url)
 
         url_record = url_table.check_out(
             Status.todo,
@@ -46,19 +52,25 @@ class TestDatabase(unittest.TestCase):
 
         self.assertEqual(Status.in_progress, url_record.status)
 
+        url_result = URLResult()
+        url_result.status_code = 200
+
         url_table.check_in(url_record.url, Status.done,
-                           increment_try_count=True, status_code=200)
+                           increment_try_count=True, url_result=url_result)
 
         url_record = url_table.get_one(url_record.url)
 
         self.assertEqual(200, url_record.status_code)
         self.assertEqual(Status.done, url_record.status)
         self.assertEqual(1, url_record.try_count)
+        self.assertEqual(2, url_table.get_root_url_todo_count())
 
-        url_record_dict = url_record.to_dict()
-        self.assertEqual(200, url_record_dict['status_code'])
-        self.assertEqual(Status.done, url_record_dict['status'])
-        self.assertEqual(1, url_record_dict['try_count'])
+        hostnames = tuple(url_table.get_hostnames())
+        self.assertEqual(1, len(hostnames))
+        self.assertEqual('example.com', hostnames[0])
+
+    def test_warc_visits(self):
+        url_table = self.get_url_table()
 
         self.assertFalse(
             url_table.get_revisit_id('http://example.com/1', 'digest123')
@@ -87,51 +99,3 @@ class TestDatabase(unittest.TestCase):
             url_table.get_revisit_id('http://example.com/asdf', 'digest123')
         )
 
-    @unittest.skip('travis ci is slow')
-    def test_performance(self):
-        url_table = SQLiteURLTable(':memory:')
-
-        urls = [{'url': 'http://example.com/{}'.format(i)} for i in range(1000)]
-
-        time_start = time.time()
-        url_table.add_many(urls, level=0, status=Status.todo)
-        time_end = time.time()
-
-        time_diff = time_end - time_start
-
-        print(time_diff)
-        self.assertGreaterEqual(0.1, time_diff)
-
-    @unittest.skip('for debugging')
-    def test_large_table(self):
-        time_start = time.time()
-        url_table = SQLiteURLTable(':memory:')
-
-        for num in range(1000):
-            urls = []
-            for num_2 in range(100):
-                urls.append('http://example.com/{}{}'.format(num, num_2))
-
-            url_table.add_many(
-                [{'url': url} for url in urls],
-                referrer='http://example.com', level=0,
-                top_url='http://example.net')
-
-        time_end = time.time()
-        time_diff = time_end - time_start
-
-        print(time_diff)
-
-        while True:
-            time_start = time.time()
-            try:
-                url_record = url_table.check_out(Status.todo)
-            except NotFound:
-                break
-
-            url_table.check_in(url_record.url, Status.done)
-
-            time_end = time.time()
-            time_diff = time_end - time_start
-
-            print(time_diff)

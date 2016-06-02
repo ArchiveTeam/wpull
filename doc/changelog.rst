@@ -6,9 +6,19 @@ Summary of notable changes.
 
 .. Take advice from http://keepachangelog.com/.
 
+Unreleased
+==========
+
+* Removed: Lua scripting support.
+* Removed: Python 3.2 & 3.3 support.
+* Removed: PyPy support.
+* Changed: IP addresses are normalized to a standard notation to avoid fetching duplicates such as IPv4 addresses written in hexadecimal or long-hand IPv6 addresses.
+
+
 1.2.3 (2016-02-03)
 ==================
 
+* Removed: cx_freeze build support.
 * Deprecated: Lua Scripting support will be removed in next release.
 * Deprecated: Python 3.2 & 3.3 support will be removed in the next release.
 * Deprecated: PyPy support will be removed in the next release.

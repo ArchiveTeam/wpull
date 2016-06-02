@@ -1,8 +1,6 @@
 import contextlib
 import os
 
-from trollius.coroutines import From, Return
-
 from wpull.driver.phantomjs import PhantomJSDriver, PhantomJSDriverParams
 from wpull.testing.goodapp import GoodAppTestCase
 import wpull.testing.async
@@ -39,8 +37,8 @@ class TestPhantomJS(GoodAppTestCase, TempDirMixin):
 
         driver = PhantomJSDriver(params=params)
 
-        yield From(driver.start())
-        yield From(driver.process.wait())
+        yield from driver.start()
+        yield from driver.process.wait()
 
         self.assertEqual(0, driver.process.returncode)
 
