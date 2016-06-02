@@ -477,6 +477,29 @@ class NullWriter(BaseWriter):
         return NullWriterSession()
 
 
+class MuxBody(Body):
+    def __init__(self, stream: BinaryIO, **kwargs):
+        super().__init__(**kwargs)
+        self._stream = stream
+
+    def write(self, data: bytes) -> int:
+        self._stream.write(data)
+        return super().__getattr__('write')(data)
+
+    def writelines(self, lines):
+        for line in lines:
+            self._stream.write(line)
+        return super().__getattr__('writelines')(lines)
+
+    def flush(self):
+        self._stream.flush()
+        return super().__getattr__('flush')()
+
+    def close(self):
+        self._stream.close()
+        return super().__getattr__('close')()
+
+
 class SingleDocumentWriterSession(BaseWriterSession):
     def __init__(self, stream: BinaryIO, headers_included: bool):
         self._stream = stream
@@ -489,15 +512,18 @@ class SingleDocumentWriterSession(BaseWriterSession):
         if self._headers_included and isinstance(response, SerializableMixin):
             self._stream.write(response.to_bytes())
 
-        response.body = Body(self._stream)
+        if not self._stream.readable():
+            response.body = MuxBody(self._stream)
+        else:
+            response.body = Body(self._stream)
 
         return response
 
     def discard_document(self, response):
-        pass
+        response.body.flush()
 
     def save_document(self, response):
-        pass
+        response.body.flush()
 
     def extra_resource_path(self, suffix):
         pass
