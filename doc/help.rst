@@ -56,15 +56,10 @@ Check that you have the options correct. In most cases, it is a misunderstanding
 
 Otherwise if Wpull is not doing what you want, please visit the `issue tracker
 <https://github.com/chfoo/wpull/issues>`_ and see if your issue is there.
-If not, please inform the developers by creating a new issue. Include
-details of your computer including:
+If not, please inform the developers by creating a new issue.
 
-* What you want, what you expect, what happened.
-* The command or website causes the problem
-* Operating system
-* Python version
-* Wpull version
-* A copy and paste of what Wpull prints out
+When you open a new issue, GitHub provides a link to the guidelines
+document. Please read it to learn how to file a good bug report.
 
 
 How can I chat or ask a question?
