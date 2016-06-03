@@ -5,7 +5,7 @@ Thank you for your interest in contributing!
 
 
 Issues
-++++++
+------
 
 Hopefully you are arriving from
 [the documentation](https://wpull.readthedocs.io/). If not, please take
@@ -34,14 +34,13 @@ When you file an issue, a template should appear for you to fill out.
 
 
 Pull requests
-+++++++++++++
+-------------
 
 If you are planning to fix a bug or add a feature, please take some
 time to review this section.
 
 
-Code convention
----------------
+### Code convention
 
 Please follow the [PEP8](https://www.python.org/dev/peps/pep-0008/)
 conventions whenever possible. 
@@ -53,8 +52,7 @@ bug fixes or features. This will help make Git's blame feature easier
 use.
 
 
-Commits and commit messages
----------------------------
+### Commits and commit messages
 
 Please don't PR a single huge commit or hundreds of commits. Do your
 best to group changes logically.
@@ -64,8 +62,7 @@ a short title describing the changes and then add an optional paragraph
 describing why you made those changes.
 
 
-Branch model
-------------
+### Branch model
 
 This project is still small but we intend to follow 
 [nvie's git branching model]
@@ -94,8 +91,7 @@ feature to avoid any rejection and disappointment.
 One branch per bug/feature. Don't stack PR on top of other PR branches!
 
 
-Making the PR
-+++++++++++++
+### Making the PR
 
 When you file a pull request, a template will appear reminding you
 of this document. It will also remind you to:
