@@ -188,7 +188,7 @@ class Pipeline(object):
     def process(self):
         if self._state == PipelineState.stopped:
             self._state = PipelineState.running
-            self._producer_task = asyncio.ensure_future(self._run_producer_wrapper())
+            self._producer_task = asyncio.get_event_loop().create_task(self._run_producer_wrapper())
             self._unpaused_event.set()
 
         while self._state == PipelineState.running:
@@ -202,7 +202,7 @@ class Pipeline(object):
 
         while len(self._worker_tasks) < self._concurrency:
             _logger.debug('Creating worker')
-            worker_task = asyncio.ensure_future(self._worker.process())
+            worker_task = asyncio.get_event_loop().create_task(self._worker.process())
             self._worker_tasks.add(worker_task)
 
         if self._worker_tasks:
