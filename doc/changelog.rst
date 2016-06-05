@@ -15,8 +15,19 @@ Unreleased
 * Changed: IP addresses are normalized to a standard notation to avoid fetching duplicates such as IPv4 addresses written in hexadecimal or long-hand IPv6 addresses.
 * Changed: Scripting is now done using plugin interface via ``--plugin-script``.
 
-This release contains backwards incompatible changes to the scripting
-interface.
+
+Backwards incompatibility
++++++++++++++++++++++++++
+
+This release contains backwards incompatible changes to the database
+schema and scripting interface.
+
+If you use ``--database``, the database created by older versions in
+Wpull cannot be used in this version.
+
+Scripting hook code will need to be rewritten to use the new API. See
+the new documentation for scripting for the new style of interfacing
+with Wpull.
 
 
 1.2.3 (2016-02-03)

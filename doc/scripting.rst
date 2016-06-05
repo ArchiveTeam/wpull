@@ -42,11 +42,7 @@ Interfaces
 The global hooks and events constants are located at
 :py:class:`wpull.application.plugin.PluginFunctions`.
 
-TODO: document the hooks available
-
-The module providing the interface for user plugins is located
-at :py:mod:`wpull.application.plugin` and the interface for code
-is located at :py:mod:`wpull.application.hook`.
+.. include:: scripting_interfaces_include.rst
 
 Example
 +++++++
@@ -61,7 +57,4 @@ Here is a example Python script. It refuses to download anything with the word "
         @hook(PluginFunctions.accept_url)
         def my_accept_func(self, item_session: ItemSession, verdict: bool, reasons: dict) -> bool:
             return 'dog' not in item_session.request.url
-
-
-For an example, see `ArchiveBot's scripting hook file <https://github.com/ArchiveTeam/ArchiveBot/blob/065b0cc2549224f72a16cd3611fffb2050962c74/pipeline/wpull_hooks.py>`_.
 
