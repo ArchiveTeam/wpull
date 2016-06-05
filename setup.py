@@ -73,6 +73,7 @@ setup_kwargs = dict(
         'testing/*/*.js',
         'testing/*/*.png',
         'testing/*/*.xml',
+        'testing/*.pem',
         'driver/*.js',
         'proxy/proxy.crt',
         'proxy/proxy.key',
