@@ -27,6 +27,10 @@ UNIX_LS_DATELIKE_FILE = '''-rw-r--r--    1 500      500       1558532 Dec 30  20
 -rw-r--r--    1 500      500      10564020 Jan 14  2010 2010-01
 '''
 
+UNIX_LS_DATELIKE_FILE_2 = '''-rw-r--r--    1 1000     100        242408 Mar 24  2010 english_german.2010-03-24.tar.gz
+drwxr-xr-x    2 1000     100          4096 Mar 24  2010 old
+'''
+
 NLST_LS = '''horse.txt
 fish
 dolphin.jpg
@@ -40,6 +44,7 @@ MVS_LS = '''  WYOSPT 3420   2003/05/21  1  200  FB      80  8053  PS  48-MVS.FIL
   TSO005 3390   2005/06/06 213000 U 0 27998 PO 51-mvs-dir
   NRP004 3390   **NONE**    1   15  NONE     0     0  PO  52-MVS-NONEDATE.DATASET
 '''
+
 
 
 class TestListing(unittest.TestCase):
@@ -177,6 +182,24 @@ class TestListing(unittest.TestCase):
                 FileEntry('2010-01', 'file', 10564020,
                           date_factory(2010, 1, 14),
                           perm=0o644),
+            ],
+            results
+        )
+
+    def test_parse_unix_datelike_file_2(self):
+        parser = ListingParser(UNIX_LS_DATELIKE_FILE_2)
+        results = list(parser.parse_input())
+        date_factory = functools.partial(datetime.datetime,
+                                         tzinfo=datetime.timezone.utc)
+
+        self.assertEqual(
+            [
+                FileEntry('english_german.2010-03-24.tar.gz', 'file', 242408,
+                          date_factory(2010, 3, 24),
+                          perm=0o644),
+                FileEntry('old', 'dir', 4096,
+                          date_factory(2010, 3, 24),
+                          perm=0o755),
             ],
             results
         )

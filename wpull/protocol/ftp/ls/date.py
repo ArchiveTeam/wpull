@@ -163,19 +163,20 @@ def guess_datetime_format(lines: Iterable[str], threshold: int=5) \
 
         if ISO_8601_DATE_PATTERN.search(line):
             date_ymd_score += 1
-        elif MMM_DD_YY_PATTERN.search(line):
+
+        if MMM_DD_YY_PATTERN.search(line):
             date_mdy_score += 1
-        else:
-            match = NN_NN_NNNN_PATTERN.search(line)
 
-            if match:
-                num_1 = int(match.group(1))
-                num_2 = int(match.group(2))
+        match = NN_NN_NNNN_PATTERN.search(line)
 
-                if num_1 > 12:
-                    date_dmy_score += 1
-                elif num_2 > 12:
-                    date_mdy_score += 1
+        if match:
+            num_1 = int(match.group(1))
+            num_2 = int(match.group(2))
+
+            if num_1 > 12:
+                date_dmy_score += 1
+            elif num_2 > 12:
+                date_mdy_score += 1
 
         time_score = time_12_score + time_24_score
         date_score = date_ymd_score + date_dmy_score + date_mdy_score
