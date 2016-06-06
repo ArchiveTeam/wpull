@@ -19,3 +19,5 @@ Please fill this or delete as needed. You can use toolbar and preview feature lo
 ```
 Copy a snippet of the log or what Wpull outputs here
 ```
+
+or attach the file. Include any sample files too.

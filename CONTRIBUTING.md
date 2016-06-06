@@ -28,7 +28,7 @@ Concisely, we need to know:
 * Commands to reproduce the issue
 * Program versions
 * Your computer details
-* Debugging output
+* Debugging output and sample files
 
 When you file an issue, a template should appear for you to fill out.
 
