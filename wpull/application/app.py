@@ -121,7 +121,7 @@ class Application(HookableMixin):
             if self._current_pipeline:
                 self._current_pipeline.stop()
 
-    def run_sync(self):
+    def run_sync(self) -> int:
         '''Run the application.
 
         This function is blocking.
@@ -129,7 +129,9 @@ class Application(HookableMixin):
         Returns:
             int: The exit status.
         '''
-        return asyncio.get_event_loop().run_until_complete(self.run())
+        exit_status = asyncio.get_event_loop().run_until_complete(self.run())
+        asyncio.get_event_loop().close()
+        return exit_status
 
     @asyncio.coroutine
     def run(self):
