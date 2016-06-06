@@ -9,7 +9,6 @@ from typing import Optional, Sequence, TypeVar, Generic, Iterator, Tuple, Set
 from wpull.backport.logging import BraceMessage as __
 
 _logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
 
 POISON_PILL = object()
 ITEM_PRIORITY = 1
