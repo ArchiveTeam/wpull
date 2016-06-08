@@ -4,7 +4,7 @@ import abc
 import fnmatch
 import re
 
-from typing import List
+from typing import List, Iterator
 
 from wpull.pipeline.item import URLRecord
 from wpull.url import URLInfo, schemes_similar, is_subdir
@@ -20,8 +20,8 @@ class BaseURLFilter(object, metaclass=abc.ABCMeta):
         '''Return whether the URL should be downloaded.
 
         Args:
-            url_info:
-            url_record:
+            url_info: URL to be tested.
+            url_record: Fetch metadata about the URL.
 
         Returns:
            If True, the filter passed and the URL should be downloaded.
@@ -30,17 +30,17 @@ class BaseURLFilter(object, metaclass=abc.ABCMeta):
 
 class DemuxURLFilter(BaseURLFilter):
     '''Puts multiple url filters into one.'''
-    def __init__(self, url_filters):
+    def __init__(self, url_filters: Iterator[BaseURLFilter]):
         self._url_filters = url_filters
 
     @property
-    def url_filters(self) -> List[BaseURLFilter]:
+    def url_filters(self) -> Iterator[BaseURLFilter]:
         return self._url_filters
 
     def test(self, url_info, url_table_record):
         return self.test_info(url_info, url_table_record)['verdict']
 
-    def test_info(self, url_info, url_table_record):
+    def test_info(self, url_info, url_table_record) -> dict:
         '''Returns info about which filters passed or failed.
 
         Returns:

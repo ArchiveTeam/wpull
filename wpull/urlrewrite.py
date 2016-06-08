@@ -1,14 +1,17 @@
 '''URL rewriting.'''
 import re
-from wpull.url import parse_url_or_log
+from wpull.url import parse_url_or_log, URLInfo
 
 
 class URLRewriter(object):
-    def __init__(self, hash_fragment=False, session_id=False):
+    '''Clean up URLs.'''
+
+    def __init__(self, hash_fragment: bool=False, session_id: bool=False):
         self._hash_fragment_enabled = hash_fragment
         self._session_id_enabled = session_id
 
-    def rewrite(self, url_info):
+    def rewrite(self, url_info: URLInfo) -> URLInfo:
+        '''Rewrite the given URL.'''
         if url_info.scheme not in ('http', 'https'):
             return url_info
 
