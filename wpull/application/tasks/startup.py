@@ -1,14 +1,8 @@
 import gettext
 import logging
 import asyncio
-import socket
-import atexit
-
-import tornado.web
-import tornado.httpserver
 
 from wpull.backport.logging import BraceMessage as __
-from wpull.debug import DebugConsoleHandler
 from wpull.pipeline.pipeline import ItemTask
 from wpull.pipeline.app import AppSession
 
@@ -83,27 +77,3 @@ class ArgWarningTask(ItemTask[AppSession]):
             _logger.warning(
                 _('Your password is recorded in the WARC file.'))
 
-
-class DebugConsoleSetupTask(ItemTask[AppSession]):
-    @asyncio.coroutine
-    def process(self, session: AppSession):
-        if session.args.debug_console_port is None:
-            return
-
-        application = tornado.web.Application(
-            [(r'/', DebugConsoleHandler)],
-            builder=self
-        )
-        sock = socket.socket()
-        sock.bind(('localhost', session.args.debug_console_port))
-        sock.setblocking(0)
-        sock.listen(1)
-        http_server = tornado.httpserver.HTTPServer(application)
-        http_server.add_socket(sock)
-
-        _logger.warning(__(
-            _('Opened a debug console at localhost:{port}.'),
-            port=sock.getsockname()[1]
-        ))
-
-        atexit.register(sock.close)
