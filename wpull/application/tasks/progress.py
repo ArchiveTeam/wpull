@@ -27,10 +27,10 @@ class ProgressSetupTask(ItemTask[AppSession]):
             if not stream.isatty():
                 bar_style = False
 
-            if bar_style == 'dot':
-                session.factory.set('Progress', DotProgress)
-            else:
+            if bar_style:
                 session.factory.set('Progress', BarProgress)
+            else:
+                session.factory.set('Progress', DotProgress)
 
             progress = session.factory.new('Progress', stream=stream)
 
@@ -63,6 +63,10 @@ class ProgressSetupTask(ItemTask[AppSession]):
         http_session.event_dispatcher.add_listener(
             HTTPSession.Event.end_response,
             progress.update_from_end_response)
+        http_session.event_dispatcher.add_listener(
+            HTTPSession.Event.response_data,
+            progress.update_with_data
+        )
 
     @classmethod
     def ftp_session_callback(cls, progress: ProtocolProgress, ftp_session: FTPSession):
@@ -76,3 +80,7 @@ class ProgressSetupTask(ItemTask[AppSession]):
         ftp_session.event_dispatcher.add_listener(
             FTPSession.Event.end_transfer,
             progress.update_from_end_response)
+        ftp_session.event_dispatcher.add_listener(
+            FTPSession.Event.transfer_receive_data,
+            progress.update_with_data
+        )

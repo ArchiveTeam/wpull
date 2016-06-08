@@ -1,6 +1,7 @@
 import datetime
 import enum
 import gettext
+import logging
 import sys
 import time
 import itertools
@@ -38,6 +39,7 @@ class Progress(HookableMixin):
         super().__init__()
 
         self._stream = stream
+
         self.min_value = 0
         self.max_value = None
         self.current_value = 0
@@ -49,18 +51,42 @@ class Progress(HookableMixin):
     def update(self):
         self.event_dispatcher.notify('update', self)
 
+    def reset(self):
+        self.min_value = 0
+        self.max_value = None
+        self.current_value = 0
+        self.continue_value = None
+        self.measurement = Measurement.integer
+
 
 class ProtocolProgress(Progress):
+    class State(enum.Enum):
+        idle = 'idle'
+        sending_request = 'sending_request'
+        sending_body = 'sending_body'
+        receiving_response = 'receiving_response'
+        receiving_body = 'receiving_body'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._state = self.State.sending_request
+
     def update_from_begin_request(self, request: BaseRequest):
-        pass
+        self._state = self.State.sending_request
+
+        self.reset()
+        self.measurement = Measurement.bytes
 
     def update_from_begin_response(self, response: BaseResponse):
-        pass
+        self._state = self.State.receiving_body
+
+        self._process_response_sizes(response)
 
     def update_from_end_response(self, response: BaseResponse):
-        pass
+        self._state = self.State.idle
 
-    def _process_response_continue_value(self, response: BaseResponse):
+    def _process_response_sizes(self, response: BaseResponse):
         if hasattr(response, 'fields'):
             content_length = response.fields.get('Content-Length')
         elif hasattr(response, 'file_transfer_size'):
@@ -95,8 +121,9 @@ class ProtocolProgress(Progress):
                 self.continue_value = response.restart_value
 
     def update_with_data(self, data):
-        self.current_value += len(data)
-        self.update()
+        if self._state == self.State.receiving_body:
+            self.current_value += len(data)
+            self.update()
 
 
 class ProgressPrinter(ProtocolProgress):
@@ -117,42 +144,9 @@ class ProgressPrinter(ProtocolProgress):
         '''Flush the print stream.'''
         self._stream.flush()
 
-    def update_from_begin_request(self, request: BaseRequest):
-        super().update_from_begin_request(request)
-        self._println()
-        self._print(
-            _('Fetch {url}... ').format(url=request.url_info.url),
-        )
-        self._flush()
-
-    def update_from_begin_response(self, response: BaseResponse):
-        super().update_from_begin_response(response)
-
-        self._println(response.response_code(),
-                      wpull.string.printable_str(response.response_message()))
-
-        if hasattr(response, 'fields'):
-            content_type = response.fields.get('Content-Type')
-        else:
-            content_type = None
-
-        self._println(
-            _('  Length: {content_length} [{content_type}]').format(
-                content_length=self.max_value or _('unspecified'),
-                content_type=wpull.string.printable_str(
-                    content_type or _('unspecified')
-                )
-            ),
-        )
-
     def update_from_end_response(self, response: BaseResponse):
         super().update_from_end_response(response)
 
-        self._println()
-        self._println(
-            _('  Bytes received: {bytes_received}').format(
-                bytes_received=self.current_value)
-        )
         self._println()
 
 
@@ -165,6 +159,9 @@ class DotProgress(ProgressPrinter):
 
     def update(self):
         super().update()
+
+        if self._state != self.State.receiving_body:
+            return
 
         time_now = time.time()
 
@@ -199,13 +196,19 @@ class BarProgress(ProgressPrinter):
         self._start_time = time.time()
 
     def update(self):
+        super().update()
+
+        if self._state != self.State.receiving_body:
+            return
+
         difference = self.current_value - self._previous_value
+        self._previous_value = self.current_value
 
         self._bandwidth_meter.feed(difference)
 
         time_now = time.time()
 
-        if time_now - self._last_draw_time > self._draw_interval:
+        if time_now - self._last_draw_time > self._draw_interval or self.current_value == self.max_value:
             self._print_status()
             self._flush()
 
