@@ -15,7 +15,6 @@ from wpull.application.tasks.download import ProcessTask, ParserSetupTask, Clien
 from wpull.application.tasks.log import LoggingSetupTask, LoggingShutdownTask
 from wpull.application.tasks.network import NetworkSetupTask
 from wpull.application.tasks.plugin import PluginSetupTask
-from wpull.application.tasks.progress import ProgressSetupTask
 from wpull.application.tasks.resmon import ResmonSetupTask, ResmonSleepTask
 from wpull.application.tasks.rule import URLFiltersSetupTask, \
     URLFiltersPostURLImportSetupTask
@@ -41,7 +40,6 @@ from wpull.network.pool import ConnectionPool
 from wpull.path import PathNamer
 from wpull.pipeline.app import AppSource, AppSession
 from wpull.pipeline.pipeline import Pipeline, PipelineSeries
-from wpull.pipeline.progress import Progress
 from wpull.pipeline.session import URLItemSource
 from wpull.processor.coprocessor.phantomjs import PhantomJSCoprocessor
 from wpull.processor.coprocessor.proxy import ProxyCoprocessor
@@ -116,7 +114,6 @@ class Builder(object):
             'Processor': DelegateProcessor,
             'ProxyCoprocessor': ProxyCoprocessor,
             'ProxyHostFilter': ProxyHostFilter,
-            'Progress': Progress,
             'RedirectTracker': RedirectTracker,
             'Request': Request,
             'Resolver': Resolver,
@@ -181,7 +178,6 @@ class Builder(object):
                 ProxyServerSetupTask(),
                 CoprocessorSetupTask(),
                 LinkConversionSetupTask(),
-                ProgressSetupTask(),
                 PluginSetupTask(),
                 InputURLTask(),
                 URLFiltersPostURLImportSetupTask(),
