@@ -19,7 +19,6 @@ from wpull.application.tasks.resmon import ResmonSetupTask, ResmonSleepTask
 from wpull.application.tasks.rule import URLFiltersSetupTask, \
     URLFiltersPostURLImportSetupTask
 from wpull.application.tasks.sslcontext import SSLContextTask
-from wpull.application.tasks.startup import ArgWarningTask
 from wpull.application.tasks.stats import StatsStartTask, StatsStopTask
 from wpull.application.tasks.warc import WARCRecorderSetupTask, \
     WARCRecorderTeardownTask, WARCVisitsTask
@@ -163,7 +162,6 @@ class Builder(object):
                 LoggingSetupTask(),
                 DatabaseSetupTask(),
                 ParserSetupTask(),
-                ArgWarningTask(),
                 WARCVisitsTask(),
                 SSLContextTask(),
                 ResmonSetupTask(),

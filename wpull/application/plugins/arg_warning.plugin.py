@@ -1,23 +1,20 @@
 import gettext
 import logging
-import asyncio
 
 from wpull.backport.logging import BraceMessage as __
-from wpull.pipeline.pipeline import ItemTask
-from wpull.pipeline.app import AppSession
+from wpull.application.plugin import WpullPlugin
 
 _logger = logging.getLogger(__name__)
 _ = gettext.gettext
 
 
-class ArgWarningTask(ItemTask[AppSession]):
+class ArgWarningPlugin(WpullPlugin):
     UNSAFE_OPTIONS = frozenset(['save_headers', 'no_iri', 'output_document',
                                 'ignore_fatal_errors'])
 
-    @asyncio.coroutine
-    def process(self, session: AppSession):
-        self._warn_unsafe_options(session.args)
-        self._warn_silly_options(session.args)
+    def activate(self):
+        self._warn_unsafe_options(self.app_session.args)
+        self._warn_silly_options(self.app_session.args)
 
     @classmethod
     def _warn_unsafe_options(cls, args):
