@@ -70,8 +70,8 @@ class PluginSetupTask(ItemTask[AppSession]):
     @asyncio.coroutine
     def process(self, session: AppSession):
         self._debug_log_registered_hooks(session)
-
-        plugin_locations = [get_package_filename(os.path.join('application', 'plugins'))]
+        internal_plugin_path = get_package_filename(os.path.join('application', 'plugins'))
+        plugin_locations = [internal_plugin_path]
 
         plugin_filenames = []
 
@@ -84,11 +84,18 @@ class PluginSetupTask(ItemTask[AppSession]):
         session.plugin_manager.collectPlugins()
 
         for plugin_info in session.plugin_manager.getAllPlugins():
-            _logger.info(__(
-                _('Found plugin {name} from {filename}.'),
-                filename=plugin_info.path,
-                name=plugin_info.name
-            ))
+            if plugin_info.path.startswith(internal_plugin_path):
+                _logger.debug(__(
+                    _('Found plugin {name} from {filename}.'),
+                    filename=plugin_info.path,
+                    name=plugin_info.name
+                ))
+            else:
+                _logger.info(__(
+                    _('Found plugin {name} from {filename}.'),
+                    filename=plugin_info.path,
+                    name=plugin_info.name
+                ))
 
             plugin_info.plugin_object.app_session = session
 
