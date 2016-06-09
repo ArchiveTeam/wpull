@@ -12,9 +12,9 @@ import re
 import shutil
 import time
 
-from typing import cast, BinaryIO
+from typing import cast, BinaryIO, Optional
 
-from wpull.backport.logging import BraceMessage as __
+from wpull.backport.logging import StyleAdapter
 from wpull.body import Body
 from wpull.document.css import CSSReader
 from wpull.document.html import HTMLReader
@@ -27,14 +27,14 @@ from wpull.protocol.http.request import Response as HTTPResponse
 from wpull.protocol.ftp.request import Response as FTPResponse
 
 _ = gettext.gettext
-_logger = logging.getLogger(__name__)
+_logger = StyleAdapter(logging.getLogger(__name__))
 
 
 class BaseWriter(object, metaclass=abc.ABCMeta):
     '''Base class for document writers.'''
     @abc.abstractmethod
-    def session(self):
-        '''Return an instance of :class:`BaseWriterSession`.'''
+    def session(self) -> 'BaseWriterSession':
+        '''Return a session for a document.'''
 
 
 class BaseWriterSession(object, metaclass=abc.ABCMeta):
@@ -42,9 +42,6 @@ class BaseWriterSession(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def process_request(self, request: BaseRequest) -> BaseRequest:
         '''Rewrite the request if needed.
-
-        Args:
-            request:
 
         This function is called by a Processor after it has created the
         Request, but before submitting it to a Client.
@@ -81,11 +78,8 @@ class BaseWriterSession(object, metaclass=abc.ABCMeta):
         '''
 
     @abc.abstractmethod
-    def extra_resource_path(self, suffix: str) -> str:
+    def extra_resource_path(self, suffix: str) -> Optional[str]:
         '''Return a filename suitable for saving extra resources.
-
-        Returns:
-            str, None
         '''
 
 
@@ -119,8 +113,8 @@ class BaseFileWriterSession(BaseWriterSession):
 
         This function will create the directories if not exist.
         '''
-        _logger.debug(__('Saving file to {0}, mode={1}.',
-                         filename, mode))
+        _logger.debug('Saving file to {0}, mode={1}.',
+                      filename, mode)
 
         dir_path = os.path.dirname(filename)
         if dir_path and not os.path.exists(dir_path):
@@ -199,7 +193,7 @@ class BaseFileWriterSession(BaseWriterSession):
             request.set_continue(size)
             self._file_continue_requested = True
 
-            _logger.debug(__('Continue file from {0}.', size))
+            _logger.debug('Continue file from {0}.', size)
         else:
             _logger.debug('No file to continue.')
 
@@ -444,7 +438,7 @@ class TimestampingFileWriterSession(BaseFileWriterSession):
         else:
             modified_time = None
 
-        _logger.debug(__('Checking for last modified={0}.', modified_time))
+        _logger.debug('Checking for last modified={0}.', modified_time)
 
         if modified_time:
             date_str = email.utils.formatdate(modified_time)
@@ -478,6 +472,7 @@ class NullWriter(BaseWriter):
 
 
 class MuxBody(Body):
+    '''Writes data into a second file.'''
     def __init__(self, stream: BinaryIO, **kwargs):
         super().__init__(**kwargs)
         self._stream = stream
@@ -501,6 +496,7 @@ class MuxBody(Body):
 
 
 class SingleDocumentWriterSession(BaseWriterSession):
+    '''Write all data into stream.'''
     def __init__(self, stream: BinaryIO, headers_included: bool):
         self._stream = stream
         self._headers_included = headers_included
@@ -530,6 +526,7 @@ class SingleDocumentWriterSession(BaseWriterSession):
 
 
 class SingleDocumentWriter(BaseWriter):
+    '''Writer that writes all the data into a single file.'''
     def __init__(self, stream: BinaryIO, headers_included: bool=False):
         self._stream = stream
         self._headers_included = headers_included

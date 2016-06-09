@@ -9,7 +9,7 @@ import asyncio
 
 from typing import cast, Tuple
 
-from wpull.backport.logging import BraceMessage as __
+from wpull.backport.logging import StyleAdapter
 from wpull.body import Body
 from wpull.errors import ProtocolError
 from wpull.application.hook import HookableMixin, Actions
@@ -28,7 +28,7 @@ import wpull.string
 import wpull.util
 
 
-_logger = logging.getLogger(__name__)
+_logger = StyleAdapter(logging.getLogger(__name__))
 _ = gettext.gettext
 
 WebProcessorFetchParams = namedlist.namedtuple(
@@ -200,11 +200,11 @@ class WebProcessorSession(BaseProcessorSession):
             verdict, reason = (yield from self._should_fetch_reason_with_robots(
                 request))
         except REMOTE_ERRORS as error:
-            _logger.error(__(
+            _logger.error(
                 _('Fetching robots.txt for ‘{url}’ '
                   'encountered an error: {error}'),
                 url=self._next_url_info.url, error=error
-            ))
+            )
             self._result_rule.handle_error(self._item_session, error)
 
             wait_time = self._result_rule.get_wait_time(
@@ -212,12 +212,12 @@ class WebProcessorSession(BaseProcessorSession):
             )
 
             if wait_time:
-                _logger.debug('Sleeping {0}.'.format(wait_time))
+                _logger.debug('Sleeping {0}.', wait_time)
                 yield from asyncio.sleep(wait_time)
 
             return False
         else:
-            _logger.debug(__('Robots filter verdict {} reason {}', verdict, reason))
+            _logger.debug('Robots filter verdict {} reason {}', verdict, reason)
 
             if not verdict:
                 self._item_session.skip()
@@ -236,7 +236,7 @@ class WebProcessorSession(BaseProcessorSession):
 
             verdict, reason = self._should_fetch_reason()
 
-            _logger.debug(__('Filter verdict {} reason {}', verdict, reason))
+            _logger.debug('Filter verdict {} reason {}', verdict, reason)
 
             if not verdict:
                 self._item_session.skip()
@@ -245,7 +245,7 @@ class WebProcessorSession(BaseProcessorSession):
             exit_early, wait_time = yield from self._fetch_one(cast(Request, self._item_session.request))
 
             if wait_time:
-                _logger.debug(__('Sleeping {}', wait_time))
+                _logger.debug('Sleeping {}', wait_time)
                 yield from asyncio.sleep(wait_time)
 
             if exit_early:
@@ -260,7 +260,7 @@ class WebProcessorSession(BaseProcessorSession):
         Returns:
             If True, stop processing any future requests.
         '''
-        _logger.info(_('Fetching ‘{url}’.').format(url=request.url))
+        _logger.info(_('Fetching ‘{url}’.'), url=request.url)
 
         response = None
 
@@ -380,7 +380,7 @@ class WebProcessorSession(BaseProcessorSession):
         request.fields['Content-Type'] = 'application/x-www-form-urlencoded'
         request.fields['Content-Length'] = str(len(data))
 
-        _logger.debug(__('Posting with data {0}.', data))
+        _logger.debug('Posting with data {0}.', data)
 
         if not request.body:
             request.body = Body(io.BytesIO())
@@ -390,7 +390,7 @@ class WebProcessorSession(BaseProcessorSession):
 
     def _log_response(self, request: Request, response: Response):
         '''Log response.'''
-        _logger.info(__(
+        _logger.info(
             _('Fetched ‘{url}’: {status_code} {reason}. '
                 'Length: {content_length} [{content_type}].'),
             url=request.url,
@@ -400,7 +400,7 @@ class WebProcessorSession(BaseProcessorSession):
                 response.fields.get('Content-Length', _('unspecified'))),
             content_type=wpull.string.printable_str(
                 response.fields.get('Content-Type', _('unspecified'))),
-        ))
+        )
 
     def _handle_response(self, request: Request, response: Response) -> Actions:
         '''Process the response.

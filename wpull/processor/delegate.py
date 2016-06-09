@@ -5,12 +5,12 @@ import logging
 
 import asyncio
 
-from wpull.backport.logging import BraceMessage as __
+from wpull.backport.logging import StyleAdapter
 from wpull.pipeline.session import ItemSession
 from wpull.processor.base import BaseProcessor
 
 
-_logger = logging.getLogger()
+_logger = StyleAdapter(logging.getLogger())
 _ = gettext.gettext
 
 
@@ -28,10 +28,10 @@ class DelegateProcessor(BaseProcessor):
         if processor:
             return (yield from processor.process(item_session))
         else:
-            _logger.warning(__(
+            _logger.warning(
                 _('No processor available to handle {scheme} scheme.'),
                 scheme=repr(scheme)
-            ))
+            )
             item_session.skip()
 
     def close(self):

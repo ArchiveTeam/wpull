@@ -6,7 +6,7 @@ import logging
 import re
 
 import wpull.util
-from wpull.backport.logging import BraceMessage as __
+from wpull.backport.logging import StyleAdapter
 from wpull.document.html import HTMLReader
 from wpull.document.htmlparse.element import Element
 from wpull.document.util import detect_response_encoding
@@ -17,7 +17,7 @@ from wpull.scraper.util import urljoin_safe, clean_link_soup, parse_refresh, \
 from wpull.url import percent_decode
 
 _ = gettext.gettext
-_logger = logging.getLogger(__name__)
+_logger = StyleAdapter(logging.getLogger(__name__))
 
 
 LinkInfo = collections.namedtuple(
@@ -109,10 +109,10 @@ class HTMLScraper(HTMLReader, BaseHTMLScraper):
                 )
 
         except (UnicodeError, self._html_parser.parser_error) as error:
-            _logger.warning(__(
+            _logger.warning(
                 _('Failed to read document at ‘{url}’: {error}'),
                 url=request.url_info.url, error=error
-            ))
+            )
             result_meta_info = {}
 
         if result_meta_info.get('robots_no_follow'):

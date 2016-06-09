@@ -6,12 +6,12 @@ import logging
 
 import asyncio
 
-from wpull.backport.logging import BraceMessage as __
+from wpull.backport.logging import StyleAdapter
 from wpull.errors import ServerError, ProtocolError, SSLVerificationError, \
     NetworkError
 from wpull.pipeline.session import ItemSession
 
-_logger = logging.getLogger(__name__)
+_logger = StyleAdapter(logging.getLogger(__name__))
 _ = gettext.gettext
 
 
@@ -54,7 +54,7 @@ class BaseProcessorSession(object, metaclass=abc.ABCMeta):
 
     def _log_error(self, request, error):
         '''Log exceptions during a fetch.'''
-        _logger.error(__(
+        _logger.error(
             _('Fetching ‘{url}’ encountered an error: {error}'),
             url=request.url, error=error
-        ))
+        )

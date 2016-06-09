@@ -9,14 +9,14 @@ import signal
 
 import asyncio
 
-from wpull.backport.logging import BraceMessage as __
+from wpull.backport.logging import StyleAdapter
 from wpull.errors import ServerError, ExitStatus, ProtocolError, \
     SSLVerificationError, DNSNotFound, ConnectionRefused, NetworkError, \
     AuthenticationError
 from wpull.application.hook import  HookStop, HookableMixin
 from wpull.pipeline.pipeline import PipelineSeries
 
-_logger = logging.getLogger(__name__)
+_logger = StyleAdapter(logging.getLogger(__name__))
 _ = gettext.gettext
 
 
@@ -182,7 +182,7 @@ class Application(HookableMixin):
         if self._exit_code == ExitStatus.ssl_verification_error:
             self._print_ssl_error()
 
-        _logger.info(__(_('Exiting with status {0}.'), self._exit_code))
+        _logger.info(_('Exiting with status {0}.'), self._exit_code)
 
         self._state = ApplicationState.stopped
 

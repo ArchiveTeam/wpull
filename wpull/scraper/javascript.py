@@ -5,7 +5,7 @@ import json
 import logging
 
 import wpull.util
-from wpull.backport.logging import BraceMessage as __
+from wpull.backport.logging import StyleAdapter
 from wpull.document.javascript import JavaScriptReader
 from wpull.document.util import detect_response_encoding
 from wpull.pipeline.item import LinkType
@@ -14,7 +14,7 @@ from wpull.scraper.util import is_likely_inline, is_likely_link, \
     is_unlikely_link, urljoin_safe, identify_link_type
 
 _ = gettext.gettext
-_logger = logging.getLogger(__name__)
+_logger = StyleAdapter(logging.getLogger(__name__))
 
 
 class JavaScriptScraper(JavaScriptReader, BaseTextStreamScraper):
@@ -77,9 +77,9 @@ class JavaScriptScraper(JavaScriptReader, BaseTextStreamScraper):
                     )
 
         except UnicodeError as error:
-            _logger.warning(__(
+            _logger.warning(
                 _('Failed to read document at ‘{url}’: {error}'),
                 url=request.url_info.url, error=error
-            ))
+            )
 
         return ScrapeResult(link_contexts, encoding)

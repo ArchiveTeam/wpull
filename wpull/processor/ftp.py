@@ -12,7 +12,7 @@ import urllib.parse
 import namedlist
 from typing import cast
 
-from wpull.backport.logging import BraceMessage as __
+from wpull.backport.logging import StyleAdapter
 from wpull.body import Body
 from wpull.cache import LRUCache
 from wpull.errors import ProtocolError
@@ -29,7 +29,7 @@ from wpull.scraper.util import urljoin_safe
 from wpull.url import parse_url_or_log, URLInfo
 from wpull.writer import NullWriter, BaseFileWriter
 
-_logger = logging.getLogger(__name__)
+_logger = StyleAdapter(logging.getLogger(__name__))
 _ = gettext.gettext
 
 GLOB_CHARS = frozenset('[]*?')
@@ -151,7 +151,7 @@ class FTPProcessorSession(BaseProcessorSession):
         wait_time = yield from self._fetch(request, is_file)
 
         if wait_time:
-            _logger.debug('Sleeping {0}.'.format(wait_time))
+            _logger.debug('Sleeping {0}.', wait_time)
             yield from asyncio.sleep(wait_time)
 
     def _add_request_password(self, request: Request):
@@ -189,7 +189,7 @@ class FTPProcessorSession(BaseProcessorSession):
 
             for file_entry in files:
                 if file_entry.name == filename:
-                    _logger.debug('Found entry in parent. Type %s',
+                    _logger.debug('Found entry in parent. Type {}',
                                   file_entry.type)
                     is_file = file_entry.type != 'dir'
                     break
@@ -199,7 +199,7 @@ class FTPProcessorSession(BaseProcessorSession):
 
             if not is_file:
                 request.url = append_slash_to_path_url(request.url_info)
-                _logger.debug('Request URL changed to %s. Path=%s.',
+                _logger.debug('Request URL changed to {}. Path={}.',
                               request.url, request.file_path)
 
         return is_file
@@ -219,7 +219,7 @@ class FTPProcessorSession(BaseProcessorSession):
         directory_request = copy.deepcopy(request)
         directory_request.url = directory_url
 
-        _logger.debug('Check if URL %s is file with %s.', request.url,
+        _logger.debug('Check if URL {} is file with {}.', request.url,
                       directory_url)
 
         with self._processor.ftp_client.session() as session:
@@ -254,7 +254,7 @@ class FTPProcessorSession(BaseProcessorSession):
 
         Coroutine.
         '''
-        _logger.info(_('Fetching ‘{url}’.').format(url=request.url))
+        _logger.info(_('Fetching ‘{url}’.'), url=request.url)
 
         self._item_session.request = request
         response = None
@@ -365,14 +365,14 @@ class FTPProcessorSession(BaseProcessorSession):
 
     def _log_response(self, request: Request, response: Response):
         '''Log response.'''
-        _logger.info(__(
+        _logger.info(
             _('Fetched ‘{url}’: {reply_code} {reply_text}. '
                 'Length: {content_length}.'),
             url=request.url,
             reply_code=response.reply.code,
             reply_text=response.reply.text,
             content_length=response.body.size(),
-        ))
+        )
 
     def _handle_response(self, request: Request, response: Response):
         '''Process a response.'''
@@ -400,15 +400,15 @@ class FTPProcessorSession(BaseProcessorSession):
             dir_path = os.path.dirname(path)
             symlink_path = os.path.join(dir_path, link_name)
 
-            _logger.debug('symlink %s -> %s', symlink_path, link_target)
+            _logger.debug('symlink {} -> {}', symlink_path, link_target)
 
             os.symlink(link_target, symlink_path)
 
-            _logger.info(__(
+            _logger.info(
                 _('Created symbolic link {symlink_path} to target {symlink_target}.'),
                 symlink_path=symlink_path,
                 symlink_target=link_target
-            ))
+            )
 
     @asyncio.coroutine
     def _apply_unix_permissions(self, request: Request, response: Response):
@@ -425,10 +425,10 @@ class FTPProcessorSession(BaseProcessorSession):
 
         for file_entry in files:
             if file_entry.name == filename and file_entry.perm:
-                _logger.debug(__(
+                _logger.debug(
                     'Set chmod {} o{:o}.',
                     response.body.name, file_entry.perm
-                ))
+                )
                 os.chmod(response.body.name, file_entry.perm)
 
 

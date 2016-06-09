@@ -12,7 +12,7 @@ import shutil
 
 import namedlist
 
-from wpull.backport.logging import BraceMessage as __
+from wpull.backport.logging import StyleAdapter
 from wpull.namevalue import NameValueRecord
 from wpull.warc.format import WARCRecord
 from wpull.protocol.ftp.client import Client as FTPClient
@@ -27,7 +27,7 @@ import wpull.util
 import wpull.version
 
 
-_logger = logging.getLogger(__name__)
+_logger = StyleAdapter(logging.getLogger(__name__))
 _ = gettext.gettext
 
 
@@ -117,14 +117,14 @@ class WARCRecorder(object):
                 self._warc_filename = self._generate_warc_filename()
 
                 if os.path.exists(self._warc_filename):
-                    _logger.debug(__('Skip {0}', self._warc_filename))
+                    _logger.debug('Skip {0}', self._warc_filename)
                     self._sequence_num += 1
                 else:
                     break
         else:
             self._warc_filename = self._generate_warc_filename(meta=meta)
 
-        _logger.debug(__('WARC file at {0}', self._warc_filename))
+        _logger.debug('WARC file at {0}', self._warc_filename)
 
         if not self._params.appending:
             wpull.util.truncate_file(self._warc_filename)
@@ -294,11 +294,11 @@ class WARCRecorder(object):
         assert self._params.move_to
 
         if os.path.isdir(self._params.move_to):
-            _logger.debug('Moved %s to %s.', self._warc_filename,
+            _logger.debug('Moved {} to {}.', self._warc_filename,
                           self._params.move_to)
             shutil.move(filename, self._params.move_to)
         else:
-            _logger.error('%s is not a directory; not moving %s.',
+            _logger.error('{} is not a directory; not moving {}.',
                           self._params.move_to, filename)
 
     def set_length_and_maybe_checksums(self, record, payload_offset=None):
@@ -315,8 +315,8 @@ class WARCRecorder(object):
         record.fields['WARC-Warcinfo-ID'] = self._warcinfo_record.fields[
             WARCRecord.WARC_RECORD_ID]
 
-        _logger.debug(__('Writing WARC record {0}.',
-                         record.fields['WARC-Type']))
+        _logger.debug('Writing WARC record {0}.',
+                      record.fields['WARC-Type'])
 
         if self._params.compress:
             open_func = gzip.GzipFile
@@ -341,10 +341,10 @@ class WARCRecorder(object):
                 for data in record:
                     out_file.write(data)
         except (OSError, IOError) as error:
-            _logger.info(__(
+            _logger.info(
                 _('Rolling back file {filename} to length {length}.'),
                 filename=self._warc_filename, length=before_offset
-            ))
+            )
             with open(self._warc_filename, mode='wb') as out_file:
                 out_file.truncate(before_offset)
 
@@ -441,7 +441,7 @@ class WARCRecorder(object):
 
         url = record.fields['WARC-Target-URI']
 
-        _logger.debug(__('Writing CDX record {0}.', url))
+        _logger.debug('Writing CDX record {0}.', url)
 
         http_header = record.get_http_header()
 

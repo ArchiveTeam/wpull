@@ -11,7 +11,7 @@ from wpull.application.plugin import PluginFunctions, hook_interface, \
 from wpull.scraper.base import DemuxDocumentScraper, BaseScraper, ScrapeResult
 from wpull.stats import Statistics
 from wpull.url import URLInfo
-from wpull.backport.logging import BraceMessage as __
+from wpull.backport.logging import StyleAdapter
 from wpull.errors import DNSNotFound, ServerError, ConnectionRefused, \
     SSLVerificationError, ProtocolError
 from wpull.application.hook import HookableMixin, HookDisconnected, Actions, HookStop
@@ -24,7 +24,7 @@ from wpull.protocol.http.request import Request as HTTPRequest
 from wpull.urlrewrite import URLRewriter
 from wpull.waiter import Waiter
 
-_logger = logging.getLogger(__name__)
+_logger = StyleAdapter(logging.getLogger(__name__))
 
 
 class FetchRule(HookableMixin):
@@ -537,9 +537,9 @@ class ProcessingRule(HookableMixin):
             num_inline_urls += new_inline
             num_linked_urls += new_linked
 
-        _logger.debug(__('Candidate URLs: inline={0} linked={1}',
-                         num_inline_urls, num_linked_urls
-        ))
+        _logger.debug('Candidate URLs: inline={0} linked={1}',
+                      num_inline_urls, num_linked_urls
+        )
 
     @staticmethod
     @event_interface(PluginFunctions.get_urls)
