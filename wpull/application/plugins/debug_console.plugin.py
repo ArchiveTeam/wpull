@@ -16,6 +16,7 @@ _ = gettext.gettext
 
 class DebugConsolePlugin(WpullPlugin):
     def activate(self):
+        super().activate()
         if self.app_session.args.debug_console_port is None:
             return
 

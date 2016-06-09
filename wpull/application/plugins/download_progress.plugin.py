@@ -17,6 +17,7 @@ class DownloadProgressPlugin(WpullPlugin):
         self._progress = None
 
     def activate(self):
+        super().activate()
         args = self.app_session.args
 
         if args.verbosity in (LOG_VERBOSE, LOG_DEBUG) and args.progress != 'none':

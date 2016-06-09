@@ -13,6 +13,7 @@ class ArgWarningPlugin(WpullPlugin):
                                 'ignore_fatal_errors'])
 
     def activate(self):
+        super().activate()
         self._warn_unsafe_options(self.app_session.args)
         self._warn_silly_options(self.app_session.args)
 
