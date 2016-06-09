@@ -19,12 +19,22 @@ def main():
         out_file.write('.. This document was automatically generated.\n')
         out_file.write('   DO NOT EDIT!\n\n')
 
-        for hook_name, function in sorted(wpull.application.plugin.global_interface_registry.items(), key=lambda item: item[0].value):
+        items = sorted(
+            wpull.application.plugin.global_interface_registry.items(),
+            key=lambda item: item[0].value
+        )
+
+        for hook_name, (function, category) in items:
             hook_name_str = inspect.getmodule(hook_name).__name__ + '.' + str(hook_name)
             function_name_str = inspect.getmodule(function).__name__ + '.' + function.__qualname__
 
-            out_file.write(':py:attr:`{} <{}>`\n'.format(hook_name, hook_name_str))
-            out_file.write('    Interface: :py:meth:`{} <{}>`\n\n'.format(function.__qualname__, function_name_str))
+            out_file.write(
+                ':py:attr:`{} <{}>`\n'.format(hook_name, hook_name_str)
+            )
+            out_file.write(
+                '   {} Interface: :py:meth:`{} <{}>`\n\n'.format(
+                    category.value, function.__qualname__, function_name_str)
+            )
 
 
 if __name__ == '__main__':

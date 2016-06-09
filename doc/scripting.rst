@@ -1,7 +1,7 @@
 .. _scripting-hooks:
 
-Scripting Hooks
-===============
+Plugin Scripting Hooks
+======================
 
 Wpull's scripting support is modelled after `alard's Wget with Lua
 hooks <https://github.com/alard/wget-lua/wiki/Wget-with-Lua-hooks>`_.
@@ -47,14 +47,58 @@ The global hooks and events constants are located at
 Example
 +++++++
 
-Here is a example Python script. It refuses to download anything with the word "dog" in the URL::
+Here is a example Python script. It
 
+* Does not run on Mondays
+* Prints hello on start up
+* Refuses to download anything with the word "dog" in the URL
+* Scrapes URLs on a hypothetical homepage
+* Stops the program execution when the server returns HTTP 429
+
+::
+
+    import datetime
+    import re
+
+    from wpull.application.hook import Actions
     from wpull.application.plugin import WpullPlugin, PluginFunctions, hook
     from wpull.protocol.abstract.request import BaseResponse
     from wpull.pipeline.session import ItemSession
 
-    class PrintServerResponsePlugin(WpullPlugin):
+
+    class MyExamplePlugin(WpullPlugin):
+        def activate(self):
+            super().activate()
+            print('Hello world!')
+
+        def deactivate(self):
+            super().deactivate()
+            print('Goodbye world!')
+
+        def should_activate(self) -> bool:
+            current_date = datetime.date.today()
+
+            return current_date.weekday() != 0
+
         @hook(PluginFunctions.accept_url)
         def my_accept_func(self, item_session: ItemSession, verdict: bool, reasons: dict) -> bool:
             return 'dog' not in item_session.request.url
 
+        @event(PluginFunctions.get_urls)
+        def my_get_urls(self, item_session: ItemSession):
+            if item_session.request.url_info.path != '/':
+                return
+
+            matches = re.finditer(
+                r'<div id="profile-(\w+)"', item_session.response.body.content
+            )
+            for match in matches:
+                url = 'http://example.com/profile.php?username={}'.format(
+                    match.group(1)
+                )
+                item_session.add_child_url(url)
+
+        @hook(PluginFunctions.handle_response)
+        def my_handle_response(item_session: ItemSession):
+            if item_session.response.response_code == 429:
+                return Actions.STOP

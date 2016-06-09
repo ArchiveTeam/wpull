@@ -75,11 +75,11 @@ class InterfaceRegistry(collections.Mapping):
     def __iter__(self):
         return iter(self._interfaces)
 
-    def register(self, name: Any, interface: Any):
+    def register(self, name: Any, interface: Any, category: PluginFunctionCategory):
         if name in self._interfaces:
             raise ValueError('Interface already registered')
 
-        self._interfaces[name] = interface
+        self._interfaces[name] = (interface, category)
 
 
 global_interface_registry = InterfaceRegistry()
@@ -89,7 +89,7 @@ def _plugin_interface_decorator(
         name: Any, category: PluginFunctionCategory,
         interface_registry: InterfaceRegistry=global_interface_registry):
     def decorator(func):
-        interface_registry.register(name, func)
+        interface_registry.register(name, func, category)
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
