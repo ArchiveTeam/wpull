@@ -26,9 +26,6 @@ class Statistics(object):
         errors: a Counter mapping error types to integer.
         quota (int): Threshold of number of bytes when the download quota is
             exceeded.
-        required_urls_db (dict): A mapping of :class:`.url.URLInfo` to bool
-            that must be completed before the quota can be exceeded. The
-            mapping uses a disk store so it is created on demand.
         bandwidth_meter (:class:`.network.BandwidthMeter`): The bandwidth
             meter.
     '''
@@ -39,7 +36,6 @@ class Statistics(object):
         self.size = 0
         self.errors = Counter()
         self.quota = None
-        self._temp_dir = None
         self.bandwidth_meter = BandwidthMeter()
         self._url_table = url_table
 
@@ -52,34 +48,32 @@ class Statistics(object):
         '''Record the stop time.'''
         self.stop_time = time.time()
 
-        if self._temp_dir:
-            self._temp_dir.cleanup()
-            self._temp_dir = None
-
     @property
-    def duration(self):
+    def duration(self) -> float:
         '''Return the time in seconds the interval.'''
         return self.stop_time - self.start_time
 
-    def increment(self, size):
+    def increment(self, size: int):
         '''Increment the number of files downloaded.
 
         Args:
             size: The size of the file
         '''
+        assert size >= 0, size
+
         self.files += 1
         self.size += size
         self.bandwidth_meter.feed(size)
 
     @property
-    def is_quota_exceeded(self):
+    def is_quota_exceeded(self) -> bool:
         '''Return whether the quota is exceeded.'''
 
         if self.quota and self._url_table is not None:
             return self.size >= self.quota and \
                    self._url_table.get_root_url_todo_count() == 0
 
-    def increment_error(self, error):
+    def increment_error(self, error: Exception):
         '''Increment the error counter preferring base exceptions.'''
         _logger.debug('Increment error %s', error)
 
