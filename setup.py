@@ -97,7 +97,7 @@ setup_kwargs = dict(
 # See also requirements.txt
 setup_kwargs['install_requires'] = [
     'chardet',
-    'dnspython>=1.3',
+    'dnspython>=1.3',  # Migrated from dnspython3
     'html5lib',
     'namedlist',
     'sqlalchemy',
