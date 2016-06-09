@@ -8,7 +8,7 @@ Requirements
 Wpull requires the following:
 
 * `Python 3.4.3 or greater <http://python.org/download/>`_
-* `Tornado <https://pypi.python.org/pypi/tornado>`_
+* `Tornado 4.0 or greater <https://pypi.python.org/pypi/tornado>`_
 * `html5lib <https://pypi.python.org/pypi/html5lib>`_
 
   * Or `lxml <https://pypi.python.org/pypi/lxml>`_ for faster
@@ -19,13 +19,13 @@ Wpull requires the following:
   * Or `cchardet <https://pypi.python.org/pypi/cchardet>`_ for faster
     version of chardet
 
-* `SQLAlchemy <https://pypi.python.org/pypi/SQLAlchemy>`_
+* `SQLAlchemy 0.9 or greater <https://pypi.python.org/pypi/SQLAlchemy>`_
 
 The following are optional:
 
 * `psutil` for monitoring disk space
 * `Manhole <https://pypi.python.org/pypi/manhole>`_ for a REPL debugging socket
-* `PhantomJS <http://phantomjs.org/>`_ for capturing interactive
+* `PhantomJS 1.9.8, 2.1 <http://phantomjs.org/>`_ for capturing interactive
   JavaScript pages
 * `youtube-dl <https://rg3.github.io/youtube-dl/>`_ for downloading complex
   video streaming sites

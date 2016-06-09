@@ -14,6 +14,7 @@ Unreleased
 * Removed: PyPy support.
 * Changed: IP addresses are normalized to a standard notation to avoid fetching duplicates such as IPv4 addresses written in hexadecimal or long-hand IPv6 addresses.
 * Changed: Scripting is now done using plugin interface via ``--plugin-script``.
+* Fixed: Support for Python 3.5.
 * Fixed: FTP unable to handle directory listing with date in MMM DD YYYY and filename containing YYYY-MM-DD text.
 
 
