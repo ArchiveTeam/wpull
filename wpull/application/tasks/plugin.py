@@ -42,7 +42,7 @@ class PluginLocator(IPluginLocator):
 
         for filename in self._paths:
             info = self._plugin_info_from_path(filename)
-            candidates.append((path, filename, info))
+            candidates.append((filename, filename, info))
 
         return candidates, len(candidates)
 
