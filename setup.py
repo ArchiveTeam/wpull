@@ -92,6 +92,9 @@ setup_kwargs = dict(
     package_dir=PROJECT_PACKAGE_DIR,
 )
 
+
+# Do not add version ranges unless absolutely required!
+# See also requirements.txt
 setup_kwargs['install_requires'] = [
     'chardet',
     'dnspython3',
