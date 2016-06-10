@@ -32,6 +32,9 @@ Scripting hook code will need to be rewritten to use the new API. See
 the new documentation for scripting for the new style of interfacing
 with Wpull.
 
+Additionally for scripts, the internal event loop has switched from
+Trollius to built-in Asyncio.
+
 
 1.2.3 (2016-02-03)
 ==================
