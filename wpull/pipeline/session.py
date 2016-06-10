@@ -115,23 +115,23 @@ class ItemSession(object):
         '''Add links scraped from the document with automatic values.
 
         Args:
-            urls: An iterable of `str` or `dict`. When a `str` is provided,
-                it is a URL. When a `dict` is provided, it is a mapping
-                of table column names to values.
-            inline: Whether the URL is an embedded object. This
-                function automatically calculates the value needed for
-                the table column "inline".
-            kwargs: Additional column value to be apllied for all URLs
-                provided.
+            url: A full URL. (It can't be a relative path.)
+            inline: Whether the URL is an embedded object.
+            link_type: Expected link type.
+            post_data: URL encoded form data. The request will be made using
+                POST. (Don't use this to upload files.)
+            level: The child depth of this URL.
+            replace: Whether to replace the existing entry in the database
+                table so it will be redownloaded again.
 
         This function provides values automatically for:
 
         * ``inline``
         * ``level``
-        * ``referrer``
-        * ``top_url``
+        * ``parent``: The referrering page.
+        * ``root``
 
-        See also :meth:`.database.base.BaseSQLURLTable.add_many`.
+        See also :meth:`add_url`.
         '''
         url_properties = URLProperties()
         url_properties.level = self.url_record.level + 1 if level is None else level

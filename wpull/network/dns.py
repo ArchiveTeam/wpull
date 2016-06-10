@@ -376,4 +376,4 @@ class Resolver(HookableMixin):
     @staticmethod
     @event_interface(PluginFunctions.resolve_dns_result)
     def resolve_dns_result(host: str, result: ResolveResult):
-        pass
+        '''Callback when a DNS resolution has been made.'''

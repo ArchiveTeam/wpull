@@ -2,8 +2,8 @@
 from wpull.application.plugin import event_interface, PluginFunctions
 from wpull.database.base import BaseURLTable
 from wpull.application.hook import HookableMixin, HookDisconnected
-from wpull.pipeline.item import Status
-from wpull.url import parse_url_or_log
+from wpull.pipeline.item import Status, URLRecord
+from wpull.url import parse_url_or_log, URLInfo
 import wpull.application.hook
 
 
@@ -91,24 +91,14 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
 
     @staticmethod
     @event_interface(PluginFunctions.queued_url)
-    def queued_url(url_info):
+    def queued_url(url_info: URLInfo):
         '''Callback fired after an URL was put into the queue.
-
-        Args:
-            url_info (dict): A mapping containing the same information in
-                :class:`.url.URLInfo`.
         '''
 
     @staticmethod
     @event_interface(PluginFunctions.dequeued_url)
-    def dequeued_url(url_info, record_info):
+    def dequeued_url(url_info: URLInfo, record_info: URLRecord):
         '''Callback fired after an URL was retrieved from the queue.
-
-        Args:
-            url_info (dict): A mapping containing the same information in
-                :class:`.url.URLInfo`.
-            record_info (dict): A mapping containing the same information in
-                :class:`.item.URLRecord`.
         '''
 
     def get_root_url_todo_count(self):

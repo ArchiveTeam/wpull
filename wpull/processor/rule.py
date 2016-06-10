@@ -544,33 +544,11 @@ class ProcessingRule(HookableMixin):
     @staticmethod
     @event_interface(PluginFunctions.get_urls)
     def plugin_get_urls(item_session: ItemSession):
-        '''Return additional URLs to be added to the URL Table.
+        '''Add additional URLs to be added to the URL Table.
 
-        Args:
-            item_session:
-
-        .. Note:: The URLs provided do not replace entries in the URL Table.
-           If a URL already exists in the URL Table, it will be ignored
-           as defined in :class:`.database.URLTable`. As well, the URLs
-           added do not reset the item Status to ``todo``. To override
-           this behavior, see ``replace`` as described below.
-
-        Returns:
-            list: A ``list`` of ``dict``. Each ``dict`` contains:
-
-                * ``url``: a string of the URL
-                * ``link_type`` (str, optional): A string defined in
-                  :class:`.item.LinkType`.
-                * ``inline`` (bool, optional): If True, the link is an
-                  embedded HTML object.
-                * ``post_data`` (str, optional): If provided, the
-                  request will be a POST request with a
-                  ``application/x-www-form-urlencoded`` content type.
-                * ``replace`` (bool, optional): If True and if the URL already
-                  exists in the URL Table, the entry is deleted and replaced
-                  with a new one.
+        When this event is dispatched, the caller should add any URLs needed
+        using :meth:`.ItemSession.add_child_url`.
         '''
-        return
 
     def _process_scrape_info(self, scraper: BaseScraper,
                              scrape_result: ScrapeResult,
