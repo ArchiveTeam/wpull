@@ -49,7 +49,6 @@ Example
 
 Here is a example Python script. It
 
-* Does not run on Mondays
 * Prints hello on start up
 * Refuses to download anything with the word "dog" in the URL
 * Scrapes URLs on a hypothetical homepage
@@ -74,11 +73,6 @@ Here is a example Python script. It
         def deactivate(self):
             super().deactivate()
             print('Goodbye world!')
-
-        def should_activate(self) -> bool:
-            current_date = datetime.date.today()
-
-            return current_date.weekday() != 0
 
         @hook(PluginFunctions.accept_url)
         def my_accept_func(self, item_session: ItemSession, verdict: bool, reasons: dict) -> bool:
