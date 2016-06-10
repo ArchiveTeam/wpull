@@ -172,7 +172,8 @@ class Resolver(HookableMixin):
         _logger.debug(__('Lookup address {0}.', host))
 
         try:
-            host = self.hook_dispatcher.call(PluginFunctions.resolve_dns, host)
+            host = self.hook_dispatcher.call(PluginFunctions.resolve_dns, host
+                                             ) or host
         except HookDisconnected:
             pass
 
