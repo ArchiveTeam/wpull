@@ -18,6 +18,7 @@ Unreleased
 * Fixed: FTP unable to handle directory listing with date in MMM DD YYYY and filename containing YYYY-MM-DD text.
 * Fixed: Downloads through the proxy (such as PhantomJS) now show up in the database and can be controlled through scripting.
 * Fixed: `NotFound` error when converting links in CSS file that contain URLs that were not fetched.
+* Fixed: When resuming a forcefully interrupted crawl (e.g., a crash) using a database, URLs in-progress were not released to be downloaded again.
 
 
 Backwards incompatibility

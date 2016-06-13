@@ -1,4 +1,5 @@
 import codecs
+import gettext
 import itertools
 import asyncio
 import logging
@@ -12,7 +13,7 @@ from wpull.pipeline.pipeline import ItemTask
 import wpull.util
 import wpull.url
 
-
+_ = gettext.gettext
 _logger = logging.getLogger(__name__)
 
 
@@ -29,6 +30,10 @@ class DatabaseSetupTask(ItemTask[AppSession]):
                 'URLTableImplementation', path=session.args.database)
 
         url_table = session.factory.new('URLTable', url_table_impl)
+
+        # TODO: add a test for this
+        _logger.debug(_('Releasing any in-progress items in database.'))
+        url_table.release()
 
 
 class InputURLTask(ItemTask[AppSession]):
