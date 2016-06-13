@@ -73,7 +73,7 @@ class URLProperties(URLDatabaseMixin):
         link_type (LinkType): Describes the expected document type.
     '''
     database_attributes = ('parent_url', 'root_url', 'status', 'try_count',
-                           'level', 'inline_level', 'link_type')
+                           'level', 'inline_level', 'link_type', 'priority')
 
     def __init__(self):
         self.parent_url = None
@@ -83,6 +83,7 @@ class URLProperties(URLDatabaseMixin):
         self.level = None
         self.inline_level = None
         self.link_type = None
+        self.priority = None
 
     @property
     def parent_url_info(self):

@@ -87,6 +87,10 @@ class QueuedURL(DBBase):
         Enum(*list(member.value for member in LinkType)),
         doc='Expected content type of extracted link.'
     )
+    priority = Column(
+        Integer, nullable=False, default=0,
+        doc='Priority of item.'
+    )
 
     # -- Fetch extra data --
     post_data = Column(String, doc='Additional percent-encoded data for POST.')
@@ -119,6 +123,7 @@ class QueuedURL(DBBase):
         record.level = self.level
         record.inline_level = self.inline_level
         record.link_type = LinkType(self.link_type) if self.link_type else None
+        record.priority = self.priority
         record.post_data = self.post_data
         record.status_code = self.status_code
         record.filename = self.filename
