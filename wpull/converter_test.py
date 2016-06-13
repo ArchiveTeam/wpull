@@ -21,6 +21,7 @@ CSS_TEXT = '''
 body {
     background: url('http://example.com/image.png');
     background: url('http://example.com/cat.jpg');
+    background: url('http://example.com/dog.jpg');
 }
 /* ð £fbġ̉bbb */
 '''
@@ -30,6 +31,7 @@ HTML_TEXT = '''
 <style>
     background: url('http://example.com/image.png');
     background: url('http://example.com/cat.jpg');
+    background: url('http://example.com/dog.jpg');
 </style>
 <body>
     ¡¡ÐÉ§bh¾Í¿fg½½ËGFÐÅFÁ

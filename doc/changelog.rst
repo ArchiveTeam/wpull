@@ -17,6 +17,7 @@ Unreleased
 * Fixed: Support for Python 3.5.
 * Fixed: FTP unable to handle directory listing with date in MMM DD YYYY and filename containing YYYY-MM-DD text.
 * Fixed: Downloads through the proxy (such as PhantomJS) now show up in the database and can be controlled through scripting.
+* Fixed: `NotFound` error when converting links in CSS file that contain URLs that were not fetched.
 
 
 Backwards incompatibility

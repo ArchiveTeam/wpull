@@ -310,7 +310,10 @@ class CSSConverter(CSSScraper, BaseDocumentConverter):
         if base_url:
             url = wpull.url.urljoin(base_url, url)
 
-        url_record = self._url_table.get_one(url)
+        try:
+            url_record = self._url_table.get_one(url)
+        except NotFound:
+            url_record = None
 
         if url_record \
            and url_record.status == Status.done and url_record.filename:
