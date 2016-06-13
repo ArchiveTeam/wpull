@@ -172,4 +172,23 @@ class Hostname(DBBase):
     id = Column(Integer, primary_key=True, autoincrement=True)
     hostname = Column(String, nullable=False, unique=True)
 
-__all__ = ('DBBase', 'QueuedURL', 'URLString', 'WARCVisit')
+
+class QueuedFile(DBBase):
+    __tablename__ = 'queued_files'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    queued_url_id = Column(Integer, ForeignKey(QueuedURL.id),
+                           nullable=False, unique=True)
+    queued_url = relationship(
+        QueuedURL, uselist=False, foreign_keys=[queued_url_id]
+    )
+    status = Column(
+        Enum(*list(member.value for member in Status)),
+        index=True,
+        default=Status.todo.value,
+        nullable=False,
+    )
+
+
+__all__ = ('DBBase', 'QueuedURL', 'URLString', 'WARCVisit', 'Hostname',
+           'QueuedFile')

@@ -14,7 +14,7 @@ from sqlalchemy.sql.expression import insert, update, select, delete, \
 
 from wpull.database.base import BaseURLTable, NotFound
 from wpull.database.sqlmodel import QueuedURL, URLString, DBBase, WARCVisit, \
-    Hostname
+    Hostname, QueuedFile
 from wpull.pipeline.item import Status
 from wpull.url import URLInfo
 
@@ -174,6 +174,12 @@ class BaseSQLURLTable(BaseURLTable):
 
             session.execute(query)
 
+            if new_status == Status.done and url_result and url_result.filename:
+                query = insert(QueuedFile).prefix_with('OR IGNORE').values({
+                    'queued_url_id': subquery
+                })
+                session.execute(query)
+
     def update_one(self, url, **kwargs):
         with self._session() as session:
             values = {}
@@ -193,6 +199,9 @@ class BaseSQLURLTable(BaseURLTable):
         with self._session() as session:
             query = update(QueuedURL).values({QueuedURL.status: Status.todo.value})\
                 .where(QueuedURL.status==Status.in_progress.value)
+            session.execute(query)
+            query = update(QueuedFile).values({QueuedFile.status: Status.todo.value}) \
+                .where(QueuedFile.status==Status.in_progress.value)
             session.execute(query)
 
     def remove_many(self, urls):
@@ -227,6 +236,29 @@ class BaseSQLURLTable(BaseURLTable):
             return session.query(func.count(QueuedURL.id))\
                 .filter_by(status=Status.todo.value)\
                 .filter_by(level=0).scalar()
+
+    def convert_check_out(self):
+        with self._session() as session:
+            queued_file = session.query(QueuedFile).filter_by(
+                status=Status.todo.value).first()
+
+            if not queued_file:
+                raise NotFound()
+
+            queued_file.status = Status.in_progress.value
+
+            return queued_file.id, queued_file.queued_url.to_plain()
+
+    def convert_check_in(self, file_id, status):
+        with self._session() as session:
+            values = {
+                'status': status.value
+            }
+
+            query = update(QueuedFile).values(values) \
+                .where(QueuedFile.id == file_id)
+
+            session.execute(query)
 
 
 class SQLiteURLTable(BaseSQLURLTable):

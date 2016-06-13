@@ -150,3 +150,11 @@ class BaseURLTable(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_root_url_todo_count(self) -> int:
         pass
+
+    @abc.abstractmethod
+    def convert_check_out(self) -> (int, URLRecord):
+        pass
+
+    @abc.abstractmethod
+    def convert_check_in(self, file_id: int, status: Status):
+        pass

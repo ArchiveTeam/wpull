@@ -103,3 +103,9 @@ class URLTableHookWrapper(BaseURLTable, HookableMixin):
 
     def get_root_url_todo_count(self):
         return self.url_table.get_root_url_todo_count()
+
+    def convert_check_out(self):
+        return self.url_table.convert_check_out()
+
+    def convert_check_in(self, file_id: int, status: Status):
+        self.url_table.convert_check_in(file_id, status)

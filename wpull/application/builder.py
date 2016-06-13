@@ -6,7 +6,7 @@ import sys
 from http.cookiejar import CookieJar
 
 from wpull.application.tasks.conversion import LinkConversionSetupTask, \
-    LinkConversionTask
+    LinkConversionTask, QueuedFileSource
 from wpull.application.tasks.database import DatabaseSetupTask
 from wpull.application.tasks.database import InputURLTask
 from wpull.application.tasks.download import ProcessTask, ParserSetupTask, ClientSetupTask, ProcessorSetupTask, \
@@ -199,8 +199,10 @@ class Builder(object):
             ])
         download_stop_pipeline.skippable = True
 
+        queued_file_source = QueuedFileSource(app_session)
+
         conversion_pipeline = Pipeline(
-            AppSource(app_session),
+            queued_file_source,
             [
                 LinkConversionTask()
             ]
