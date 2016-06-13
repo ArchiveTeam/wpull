@@ -91,6 +91,16 @@ feature to avoid any rejection and disappointment.
 One branch per bug/feature. Don't stack PR on top of other PR branches!
 
 
+### Testing
+
+Testing can be done by using [Nose](http://nose.readthedocs.io/). 
+As described in Nose documentation, run `nosetests3` in the top
+level of the project directory.
+
+Additionally, the project is [configured to use the free Travis CI]
+(https://travis-ci.org/chfoo/wpull).
+
+
 ### Making the PR
 
 When you file a pull request, a template will appear reminding you
@@ -101,3 +111,10 @@ of this document. It will also remind you to:
 * Describe *what* you changed and *why* you changed them.
 * Set GitHub merge options to merge into `develop` if you branch
   from `develop`.
+
+GitHub will also run tests on the code. If there is an error,
+please take a look at to see if it is related to your PR.
+See Testing above. Sometimes the build is broken and may not be
+your fault. If you need to make more changes, add your commits to
+the submitted branch. If the issue can't be resolved easily,
+close the PR and make a new one when ready.

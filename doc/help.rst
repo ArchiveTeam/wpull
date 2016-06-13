@@ -62,6 +62,18 @@ When you open a new issue, GitHub provides a link to the guidelines
 document. Please read it to learn how to file a good bug report.
 
 
+How can I help the development of Wpull? What are the development goals?
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Please visit the [GitHub repository](https://github.com/chfoo/wpull).
+From there, you can take a look at:
+
+* The Contributing file for specific instructions on how to help
+* The issue tracker for current bugs and features
+* The Wiki for the roadmap of the project such as goals and statuses
+* And the code, of course
+
+
 How can I chat or ask a question?
 +++++++++++++++++++++++++++++++++
 
