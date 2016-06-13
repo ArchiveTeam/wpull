@@ -40,18 +40,17 @@ class InputURLTask(ItemTask[AppSession]):
     @asyncio.coroutine
     def process(self, session: AppSession):
         url_table = session.factory['URLTable']
+        url_count = 0
 
         for batch in wpull.util.grouper(self._read_input_urls(session), 1000):
-            url_table.add_many(AddURLInfo(url_info.url, None, None) for url_info in batch if url_info)
+            urls = url_table.add_many(AddURLInfo(url_info.url, None, None) for url_info in batch if url_info)
             # TODO: attach hook for notifying progress
+            url_count += len(urls)
 
-            # TODO: raise on error if no urls
-            # urls = (line.strip() for line in input_file if line.strip())
-            #
-            # if not urls:
-            #     raise ValueError(_('No URLs found in input file.'))
-            #
-            # return urls
+        # TODO: check if database is empty
+        # TODO: add a test for this
+        # if not url_count:
+        #     raise ValueError(_('No URLs found in input file.'))
 
     @classmethod
     def _read_input_urls(cls, session: AppSession, default_scheme='http'):
