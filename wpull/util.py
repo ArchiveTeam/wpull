@@ -171,7 +171,10 @@ def get_package_data(filename, mode='rb'):
 def get_package_filename(filename, package_dir=None):
     '''Return the filename of the data file.'''
     if getattr(sys, 'frozen', False):
-        package_dir = os.path.dirname(sys.executable)
+        package_dir = os.path.join(
+            sys._MEIPASS,
+            os.path.basename(os.path.dirname(__file__))
+        )
     elif not package_dir:
         package_dir = os.path.dirname(__file__)
 

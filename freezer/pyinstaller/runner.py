@@ -48,7 +48,7 @@ def main():
         print('Install PyInstaller.')
         run_env_py([
             'pip', 'install',
-            'git+https://github.com/pyinstaller/pyinstaller@python3#egg=PyInstaller',
+            'PyInstaller',
         ])
 
     print('Install packages.')

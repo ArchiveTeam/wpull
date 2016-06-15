@@ -1,3 +1,3 @@
 #!/usr/bin/env python
-import wpull.__main__
-wpull.__main__.main()
+import wpull.application.main
+wpull.application.main.main()
