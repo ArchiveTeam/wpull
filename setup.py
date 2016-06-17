@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
-try:
-    from setuptools import setup
-except ImportError:
-    from distutils.core import setup
+from setuptools import setup
 
 from distutils.version import StrictVersion
 import os.path
@@ -90,6 +87,12 @@ setup_kwargs = dict(
     ],
     packages=PROJECT_PACKAGES,
     package_dir=PROJECT_PACKAGE_DIR,
+    entry_points={
+        'console_scripts': [
+            'wpull=wpull.application.main:main',
+            'wpull3=wpull.application.main:main',
+        ],
+    },
 )
 
 
@@ -107,8 +110,6 @@ setup_kwargs['install_requires'] = [
 
 if sys.version_info < (3, 5):
     setup_kwargs['install_requires'].append('typing')
-
-setup_kwargs['scripts'] = ['scripts/wpull', 'scripts/wpull3']
 
 
 if __name__ == '__main__':
