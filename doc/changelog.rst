@@ -6,8 +6,14 @@ Summary of notable changes.
 
 .. Take advice from http://keepachangelog.com/.
 
+
 Unreleased
 ==========
+
+
+
+2.0 (2016-06-17)
+================
 
 * Removed: Lua scripting support and its Python counterpart (``--lua-script`` and ``--python-script``).
 * Removed: Python 3.2 & 3.3 support.
