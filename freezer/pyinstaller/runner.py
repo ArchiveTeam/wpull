@@ -15,7 +15,7 @@ def main():
     env_dir = os.path.abspath('./wpull_env/')
     is_windows = platform.system() == 'Windows'
     env_bin_dir = 'Scripts' if is_windows else 'bin'
-    env_python_exe = 'python.exe' if is_windows else 'python'
+    env_python_exe = 'python'
     exe_name = 'wpull'
     final_exe_name = 'wpull.exe' if is_windows else 'wpull'
 
@@ -35,6 +35,9 @@ def main():
             return subprocess.check_output(proc_args, env=env)
         else:
             subprocess.check_call(proc_args, env=env)
+
+    def run_env(args):
+        subprocess.check_call([os.path.join(env_dir, env_bin_dir, args[0])] + list(args[1:]))
 
     print('Initialize virtual env.')
     run_py(['virtualenv', '--always-copy', '--system-site-packages', env_dir])
@@ -58,15 +61,28 @@ def main():
     run_env_py(['pip', 'install', 'cchardet'])
 
     print('Install Wpull.')
-    run_env_py(['pip', 'install', '../../'])
+    run_env_py(['pip', 'install', '../../', '--ignore-installed', '--no-deps'])
 
     print('Build binary.')
-    run_env_py(['PyInstaller.main',
+    run_env(['pyi-makespec',
         os.path.join(env_dir, env_bin_dir, 'wpull'),
         '--additional-hooks-dir', 'hooks',
         '--onefile',
         '--name', exe_name,
     ])
+
+    with open('wpull.spec') as spec_file, \
+            open('wpull_spec_snippet.py') as snippet_file, \
+            open('wpull.spec-new', 'w') as new_spec_file:
+        for line in spec_file:
+            if line.startswith('exe ='):
+                new_spec_file.write(snippet_file.read())
+            new_spec_file.write(line)
+
+    os.remove('wpull.spec')
+    os.rename('wpull.spec-new', 'wpull.spec')
+
+    run_env(['pyinstaller', 'wpull.spec'])
 
     print('Zip.')
     wpull_version = run_env_py(['wpull', '--version'], get_output=True)\
