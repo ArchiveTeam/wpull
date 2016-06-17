@@ -1,40 +1,98 @@
 .. _scripting-hooks:
 
-Scripting Hooks
-===============
+Plugin Scripting Hooks
+======================
 
-Wpull's scripting support is modelled after `alard's Wget with Lua hooks <https://github.com/alard/wget-lua/wiki/Wget-with-Lua-hooks>`_.
+Wpull's scripting support is modelled after `alard's Wget with Lua
+hooks <https://github.com/alard/wget-lua/wiki/Wget-with-Lua-hooks>`_.
 
-When the script is loaded, a global instance ``wpull_hook`` (:py:class:`wpull.hook.HookEnvironment`) will be available. The ``wpull_hook`` instance contains members where two of them are most useful:
+Scripts are installed using the `YAPSY plugin
+<http://yapsy.sourceforge.net/>`_ architecture. To create your plugin
+script, subclass :py:class:`wpull.application.plugin.WpullPlugin` and
+load it with ``--plugin-script`` option.
 
-* ``callbacks``: Callback functions that serve as hooks to change functionality. These should be overridden if needed. ``callbacks`` is actually an instance of :py:class:`wpull.hook.Callbacks`.
-* ``actions``: Constants needed for some functions. ``actions`` is actually an instance of :py:class:`wpull.hook.Actions`.
+The plugin interface provides two type of callbacks: hooks and events.
 
-Here is a example Python script. It refuses to download anything with the word "dog" in it::
 
-    def accept_url(url_info, record_info, verdict, reasons):
-        if 'dog' in url_info['url']:
-            return False
-        else:
-            return verdict
+Hook
+++++
 
-    wpull_hook.callbacks.accept_url = accept_url
+Hooks change the behavior of the program. When the callback is
+registered to the hook, it is required to provide a return value
+typically one of :py:class:`wpull.application.hook.Actions`. Only
+one callback may be registered to a hook.
 
-Here is the same script, but in Lua:
+To register your callback, decorate your callback with
+:py:func:`wpull.application.plugin.hook`.
 
-.. code-block:: lua
 
-    wpull_hook.callbacks.accept_url = function(url_info, record_info, verdict, reasons)
-        if string.match(url_info['url'], 'dog') then
-            return false
-        else
-            return verdict
-        end
-    end
+Event
++++++
 
-Wpull will attempt to support deprecation and feature selection through Scripting API Versions. To select a version, include in your script::
+Events are points in the program that occur and are notified to
+registered listeners.
 
-    wpull_hook.callbacks.version = 2
+To register your callback, decorate your callback with
+:py:func:`wpull.application.plugin.event`.
 
-For complete details, see :py:mod:`wpull.hook`. For an example, see `ArchiveBot's scripting hook file <https://github.com/ArchiveTeam/ArchiveBot/blob/065b0cc2549224f72a16cd3611fffb2050962c74/pipeline/wpull_hooks.py>`_.
 
+Interfaces
+++++++++++
+
+The global hooks and events constants are located at
+:py:class:`wpull.application.plugin.PluginFunctions`.
+
+.. include:: scripting_interfaces_include.rst
+
+Example
++++++++
+
+Here is a example Python script. It
+
+* Prints hello on start up
+* Refuses to download anything with the word "dog" in the URL
+* Scrapes URLs on a hypothetical homepage
+* Stops the program execution when the server returns HTTP 429
+
+::
+
+    import datetime
+    import re
+
+    from wpull.application.hook import Actions
+    from wpull.application.plugin import WpullPlugin, PluginFunctions, hook
+    from wpull.protocol.abstract.request import BaseResponse
+    from wpull.pipeline.session import ItemSession
+
+
+    class MyExamplePlugin(WpullPlugin):
+        def activate(self):
+            super().activate()
+            print('Hello world!')
+
+        def deactivate(self):
+            super().deactivate()
+            print('Goodbye world!')
+
+        @hook(PluginFunctions.accept_url)
+        def my_accept_func(self, item_session: ItemSession, verdict: bool, reasons: dict) -> bool:
+            return 'dog' not in item_session.request.url
+
+        @event(PluginFunctions.get_urls)
+        def my_get_urls(self, item_session: ItemSession):
+            if item_session.request.url_info.path != '/':
+                return
+
+            matches = re.finditer(
+                r'<div id="profile-(\w+)"', item_session.response.body.content
+            )
+            for match in matches:
+                url = 'http://example.com/profile.php?username={}'.format(
+                    match.group(1)
+                )
+                item_session.add_child_url(url)
+
+        @hook(PluginFunctions.handle_response)
+        def my_handle_response(item_session: ItemSession):
+            if item_session.response.response_code == 429:
+                return Actions.STOP

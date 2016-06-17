@@ -2,37 +2,41 @@
 import gettext
 import logging
 
-from trollius import From, Return
-import trollius
 
-from wpull.backport.logging import BraceMessage as __
+import asyncio
+
+from wpull.backport.logging import StyleAdapter
+from wpull.pipeline.session import ItemSession
 from wpull.processor.base import BaseProcessor
 
 
-_logger = logging.getLogger()
+_logger = StyleAdapter(logging.getLogger())
 _ = gettext.gettext
 
 
 class DelegateProcessor(BaseProcessor):
     '''Delegate to Web or FTP processor.'''
-    def __init__(self, web_processor, ftp_processor):
-        self.web_processor = web_processor
-        self.ftp_processor = ftp_processor
+    def __init__(self):
+        self._processors = {}
 
-    @trollius.coroutine
-    def process(self, url_item):
-        scheme = url_item.url_info.scheme
+    @asyncio.coroutine
+    def process(self, item_session: ItemSession):
+        scheme = item_session.url_record.url_info.scheme
 
-        if scheme in ('http', 'https'):
-            raise Return((yield From(self.web_processor.process(url_item))))
-        elif scheme == 'ftp':
-            raise Return((yield From(self.ftp_processor.process(url_item))))
+        processor = self._processors.get(scheme)
+
+        if processor:
+            return (yield from processor.process(item_session))
         else:
-            _logger.warning(__(
+            _logger.warning(
                 _('No processor available to handle {scheme} scheme.'),
                 scheme=repr(scheme)
-            ))
+            )
+            item_session.skip()
 
     def close(self):
-        self.web_processor.close()
-        self.ftp_processor.close()
+        for processor in self._processors.values():
+            processor.close()
+
+    def register(self, scheme: str, processor: BaseProcessor):
+        self._processors[scheme] = processor

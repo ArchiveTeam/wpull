@@ -1,6 +1,12 @@
 '''Base table class.'''
 import abc
 
+import typing
+from typing import Iterator, Optional
+
+from wpull.pipeline.item import URLRecord, URLProperties, URLData, Status, \
+    URLResult
+
 
 class DatabaseError(Exception):
     '''Any database error.'''
@@ -10,28 +16,32 @@ class NotFound(DatabaseError):
     '''Item not found in the table.'''
 
 
+AddURLInfo = typing.NamedTuple('_AddURLInfo', [
+    ('url', str),
+    ('properties', URLProperties),
+    ('data', URLData)
+])
+
+
 class BaseURLTable(object, metaclass=abc.ABCMeta):
     '''URL table.'''
 
     @abc.abstractmethod
-    def count(self):
+    def count(self) -> int:
         '''Return the number of URLs in the table.
 
         This call may be expensive.
         '''
 
     @abc.abstractmethod
-    def get_one(self, url):
+    def get_one(self, url: str) -> URLRecord:
         '''Return a URLRecord for the URL.
-
-        Returns:
-            .item.URLRecord
 
         Raises:
             NotFound
         '''
 
-    def contains(self, url):
+    def contains(self, url: str):
         '''Return whether the URL is in the table.'''
 
         try:
@@ -42,52 +52,57 @@ class BaseURLTable(object, metaclass=abc.ABCMeta):
             return True
 
     @abc.abstractmethod
-    def get_all(self):
+    def get_all(self) -> Iterator[URLRecord]:
         '''Return all URLRecord.'''
 
     @abc.abstractmethod
-    def add_many(self, urls, **kwargs):
+    def add_many(self, new_urls: Iterator[AddURLInfo]) -> Iterator[str]:
         '''Add the URLs to the table.
 
         Args:
-            urls: An iterable of `dict` column-value mapping. Each
-                map must contain a ``url`` key.
-            kwargs: Additional values to be saved for all the URLs
+            new_urls: URLs to be added.
 
         Returns:
-            list: The URLs added. Useful for tracking duplicates.
+            The URLs added. Useful for tracking duplicates.
         '''
 
-    def add_one(self, url, **kwargs):
-        '''Add a single URL to the table.'''
-        self.add_many([url], **kwargs)
+    def add_one(self, url: str,
+                url_properties: Optional[URLProperties]=None,
+                url_data: Optional[URLData]=None):
+        '''Add a single URL to the table.
+
+        Args:
+            url: The URL to be added
+            url_properties: Additional values to be saved
+            url_data: Additional data to be saved
+        '''
+        self.add_many([AddURLInfo(url, url_properties, url_data)])
 
     @abc.abstractmethod
-    def check_out(self, filter_status, filter_level=None):
+    def check_out(self, filter_status: Status,
+                  filter_level: Optional[int]=None) -> URLRecord:
         '''Find a URL, mark it in progress, and return it.
 
         Args:
-            filter_status: A status from :class:`.item.Status`.
-            filter_level (int): Return an item with `level` or lower.
-
-        Returns:
-            .item.URLRecord
+            filter_status: Gets first item with given status.
+            filter_level: Gets item with `filter_level` or lower.
 
         Raises:
             NotFound
         '''
 
     @abc.abstractmethod
-    def check_in(self, url, new_status, increment_try_count=True,
-                 **kwargs):
+    def check_in(self, url: str, new_status: Status,
+                 increment_try_count: bool=True,
+                 url_result: Optional[URLResult]=None):
         '''Update record for processed URL.
 
         Args:
-            url (str): The URL.
-            new_status: A status from :class:`.item.Status`.
-            increment_try_count (bool): Whether to increment the try counter
+            url: The URL.
+            new_status: Update the item status to `new_status`.
+            increment_try_count: Whether to increment the try counter
                 for the URL.
-            kwargs: Additional values.
+            url_result: Additional values.
         '''
 
     @abc.abstractmethod
@@ -126,3 +141,20 @@ class BaseURLTable(object, metaclass=abc.ABCMeta):
         Returns:
             str, None
         '''
+
+    @abc.abstractmethod
+    def get_hostnames(self):
+        '''Return list of hostnames
+        '''
+
+    @abc.abstractmethod
+    def get_root_url_todo_count(self) -> int:
+        pass
+
+    @abc.abstractmethod
+    def convert_check_out(self) -> (int, URLRecord):
+        pass
+
+    @abc.abstractmethod
+    def convert_check_in(self, file_id: int, status: Status):
+        pass

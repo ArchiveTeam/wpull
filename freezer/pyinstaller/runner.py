@@ -36,19 +36,23 @@ def main():
         else:
             subprocess.check_call(proc_args, env=env)
 
+    def run_env(args):
+        subprocess.check_call([os.path.join(env_dir, env_bin_dir, args[0])] + list(args[1:]))
+
     print('Initialize virtual env.')
     run_py(['virtualenv', '--always-copy', '--system-site-packages', env_dir])
 
     print('Check for PyInstaller.')
     try:
-        run_env_py(['PyInstaller.main', '--version'])
-    except subprocess.CalledProcessError as error:
-        print('Returned code', error.returncode)
+        run_env(['pyinstaller', '--version'])
+    except (FileNotFoundError, subprocess.CalledProcessError) as error:
+        if hasattr(error, 'returncode'):
+            print('Returned code', error.returncode)
 
         print('Install PyInstaller.')
         run_env_py([
             'pip', 'install',
-            'git+https://github.com/pyinstaller/pyinstaller@python3#egg=PyInstaller',
+            'PyInstaller==3.1.1',
         ])
 
     print('Install packages.')
@@ -58,15 +62,28 @@ def main():
     run_env_py(['pip', 'install', 'cchardet'])
 
     print('Install Wpull.')
-    run_env_py(['pip', 'install', '../../'])
+    run_env_py(['pip', 'install', '../../', '--ignore-installed', '--no-deps'])
 
     print('Build binary.')
-    run_env_py(['PyInstaller.main',
-        os.path.join(env_dir, env_bin_dir, 'wpull'),
+    run_env(['pyi-makespec',
+        'entry_point.py',
         '--additional-hooks-dir', 'hooks',
         '--onefile',
         '--name', exe_name,
     ])
+
+    with open('wpull.spec') as spec_file, \
+            open('wpull_spec_snippet.py') as snippet_file, \
+            open('wpull.spec-new', 'w') as new_spec_file:
+        for line in spec_file:
+            if line.startswith('exe ='):
+                new_spec_file.write(snippet_file.read())
+            new_spec_file.write(line)
+
+    os.remove('wpull.spec')
+    os.rename('wpull.spec-new', 'wpull.spec')
+
+    run_env(['pyinstaller', 'wpull.spec'])
 
     print('Zip.')
     wpull_version = run_env_py(['wpull', '--version'], get_output=True)\

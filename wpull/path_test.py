@@ -126,7 +126,7 @@ class TestPath(unittest.TestCase, TempDirMixin):
         with self.cd_tempdir():
             self.assertEqual(
                 'a',
-                anti_clobber_dir_path('a')
+                anti_clobber_dir_path('./a/')
             )
 
         with self.cd_tempdir():
@@ -158,6 +158,16 @@ class TestPath(unittest.TestCase, TempDirMixin):
             self.assertEqual(
                 'a/b/c.d/d/e/f/g',
                 anti_clobber_dir_path('a/b/c/d/e/f/g')
+            )
+
+        with self.cd_tempdir():
+            os.makedirs('a/b')
+            with open('a/b/c', 'w'):
+                pass
+
+            self.assertEqual(
+                os.path.abspath('a/b/c.d/d/e/f/g'),
+                anti_clobber_dir_path(os.path.abspath('a/b/c/d/e/f/g'))
             )
 
         with self.cd_tempdir():

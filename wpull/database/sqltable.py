@@ -1,22 +1,22 @@
 '''SQLAlchemy table implementations.'''
 import abc
 import contextlib
+import enum
 import logging
-import urllib.parse
-import os
 
+import sqlalchemy.event
+from sqlalchemy import func
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.pool import SingletonThreadPool
-from sqlalchemy.sql.expression import insert, update, select, and_, delete, \
+from sqlalchemy.sql.expression import insert, update, select, delete, \
     bindparam
-from sqlalchemy.sql.functions import func
-import sqlalchemy.event
 
 from wpull.database.base import BaseURLTable, NotFound
-from wpull.database.sqlmodel import URL, URLString, Visit, DBBase
-from wpull.item import Status
-
+from wpull.database.sqlmodel import QueuedURL, URLString, DBBase, WARCVisit, \
+    Hostname, QueuedFile
+from wpull.pipeline.item import Status
+from wpull.url import URLInfo
 
 _logger = logging.getLogger(__name__)
 
@@ -42,11 +42,11 @@ class BaseSQLURLTable(BaseURLTable):
 
     def count(self):
         with self._session() as session:
-            return session.query(URL).count()
+            return session.query(QueuedURL).count()
 
     def get_one(self, url):
         with self._session() as session:
-            result = session.query(URL).filter_by(url=url).first()
+            result = session.query(QueuedURL).filter_by(url=url).first()
 
             if not result:
                 raise NotFound()
@@ -55,134 +55,153 @@ class BaseSQLURLTable(BaseURLTable):
 
     def get_all(self):
         with self._session() as session:
-            for item in session.query(URL):
+            for item in session.query(QueuedURL):
                 yield item.to_plain()
 
-    def add_many(self, new_urls, **kwargs):
+    def add_many(self, new_urls):
         assert not isinstance(new_urls, (str, bytes)), \
             'Expected a list-like. Got {}'.format(new_urls)
-        referrer = kwargs.pop('referrer', None)
-        top_url = kwargs.pop('top_url', None)
 
         new_urls = tuple(new_urls)
 
         if not new_urls:
             return ()
 
-        assert isinstance(new_urls[0], dict), type(new_urls[0])
-        url_strings = list(item['url'] for item in new_urls)
+        assert isinstance(new_urls[0][0], str), type(new_urls[0][0])
 
-        if referrer:
-            url_strings.append(referrer)
+        url_strings = []
 
-        if top_url:
-            url_strings.append(top_url)
+        for url, properties, data in new_urls:
+            url_strings.append(url)
+
+            if properties:
+                if properties.parent_url:
+                    url_strings.append(properties.parent_url)
+                if properties.root_url:
+                    url_strings.append(properties.root_url)
 
         with self._session() as session:
-            query = insert(URLString).prefix_with('OR IGNORE')
-            session.execute(query, [{'url': url} for url in url_strings])
+            URLString.add_urls(session, url_strings)
 
-            bind_values = dict(status=Status.todo)
-            bind_values.update(**kwargs)
+            bind_values = {}
 
-            bind_values['url_str_id'] = select([URLString.id])\
+            bind_values['url_string_id'] = select([URLString.id])\
                 .where(URLString.url == bindparam('url'))
+            bind_values['parent_url_string_id'] = select([URLString.id]) \
+                .where(URLString.url == bindparam('parent_url'))
+            bind_values['root_url_string_id'] = select([URLString.id]) \
+                .where(URLString.url == bindparam('root_url'))
 
-            if referrer:
-                bind_values['referrer_id'] = select([URLString.id])\
-                    .where(URLString.url == bindparam('referrer'))
-            if top_url:
-                bind_values['top_url_str_id'] = select([URLString.id])\
-                    .where(URLString.url == bindparam('top_url'))
-
-            query = insert(URL).prefix_with('OR IGNORE').values(bind_values)
+            query = insert(QueuedURL).prefix_with('OR IGNORE').values(bind_values)
 
             all_row_values = []
+            column_names = set()
 
-            for item in new_urls:
-                assert 'url' in item
-                assert 'referrer' not in item
-                assert 'top_url' not in item
+            for url, url_properties, url_data in new_urls:
+                row_values = {
+                    'url': url,
+                }
 
-                row_values = item
+                if url_properties:
+                    row_values.update(url_properties.database_items())
+                else:
+                    row_values['root_url'] = url
+                    row_values['parent_url'] = url
 
-                if referrer:
-                    row_values['referrer'] = referrer
-                if top_url:
-                    row_values['top_url'] = top_url
+                if url_data:
+                    row_values.update(url_data.database_items())
+
+                convert_dict_enum_values(row_values)
 
                 all_row_values.append(row_values)
+                column_names.update(row_values.keys())
 
-            last_primary_key = session.query(func.max(URL.id)).scalar() or 0
+            for row_value in all_row_values:
+                for name in column_names:
+                    if name not in row_value:
+                        row_value[name] = None
 
-            session.execute(query, all_row_values)
+            with QueuedURL.watch_urls_inserted(session) as get_inserted_urls:
+                session.execute(query, all_row_values)
 
-            query = select([URLString.url]).where(
-                and_(URL.id > last_primary_key,
-                     URL.url_str_id == URLString.id)
-                )
-            added_urls = [row[0] for row in session.execute(query)]
+                added_urls = get_inserted_urls()
+
+            hostnames = (URLInfo.parse(url).hostname for url in added_urls)
+            session.execute(
+                insert(Hostname).prefix_with('OR IGNORE'),
+                [{'hostname': hostname} for hostname in hostnames]
+            )
 
         return added_urls
 
     def check_out(self, filter_status, level=None):
         with self._session() as session:
             if level is None:
-                url_record = session.query(URL).filter_by(
-                    status=filter_status).first()
+                url_record = session.query(QueuedURL).filter_by(
+                    status=filter_status.value).first()
             else:
-                url_record = session.query(URL)\
+                url_record = session.query(QueuedURL)\
                     .filter(
-                        URL.status == filter_status,
-                        URL.level < level,
+                        QueuedURL.status == filter_status.value,
+                        QueuedURL.level < level,
                 ).first()
 
             if not url_record:
                 raise NotFound()
 
-            url_record.status = Status.in_progress
+            url_record.status = Status.in_progress.value
 
             return url_record.to_plain()
 
-    def check_in(self, url, new_status, increment_try_count=True, **kwargs):
+    def check_in(self, url, new_status, increment_try_count=True,
+                 url_result=None):
         with self._session() as session:
             values = {
-                URL.status: new_status
+                QueuedURL.status: new_status.value
             }
 
-            for key, value in kwargs.items():
-                values[getattr(URL, key)] = value
+            if url_result:
+                values.update(url_result.database_items())
 
             if increment_try_count:
-                values[URL.try_count] = URL.try_count + 1
+                values[QueuedURL.try_count] = QueuedURL.try_count + 1
 
             # TODO: rewrite as a join for clarity
             subquery = select([URLString.id]).where(URLString.url == url)\
                 .limit(1)
-            query = update(URL).values(values)\
-                .where(URL.url_str_id == subquery)
+            query = update(QueuedURL).values(values)\
+                .where(QueuedURL.url_string_id == subquery)
 
             session.execute(query)
+
+            if new_status == Status.done and url_result and url_result.filename:
+                query = insert(QueuedFile).prefix_with('OR IGNORE').values({
+                    'queued_url_id': subquery
+                })
+                session.execute(query)
 
     def update_one(self, url, **kwargs):
         with self._session() as session:
             values = {}
 
             for key, value in kwargs.items():
-                values[getattr(URL, key)] = value
+                values[getattr(QueuedURL, key)] = value
 
             # TODO: rewrite as a join for clarity
             subquery = select([URLString.id]).where(URLString.url == url)\
                 .limit(1)
-            query = update(URL).values(values)\
-                .where(URL.url_str_id == subquery)
+            query = update(QueuedURL).values(values)\
+                .where(QueuedURL.url_string_id == subquery)
 
             session.execute(query)
 
     def release(self):
         with self._session() as session:
-            query = update(URL).values({URL.status: Status.todo})\
-                .where(URL.status==Status.in_progress)
+            query = update(QueuedURL).values({QueuedURL.status: Status.todo.value})\
+                .where(QueuedURL.status==Status.in_progress.value)
+            session.execute(query)
+            query = update(QueuedFile).values({QueuedFile.status: Status.todo.value}) \
+                .where(QueuedFile.status==Status.in_progress.value)
             session.execute(query)
 
     def remove_many(self, urls):
@@ -193,34 +212,53 @@ class BaseSQLURLTable(BaseURLTable):
             for url in urls:
                 url_str_id = session.query(URLString.id)\
                     .filter_by(url=url).scalar()
-                query = delete(URL).where(URL.url_str_id == url_str_id)
+                query = delete(QueuedURL).where(QueuedURL.url_string_id == url_str_id)
                 session.execute(query)
 
     def add_visits(self, visits):
         with self._session() as session:
-            for url, warc_id, payload_digest in visits:
-                session.execute(
-                    insert(Visit).prefix_with('OR IGNORE'),
-                    dict(
-                        url=url,
-                        warc_id=warc_id,
-                        payload_digest=payload_digest
-                    )
-                )
+            WARCVisit.add_visits(session, visits)
 
     def get_revisit_id(self, url, payload_digest):
-        query = select([Visit.warc_id]).where(
-            and_(
-                Visit.url == url,
-                Visit.payload_digest == payload_digest
-            )
-        )
-
         with self._session() as session:
-            row = session.execute(query).first()
+            return WARCVisit.get_revisit_id(session, url, payload_digest)
 
-            if row:
-                return row.warc_id
+    def get_hostnames(self):
+        hostnames = []
+        with self._session() as session:
+            for row in session.query(Hostname.hostname):
+                hostnames.append(row[0])
+
+        return hostnames
+
+    def get_root_url_todo_count(self):
+        with self._session() as session:
+            return session.query(func.count(QueuedURL.id))\
+                .filter_by(status=Status.todo.value)\
+                .filter_by(level=0).scalar()
+
+    def convert_check_out(self):
+        with self._session() as session:
+            queued_file = session.query(QueuedFile).filter_by(
+                status=Status.todo.value).first()
+
+            if not queued_file:
+                raise NotFound()
+
+            queued_file.status = Status.in_progress.value
+
+            return queued_file.id, queued_file.queued_url.to_plain()
+
+    def convert_check_in(self, file_id, status):
+        with self._session() as session:
+            values = {
+                'status': status.value
+            }
+
+            query = update(QueuedFile).values(values) \
+                .where(QueuedFile.id == file_id)
+
+            session.execute(query)
 
 
 class SQLiteURLTable(BaseSQLURLTable):
@@ -285,6 +323,14 @@ URLTable = SQLiteURLTable
 '''The default URL table implementation.'''
 
 
+def convert_dict_enum_values(dict_):
+    for key, value in dict_.items():
+        if isinstance(value, enum.Enum):
+            value = value.value
+            dict_[key] = value
+
+
 __all__ = (
-    'BaseSQLURLTable', 'SQLiteURLTable', 'GenericSQLURLTable', 'URLTable'
+    'BaseSQLURLTable', 'SQLiteURLTable', 'GenericSQLURLTable', 'URLTable',
+    'convert_dict_enum_values'
 )

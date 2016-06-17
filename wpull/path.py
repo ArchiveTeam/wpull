@@ -296,12 +296,12 @@ def anti_clobber_dir_path(dir_path, suffix='.d'):
     parts = dir_path.split(os.sep)
 
     for index in range(len(parts)):
-        test_path = os.path.join(*parts[:index + 1])
+        test_path = os.sep.join(parts[:index + 1])
 
         if os.path.isfile(test_path):
             parts[index] += suffix
 
-            return os.path.join(*parts)
+            return os.sep.join(parts)
 
     return dir_path
 

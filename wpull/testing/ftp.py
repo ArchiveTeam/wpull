@@ -2,8 +2,7 @@
 import logging
 import socket
 
-from trollius import From, Return
-import trollius
+import asyncio
 
 from wpull.testing.async import AsyncTestCase
 
@@ -15,13 +14,13 @@ class MockFTPServer(object):
     def __init__(self):
         pass
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def __call__(self, reader, writer):
         _logger.debug('New session')
         session = FTPSession(reader, writer)
 
         try:
-            yield From(session.process())
+            yield from session.process()
         except Exception:
             _logger.exception('Server error')
             writer.close()
@@ -80,15 +79,15 @@ class FTPSession(object):
         self.evil_flags = set()
         self.restart_value = None
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def process(self):
         self.writer.write(b'220-Welcome to Smaug\'s FTP server\r\n')
         self.writer.write(b'220 Please upload your treasures now.\r\n')
 
         while True:
-            yield From(self.writer.drain())
+            yield from self.writer.drain()
             _logger.debug('Await command')
-            line = yield From(self.reader.readline())
+            line = yield from self.reader.readline()
 
             if line[-1:] != b'\n':
                 _logger.debug('Connection closed')
@@ -142,9 +141,9 @@ class FTPSession(object):
                         not self._current_password:
                     self.writer.write(b'530 Login required\r\n')
                 else:
-                    yield From(func())
+                    yield from func()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _cmd_user(self):
         self._current_username = self.arg
 
@@ -154,7 +153,7 @@ class FTPSession(object):
         else:
             self.writer.write(b'331 Password required\r\n')
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _cmd_pass(self):
         if self._current_username == 'anonymous':
             self.writer.write(b'230 Log in OK\r\n')
@@ -165,7 +164,7 @@ class FTPSession(object):
         else:
             self.writer.write(b'530 Password incorrect\r\n')
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _cmd_pasv(self):
         sock = socket.socket()
         sock.bind(('127.0.0.1', 0))
@@ -174,8 +173,8 @@ class FTPSession(object):
             self.data_reader = data_reader
             self.data_writer = data_writer
 
-        self.data_server = yield From(
-            trollius.start_server(data_server_cb, sock=sock))
+        self.data_server = yield from \
+            asyncio.start_server(data_server_cb, sock=sock)
         port = sock.getsockname()[1]
 
         big_port_num = port >> 8
@@ -188,18 +187,18 @@ class FTPSession(object):
                               .format(big_port_num, small_port_num)
                               .encode('utf-8'))
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _wait_data_writer(self):
         for dummy in range(50):
             if not self.data_writer:
-                yield From(trollius.sleep(0.1))
+                yield from asyncio.sleep(0.1)
             else:
                 return
         raise Exception('Time out')
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _cmd_nlst(self):
-        yield From(self._wait_data_writer())
+        yield from self._wait_data_writer()
 
         if not self.data_writer:
             self.writer.write(b'227 Use PORT or PASV first\r\n')
@@ -219,9 +218,9 @@ class FTPSession(object):
             self.writer.write(b'226 End listings\r\n')
             self.data_server.close()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _cmd_list(self):
-        yield From(self._wait_data_writer())
+        yield from self._wait_data_writer()
 
         if not self.data_writer:
             self.writer.write(b'227 Use PORT or PASV first\r\n')
@@ -240,9 +239,9 @@ class FTPSession(object):
             self.writer.write(b'226 End listings\r\n')
             self.data_server.close()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _cmd_mlsd(self):
-        yield From(self._wait_data_writer())
+        yield from self._wait_data_writer()
 
         info = self.routes.get(self.path)
 
@@ -267,9 +266,9 @@ class FTPSession(object):
             self.writer.write(b'226 End listings\r\n')
             self.data_server.close()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _cmd_retr(self):
-        yield From(self._wait_data_writer())
+        yield from self._wait_data_writer()
 
         info = self.routes.get(self.path)
 
@@ -279,7 +278,7 @@ class FTPSession(object):
             self.writer.write(b'150 Begin data\r\n')
 
             if self.path == '/hidden/sleep.txt':
-                yield From(trollius.sleep(2))
+                yield from asyncio.sleep(2)
 
             self.data_writer.write(info[1][self.restart_value or 0:])
             self.restart_value = None
@@ -293,7 +292,7 @@ class FTPSession(object):
         else:
             self.writer.write(b'550 File error\r\n')
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _cmd_size(self):
         info = self.routes.get(self.path)
 
@@ -306,7 +305,7 @@ class FTPSession(object):
         else:
             self.writer.write(b'550 Unknown command\r\n')
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _cmd_rest(self):
         try:
             self.restart_value = int(self.arg)
@@ -320,25 +319,25 @@ class FTPSession(object):
             self.restart_value = None
             self.writer.write(b'550 What?\r\n')
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _cmd_cwd(self):
         if self.arg in ('example1', 'example2💎', '/'):
             self.writer.write(b'250 Changed directory\r\n')
         else:
             self.writer.write(b'550 Change directory error\r\n')
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _cmd_type(self):
         if self.arg == 'I':
             self.writer.write(b'200 Now binary mode\r\n')
         else:
             self.writer.write(b'500 Unknown type\r\n')
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _cmd_pwd(self):
         self.writer.write(b'257 /\r\n')
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _cmd_evil_bad_pasv_addr(self):
         self.evil_flags.add('bad_pasv_addr')
 
@@ -353,7 +352,7 @@ class FTPTestCase(AsyncTestCase):
         self.sock = socket.socket()
         self.sock.bind(('127.0.0.1', 0))
         self.server_handle = self.event_loop.run_until_complete(
-            trollius.start_server(self.server, sock=self.sock)
+            asyncio.start_server(self.server, sock=self.sock)
         )
 
     def tearDown(self):
@@ -373,6 +372,6 @@ class FTPTestCase(AsyncTestCase):
 
 if __name__ == '__main__':
     server = MockFTPServer()
-    handle = trollius.get_event_loop().run_until_complete(
-        trollius.start_server(server, port=8020))
-    trollius.get_event_loop().run_forever()
+    handle = asyncio.get_event_loop().run_until_complete(
+        asyncio.start_server(server, port=8020))
+    asyncio.get_event_loop().run_forever()

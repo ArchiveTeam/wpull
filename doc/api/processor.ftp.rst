@@ -7,6 +7,4 @@
 .. automodule:: wpull.processor.ftp
     :members:
     :show-inheritance:
-    :private-members:
-    :special-members:
-    :exclude-members: __dict__,__weakref__
+    :undoc-members:

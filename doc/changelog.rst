@@ -6,9 +6,48 @@ Summary of notable changes.
 
 .. Take advice from http://keepachangelog.com/.
 
+
+Unreleased
+==========
+
+
+
+2.0 (2016-06-17)
+================
+
+* Removed: Lua scripting support and its Python counterpart (``--lua-script`` and ``--python-script``).
+* Removed: Python 3.2 & 3.3 support.
+* Removed: PyPy support.
+* Changed: IP addresses are normalized to a standard notation to avoid fetching duplicates such as IPv4 addresses written in hexadecimal or long-hand IPv6 addresses.
+* Changed: Scripting is now done using plugin interface via ``--plugin-script``.
+* Fixed: Support for Python 3.5.
+* Fixed: FTP unable to handle directory listing with date in MMM DD YYYY and filename containing YYYY-MM-DD text.
+* Fixed: Downloads through the proxy (such as PhantomJS) now show up in the database and can be controlled through scripting.
+* Fixed: `NotFound` error when converting links in CSS file that contain URLs that were not fetched.
+* Fixed: When resuming a forcefully interrupted crawl (e.g., a crash) using a database, URLs in progress were not restarted because they were not reset in the database when the program started up.
+
+
+Backwards incompatibility
++++++++++++++++++++++++++
+
+This release contains backwards incompatible changes to the database
+schema and scripting interface.
+
+If you use ``--database``, the database created by older versions in
+Wpull cannot be used in this version.
+
+Scripting hook code will need to be rewritten to use the new API. See
+the new documentation for scripting for the new style of interfacing
+with Wpull.
+
+Additionally for scripts, the internal event loop has switched from
+Trollius to built-in Asyncio.
+
+
 1.2.3 (2016-02-03)
 ==================
 
+* Removed: cx_freeze build support.
 * Deprecated: Lua Scripting support will be removed in next release.
 * Deprecated: Python 3.2 & 3.3 support will be removed in the next release.
 * Deprecated: PyPy support will be removed in the next release.

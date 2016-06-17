@@ -2,16 +2,15 @@
 import gettext
 import logging
 
-from wpull.backport.logging import BraceMessage as __
+import wpull.util
+from wpull.backport.logging import StyleAdapter
 from wpull.document.sitemap import SitemapReader
 from wpull.document.util import detect_response_encoding
-from wpull.item import LinkType
-import wpull.util
+from wpull.pipeline.item import LinkType
 from wpull.scraper.base import BaseExtractiveScraper, LinkContext, ScrapeResult
 
-
 _ = gettext.gettext
-_logger = logging.getLogger(__name__)
+_logger = StyleAdapter(logging.getLogger(__name__))
 
 
 class SitemapScraper(SitemapReader, BaseExtractiveScraper):
@@ -39,9 +38,9 @@ class SitemapScraper(SitemapReader, BaseExtractiveScraper):
                     link_contexts.add(LinkContext(link, linked=True))
 
         except (UnicodeError, self._html_parser.parser_error) as error:
-            _logger.warning(__(
+            _logger.warning(
                 _('Failed to read document at ‘{url}’: {error}'),
                 url=request.url_info.url, error=error
-            ))
+            )
 
         return ScrapeResult(link_contexts, encoding)

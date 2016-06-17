@@ -16,6 +16,7 @@ import sys
 import os
 import re
 
+import sphinx
 
 sys.path.insert(0, os.path.join(
     os.path.abspath(os.path.dirname(__file__)),
@@ -65,12 +66,16 @@ if on_rtd:
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinxcontrib.napoleon',
 #    'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
     'sphinx.ext.viewcode',
     'sphinxarg.ext',
 ]
+
+if sphinx.version_info >= (1, 3):
+    extensions.append('sphinx.ext.napoleon')
+else:
+    extensions.append('sphinxcontrib.napoleon',)
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -86,7 +91,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Wpull'
-copyright = '2013-2015, Christopher Foo and others'
+copyright = '2013-2016, Christopher Foo and others'
 
 
 # The version info for the project you're documenting, acts as replacement for

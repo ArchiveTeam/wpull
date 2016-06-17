@@ -1,17 +1,16 @@
 # encoding=utf-8
-from tempfile import TemporaryDirectory
 import os.path
 import unittest
 
 from wpull.converter import CSSConverter, HTMLConverter
+from wpull.database.base import AddURLInfo
 from wpull.database.sqltable import URLTable
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
-from wpull.item import Status
+from wpull.pipeline.item import Status
 from wpull.scraper.css import CSSScraper
 from wpull.scraper.html import ElementWalker
 from wpull.testing.util import TempDirMixin
 from wpull.util import IS_PYPY
-
 
 if not IS_PYPY:
     from wpull.document.htmlparse.lxml_ import HTMLParser as LxmlHTMLParser
@@ -22,6 +21,7 @@ CSS_TEXT = '''
 body {
     background: url('http://example.com/image.png');
     background: url('http://example.com/cat.jpg');
+    background: url('http://example.com/dog.jpg');
 }
 /* ð £fbġ̉bbb */
 '''
@@ -31,6 +31,7 @@ HTML_TEXT = '''
 <style>
     background: url('http://example.com/image.png');
     background: url('http://example.com/cat.jpg');
+    background: url('http://example.com/dog.jpg');
 </style>
 <body>
     ¡¡ÐÉ§bh¾Í¿fg½½ËGFÐÅFÁ
@@ -77,20 +78,20 @@ class Mixin(object):
         new_css_filename = os.path.join(self.temp_dir.name, 'styles.css-new')
 
         url_table.add_many([
-            {'url': 'http://example.com/styles.css'},
-            {'url': 'http://example.com/image.png'},
-            {'url': 'http://example.com/cat.jpg'},
-            {'url': 'http://example.com/cat.jpg'},
+            AddURLInfo('http://example.com/styles.css', None, None),
+            AddURLInfo('http://example.com/image.png', None, None),
+            AddURLInfo('http://example.com/cat.jpg', None, None),
+            AddURLInfo('http://example.com/cat.jpg', None, None),
         ])
         url_table.update_one(
             'http://example.com/styles.css',
-            status=Status.done,
+            status=Status.done.value,
             link_type='css',
             filename=os.path.relpath(css_filename, self.temp_dir.name)
         )
         url_table.update_one(
             'http://example.com/image.png',
-            status=Status.done,
+            status=Status.done.value,
             filename=os.path.relpath(image_filename, self.temp_dir.name)
         )
 
@@ -121,31 +122,31 @@ class Mixin(object):
         ferret_filename = os.path.join(self.temp_dir.name, 'ferret.jpg')
 
         url_table.add_many([
-            {'url': 'http://example.com/styles.css'},
-            {'url': 'http://example.com/image.png'},
-            {'url': 'http://example.com/cat.jpg'},
-            {'url': 'http://example.com/fox.jpg'},
-            {'url': 'http://example.com/ferret.jpg'},
-            {'url': 'http://example.com/tubes.html'},
+            AddURLInfo('http://example.com/styles.css', None, None),
+            AddURLInfo('http://example.com/image.png', None, None),
+            AddURLInfo('http://example.com/cat.jpg', None, None),
+            AddURLInfo('http://example.com/fox.jpg', None, None),
+            AddURLInfo('http://example.com/ferret.jpg', None, None),
+            AddURLInfo('http://example.com/tubes.html', None, None),
         ])
         url_table.update_one(
             'http://example.com/styles.css',
-            status=Status.done,
+            status=Status.done.value,
             link_type='css'
         )
         url_table.update_one(
             'http://example.com/image.png',
-            status=Status.done,
+            status=Status.done.value,
             filename=os.path.relpath(image_filename, self.temp_dir.name)
         )
         url_table.update_one(
             'http://example.com/tubes.html',
-            status=Status.done,
+            status=Status.done.value,
             filename=os.path.relpath(tubes_filename, self.temp_dir.name)
         )
         url_table.update_one(
             'http://example.com/ferret.jpg',
-            status=Status.done,
+            status=Status.done.value,
             filename=os.path.relpath(ferret_filename, self.temp_dir.name)
         )
 
@@ -188,31 +189,31 @@ class Mixin(object):
         ferret_filename = os.path.join(self.temp_dir.name, 'ferret.jpg')
 
         url_table.add_many([
-            {'url': 'http://example.com/styles.css'},
-            {'url': 'http://example.com/image.png'},
-            {'url': 'http://example.com/cat.jpg'},
-            {'url': 'http://example.com/fox.jpg'},
-            {'url': 'http://example.com/ferret.jpg'},
-            {'url': 'http://example.com/tubes.html'},
+            AddURLInfo('http://example.com/styles.css', None, None),
+            AddURLInfo('http://example.com/image.png', None, None),
+            AddURLInfo('http://example.com/cat.jpg', None, None),
+            AddURLInfo('http://example.com/fox.jpg', None, None),
+            AddURLInfo('http://example.com/ferret.jpg', None, None),
+            AddURLInfo('http://example.com/tubes.html', None, None),
         ])
         url_table.update_one(
             'http://example.com/styles.css',
-            status=Status.done,
+            status=Status.done.value,
             link_type='css'
         )
         url_table.update_one(
             'http://example.com/image.png',
-            status=Status.done,
+            status=Status.done.value,
             filename=os.path.relpath(image_filename, self.temp_dir.name)
         )
         url_table.update_one(
             'http://example.com/tubes.html',
-            status=Status.done,
+            status=Status.done.value,
             filename=os.path.relpath(tubes_filename, self.temp_dir.name)
         )
         url_table.update_one(
             'http://example.com/ferret.jpg',
-            status=Status.done,
+            status=Status.done.value,
             filename=os.path.relpath(ferret_filename, self.temp_dir.name)
         )
 

@@ -7,6 +7,4 @@
 .. automodule:: wpull.document.htmlparse.html5lib_
     :members:
     :show-inheritance:
-    :private-members:
-    :special-members:
-    :exclude-members: __dict__,__weakref__
+    :undoc-members:

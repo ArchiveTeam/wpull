@@ -7,18 +7,15 @@ Introduction
 Wpull is a Wget-compatible (or remake/clone/replacement/alternative) web
 downloader and crawler.
 
-.. image:: ../icon/wpull_logo_full.png
+.. image:: https://raw.githubusercontent.com/chfoo/wpull/master/icon/wpull_logo_full.png
    :target: https://github.com/chfoo/wpull
    :alt: A dog pulling a box via a harness.
 
-Features:
+Notable Features:
 
-* Written in Python: lightweight, modifiable, & robust
-* Familiar Wget options and behavior
+* Written in Python: lightweight, modifiable, robust, & scriptable
 * Graceful stopping; on-disk database resume
-* Python & Lua scripting support
 * PhantomJS & youtube-dl integration (experimental)
-
 
 .. ⬆ Please keep this intro above in sync with the README file. ⬆
    Additional intro stuff not in the README should go below.
@@ -26,10 +23,12 @@ Features:
 
 Wpull is designed to be (almost) a drop-in replacement for Wget with
 minimal changes to options. It is designed to run on much larger crawls
-without requiring additional demand on resources.
+rather than speedily downloading a single file.
 
 Wpull's behavior is not an exact duplicate of Wget's behavior. As such,
 you should not expect exact output and operation out of Wpull. However,
 it aims to be a very useful alternative as its source code can be
 easily modified to fix, change, or extend its behaviors.
 
+For instructions, read on to the next sections. Confused? Check out the
+:doc:`Frequently Asked Questions <help>`.

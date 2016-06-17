@@ -4,24 +4,31 @@ import gettext
 import io
 import logging
 
-from trollius.coroutines import Return, From
 import namedlist
-import trollius
+import asyncio
 
-from wpull.backport.logging import BraceMessage as __
+from typing import cast, Tuple
+
+from wpull.backport.logging import StyleAdapter
 from wpull.body import Body
 from wpull.errors import ProtocolError
-from wpull.hook import HookableMixin, Actions
-from wpull.http.web import LoopType
+from wpull.application.hook import HookableMixin, Actions
+from wpull.pipeline.item import URLRecord
+from wpull.pipeline.session import ItemSession
+from wpull.processor.coprocessor.phantomjs import PhantomJSCoprocessor
+from wpull.processor.coprocessor.youtubedl import YoutubeDlCoprocessor
+from wpull.protocol.http.request import Request, Response
+from wpull.protocol.http.web import LoopType, WebClient
 from wpull.processor.base import BaseProcessor, BaseProcessorSession, \
     REMOTE_ERRORS
-from wpull.processor.rule import FetchRule, ResultRule
-from wpull.stats import Statistics
-from wpull.writer import NullWriter
+from wpull.processor.rule import FetchRule, ResultRule, ProcessingRule
+from wpull.url import URLInfo
+from wpull.writer import BaseFileWriter
 import wpull.string
+import wpull.util
 
 
-_logger = logging.getLogger(__name__)
+_logger = StyleAdapter(logging.getLogger(__name__))
 _ = gettext.gettext
 
 WebProcessorFetchParams = namedlist.namedtuple(
@@ -41,30 +48,6 @@ Args:
     strong_redirects (bool): If True, redirects are allowed to span hosts.
 '''
 
-WebProcessorInstances = namedlist.namedtuple(
-    'WebProcessorInstancesType',
-    [
-        ('fetch_rule', FetchRule()),
-        ('result_rule', ResultRule()),
-        ('processing_rule', None),
-        ('file_writer', NullWriter()),
-        ('statistics', Statistics()),
-        ('phantomjs_coprocessor', None),
-        ('youtube_dl_coprocessor', None),
-    ]
-)
-'''WebProcessorInstances
-
-Args:
-    fetch_rule ( :class:`.processor.rule.FetchRule`): The fetch rule.
-    result_rule ( :class:`.processor.rule.ResultRule`): The result rule.
-    processing_rule ( :class:`.processor.rule.ProcessingRule`): The processing rule.
-    file_writer (:class`.writer.BaseWriter`): The file writer.
-    phantomjs_coprocessor (:class:`.coprocessor.phantomjs.PhantomJSCoprocessor`): The PhantomJS
-        corprocessor.
-    youtube_dl_coprocessor (:class:`.coprocessor.youtubedl.YoutubeDlCoprocessor`): youtube-dl coprocessor.
-'''
-
 
 class HookPreResponseBreak(ProtocolError):
     '''Hook pre-response break.'''
@@ -74,10 +57,8 @@ class WebProcessor(BaseProcessor, HookableMixin):
     '''HTTP processor.
 
     Args:
-        rich_client (:class:`.http.web.WebClient`): The web client.
-        root_path (str): The root directory path.
-        fetch_params: An instance of :class:`WebProcessorFetchParams`.
-        instances: An instance of :class:`WebProcessorInstances`.
+        web_client: The web client.
+        fetch_params: Fetch parameters
 
     .. seealso:: :class:`WebProcessorSession`
     '''
@@ -87,40 +68,28 @@ class WebProcessor(BaseProcessor, HookableMixin):
     NO_DOCUMENT_STATUS_CODES = (401, 403, 404, 405, 410,)
     '''Default status codes considered a permanent error.'''
 
-    def __init__(self, web_client, root_path, fetch_params, instances):
+    def __init__(self, web_client: WebClient, fetch_params: WebProcessorFetchParams):
         super().__init__()
 
         self._web_client = web_client
-        self._root_path = root_path
         self._fetch_params = fetch_params
-        self._instances = instances
         self._session_class = WebProcessorSession
 
     @property
-    def web_client(self):
+    def web_client(self) -> WebClient:
         '''The web client.'''
         return self._web_client
 
     @property
-    def root_path(self):
-        '''The root path.'''
-        return self._root_path
-
-    @property
-    def instances(self):
-        '''The processor instances.'''
-        return self._instances
-
-    @property
-    def fetch_params(self):
+    def fetch_params(self) -> WebProcessorFetchParams:
         '''The fetch parameters.'''
         return self._fetch_params
 
-    @trollius.coroutine
-    def process(self, url_item):
-        session = self._session_class(self, url_item)
+    @asyncio.coroutine
+    def process(self, item_session: ItemSession):
+        session = self._session_class(self, item_session)
         try:
-            raise Return((yield From(session.process())))
+            return (yield from session.process())
         finally:
             session.close()
 
@@ -141,30 +110,31 @@ class WebProcessorSession(BaseProcessorSession):
     URLs to be added to the URL table. This Processor Session is very simple;
     it cannot handle JavaScript or Flash plugins.
     '''
-    def __init__(self, processor, url_item):
+    def __init__(self, processor: WebProcessor, item_session: ItemSession):
         super().__init__()
         self._processor = processor
-        self._url_item = url_item
-        self._file_writer_session = processor.instances.file_writer.session()
+        self._item_session = item_session
+
+        file_writer = cast(BaseFileWriter, item_session.app_session.factory['FileWriter'])
+        self._file_writer_session = file_writer.session()
         self._web_client_session = None
 
         self._document_codes = WebProcessor.DOCUMENT_STATUS_CODES
         self._no_document_codes = WebProcessor.NO_DOCUMENT_STATUS_CODES
 
-        self._request = None
         self._temp_files = set()
 
-        self._fetch_rule = processor.instances.fetch_rule
-        self._result_rule = processor.instances.result_rule
-        self._processing_rule = processor.instances.processing_rule
+        self._fetch_rule = cast(FetchRule, item_session.app_session.factory['FetchRule'])
+        self._result_rule = cast(ResultRule, item_session.app_session.factory['ResultRule'])
+        self._processing_rule = cast(ProcessingRule, item_session.app_session.factory['ProcessingRule'])
         self._strong_redirects = self._processor.fetch_params.strong_redirects
 
-    def _new_initial_request(self, with_body=True):
+    def _new_initial_request(self, with_body: bool=True):
         '''Return a new Request to be passed to the Web Client.'''
-        url_info = self._url_item.url_info
-        url_record = self._url_item.url_record
+        url_record = self._item_session.url_record
+        url_info = url_record.url_info
 
-        request = self._processor.web_client.request_factory(url_info.url)
+        request = self._item_session.app_session.factory['WebClient'].request_factory(url_info.url)
 
         self._populate_common_request(request)
 
@@ -179,127 +149,126 @@ class WebProcessorSession(BaseProcessorSession):
 
     def _populate_common_request(self, request):
         '''Populate the Request with common fields.'''
-        url_record = self._url_item.url_record
+        url_record = self._item_session.url_record
 
         # Note that referrer may have already been set by the --referer option
-        if url_record.referrer and not request.fields.get('Referer'):
-            self._add_referrer(request, url_record, self._url_item.url_info)
+        if url_record.parent_url and not request.fields.get('Referer'):
+            self._add_referrer(request, url_record)
 
         if self._fetch_rule.http_login:
             request.username, request.password = self._fetch_rule.http_login
 
     @classmethod
-    def _add_referrer(cls, request, url_record, url_info):
+    def _add_referrer(cls, request: Request, url_record: URLRecord):
         '''Add referrer URL to request.'''
         # Prohibit leak of referrer from HTTPS to HTTP
         # rfc7231 section 5.5.2.
-        if url_record.referrer.startswith('https://') and \
-                url_info.scheme == 'http':
+        if url_record.parent_url.startswith('https://') and \
+                url_record.url_info.scheme == 'http':
             return
 
-        request.fields['Referer'] = url_record.referrer
+        request.fields['Referer'] = url_record.parent_url
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def process(self):
-        ok = yield From(self._process_robots())
+        ok = yield from self._process_robots()
 
         if not ok:
             return
 
-        self._processing_rule.add_extra_urls(self._url_item)
+        self._processing_rule.add_extra_urls(self._item_session)
 
         self._web_client_session = self._processor.web_client.session(
             self._new_initial_request()
         )
 
-        yield From(self._process_loop())
+        with self._web_client_session:
+            yield from self._process_loop()
 
-        if self._request and self._request.body:
-            self._request.body.close()
-
-        if not self._url_item.is_processed:
+        if not self._item_session.is_processed:
             _logger.debug('Was not processed. Skipping.')
-            self._url_item.skip()
+            self._item_session.skip()
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _process_robots(self):
         '''Process robots.txt.
 
         Coroutine.
         '''
         try:
-            request = self._new_initial_request(with_body=False)
-            verdict = (yield From(self._should_fetch_reason_with_robots(
-                request, self._url_item.url_record)))[0]
+            self._item_session.request = request = self._new_initial_request(with_body=False)
+            verdict, reason = (yield from self._should_fetch_reason_with_robots(
+                request))
         except REMOTE_ERRORS as error:
-            _logger.error(__(
+            _logger.error(
                 _('Fetching robots.txt for ‘{url}’ '
                   'encountered an error: {error}'),
                 url=self._next_url_info.url, error=error
-            ))
-            self._result_rule.handle_error(request, error, self._url_item)
+            )
+            self._result_rule.handle_error(self._item_session, error)
 
             wait_time = self._result_rule.get_wait_time(
-                request, self._url_item.url_record, error=error
+                self._item_session, error=error
             )
 
             if wait_time:
-                _logger.debug('Sleeping {0}.'.format(wait_time))
-                yield From(trollius.sleep(wait_time))
+                _logger.debug('Sleeping {0}.', wait_time)
+                yield from asyncio.sleep(wait_time)
 
-            raise Return(False)
+            return False
         else:
+            _logger.debug('Robots filter verdict {} reason {}', verdict, reason)
+
             if not verdict:
-                self._url_item.skip()
-                raise Return(False)
+                self._item_session.skip()
+                return False
 
-        raise Return(True)
+        return True
 
-    @trollius.coroutine
+    @asyncio.coroutine
     def _process_loop(self):
         '''Fetch URL including redirects.
 
         Coroutine.
         '''
         while not self._web_client_session.done():
-            verdict = self._should_fetch_reason(
-                self._next_url_info, self._url_item.url_record)[0]
+            self._item_session.request = self._web_client_session.next_request()
+
+            verdict, reason = self._should_fetch_reason()
+
+            _logger.debug('Filter verdict {} reason {}', verdict, reason)
 
             if not verdict:
-                self._url_item.skip()
+                self._item_session.skip()
                 break
 
-            self._request = self._web_client_session.next_request()
-
-            exit_early, wait_time = yield From(self._fetch_one(self._request))
+            exit_early, wait_time = yield from self._fetch_one(cast(Request, self._item_session.request))
 
             if wait_time:
-                _logger.debug('Sleeping {0}.'.format(wait_time))
-                yield From(trollius.sleep(wait_time))
+                _logger.debug('Sleeping {}', wait_time)
+                yield from asyncio.sleep(wait_time)
 
             if exit_early:
                 break
 
-    @trollius.coroutine
-    def _fetch_one(self, request):
+    @asyncio.coroutine
+    def _fetch_one(self, request: Request) -> Tuple[bool, float]:
         '''Process one of the loop iteration.
 
         Coroutine.
 
         Returns:
-            bool: If True, stop processing any future requests.
+            If True, stop processing any future requests.
         '''
-        _logger.info(_('Fetching ‘{url}’.').format(url=request.url))
+        _logger.info(_('Fetching ‘{url}’.'), url=request.url)
 
         response = None
 
-        def response_callback(dummy, callback_response):
-            nonlocal response
-            response = callback_response
+        try:
+            response = yield from self._web_client_session.start()
+            self._item_session.response = response
 
-            action = self._result_rule.handle_pre_response(
-                request, response, self._url_item
-            )
+            action = self._result_rule.handle_pre_response(self._item_session)
 
             if action in (Actions.RETRY, Actions.FINISH):
                 raise HookPreResponseBreak()
@@ -307,45 +276,47 @@ class WebProcessorSession(BaseProcessorSession):
             self._file_writer_session.process_response(response)
 
             if not response.body:
-                response.body = Body(directory=self._processor.root_path,
-                                     hint='resp_cb')
+                response.body = Body(
+                    directory=self._item_session.app_session.root_path,
+                    hint='resp_cb'
+                )
 
-            return response.body
-
-        try:
-            response = yield From(
-                self._web_client_session.fetch(
-                    callback=response_callback,
+            yield from \
+                self._web_client_session.download(
+                    file=response.body,
                     duration_timeout=self._fetch_rule.duration_timeout
                 )
-            )
         except HookPreResponseBreak:
             _logger.debug('Hook pre-response break.')
-            raise Return(True, None)
+            return True, None
         except REMOTE_ERRORS as error:
             self._log_error(request, error)
 
-            self._result_rule.handle_error(request, error, self._url_item)
+            self._result_rule.handle_error(self._item_session, error)
             wait_time = self._result_rule.get_wait_time(
-                request, self._url_item.url_record, error=error
+                self._item_session, error=error
             )
+
+            if request.body:
+                request.body.close()
 
             if response:
                 response.body.close()
 
-            raise Return(True, wait_time)
+            return True, wait_time
         else:
             self._log_response(request, response)
             action = self._handle_response(request, response)
-            wait_time = self._result_rule.get_wait_time(
-                request, self._url_item.url_record, response=response
-            )
+            wait_time = self._result_rule.get_wait_time(self._item_session)
 
-            yield From(self._run_coprocessors(request, response))
+            yield from self._run_coprocessors(request, response)
 
             response.body.close()
 
-            raise Return(action != Actions.NORMAL, wait_time)
+            if request.body:
+                request.body.close()
+
+            return action != Actions.NORMAL, wait_time
 
     def close(self):
         '''Close any temp files.'''
@@ -353,18 +324,18 @@ class WebProcessorSession(BaseProcessorSession):
             file.close()
 
     @property
-    def _next_url_info(self):
+    def _next_url_info(self) -> URLInfo:
         '''Return the next URLInfo to be processed.
 
         This returns either the original URLInfo or the next URLinfo
         containing the redirect link.
         '''
         if not self._web_client_session:
-            return self._url_item.url_info
+            return self._item_session.url_record.url_info
 
         return self._web_client_session.next_request().url_info
 
-    def _should_fetch_reason(self, url_info, url_record):
+    def _should_fetch_reason(self) -> Tuple[bool, str]:
         '''Return info about whether the URL should be fetched.
 
         Returns:
@@ -383,24 +354,23 @@ class WebProcessorSession(BaseProcessorSession):
                 pass
 
         return self._fetch_rule.check_subsequent_web_request(
-            url_info, url_record, is_redirect=is_redirect)
+            self._item_session, is_redirect=is_redirect)
 
-    @trollius.coroutine
-    def _should_fetch_reason_with_robots(self, request, url_record):
+    @asyncio.coroutine
+    def _should_fetch_reason_with_robots(self, request: Request) -> Tuple[bool, str]:
         '''Return info whether the URL should be fetched including checking
         robots.txt.
 
         Coroutine.
         '''
-        result = yield From(
-            self._fetch_rule.check_initial_web_request(request, url_record)
-        )
-        raise Return(result)
+        result = yield from \
+            self._fetch_rule.check_initial_web_request(self._item_session, request)
+        return result
 
-    def _add_post_data(self, request):
+    def _add_post_data(self, request: Request):
         '''Add data to the payload.'''
-        if self._url_item.url_record.post_data:
-            data = wpull.string.to_bytes(self._url_item.url_record.post_data)
+        if self._item_session.url_record.post_data:
+            data = wpull.string.to_bytes(self._item_session.url_record.post_data)
         else:
             data = wpull.string.to_bytes(
                 self._processor.fetch_params.post_data
@@ -410,7 +380,7 @@ class WebProcessorSession(BaseProcessorSession):
         request.fields['Content-Type'] = 'application/x-www-form-urlencoded'
         request.fields['Content-Length'] = str(len(data))
 
-        _logger.debug(__('Posting with data {0}.', data))
+        _logger.debug('Posting with data {0}.', data)
 
         if not request.body:
             request.body = Body(io.BytesIO())
@@ -418,9 +388,9 @@ class WebProcessorSession(BaseProcessorSession):
         with wpull.util.reset_file_offset(request.body):
             request.body.write(data)
 
-    def _log_response(self, request, response):
+    def _log_response(self, request: Request, response: Response):
         '''Log response.'''
-        _logger.info(__(
+        _logger.info(
             _('Fetched ‘{url}’: {status_code} {reason}. '
                 'Length: {content_length} [{content_type}].'),
             url=request.url,
@@ -430,45 +400,43 @@ class WebProcessorSession(BaseProcessorSession):
                 response.fields.get('Content-Length', _('unspecified'))),
             content_type=wpull.string.printable_str(
                 response.fields.get('Content-Type', _('unspecified'))),
-        ))
+        )
 
-    def _handle_response(self, request, response):
+    def _handle_response(self, request: Request, response: Response) -> Actions:
         '''Process the response.
 
         Returns:
-            str: A value from :class:`.hook.Actions`.
+            A value from :class:`.hook.Actions`.
         '''
-        self._url_item.set_value(status_code=response.status_code)
+        self._item_session.update_record_value(status_code=response.status_code)
 
         if self._web_client_session.redirect_tracker.is_redirect() or \
                 self._web_client_session.loop_type() == LoopType.authentication:
             self._file_writer_session.discard_document(response)
 
             return self._result_rule.handle_intermediate_response(
-                request, response, self._url_item
+                self._item_session
             )
         elif (response.status_code in self._document_codes
               or self._processor.fetch_params.content_on_error):
             filename = self._file_writer_session.save_document(response)
 
-            self._processing_rule.scrape_document(
-                request, response, self._url_item
-            )
+            self._processing_rule.scrape_document(self._item_session)
 
             return self._result_rule.handle_document(
-                request, response, self._url_item, filename
+                self._item_session, filename
             )
         elif response.status_code in self._no_document_codes:
             self._file_writer_session.discard_document(response)
 
             return self._result_rule.handle_no_document(
-                request, response, self._url_item
+                self._item_session
             )
         else:
             self._file_writer_session.discard_document(response)
 
             return self._result_rule.handle_document_error(
-                request, response, self._url_item
+                self._item_session
             )
 
     def _close_instance_body(self, instance):
@@ -480,17 +448,20 @@ class WebProcessorSession(BaseProcessorSession):
         if hasattr(instance, 'body'):
             instance.body.close()
 
-    def _run_coprocessors(self, request, response):
-        phantomjs_coprocessor = self._processor.instances.phantomjs_coprocessor
+    def _run_coprocessors(self, request: Request, response: Response):
+        phantomjs_coprocessor = self._item_session.app_session.factory.get('PhantomJSCoprocessor')
 
         if phantomjs_coprocessor:
-            yield From(phantomjs_coprocessor.process(
-                self._url_item, request, response, self._file_writer_session
-            ))
+            phantomjs_coprocessor = cast(PhantomJSCoprocessor, phantomjs_coprocessor)
+            yield from phantomjs_coprocessor.process(
+                self._item_session, request, response, self._file_writer_session
+            )
 
-        youtube_dl_coprocessor = self._processor.instances.youtube_dl_coprocessor
+        youtube_dl_coprocessor = self._item_session.app_session.factory.get('YoutubeDlCoprocessor')
 
         if youtube_dl_coprocessor:
-            yield From(youtube_dl_coprocessor.process(
-                self._url_item, request, response, self._file_writer_session
-            ))
+            youtube_dl_coprocessor = cast(YoutubeDlCoprocessor, youtube_dl_coprocessor)
+
+            yield from youtube_dl_coprocessor.process(
+                self._item_session, request, response, self._file_writer_session
+            )

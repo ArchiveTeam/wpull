@@ -1,27 +1,39 @@
 '''Fetching rules.'''
+import asyncio
 import logging
 import random
 
-from trollius import From, Return
-import trollius
+from typing import Optional, Tuple
 
-from wpull.backport.logging import BraceMessage as __
-from wpull.hook import HookableMixin, HookDisconnected, Actions, HookStop
-from wpull.item import Status, LinkType
+import wpull.url
+from wpull.application.plugin import PluginFunctions, hook_interface, \
+    event_interface
+from wpull.scraper.base import DemuxDocumentScraper, BaseScraper, ScrapeResult
+from wpull.stats import Statistics
+from wpull.url import URLInfo
+from wpull.backport.logging import StyleAdapter
 from wpull.errors import DNSNotFound, ServerError, ConnectionRefused, \
     SSLVerificationError, ProtocolError
-from wpull.scraper.css import CSSScraper
-from wpull.scraper.html import HTMLScraper
-import wpull.url
+from wpull.application.hook import HookableMixin, HookDisconnected, Actions, HookStop
+from wpull.pipeline.item import Status, URLRecord
+from wpull.pipeline.session import ItemSession
+import wpull.application.hook
+from wpull.protocol.http.robots import RobotsTxtChecker
+from wpull.urlfilter import DemuxURLFilter
+from wpull.protocol.http.request import Request as HTTPRequest
+from wpull.urlrewrite import URLRewriter
+from wpull.waiter import Waiter
 
-
-_logger = logging.getLogger(__name__)
+_logger = StyleAdapter(logging.getLogger(__name__))
 
 
 class FetchRule(HookableMixin):
     '''Decide on what URLs should be fetched.'''
-    def __init__(self, url_filter=None, robots_txt_checker=None,
-                 http_login=None, ftp_login=None, duration_timeout=None):
+    def __init__(self, url_filter: DemuxURLFilter=None,
+                 robots_txt_checker: RobotsTxtChecker=None,
+                 http_login: Optional[Tuple[str, str]]=None,
+                 ftp_login: Optional[Tuple[str, str]]=None,
+                 duration_timeout: Optional[int]=None):
         super().__init__()
         self._url_filter = url_filter
         self._robots_txt_checker = robots_txt_checker
@@ -29,43 +41,43 @@ class FetchRule(HookableMixin):
         self.ftp_login = ftp_login
         self.duration_timeout = duration_timeout
 
-        self.register_hook('should_fetch')
+        self.hook_dispatcher.register(PluginFunctions.accept_url)
 
-    @trollius.coroutine
-    def consult_robots_txt(self, request):
+    @asyncio.coroutine
+    def consult_robots_txt(self, request: HTTPRequest) -> bool:
         '''Consult by fetching robots.txt as needed.
 
         Args:
-            request (:class:`.http.request.Request`): The request to be made
+            request: The request to be made
                 to get the file.
 
         Returns:
-            bool
+            True if can fetch
 
         Coroutine
         '''
         if not self._robots_txt_checker:
-            raise Return(True)
+            return True
 
-        result = yield From(self._robots_txt_checker.can_fetch(request))
-        raise Return(result)
+        result = yield from self._robots_txt_checker.can_fetch(request)
+        return result
 
-    def consult_helix_fossil(self):
+    def consult_helix_fossil(self) -> bool:
         '''Consult the helix fossil.
 
         Returns:
-            bool
+            True if can fetch
         '''
 
         return random.random() < 0.75
 
-    def consult_filters(self, url_info, url_record, is_redirect=False):
+    def consult_filters(self, url_info: URLInfo, url_record: URLRecord, is_redirect: bool=False) \
+            -> Tuple[bool, str, dict]:
         '''Consult the URL filter.
 
         Args:
-            url_info (URLInfo): The URL info.
-            url_record (URLRecord): The URL record.
-            is_redirect (bool): Whether the request is a redirect and it is
+            url_record: The URL record.
+            is_redirect: Whether the request is a redirect and it is
                 desired that it spans hosts.
 
         Returns
@@ -93,7 +105,7 @@ class FetchRule(HookableMixin):
         return verdict, reason, test_info
 
     @classmethod
-    def is_only_span_hosts_failed(cls, test_info):
+    def is_only_span_hosts_failed(cls, test_info: dict) -> bool:
         '''Return whether only the SpanHostsFilter failed.'''
         return (
             len(test_info['failed']) == 1 and
@@ -101,16 +113,21 @@ class FetchRule(HookableMixin):
             not test_info['map']['SpanHostsFilter']
             )
 
-    def consult_hook(self, url_info, url_record, verdict, reason, test_info):
+    def consult_hook(self, item_session: ItemSession, verdict: bool,
+                     reason: str, test_info: dict):
         '''Consult the scripting hook.
 
         Returns:
             tuple: (bool, str)
         '''
         try:
-            verdict = self.call_hook(
-                'should_fetch', url_info, url_record, verdict, reason,
-                test_info,
+            reasons = {
+                'filters': test_info['map'],
+                'reason': reason,
+            }
+
+            verdict = self.hook_dispatcher.call(
+                PluginFunctions.accept_url, item_session, verdict, reasons,
             )
             reason = 'callback_hook'
         except HookDisconnected:
@@ -118,8 +135,30 @@ class FetchRule(HookableMixin):
 
         return verdict, reason
 
-    @trollius.coroutine
-    def check_initial_web_request(self, request, url_record):
+    @staticmethod
+    @hook_interface(PluginFunctions.accept_url)
+    def plugin_accept_url(item_session: ItemSession, verdict: bool, reasons: dict) -> bool:
+        '''Return whether to download this URL.
+
+        Args:
+            item_session: Current URL item.
+            verdict: A bool indicating whether Wpull wants to download
+                the URL.
+            reasons: A dict containing information for the verdict:
+
+                * ``filters`` (dict): A mapping (str to bool) from filter name
+                  to whether the filter passed or not.
+                * ``reason`` (str): A short reason string. Current values are:
+                  ``filters``, ``robots``, ``redirect``.
+
+        Returns:
+            If ``True``, the URL should be downloaded. Otherwise, the URL
+            is skipped.
+        '''
+        return verdict
+
+    @asyncio.coroutine
+    def check_initial_web_request(self, item_session: ItemSession, request: HTTPRequest) -> Tuple[bool, str]:
         '''Check robots.txt, URL filters, and scripting hook.
 
         Returns:
@@ -127,48 +166,52 @@ class FetchRule(HookableMixin):
 
         Coroutine.
         '''
-        verdict, reason, test_info = self.consult_filters(
-            request.url_info, url_record
-        )
+        verdict, reason, test_info = self.consult_filters(item_session.request.url_info, item_session.url_record)
 
         if verdict and self._robots_txt_checker:
-            can_fetch = yield From(self.consult_robots_txt(request))
+            can_fetch = yield from self.consult_robots_txt(request)
 
             if not can_fetch:
                 verdict = False
                 reason = 'robotstxt'
 
         verdict, reason = self.consult_hook(
-            request.url_info, url_record, verdict, reason, test_info
+            item_session, verdict, reason, test_info
         )
 
-        raise Return((verdict, reason))
+        return verdict, reason
 
-    def check_subsequent_web_request(self, url_info, url_record,
-                                     is_redirect=False):
+    def check_subsequent_web_request(self, item_session: ItemSession,
+                                     is_redirect: bool=False) -> Tuple[bool, str]:
         '''Check URL filters and scripting hook.
 
         Returns:
             tuple: (bool, str)
         '''
         verdict, reason, test_info = self.consult_filters(
-            url_info, url_record, is_redirect=is_redirect)
+            item_session.request.url_info,
+            item_session.url_record, is_redirect=is_redirect)
 
-        verdict, reason = self.consult_hook(url_info, url_record, verdict,
+        # TODO: provide an option to change this
+        if item_session.is_virtual:
+            verdict = True
+
+        verdict, reason = self.consult_hook(item_session, verdict,
                                             reason, test_info)
 
         return verdict, reason
 
-    def check_generic_request(self, url_info, url_record):
+    def check_generic_request(self, item_session: ItemSession) -> Tuple[bool, str]:
         '''Check URL filters and scripting hook.
 
         Returns:
             tuple: (bool, str)
         '''
         verdict, reason, test_info = self.consult_filters(
-            url_info, url_record)
+            item_session.request.url_info,
+            item_session.url_record)
 
-        verdict, reason = self.consult_hook(url_info, url_record, verdict,
+        verdict, reason = self.consult_hook(item_session, verdict,
                                             reason, test_info)
 
         return verdict, reason
@@ -180,16 +223,19 @@ class ResultRule(HookableMixin):
     '''Decide on the results of a fetch.
 
     Args:
-        ssl_verification (bool): If True, don't ignore certificate errors.
-        retry_connrefused (bool): If True, don't consider a connection refused
+        ssl_verification: If True, don't ignore certificate errors.
+        retry_connrefused: If True, don't consider a connection refused
             error to be a permanent error.
-        retry_dns_error (bool): If True, don't consider a DNS resolution error
+        retry_dns_error: If True, don't consider a DNS resolution error
             to be permanent error.
-        waiter (:class:`.waiter.Waiter`): The Waiter.
-        statistics (:class:`.stats.Statistics`): The Statistics.
+        waiter: The Waiter.
+        statistics: The Statistics.
     '''
-    def __init__(self, ssl_verification=False, retry_connrefused=False,
-                 retry_dns_error=False, waiter=None, statistics=None):
+    def __init__(self, ssl_verification: bool=False,
+                 retry_connrefused: bool=False,
+                 retry_dns_error: bool=False,
+                 waiter: Optional[Waiter]=None,
+                 statistics: Optional[Statistics]=None):
         super().__init__()
         self._ssl_verification = ssl_verification
         self.retry_connrefused = retry_connrefused
@@ -197,108 +243,106 @@ class ResultRule(HookableMixin):
         self._waiter = waiter
         self._statistics = statistics
 
-        self.register_hook(
-            'wait_time', 'handle_response', 'handle_pre_response',
-            'handle_error',
-        )
+        self.hook_dispatcher.register(PluginFunctions.wait_time)
+        self.hook_dispatcher.register(PluginFunctions.handle_response)
+        self.hook_dispatcher.register(PluginFunctions.handle_pre_response)
+        self.hook_dispatcher.register(PluginFunctions.handle_error)
 
-    def handle_pre_response(self, request, response, url_item):
+    def handle_pre_response(self, item_session: ItemSession) -> Actions:
         '''Process a response that is starting.'''
-        action = self.consult_pre_response_hook(
-            request, response, url_item.url_record)
+        action = self.consult_pre_response_hook(item_session)
 
         if action == Actions.RETRY:
-            url_item.set_status(Status.skipped)
+            item_session.set_status(Status.skipped)
         elif action == Actions.FINISH:
-            url_item.set_status(Status.done)
+            item_session.set_status(Status.done)
         elif action == Actions.STOP:
             raise HookStop('Script requested immediate stop.')
 
         return action
 
-    def handle_document(self, request, response, url_item, filename):
+    def handle_document(self, item_session: ItemSession, filename: str) -> Actions:
         '''Process a successful document response.
 
         Returns:
-            str: A value from :class:`.hook.Actions`.
+            A value from :class:`.hook.Actions`.
         '''
         self._waiter.reset()
 
-        action = self.handle_response(request, response, url_item)
+        action = self.handle_response(item_session)
 
         if action == Actions.NORMAL:
-            self._statistics.increment(response.body.size())
-            url_item.set_status(Status.done, filename=filename)
+            self._statistics.increment(item_session.response.body.size())
+            item_session.set_status(Status.done, filename=filename)
 
         return action
 
-    def handle_no_document(self, request, response, url_item):
+    def handle_no_document(self, item_session: ItemSession) -> Actions:
         '''Callback for successful responses containing no useful document.
 
         Returns:
-            str: A value from :class:`.hook.Actions`.
+            A value from :class:`.hook.Actions`.
         '''
         self._waiter.reset()
 
-        action = self.handle_response(request, response, url_item)
+        action = self.handle_response(item_session)
 
         if action == Actions.NORMAL:
-            url_item.set_status(Status.skipped)
+            item_session.set_status(Status.skipped)
 
         return action
 
-    def handle_intermediate_response(self, request, response, url_item):
+    def handle_intermediate_response(self, item_session: ItemSession) -> Actions:
         '''Callback for successful intermediate responses.
 
         Returns:
-            str: A value from :class:`.hook.Actions`.
+            A value from :class:`.hook.Actions`.
         '''
         self._waiter.reset()
 
-        action = self.handle_response(request, response, url_item)
+        action = self.handle_response(item_session)
 
         return action
 
-    def handle_document_error(self, request, response, url_item):
+    def handle_document_error(self, item_session: ItemSession) -> Actions:
         '''Callback for when the document only describes an server error.
 
         Returns:
-            str: A value from :class:`.hook.Actions`.
+            A value from :class:`.hook.Actions`.
         '''
         self._waiter.increment()
 
         self._statistics.errors[ServerError] += 1
 
-        action = self.handle_response(request, response, url_item)
+        action = self.handle_response(item_session)
 
         if action == Actions.NORMAL:
-            url_item.set_status(Status.error)
+            item_session.set_status(Status.error)
 
         return action
 
-    def handle_response(self, request, response, url_item):
+    def handle_response(self, item_session: ItemSession) -> Actions:
         '''Generic handler for a response.
 
         Returns:
-            str: A value from :class:`.hook.Actions`.
+            A value from :class:`.hook.Actions`.
         '''
-        action = self.consult_response_hook(
-            request, response, url_item.url_record)
+        action = self.consult_response_hook(item_session)
 
         if action == Actions.RETRY:
-            url_item.set_status(Status.error)
+            item_session.set_status(Status.error)
         elif action == Actions.FINISH:
-            url_item.set_status(Status.done)
+            item_session.set_status(Status.done)
         elif action == Actions.STOP:
             raise HookStop('Script requested immediate stop.')
 
         return action
 
-    def handle_error(self, request, error, url_item):
+    def handle_error(self, item_session: ItemSession, error: BaseException) -> Actions:
         '''Process an error.
 
         Returns:
-            str: A value from :class:`.hook.Actions`.
+            A value from :class:`.hook.Actions`.
         '''
         if not self._ssl_verification and \
                 isinstance(error, SSLVerificationError):
@@ -310,71 +354,134 @@ class ResultRule(HookableMixin):
 
         self._waiter.increment()
 
-        action = self.consult_error_hook(request, url_item.url_record, error)
+        action = self.consult_error_hook(item_session, error)
 
         if action == Actions.RETRY:
-            url_item.set_status(Status.error)
+            item_session.set_status(Status.error)
         elif action == Actions.FINISH:
-            url_item.set_status(Status.done)
+            item_session.set_status(Status.done)
         elif action == Actions.STOP:
             raise HookStop('Script requested immediate stop.')
         elif self._ssl_verification and isinstance(error, SSLVerificationError):
             raise
         elif isinstance(error, ConnectionRefused) and \
                 not self.retry_connrefused:
-            url_item.set_status(Status.skipped)
+            item_session.set_status(Status.skipped)
         elif isinstance(error, DNSNotFound) and \
                 not self.retry_dns_error:
-            url_item.set_status(Status.skipped)
+            item_session.set_status(Status.skipped)
         else:
-            url_item.set_status(Status.error)
+            item_session.set_status(Status.error)
 
         return action
 
-    def get_wait_time(self, request, url_record, response=None, error=None):
+    def get_wait_time(self, item_session: ItemSession, error=None):
         '''Return the wait time in seconds between requests.'''
         seconds = self._waiter.get()
         try:
-            return self.call_hook('wait_time', seconds,
-                                  request, url_record, response, error)
+            return self.hook_dispatcher.call(PluginFunctions.wait_time, seconds,
+                                             item_session, error)
         except HookDisconnected:
             return seconds
 
-    def consult_pre_response_hook(self, request, response, url_record):
+    @staticmethod
+    @hook_interface(PluginFunctions.wait_time)
+    def plugin_wait_time(seconds: float, item_session: ItemSession, error: Optional[Exception]=None) -> float:
+        '''Return the wait time between requests.
+
+        Args:
+            seconds: The original time in seconds.
+            item_session:
+            error:
+
+        Returns:
+            The time in seconds.
+        '''
+        return seconds
+
+    def consult_pre_response_hook(self, item_session: ItemSession) -> Actions:
         '''Return scripting action when a response begins.'''
         try:
-            return self.call_hook(
-                'handle_pre_response', request, response, url_record
+            return self.hook_dispatcher.call(
+                PluginFunctions.handle_pre_response,
+                item_session
             )
         except HookDisconnected:
             return Actions.NORMAL
 
-    def consult_response_hook(self, request, response, url_record):
+    @staticmethod
+    @hook_interface(PluginFunctions.handle_pre_response)
+    def plugin_handle_pre_response(item_session: ItemSession) -> Actions:
+        '''Return an action to handle a response status before a download.
+
+        Args:
+            item_session:
+
+        Returns:
+            A value from :class:`Actions`. The default is
+            :attr:`Actions.NORMAL`.
+        '''
+        return Actions.NORMAL
+
+    def consult_response_hook(self, item_session: ItemSession) -> Actions:
         '''Return scripting action when a response ends.'''
         try:
-            return self.call_hook(
-                'handle_response', request, response, url_record
+            return self.hook_dispatcher.call(
+                PluginFunctions.handle_response, item_session
             )
         except HookDisconnected:
             return Actions.NORMAL
 
-    def consult_error_hook(self, request, url_record, error):
+    @staticmethod
+    @hook_interface(PluginFunctions.handle_response)
+    def plugin_handle_response(item_session: ItemSession) -> Actions:
+        '''Return an action to handle the response.
+
+        Args:
+            item_session:
+
+        Returns:
+            A value from :class:`Actions`. The default is
+            :attr:`Actions.NORMAL`.
+        '''
+        return Actions.NORMAL
+
+    def consult_error_hook(self, item_session: ItemSession, error: BaseException):
         '''Return scripting action when an error occured.'''
         try:
-            return self.call_hook('handle_error', request, url_record, error)
+            return self.hook_dispatcher.call(
+                PluginFunctions.handle_error, item_session, error)
         except HookDisconnected:
             return Actions.NORMAL
+
+    @staticmethod
+    @hook_interface(PluginFunctions.handle_error)
+    def plugin_handle_error(item_session: ItemSession, error: BaseException) -> Actions:
+        '''Return an action to handle the error.
+
+        Args:
+            item_session:
+            error:
+
+        Returns:
+            A value from :class:`Actions`. The default is
+            :attr:`Actions.NORMAL`.
+        '''
+        return Actions.NORMAL
 
 
 class ProcessingRule(HookableMixin):
     '''Document processing rules.
 
     Args:
-        fetch_rule (FetchRule): The FetchRule instance.
-        document_scraper (:class:`.scaper.DemuxDocumentScraper`): The document
+        fetch_rule: The FetchRule instance.
+        document_scraper: The document
             scraper.
     '''
-    def __init__(self, fetch_rule, document_scraper=None, sitemaps=False, url_rewriter=None):
+    def __init__(self, fetch_rule: FetchRule,
+                 document_scraper: DemuxDocumentScraper=None,
+                 sitemaps: bool=False,
+                 url_rewriter: URLRewriter=None):
         super().__init__()
 
         self._fetch_rule = fetch_rule
@@ -382,45 +489,42 @@ class ProcessingRule(HookableMixin):
         self._sitemaps = sitemaps
         self._url_rewriter = url_rewriter
 
-        self.register_hook('scrape_document')
+        self.event_dispatcher.register(PluginFunctions.get_urls)
 
     parse_url = staticmethod(wpull.url.parse_url_or_log)
 
-    def add_extra_urls(self, url_item):
+    def add_extra_urls(self, item_session: ItemSession):
         '''Add additional URLs such as robots.txt, favicon.ico.'''
 
-        if url_item.url_record.level == 0 and self._sitemaps:
+        if item_session.url_record.level == 0 and self._sitemaps:
             extra_url_infos = (
                 self.parse_url(
                     '{0}://{1}/robots.txt'.format(
-                        url_item.url_info.scheme,
-                        url_item.url_info.hostname_with_port)
+                        item_session.url_record.url_info.scheme,
+                        item_session.url_record.url_info.hostname_with_port)
                 ),
                 self.parse_url(
                     '{0}://{1}/sitemap.xml'.format(
-                        url_item.url_info.scheme,
-                        url_item.url_info.hostname_with_port)
+                        item_session.url_record.url_info.scheme,
+                        item_session.url_record.url_info.hostname_with_port)
                 )
             )
 
-            url_item.add_child_urls(
-                [url_info.url for url_info in extra_url_infos]
-            )
+            for url_info in extra_url_infos:
+                item_session.add_child_url(url_info.url)
 
-    def scrape_document(self, request, response, url_item):
+    def scrape_document(self, item_session: ItemSession):
         '''Process document for links.'''
-        try:
-            self.call_hook(
-                'scrape_document', request, response, url_item
-            )
-        except HookDisconnected:
-            pass
+        self.event_dispatcher.notify(
+            PluginFunctions.get_urls, item_session
+        )
 
         if not self._document_scraper:
             return
 
         demux_info = self._document_scraper.scrape_info(
-            request, response, url_item.url_record.link_type
+            item_session.request, item_session.response,
+            item_session.url_record.link_type
         )
 
         num_inline_urls = 0
@@ -428,48 +532,59 @@ class ProcessingRule(HookableMixin):
 
         for scraper, scrape_result in demux_info.items():
             new_inline, new_linked = self._process_scrape_info(
-                scraper, scrape_result, url_item
+                scraper, scrape_result, item_session
             )
             num_inline_urls += new_inline
             num_linked_urls += new_linked
 
-        _logger.debug(__('Candidate URLs: inline={0} linked={1}',
-                         num_inline_urls, num_linked_urls
-        ))
+        _logger.debug('Candidate URLs: inline={0} linked={1}',
+                      num_inline_urls, num_linked_urls
+        )
 
-    def _process_scrape_info(self, scraper, scrape_result, url_item):
+    @staticmethod
+    @event_interface(PluginFunctions.get_urls)
+    def plugin_get_urls(item_session: ItemSession):
+        '''Add additional URLs to be added to the URL Table.
+
+        When this event is dispatched, the caller should add any URLs needed
+        using :meth:`.ItemSession.add_child_url`.
+        '''
+
+    def _process_scrape_info(self, scraper: BaseScraper,
+                             scrape_result: ScrapeResult,
+                             item_session: ItemSession):
         '''Collect the URLs from the scrape info dict.'''
         if not scrape_result:
             return 0, 0
 
-        urls_to_be_added = []
         num_inline = 0
         num_linked = 0
 
         for link_context in scrape_result.link_contexts:
             url_info = self.parse_url(link_context.link)
 
-            if url_info:
-                url_info = self.rewrite_url(url_info)
-                url_record = url_item.child_url_record(
-                    url_info, inline=link_context.inline
-                )
-                if self._fetch_rule.check_generic_request(url_info, url_record)[0]:
-                    urls_to_be_added.append({
-                        'url': url_info.url,
-                        'inline': link_context.inline,
-                        'link_type': link_context.link_type
-                    })
-                    if link_context.inline:
-                        num_inline += 1
-                    else:
-                        num_linked += 1
+            if not url_info:
+                continue
 
-        url_item.add_child_urls(urls_to_be_added)
+            url_info = self.rewrite_url(url_info)
+
+            child_url_record = item_session.child_url_record(
+                url_info.url, inline=link_context.inline
+            )
+            if not self._fetch_rule.consult_filters(item_session.request.url_info, child_url_record)[0]:
+                continue
+
+            if link_context.inline:
+                num_inline += 1
+            else:
+                num_linked += 1
+
+            item_session.add_child_url(url_info.url, inline=link_context.inline,
+                                       link_type=link_context.link_type)
 
         return num_inline, num_linked
 
-    def rewrite_url(self, url_info):
+    def rewrite_url(self, url_info: URLInfo) -> URLInfo:
         '''Return a rewritten URL such as escaped fragment.'''
         if self._url_rewriter:
             return self._url_rewriter.rewrite(url_info)

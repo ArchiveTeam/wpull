@@ -1,12 +1,12 @@
 import unittest
 
+import wpull.util
 from wpull.body import Body
 from wpull.document.htmlparse.html5lib_ import HTMLParser as HTML5LibHTMLParser
-from wpull.http.request import Request, Response
-from wpull.item import LinkType
+from wpull.pipeline.item import LinkType
+from wpull.protocol.http.request import Request, Response
 from wpull.scraper.sitemap import SitemapScraper
 from wpull.util import IS_PYPY
-import wpull.util
 
 
 if not IS_PYPY:

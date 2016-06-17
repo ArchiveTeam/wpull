@@ -12,7 +12,7 @@ import sys
 import time
 import zipfile
 import pickle
-
+from itertools import zip_longest
 
 IS_PYPY = platform.python_implementation() == 'PyPy'
 
@@ -171,7 +171,10 @@ def get_package_data(filename, mode='rb'):
 def get_package_filename(filename, package_dir=None):
     '''Return the filename of the data file.'''
     if getattr(sys, 'frozen', False):
-        package_dir = os.path.dirname(sys.executable)
+        package_dir = os.path.join(
+            sys._MEIPASS,
+            os.path.basename(os.path.dirname(__file__))
+        )
     elif not package_dir:
         package_dir = os.path.dirname(__file__)
 
@@ -257,3 +260,10 @@ class GzipPickleStream(PickleStream):
     def close(self):
         self._gzip_file.close()
         super().close()
+
+
+def grouper(iterable, n, fillvalue=None):
+    "Collect data into fixed-length chunks or blocks"
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return zip_longest(*args, fillvalue=fillvalue)

@@ -1,22 +1,22 @@
 # encoding=utf-8
 import hashlib
+import io
 import os.path
 import unittest
 
-from trollius import From
-
-from wpull.builder import Builder
-from wpull.options import AppArgumentParser
 import wpull.testing.async
+from wpull.path import PathNamer
 from wpull.testing.ftp import FTPTestCase
 from wpull.testing.goodapp import GoodAppTestCase
 from wpull.testing.util import TempDirMixin
+from wpull.writer import NullWriter, AntiClobberFileWriter, OverwriteFileWriter, \
+    TimestampingFileWriter, SingleDocumentWriter
+from wpull.protocol.http.request import Response as HTTPResponse
+from wpull.protocol.http.request import Request as HTTPRequest
+from wpull.protocol.ftp.request import Response as FTPResponse
 
 
-DEFAULT_TIMEOUT = 30
-
-
-class TestWriterApp(GoodAppTestCase, TempDirMixin):
+class TestWriter(unittest.TestCase, TempDirMixin):
     def setUp(self):
         super().setUp()
         self.set_up_temp_dir()
@@ -25,285 +25,227 @@ class TestWriterApp(GoodAppTestCase, TempDirMixin):
         super().tearDown()
         self.tear_down_temp_dir()
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+    def test_null_writer(self):
+        writer = NullWriter()
+        session = writer.session()
+
+        session.process_request(HTTPRequest())
+        session.process_response(HTTPResponse())
+        session.discard_document(HTTPResponse())
+        session.save_document(HTTPResponse())
+        self.assertIsNone(session.extra_resource_path('blah'))
+
+    def get_path_namer(self):
+        return PathNamer(os.getcwd(), use_dir=True)
+
     def test_new_file_and_clobber(self):
-        arg_parser = AppArgumentParser()
-        args = arg_parser.parse_args([self.get_url('/static/my_file.txt')])
+        writer = AntiClobberFileWriter(self.get_path_namer())
+        session = writer.session()
 
-        app = Builder(args, unit_test=True).build()
-        exit_code = yield From(app.run())
+        request1 = HTTPRequest('http://example.com/my_file.txt')
+        response1 = HTTPResponse(status_code=200, reason='OK', request=request1)
 
-        self.assertEqual(0, exit_code)
+        session.process_request(request1)
+        session.process_response(response1)
+        session.save_document(response1)
 
-        expected_filename = os.path.join(self.temp_dir.name, 'my_file.txt')
+        self.assertTrue(os.path.exists('my_file.txt'))
 
-        self.assertTrue(os.path.exists(expected_filename))
+        session = writer.session()
 
-        with open(expected_filename, 'rb') as in_file:
-            self.assertIn(b'END', in_file.read())
+        request2 = HTTPRequest('http://example.com/my_file.txt')
+        response2 = HTTPResponse(status_code=200, reason='OK', request=request2)
 
-        app = Builder(args, unit_test=True).build()
-        exit_code = yield From(app.run())
+        session.process_request(request2)
+        session.process_response(response2)
+        session.save_document(response2)
 
-        self.assertEqual(0, exit_code)
+        self.assertTrue(os.path.exists('my_file.txt'))
 
-        expected_filename = os.path.join(self.temp_dir.name, 'my_file.txt.1')
-
-        self.assertTrue(os.path.exists(expected_filename))
-
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_file_continue(self):
-        arg_parser = AppArgumentParser()
-        args = arg_parser.parse_args([self.get_url('/static/my_file.txt'),
-                                      '--continue', '--debug'])
+        writer = OverwriteFileWriter(self.get_path_namer(), file_continuing=True)
+        session = writer.session()
 
-        filename = os.path.join(self.temp_dir.name, 'my_file.txt')
+        with open('my_file.txt', 'wb') as file:
+            file.write(b'TEST')
 
-        with open(filename, 'wb') as out_file:
-            out_file.write(b'START')
+        request = HTTPRequest('http://example.com/my_file.txt')
+        session.process_request(request)
 
-        app = Builder(args, unit_test=True).build()
-        exit_code = yield From(app.run())
+        self.assertIn('Range', request.fields)
 
-        self.assertEqual(0, exit_code)
+        response = HTTPResponse(status_code=206, reason='Partial content', request=request)
+        session.process_response(response)
 
-        with open(filename, 'rb') as in_file:
-            data = in_file.read()
+        response.body.write(b'END')
+        response.body.flush()
 
-            self.assertEqual('54388a281352fdb2cfa66009ac0e35dd8916af7c',
-                             hashlib.sha1(data).hexdigest())
+        session.save_document(response)
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_timestamping_hit(self):
-        arg_parser = AppArgumentParser()
-        args = arg_parser.parse_args([
-            self.get_url('/lastmod'),
-            '--timestamping'
-        ])
+        with open('my_file.txt', 'rb') as file:
+            data = file.read()
 
-        filename = os.path.join(self.temp_dir.name, 'lastmod')
+        self.assertEqual(b'TESTEND', data)
 
-        with open(filename, 'wb') as out_file:
-            out_file.write(b'HI')
+    def test_timestamping(self):
+        writer = TimestampingFileWriter(self.get_path_namer())
+        session = writer.session()
 
-        os.utime(filename, (631152000, 631152000))
+        local_timestamp = 634521600
 
-        builder = Builder(args, unit_test=True)
-        app = builder.build()
-        exit_code = yield From(app.run())
+        with open('my_file.txt', 'wb') as file:
+            file.write(b'')
 
-        self.assertEqual(0, exit_code)
+        os.utime('my_file.txt', (local_timestamp, local_timestamp))
 
-        with open(filename, 'rb') as in_file:
-            self.assertEqual(b'HI', in_file.read())
+        request = HTTPRequest('http://example.com/my_file.txt')
+        session.process_request(request)
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_timestamping_miss(self):
-        arg_parser = AppArgumentParser()
-        args = arg_parser.parse_args([
-            self.get_url('/lastmod'),
-            '--timestamping'
-        ])
+        self.assertIn('If-Modified-Since', request.fields)
 
-        filename = os.path.join(self.temp_dir.name, 'lastmod')
+        response = HTTPResponse(status_code=304, reason='Not modified', request=request)
+        session.process_response(response)
 
-        with open(filename, 'wb') as out_file:
-            out_file.write(b'HI')
-
-        os.utime(filename, (636249600, 636249600))
-
-        builder = Builder(args, unit_test=True)
-        app = builder.build()
-        exit_code = yield From(app.run())
-
-        self.assertEqual(0, exit_code)
-
-        with open(filename, 'rb') as in_file:
-            self.assertEqual(b'HELLO', in_file.read())
-
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_timestamping_hit_orig(self):
-        arg_parser = AppArgumentParser()
-        args = arg_parser.parse_args([
-            self.get_url('/lastmod'),
-            '--timestamping'
-        ])
-
-        filename = os.path.join(self.temp_dir.name, 'lastmod')
-        filename_orig = os.path.join(self.temp_dir.name, 'lastmod')
-
-        with open(filename, 'wb') as out_file:
-            out_file.write(b'HI')
-
-        with open(filename_orig, 'wb') as out_file:
-            out_file.write(b'HI')
-
-        os.utime(filename_orig, (631152000, 631152000))
-
-        builder = Builder(args, unit_test=True)
-        app = builder.build()
-        exit_code = yield From(app.run())
-
-        self.assertEqual(0, exit_code)
-
-        with open(filename, 'rb') as in_file:
-            self.assertEqual(b'HI', in_file.read())
-
-        with open(filename_orig, 'rb') as in_file:
-            self.assertEqual(b'HI', in_file.read())
-
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_dir_or_file_dir_got_first(self):
-        arg_parser = AppArgumentParser()
-
-        args = arg_parser.parse_args([
-            self.get_url('/dir_or_file'),
-            '--recursive',
-            '--no-host-directories',
-        ])
-        app = Builder(args, unit_test=True).build()
+        writer = OverwriteFileWriter(self.get_path_namer())
+        session = writer.session()
 
         os.mkdir('dir_or_file')
 
-        exit_code = yield From(app.run())
+        request = HTTPRequest('http://example.com/dir_or_file')
+        response = HTTPResponse(status_code=200, reason='OK', request=request)
 
-        self.assertEqual(0, exit_code)
+        session.process_request(request)
+        session.process_response(response)
+        session.save_document(response)
 
         print(list(os.walk('.')))
         self.assertTrue(os.path.isdir('dir_or_file'))
         self.assertTrue(os.path.isfile('dir_or_file.f'))
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_dir_or_file_file_got_first(self):
-        arg_parser = AppArgumentParser()
-
-        args = arg_parser.parse_args([
-            self.get_url('/dir_or_file/'),
-            '--recursive',
-            '--no-host-directories',
-        ])
-        app = Builder(args, unit_test=True).build()
+        writer = OverwriteFileWriter(self.get_path_namer())
+        session = writer.session()
 
         with open('dir_or_file', 'wb'):
             pass
 
-        exit_code = yield From(app.run())
+        request = HTTPRequest('http://example.com/dir_or_file/')
+        response = HTTPResponse(status_code=200, reason='OK', request=request)
 
-        self.assertEqual(0, exit_code)
+        session.process_request(request)
+        session.process_response(response)
+        session.save_document(response)
 
         print(list(os.walk('.')))
         self.assertTrue(os.path.isdir('dir_or_file.d'))
         self.assertTrue(os.path.isfile('dir_or_file.d/index.html'))
         self.assertTrue(os.path.isfile('dir_or_file'))
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
     def test_adjust_extension(self):
-        arg_parser = AppArgumentParser()
-        args = arg_parser.parse_args([
-            self.get_url('/mordor'),
-            self.get_url('/mordor?ring.asp'),
-            self.get_url('/mordor?ring.htm'),
-            self.get_url('/static/my_file.txt'),
-            self.get_url('/static/style.css'),
-            self.get_url('/static/style.css?hamster.exe'),
-            self.get_url('/static/mojibake.html'),
-            self.get_url('/static/mojibake.html?dolphin.png'),
-            '--adjust-extension',
-            '--no-host-directories',
-        ])
+        writer = AntiClobberFileWriter(self.get_path_namer(), adjust_extension=True)
 
-        builder = Builder(args, unit_test=True)
-        app = builder.build()
-        exit_code = yield From(app.run())
+        test_data = [
+            ('text/html', '/mordor', 'mordor.html'),
+            ('text/html', '/mordor?ring.asp', 'mordor?ring.asp.html'),
+            ('text/html', '/mordor?ring.htm', 'mordor?ring.htm'),
+            ('text/plain', '/static/my_file.txt', 'static/my_file.txt'),
+            ('text/css', '/static/style.css', 'static/style.css'),
+            ('text/css', '/static/style.css?hamster.exe', 'static/style.css?hamster.exe.css'),
+            ('text/html', '/static/mojibake.html', 'static/mojibake.html'),
+            ('text/html', '/static/mojibake.html?dolphin.png', 'static/mojibake.html?dolphin.png.html'),
+        ]
 
-        self.assertEqual(0, exit_code)
+        for mime_type, path, filename in test_data:
+            session = writer.session()
 
-        print(list(os.walk('.')))
+            request = HTTPRequest('http://example.com' + path)
+            response = HTTPResponse(status_code=200, reason='OK', request=request)
+            response.fields['Content-Type'] = mime_type
 
-        self.assertTrue(os.path.isfile('mordor.html'))
-        self.assertTrue(os.path.isfile('mordor?ring.asp.html'))
-        self.assertTrue(os.path.isfile('mordor?ring.htm'))
-        self.assertTrue(os.path.isfile('static/my_file.txt'))
-        self.assertTrue(os.path.isfile('static/style.css'))
-        self.assertTrue(os.path.isfile('static/style.css?hamster.exe.css'))
-        self.assertTrue(os.path.isfile('static/mojibake.html'))
-        self.assertTrue(os.path.isfile('static/mojibake.html?dolphin.png.html'))
+            session.process_request(request)
+            session.process_response(response)
+            session.save_document(response)
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+            print(filename, list(os.walk('.')))
+            self.assertTrue(os.path.exists(filename))
+
     def test_content_disposition(self):
-        arg_parser = AppArgumentParser()
-        args = arg_parser.parse_args([
-            self.get_url('/content_disposition?filename=hello1.txt'),
-            self.get_url('/content_disposition?filename=hello2.txt;'),
-            self.get_url('/content_disposition?filename="hello3.txt"'),
-            self.get_url('/content_disposition?filename=\'hello4.txt\''),
-            '--content-disposition',
-            '--no-host-directories',
-        ])
+        writer = AntiClobberFileWriter(self.get_path_namer(), content_disposition=True)
 
-        builder = Builder(args, unit_test=True)
-        app = builder.build()
-        exit_code = yield From(app.run())
+        test_data = [
+            ('hello1.txt', 'hello1.txt'),
+            ('hello2.txt;', 'hello2.txt'),
+            ('"hello3.txt"', 'hello3.txt'),
+            ('\'hello4.txt\'', 'hello4.txt'),
 
-        self.assertEqual(0, exit_code)
+        ]
 
-        print(list(os.walk('.')))
+        for raw_filename, filename in test_data:
+            session = writer.session()
 
-        self.assertTrue(os.path.isfile('hello1.txt'))
-        self.assertTrue(os.path.isfile('hello2.txt'))
-        self.assertTrue(os.path.isfile('hello3.txt'))
-        self.assertTrue(os.path.isfile('hello4.txt'))
+            request = HTTPRequest('http://example.com')
+            response = HTTPResponse(status_code=200, reason='OK', request=request)
+            response.fields['Content-Disposition'] = 'attachment; filename={}'.format(raw_filename)
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
+            session.process_request(request)
+            session.process_response(response)
+            session.save_document(response)
+
+            print(list(os.walk('.')))
+            self.assertTrue(os.path.exists(filename))
+
     def test_trust_server_names(self):
-        arg_parser = AppArgumentParser()
-        args = arg_parser.parse_args([
-            self.get_url('/redirect'),
-            '--trust-server-names',
-            '--no-host-directories',
-            ])
+        writer = AntiClobberFileWriter(self.get_path_namer(), trust_server_names=True)
+        session = writer.session()
 
-        builder = Builder(args, unit_test=True)
-        app = builder.build()
-        exit_code = yield From(app.run())
+        request1 = HTTPRequest('http://example.com')
+        response1 = HTTPResponse(status_code=302, reason='Moved', request=request1)
 
-        self.assertEqual(0, exit_code)
+        session.process_request(request1)
+        session.process_response(response1)
+
+        request2 = HTTPRequest('http://example.com/my_file.html')
+        response2 = HTTPResponse(status_code=200, reason='OK', request=request2)
+
+        session.process_request(request2)
+        session.process_response(response2)
+
+        session.save_document(response2)
 
         print(list(os.walk('.')))
+        self.assertTrue(os.path.exists('my_file.html'))
 
-        self.assertTrue(os.path.isfile('index.html'))
+    def test_single_document_writer(self):
+        stream = io.BytesIO()
 
+        writer = SingleDocumentWriter(stream, headers_included=True)
+        session = writer.session()
 
-class TestWriterFTPApp(FTPTestCase, TempDirMixin):
-    def setUp(self):
-        super().setUp()
-        self.set_up_temp_dir()
+        request1 = HTTPRequest('http://example.com/my_file1.txt')
+        response1 = HTTPResponse(status_code=200, reason='OK', request=request1)
 
-    def tearDown(self):
-        super().tearDown()
-        self.tear_down_temp_dir()
+        session.process_request(request1)
+        session.process_response(response1)
 
-    @wpull.testing.async.async_test(timeout=DEFAULT_TIMEOUT)
-    def test_file_continue(self):
-        arg_parser = AppArgumentParser()
-        args = arg_parser.parse_args([self.get_url('/example (copy).txt'),
-                                      '--continue', '--debug'])
+        response1.body.write(b'The content')
 
-        filename = os.path.join(self.temp_dir.name, 'example (copy).txt')
+        session.save_document(response1)
 
-        with open(filename, 'wb') as out_file:
-            out_file.write(b'The')
+        session = writer.session()
 
-        app = Builder(args, unit_test=True).build()
-        exit_code = yield From(app.run())
+        request2 = HTTPRequest('http://example.com/my_file2.txt')
+        response2 = HTTPResponse(status_code=200, reason='OK', request=request2)
 
-        self.assertEqual(0, exit_code)
+        session.process_request(request2)
+        session.process_response(response2)
 
-        with open(filename, 'rb') as in_file:
-            data = in_file.read()
+        response1.body.write(b'Another thing')
 
-            self.assertEqual(
-                'The real treasure is in Smaug’s heart 💗.\n'
-                .encode('utf-8'),
-                data
-            )
+        session.save_document(response2)
+
+        data = stream.getvalue()
+
+        self.assertIn(b'HTTP', data)
+        self.assertIn(b'The content', data)
+        self.assertIn(b'Another thing', data)

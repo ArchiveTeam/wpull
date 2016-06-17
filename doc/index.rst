@@ -11,13 +11,13 @@ Welcome to Wpull's documentation!
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    intro
    install
    usage
-   differences
    options
+   differences
    help
    scripting
    api

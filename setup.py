@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
-try:
-    from setuptools import setup
-except ImportError:
-    from distutils.core import setup
+from setuptools import setup
 
 from distutils.version import StrictVersion
 import os.path
@@ -28,22 +25,28 @@ StrictVersion(version)
 
 PROJECT_PACKAGES = [
     'wpull',
-    'wpull.abstract',
+    'wpull.application',
+    'wpull.application.plugins',
+    'wpull.application.tasks',
     'wpull.backport',
-    'wpull.coprocessor',
     'wpull.database',
     'wpull.document',
     'wpull.document.htmlparse',
     'wpull.driver',
-    'wpull.ftp',
-    'wpull.ftp.ls',
-    'wpull.http',
+    'wpull.network',
+    'wpull.pipeline',
     'wpull.processor',
+    'wpull.processor.coprocessor',
+    'wpull.protocol.abstract',
+    'wpull.protocol.ftp',
+    'wpull.protocol.ftp.ls',
+    'wpull.protocol.http',
     'wpull.proxy',
-    'wpull.recorder.',
     'wpull.scraper',
     'wpull.testing',
+    'wpull.testing.integration',
     'wpull.thirdparty',
+    'wpull.warc',
 ]
 PROJECT_PACKAGE_DIR = {}
 
@@ -57,6 +60,7 @@ setup_kwargs = dict(
     url='https://github.com/chfoo/wpull',
     package_data={'': [
         'cert/ca-bundle.pem',
+        'testing/integration/sample_user_scripts/*.py',
         'testing/*/*.css',
         'testing/*/*.htm',
         'testing/*/*.html',
@@ -66,7 +70,6 @@ setup_kwargs = dict(
         'testing/*/*.js',
         'testing/*/*.png',
         'testing/*/*.xml',
-        'testing/*.lua',
         'testing/*.pem',
         'driver/*.js',
         'proxy/proxy.crt',
@@ -76,68 +79,37 @@ setup_kwargs = dict(
         'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.2',
-        'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
         'Topic :: Internet :: File Transfer Protocol (FTP)',
         'Topic :: Internet :: WWW/HTTP',
         'Topic :: System :: Archiving',
     ],
     packages=PROJECT_PACKAGES,
     package_dir=PROJECT_PACKAGE_DIR,
+    entry_points={
+        'console_scripts': [
+            'wpull=wpull.application.main:main',
+            'wpull3=wpull.application.main:main',
+        ],
+    },
 )
 
+
+# Do not add version ranges unless absolutely required!
+# See also requirements.txt
 setup_kwargs['install_requires'] = [
-    'tornado', 'trollius', 'chardet', 'sqlalchemy',
-    'namedlist', 'html5lib', 'dnspython3',
+    'chardet',
+    'dnspython3',
+    'html5lib',
+    'namedlist',
+    'sqlalchemy',
+    'tornado',
+    'yapsy',
 ]
 
-setup_kwargs['scripts'] = ['scripts/wpull', 'scripts/wpull3']
-
-
-if os.environ.get('USE_CX_FREEZE'):
-    from cx_Freeze import setup, Executable
-
-    wpull_package_dir = '.'
-    wpull_package_src_dir = './wpull/'
-
-    sys.path.insert(0, os.path.dirname(wpull_package_dir))
-
-    extension = '.exe' if platform.system() == 'Windows' else ''
-
-    setup_kwargs['executables'] = [
-        Executable(
-            os.path.join(wpull_package_src_dir, '__main__.py'),
-            targetName='wpull' + extension,
-            shortcutName='Wpull ' + version,
-        )
-    ]
-    setup_kwargs['options'] = {
-        'build_exe': {
-            'includes': [
-                'lxml._elementpath',
-                'sqlalchemy.dialects.sqlite',
-            ],
-            'zip_includes': [
-                (os.path.join(wpull_package_src_dir, 'cert', 'ca-bundle.pem'),
-                 'wpull/cert/ca-bundle.pem'),
-            ],
-            'include_files': [
-                (
-                    os.path.join(wpull_package_src_dir, 'driver', 'phantomjs.js'),
-                    'phantomjs.js'
-                ),
-                (
-                    os.path.join(wpull_package_src_dir, 'proxy', 'proxy.crt'),
-                    'proxy.crt'
-                ),
-                (
-                    os.path.join(wpull_package_src_dir, 'proxy', 'proxy.key'),
-                    'proxy.key'
-                ),
-            ]
-        }
-    }
+if sys.version_info < (3, 5):
+    setup_kwargs['install_requires'].append('typing')
 
 
 if __name__ == '__main__':

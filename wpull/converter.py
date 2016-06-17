@@ -8,15 +8,14 @@ import logging
 import os.path
 import shutil
 
+import wpull.string
 from wpull.backport.logging import BraceMessage as __
 from wpull.database.base import NotFound
 from wpull.document.htmlparse.element import Comment, Element, Doctype
-from wpull.item import Status
+from wpull.pipeline.item import Status
 from wpull.scraper.css import CSSScraper
 from wpull.scraper.html import HTMLScraper
 from wpull.url import URLInfo
-import wpull.string
-
 
 _ = gettext.gettext
 _logger = logging.getLogger(__name__)
@@ -311,7 +310,10 @@ class CSSConverter(CSSScraper, BaseDocumentConverter):
         if base_url:
             url = wpull.url.urljoin(base_url, url)
 
-        url_record = self._url_table.get_one(url)
+        try:
+            url_record = self._url_table.get_one(url)
+        except NotFound:
+            url_record = None
 
         if url_record \
            and url_record.status == Status.done and url_record.filename:

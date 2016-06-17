@@ -1,3 +1,3 @@
-from PyInstaller.utils.hooks.hookutils import collect_submodules
+from PyInstaller.utils.hooks import collect_submodules
 
 hiddenimports = collect_submodules('dns')

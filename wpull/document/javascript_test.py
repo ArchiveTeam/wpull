@@ -3,7 +3,7 @@ import io
 
 from wpull.document.base import VeryFalse
 from wpull.document.javascript import JavaScriptReader
-from wpull.http.request import Response
+from wpull.protocol.http.request import Response
 
 
 class TestJavaScript(unittest.TestCase):

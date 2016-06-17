@@ -13,8 +13,8 @@ Wget <https://en.wikipedia.org/wiki/Wget>`_.
 
 
 
-Examples
-========
+Example Commands
+================
 
 .. ⬇ Please keep these examples in sync with the README file. ⬇
 
@@ -57,12 +57,17 @@ existing database for resuming crawls. This behavior is different than
 partially downloaded files while ``--database`` is intended for resuming
 partial crawls.
 
-Be sure to include the original options from the previous run if you want
-the same behavior as the previous run.
+To resume a crawl provided you have used ``--database``, simply reuse
+the same command options from the previous run. This will maintain the
+same behavior as the previous run. You may also tweak the options, for
+example, limit the recursion depth.
 
-.. note:: When resuming downloads with ``--warc-file``, Wpull will
-   overwrite the WARC file by default. You should either rename the existing
-   file manually or use the additional option ``--warc-append``.
+.. note:: When resuming downloads with ``--warc-file`` and
+   ``--database``, Wpull will overwrite the WARC file by default. This
+   occurs because Wpull simply maintains a list of URLs that are
+   fetched and not fetched. You should either rename the existing
+   file manually or use the additional option ``--warc-append`` or
+   move the files ``--warc-move``.
 
 
 Proxied Services
@@ -74,6 +79,8 @@ The requests will go through the proxy to Wpull's HTTP client (which can be reco
 .. warning:: Wpull uses the HTTP proxy insecurely on localhost.
 
     It is possible for another user, on the same machine as Wpull, to send bogus requests to the HTTP proxy. Wpull, however, does *not* expose the HTTP proxy outside to the net by default.
+
+It is not possible to use the proxy standalone at this time.
 
 
 PhantomJS Integration

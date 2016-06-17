@@ -50,9 +50,10 @@ def main():
             out_file.write('.. automodule:: wpull.{0}\n'.format(name))
             out_file.write('    :members:\n')
             out_file.write('    :show-inheritance:\n')
-            out_file.write('    :private-members:\n')
-            out_file.write('    :special-members:\n')
-            out_file.write('    :exclude-members: __dict__,__weakref__\n')
+            out_file.write('    :undoc-members:\n')
+            # out_file.write('    :private-members:\n')
+            # out_file.write('    :special-members:\n')
+            # out_file.write('    :exclude-members: __dict__,__weakref__\n')
 
 
 if __name__ == '__main__':
