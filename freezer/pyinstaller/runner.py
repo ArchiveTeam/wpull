@@ -15,7 +15,7 @@ def main():
     env_dir = os.path.abspath('./wpull_env/')
     is_windows = platform.system() == 'Windows'
     env_bin_dir = 'Scripts' if is_windows else 'bin'
-    env_python_exe = 'python'
+    env_python_exe = 'python.exe' if is_windows else 'python'
     exe_name = 'wpull'
     final_exe_name = 'wpull.exe' if is_windows else 'wpull'
 
@@ -44,14 +44,15 @@ def main():
 
     print('Check for PyInstaller.')
     try:
-        run_env_py(['PyInstaller.main', '--version'])
-    except subprocess.CalledProcessError as error:
-        print('Returned code', error.returncode)
+        run_env(['pyinstaller', '--version'])
+    except (FileNotFoundError, subprocess.CalledProcessError) as error:
+        if hasattr(error, 'returncode'):
+            print('Returned code', error.returncode)
 
         print('Install PyInstaller.')
         run_env_py([
             'pip', 'install',
-            'PyInstaller',
+            'PyInstaller==3.1.1',
         ])
 
     print('Install packages.')
@@ -65,7 +66,7 @@ def main():
 
     print('Build binary.')
     run_env(['pyi-makespec',
-        os.path.join(env_dir, env_bin_dir, 'wpull'),
+        'entry_point.py',
         '--additional-hooks-dir', 'hooks',
         '--onefile',
         '--name', exe_name,
