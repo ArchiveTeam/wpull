@@ -38,7 +38,7 @@ class ResmonSetupTask(ItemTask[AppSession]):
 class ResmonSleepTask(ItemTask[ItemSession]):
     @asyncio.coroutine
     def process(self, session: ItemSession):
-        resource_monitor = session.app_session.factory['ResourceMonitor']
+        resource_monitor = session.app_session.factory.get('ResourceMonitor')
 
         if not resource_monitor:
             return

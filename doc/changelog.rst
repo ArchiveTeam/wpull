@@ -10,6 +10,7 @@ Summary of notable changes.
 Unreleased
 ==========
 
+* Fixed: `KeyError` crash when psutil was not installed.
 
 
 2.0 (2016-06-17)
