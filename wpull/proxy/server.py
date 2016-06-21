@@ -13,8 +13,9 @@ import errno
 
 from wpull.application.hook import HookableMixin, HookDisconnected
 from wpull.backport.logging import BraceMessage as __
+from wpull.body import Body
 from wpull.errors import ProtocolError, NetworkError
-from wpull.protocol.http.client import Client
+from wpull.protocol.http.client import Client, Session
 from wpull.protocol.http.request import Request
 import wpull.util
 
@@ -169,6 +170,8 @@ class HTTPProxySession(HookableMixin):
                 self.event_dispatcher.notify(self.Event.server_response_error, error)
                 return
 
+            response.body = Body()
+
             try:
                 action = self.hook_dispatcher.call(self.Event.server_begin_response, response)
             except HookDisconnected:
@@ -182,7 +185,15 @@ class HTTPProxySession(HookableMixin):
             try:
                 self._writer.write(response.to_bytes())
                 yield from self._writer.drain()
-                yield from session.download(file=self._writer, raw=True)
+
+                session.event_dispatcher.add_listener(
+                    Session.Event.response_data,
+                    self._writer.write
+                )
+
+                yield from session.download(file=response.body, raw=True)
+
+                yield from self._writer.drain()
             except NetworkError as error:
                 _logger.debug('Upstream error', exc_info=True)
                 self.event_dispatcher.notify(self.Event.server_response_error, error)

@@ -11,6 +11,12 @@ Unreleased
 ==========
 
 
+2.0.1 (2016-06-21)
+==================
+
+* Fixed: `KeyError` crash when psutil was not installed.
+* Fixed: `AttributeError` proxy error using PhantomJS due to response body not written to a file.
+
 
 2.0 (2016-06-17)
 ================
