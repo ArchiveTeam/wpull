@@ -311,6 +311,12 @@ class BaseConnection(object):
             raise SSLVerificationError(
                 '{name} certificate error: {error}'
                 .format(name=name, error=error)) from error
+        except AttributeError as error:
+            self.close()
+
+            raise NetworkError(
+                '{name} network error: connection closed unexpectedly: {error}'
+                .format(name=name, error=error)) from error
         except (socket.error, ssl.SSLError, OSError, IOError) as error:
             self.close()
             if isinstance(error, NetworkError):
