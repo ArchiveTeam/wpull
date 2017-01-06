@@ -88,9 +88,9 @@ class WebSession(object):
             else:
                 error = False
 
-            self._current_session.recycle()
             self._current_session.event_dispatcher.notify(
                 self._current_session.SessionEvent.end_session, error=error)
+            self._current_session.recycle()
 
     @asyncio.coroutine
     def start(self):
@@ -129,8 +129,6 @@ class WebSession(object):
         '''
         yield from \
             self._current_session.download(file, duration_timeout=duration_timeout)
-
-        self._current_session = None
 
     def _process_response(self, response: Response):
         '''Handle the response and update the internal state.'''
