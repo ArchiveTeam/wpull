@@ -82,8 +82,15 @@ class WebSession(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._current_session:
             if not isinstance(exc_val, StopIteration):
+                _logger.debug('Early close session.')
+                error = True
                 self._current_session.abort()
+            else:
+                error = False
+
             self._current_session.recycle()
+            self._current_session.event_dispatcher.notify(
+                self._current_session.SessionEvent.end_session, error=error)
 
     @asyncio.coroutine
     def start(self):
