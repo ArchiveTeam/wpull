@@ -463,7 +463,13 @@ class SSLConnection(Connection):
     @asyncio.coroutine
     def connect(self):
         result = yield from super().connect()
-        sock = self.writer.transport.get_extra_info('ssl_object', self.writer.transport.get_extra_info('socket'))
+        try:
+            sock = self.writer.transport.get_extra_info('ssl_object',
+                self.writer.transport.get_extra_info('socket'))
+        except AttributeError as error:
+            raise ConnectionError('Could not create SSL connection: {error}'
+                                  .format(error=error)) from error
+
         self._verify_cert(sock)
         return result
 
