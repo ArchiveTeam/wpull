@@ -32,5 +32,5 @@ def get_version_tuple(string):
     return major, minor, patch, level, serial
 
 
-__version__ = '2.0.1'
+__version__ = '2.0.1a'
 version_info = get_version_tuple(__version__)
