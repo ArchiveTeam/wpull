@@ -57,7 +57,7 @@ class ItemSession(object):
 
     def skip(self):
         '''Mark the item as processed without download.'''
-        _logger.debug(__(_('Skipping ‘{url}’.'), url=self.url_record.url))
+        _logger.debug(__(_('Skipping \'{url}\'.'), url=self.url_record.url))
         self.app_session.factory['URLTable'].check_in(self.url_record.url, Status.skipped)
 
         self._processed = True
