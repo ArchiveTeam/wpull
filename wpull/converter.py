@@ -80,7 +80,7 @@ class BatchDocumentConverter(object):
                     link_type = None
 
         _logger.info(__(
-            _('Converting links in file ‘{filename}’ (type={type}).'),
+            _('Converting links in file \'{filename}\' (type={type}).'),
             filename=filename, type=link_type
         ))
 
