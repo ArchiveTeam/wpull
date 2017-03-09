@@ -201,7 +201,7 @@ class WebProcessorSession(BaseProcessorSession):
                 request))
         except REMOTE_ERRORS as error:
             _logger.error(
-                _('Fetching robots.txt for ‘{url}’ '
+                _('Fetching robots.txt for \'{url}\' '
                   'encountered an error: {error}'),
                 url=self._next_url_info.url, error=error
             )
@@ -260,7 +260,7 @@ class WebProcessorSession(BaseProcessorSession):
         Returns:
             If True, stop processing any future requests.
         '''
-        _logger.info(_('Fetching ‘{url}’.'), url=request.url)
+        _logger.info(_('Fetching \'{url}\'.'), url=request.url)
 
         response = None
 
@@ -391,7 +391,7 @@ class WebProcessorSession(BaseProcessorSession):
     def _log_response(self, request: Request, response: Response):
         '''Log response.'''
         _logger.info(
-            _('Fetched ‘{url}’: {status_code} {reason}. '
+            _('Fetched \'{url}\': {status_code} {reason}. '
                 'Length: {content_length} [{content_type}].'),
             url=request.url,
             status_code=response.status_code,
