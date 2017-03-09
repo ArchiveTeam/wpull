@@ -55,6 +55,6 @@ class BaseProcessorSession(object, metaclass=abc.ABCMeta):
     def _log_error(self, request, error):
         '''Log exceptions during a fetch.'''
         _logger.error(
-            _('Fetching ‘{url}’ encountered an error: {error}'),
+            _('Fetching \'{url}\' encountered an error: {error}'),
             url=request.url, error=error
         )
