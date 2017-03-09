@@ -78,7 +78,7 @@ class JavaScriptScraper(JavaScriptReader, BaseTextStreamScraper):
 
         except UnicodeError as error:
             _logger.warning(
-                _('Failed to read document at ‘{url}’: {error}'),
+                _('Failed to read document at \'{url}\': {error}'),
                 url=request.url_info.url, error=error
             )
 
