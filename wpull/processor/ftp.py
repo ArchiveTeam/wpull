@@ -254,7 +254,7 @@ class FTPProcessorSession(BaseProcessorSession):
 
         Coroutine.
         '''
-        _logger.info(_('Fetching ‘{url}’.'), url=request.url)
+        _logger.info(_('Fetching \'{url}\'.'), url=request.url)
 
         self._item_session.request = request
         response = None
@@ -366,7 +366,7 @@ class FTPProcessorSession(BaseProcessorSession):
     def _log_response(self, request: Request, response: Response):
         '''Log response.'''
         _logger.info(
-            _('Fetched ‘{url}’: {reply_code} {reply_text}. '
+            _('Fetched \'{url}\': {reply_code} {reply_text}. '
                 'Length: {content_length}.'),
             url=request.url,
             reply_code=response.reply.code,
