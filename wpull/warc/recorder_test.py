@@ -51,6 +51,11 @@ class TestWARC(unittest.TestCase, TempDirMixin):
         warc_filename = 'asdf.warc'
         cdx_filename = 'asdf.cdx'
 
+        response_header_bytes  = b"HTTP/1.1 200 OK\r\n"
+        response_header_bytes += b"Content-Type: text/plain\r\n"
+        response_header_bytes += b"X-Empty-Field:  \r\n"
+        response_header_bytes += b"\r\n"
+
         warc_recorder = WARCRecorder(
             file_prefix,
             params=WARCRecorderParams(
@@ -65,6 +70,7 @@ class TestWARC(unittest.TestCase, TempDirMixin):
         request.address = ('0.0.0.0', 80)
         request.prepare_for_send()
         response = HTTPResponse(200, 'OK')
+        response.parse(response_header_bytes)
         response.body = Body()
 
         with wpull.util.reset_file_offset(response.body):
@@ -75,7 +81,7 @@ class TestWARC(unittest.TestCase, TempDirMixin):
         session.request_data(request.to_bytes())
         session.end_request(request)
         session.begin_response(response)
-        session.response_data(response.to_bytes())
+        session.response_data(response_header_bytes)
         session.response_data(response.body.content())
         session.end_response(response)
         session.close()
@@ -135,7 +141,7 @@ class TestWARC(unittest.TestCase, TempDirMixin):
         self.assertTrue(cdx_lines[0].startswith(b' CDX'))
 
         self.assertEqual(b'http://example.com/', cdx_fields[0])
-        self.assertEqual(b'-', cdx_fields[2])
+        self.assertEqual(b'text/plain', cdx_fields[2])
         self.assertEqual(b'200', cdx_fields[3])
         self.assertNotEqual(b'-', cdx_fields[4])
         self.assertNotEqual(b'0', cdx_fields[5])

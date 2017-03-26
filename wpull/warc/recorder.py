@@ -579,7 +579,15 @@ class HTTPWARCRecorderSession(BaseWARCRecorderSession):
         self._response_temp_file.write(data)
 
     def end_response(self, response: HTTPResponse):
-        payload_offset = len(response.to_bytes())
+        self._response_record.block_file.seek(0)
+        while True:
+            data = self._response_record.block_file.readline()
+            if data in (b'\r\n', b'\n'):
+                payload_offset = self._response_record.block_file.tell()
+                break
+            if not data:
+                payload_offset = 0
+                break
 
         self._response_record.block_file.seek(0)
         self._recorder.set_length_and_maybe_checksums(
