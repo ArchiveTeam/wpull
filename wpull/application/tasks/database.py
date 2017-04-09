@@ -76,17 +76,21 @@ class InputURLTask(ItemTask[AppSession]):
             if base_url:
                 url_string = wpull.url.urljoin(base_url, url_string)
 
-            url_info = wpull.url.URLInfo.parse(
-                url_string, default_scheme=default_scheme)
+            try:
+                url_info = wpull.url.URLInfo.parse(
+                    url_string, default_scheme=default_scheme)
 
-            _logger.debug(__('Parsed URL {0}', url_info))
+                _logger.debug(__('Parsed URL {0}', url_info))
 
-            if url_rewriter:
-                # TODO: this logic should be a hook
-                url_info = url_rewriter.rewrite(url_info)
-                _logger.debug(__('Rewritten URL {0}', url_info))
+                if url_rewriter:
+                    # TODO: this logic should be a hook
+                    url_info = url_rewriter.rewrite(url_info)
+                    _logger.debug(__('Rewritten URL {0}', url_info))
 
-            yield url_info
+                yield url_info
+
+            except ValueError as e:
+                _logger.info(__('Invalid URL {0}: {1}', url_string, e))
 
     @classmethod
     def _input_file_as_lines(cls, session: AppSession):
