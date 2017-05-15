@@ -4,7 +4,6 @@ import html5lib.tokenizer
 import io
 import os.path
 
-from wpull.collections import FrozenDict, EmptyFrozenDict
 from wpull.document.htmlparse.base import BaseParser
 from wpull.document.htmlparse.element import Comment, Doctype, Element
 
@@ -45,11 +44,11 @@ class HTMLParser(BaseParser):
                     buffer = None
 
                 if tail_buffer:
-                    yield Element(tag, EmptyFrozenDict(), None, tail_buffer.getvalue(), True)
+                    yield Element(tag, dict(), None, tail_buffer.getvalue(), True)
                     tail_buffer = None
 
                 tag = token['name']
-                attrib = FrozenDict(dict(token['data']))
+                attrib = dict(token['data'])
                 buffer = io.StringIO()
 
                 if token['name'] == 'script':
@@ -67,7 +66,7 @@ class HTMLParser(BaseParser):
                     buffer = None
 
                 if tail_buffer:
-                    yield Element(tag, EmptyFrozenDict(), None, tail_buffer.getvalue(), True)
+                    yield Element(tag, dict(), None, tail_buffer.getvalue(), True)
                     tail_buffer = None
 
                 tail_buffer = io.StringIO()
@@ -88,7 +87,7 @@ class HTMLParser(BaseParser):
             buffer = None
 
         if tail_buffer:
-            yield Element(tag, EmptyFrozenDict(), None, tail_buffer.getvalue(), True)
+            yield Element(tag, dict(), None, tail_buffer.getvalue(), True)
             tail_buffer = None
 
 

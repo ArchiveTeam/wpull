@@ -3,7 +3,6 @@ import io
 
 import lxml.html
 
-from wpull.collections import EmptyFrozenDict, FrozenDict
 from wpull.document.htmlparse.base import BaseParser
 from wpull.document.htmlparse.element import Element, Comment
 from wpull.document.xml import XMLDetector
@@ -37,7 +36,7 @@ class HTMLParserTarget(object):
 
         if self.tail_buffer:
             self.callback(Element(
-                self.tag, EmptyFrozenDict(),
+                self.tag, dict(),
                 None,
                 self.tail_buffer.getvalue(),
                 True
@@ -45,7 +44,7 @@ class HTMLParserTarget(object):
             self.tail_buffer = None
 
         self.tag = tag
-        self.attrib = FrozenDict(attrib)
+        self.attrib = attrib
         self.buffer = io.StringIO()
 
     def data(self, data):
@@ -66,7 +65,7 @@ class HTMLParserTarget(object):
 
         if self.tail_buffer:
             self.callback(Element(
-                self.tag, EmptyFrozenDict(),
+                self.tag, dict(),
                 None,
                 self.tail_buffer.getvalue(),
                 True
@@ -90,7 +89,7 @@ class HTMLParserTarget(object):
 
         if self.tail_buffer:
             self.callback(Element(
-                self.tag, EmptyFrozenDict(),
+                self.tag, dict(),
                 None,
                 self.tail_buffer.getvalue(),
                 True
