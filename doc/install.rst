@@ -60,7 +60,7 @@ Manual Install
 
 Install the dependencies known to work with Wpull::
 
-    pip3 install -r https://raw2.github.com/chfoo/wpull/master/requirements.txt
+    pip3 install -r https://raw.githubusercontent.com/chfoo/wpull/master/requirements.txt
 
 Install Wpull from GitHub::
 
