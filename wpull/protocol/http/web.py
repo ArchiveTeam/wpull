@@ -82,7 +82,14 @@ class WebSession(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._current_session:
             if not isinstance(exc_val, StopIteration):
+                _logger.debug('Early close session.')
+                error = True
                 self._current_session.abort()
+            else:
+                error = False
+
+            self._current_session.event_dispatcher.notify(
+                self._current_session.SessionEvent.end_session, error=error)
             self._current_session.recycle()
 
     @asyncio.coroutine
@@ -122,8 +129,6 @@ class WebSession(object):
         '''
         yield from \
             self._current_session.download(file, duration_timeout=duration_timeout)
-
-        self._current_session = None
 
     def _process_response(self, response: Response):
         '''Handle the response and update the internal state.'''

@@ -123,6 +123,9 @@ class URLInfo(object):
     @functools.lru_cache()
     def parse(cls, url, default_scheme='http', encoding='utf-8'):
         '''Parse a URL and return a URLInfo.'''
+        if url is None:
+            return None
+
         url = url.strip()
         if frozenset(url) & C0_CONTROL_SET:
             raise ValueError('URL contains control codes: {}'.format(ascii(url)))
@@ -428,7 +431,10 @@ def normalize(url, **kwargs):
 @functools.lru_cache()
 def normalize_hostname(hostname):
     '''Normalizes a hostname so that it is ASCII and valid domain name.'''
-    new_hostname = hostname.encode('idna').decode('ascii').lower()
+    try:
+        new_hostname = hostname.encode('idna').decode('ascii').lower()
+    except UnicodeError as error:
+        raise UnicodeError('Hostname {} rejected: {}'.format(hostname, error)) from error
 
     if hostname != new_hostname:
         # Check for round-trip. May raise UnicodeError

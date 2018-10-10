@@ -311,6 +311,12 @@ class BaseConnection(object):
             raise SSLVerificationError(
                 '{name} certificate error: {error}'
                 .format(name=name, error=error)) from error
+        except AttributeError as error:
+            self.close()
+
+            raise NetworkError(
+                '{name} network error: connection closed unexpectedly: {error}'
+                .format(name=name, error=error)) from error
         except (socket.error, ssl.SSLError, OSError, IOError) as error:
             self.close()
             if isinstance(error, NetworkError):
@@ -457,7 +463,13 @@ class SSLConnection(Connection):
     @asyncio.coroutine
     def connect(self):
         result = yield from super().connect()
-        sock = self.writer.transport.get_extra_info('ssl_object', self.writer.transport.get_extra_info('socket'))
+        try:
+            sock = self.writer.transport.get_extra_info('ssl_object',
+                self.writer.transport.get_extra_info('socket'))
+        except AttributeError as error:
+            raise SSLVerificationError('Failed to establish SSL connection; '
+                                       'server unexpectedly closed') from error
+
         self._verify_cert(sock)
         return result
 
