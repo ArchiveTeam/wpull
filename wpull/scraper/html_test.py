@@ -69,6 +69,7 @@ class Mixin(object):
             'http://example.net/source_src.wav',
             'http://example.com/video_src.webm',
             'http://example.com/video_poster.jpeg',
+            'http://example.net/track_src.vtt',
             'http://example.net/source_src.webm',
             'http://example.com/embed_src.mov',
             'http://example.com/fig_src.png',
