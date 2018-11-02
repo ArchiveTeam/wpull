@@ -86,6 +86,7 @@ class TestURL(unittest.TestCase):
         self.assertEqual(81, url_info.port)
         self.assertEqual('/%C3%A1sdF%E2%80%8C/ghjK', url_info.path)
         self.assertEqual('a=b=c&D', url_info.query)
+        self.assertEqual({'a': ['b=c'], 'D': ['']}, url_info.query_map)
         self.assertEqual('/?', url_info.fragment)
         self.assertEqual('utf-8', url_info.encoding)
         self.assertEqual(
@@ -108,6 +109,7 @@ class TestURL(unittest.TestCase):
         self.assertEqual(21, url_info.port)
         self.assertEqual('/mydocs/', url_info.path)
         self.assertFalse(url_info.query)
+        self.assertEqual({'': ['']}, url_info.query_map)
         self.assertFalse(url_info.fragment)
         self.assertEqual('utf-8', url_info.encoding)
         self.assertEqual(
@@ -185,6 +187,10 @@ class TestURL(unittest.TestCase):
         self.assertEqual(
             'blah=%95%B6%8E%9A%89%BB%82%AF',
             url_info.query
+        )
+        self.assertEqual(
+            {'blah': ['%95%B6%8E%9A%89%BB%82%AF']},
+            url_info.query_map
         )
         self.assertEqual(
             'shift_jis',
@@ -388,6 +394,10 @@ class TestURL(unittest.TestCase):
         self.assertEqual(
             'http://example.com/?a=1&b=',
             URLInfo.parse('http://example.com?a=1&b=').url
+        )
+        self.assertEqual(
+            {'a': ['b c d%20e-f']},
+            URLInfo.parse('http://example.com?a=b+c+d%20e-f').query_map
         )
 
     def test_url_info_ipv6(self):
