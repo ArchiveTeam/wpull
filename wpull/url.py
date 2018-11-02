@@ -672,7 +672,7 @@ def query_to_map(text):
         else:
             dict_obj[key].append('')
 
-    return query_to_map(text)
+    return dict_obj
 
 
 @functools.lru_cache()
