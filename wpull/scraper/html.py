@@ -33,6 +33,9 @@ class LinkInfo(_BaseLinkInfo):
     def __hash__(self):
         return self.link.__hash__()
 
+    def __eq__(self, other):
+        return self.link.__eq__(other['link'])
+
 '''Information about a link in a lxml document.  Comparable on link only.
 
 Attributes:
