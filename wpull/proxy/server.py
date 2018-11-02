@@ -98,6 +98,7 @@ class HTTPProxySession(HookableMixin):
         self._http_client = http_client
         self._reader = self._original_reader = reader
         self._writer = self._original_writer = writer
+        self._is_tunnel = False
         self._is_ssl_tunnel = False
 
         self._cert_filename = wpull.util.get_package_filename('proxy/proxy.crt')
@@ -129,7 +130,7 @@ class HTTPProxySession(HookableMixin):
         _logger.debug(__('Got request {0}', request))
 
         if request.method == 'CONNECT':
-            self._reject_request('CONNECT is intentionally not supported')
+            yield from self._start_connect_tunnel()
             return
 
         if self._is_ssl_tunnel and request.url.startswith('http://'):
@@ -201,6 +202,117 @@ class HTTPProxySession(HookableMixin):
             self.event_dispatcher.notify(self.Event.server_end_response, response)
 
         _logger.debug('Response done.')
+
+    @asyncio.coroutine
+    def _start_connect_tunnel(self):
+        if self._is_tunnel:
+            self._reject_request('Cannot CONNECT within CONNECT')
+            return
+
+        self._is_tunnel = True
+
+        original_socket = yield from self._detach_socket_and_start_tunnel()
+        is_ssl = yield from self._is_client_request_ssl(original_socket)
+
+        if is_ssl:
+            _logger.debug('Tunneling as SSL')
+            yield from self._start_ssl_tunnel()
+        else:
+            yield from self._rewrap_socket(original_socket)
+
+    @classmethod
+    @asyncio.coroutine
+    def _is_client_request_ssl(cls, socket_: socket.socket) -> bool:
+        while True:
+            original_timeout = socket_.gettimeout()
+            socket_.setblocking(False)
+
+            try:
+                data = socket_.recv(3, socket.MSG_PEEK)
+            except OSError as error:
+                if error.errno in (errno.EWOULDBLOCK, errno.EAGAIN):
+                    yield from asyncio.sleep(0.01)
+                else:
+                    raise
+            else:
+                break
+            finally:
+                socket_.settimeout(original_timeout)
+
+        _logger.debug('peeked data %s', data)
+        if all(ord('A') <= char_code <= ord('Z') for char_code in data):
+            return False
+        else:
+            return True
+
+    @asyncio.coroutine
+    def _start_ssl_tunnel(self):
+        '''Start SSL protocol on the socket.'''
+
+        self._is_ssl_tunnel = True
+        ssl_socket = yield from self._start_ssl_handshake()
+        yield from self._rewrap_socket(ssl_socket)
+
+    @asyncio.coroutine
+    def _detach_socket_and_start_tunnel(self) -> socket.socket:
+        socket_ = self._writer.get_extra_info('socket')
+
+        try:
+            asyncio.get_event_loop().remove_reader(socket_.fileno())
+        except ValueError as error:
+            raise ConnectionAbortedError() from error
+
+        self._writer.write(b'HTTP/1.1 200 Connection established\r\n\r\n')
+        yield from self._writer.drain()
+
+        try:
+            asyncio.get_event_loop().remove_writer(socket_.fileno())
+        except ValueError as error:
+            raise ConnectionAbortedError() from error
+
+        return socket_
+
+    @asyncio.coroutine
+    def _start_ssl_handshake(self):
+        socket_ = self._writer.get_extra_info('socket')
+
+        ssl_socket = ssl.wrap_socket(
+            socket_, server_side=True,
+            certfile=self._cert_filename,
+            keyfile=self._key_filename,
+            do_handshake_on_connect=False
+        )
+
+        # FIXME: this isn't how to START TLS
+        for dummy in range(1200):
+            try:
+                ssl_socket.do_handshake()
+                break
+            except ssl.SSLError as error:
+                if error.errno in (ssl.SSL_ERROR_WANT_READ, ssl.SSL_ERROR_WANT_WRITE):
+                    _logger.debug('Do handshake %s', error)
+                    yield from asyncio.sleep(0.05)
+                else:
+                    raise
+        else:
+            _logger.error(_('Unable to handshake.'))
+            ssl_socket.close()
+            self._reject_request('Could not start TLS')
+            raise ConnectionAbortedError('Could not start TLS')
+
+        return ssl_socket
+
+    @asyncio.coroutine
+    def _rewrap_socket(self, new_socket):
+        loop = asyncio.get_event_loop()
+        reader = asyncio.StreamReader(loop=loop)
+        protocol = asyncio.StreamReaderProtocol(reader, loop=loop)
+        transport, dummy = yield from loop.create_connection(
+            lambda: protocol, sock=new_socket)
+        writer = asyncio.StreamWriter(transport, protocol, reader, loop)
+
+        self._reader = reader
+        self._writer = writer
 
     @asyncio.coroutine
     def _read_request_header(self) -> Request:
