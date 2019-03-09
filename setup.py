@@ -93,23 +93,25 @@ setup_kwargs = dict(
             'wpull3=wpull.application.main:main',
         ],
     },
+    extras_require={
+        'resmon': ['psutil>=2.0,<=4.2'],
+        }
 )
 
 
-# Do not add version ranges unless absolutely required!
-# See also requirements.txt
 setup_kwargs['install_requires'] = [
-    'chardet',
-    'dnspython3',
-    'html5lib',
-    'namedlist',
-    'sqlalchemy',
-    'tornado',
-    'yapsy',
+    'chardet>=2.0.1,<=2.3',
+    'dnspython3==1.12',
+    'html5lib>=0.999,<1.0',
+    'lxml>=3.1.0,<=3.5',
+    'namedlist>=1.3,<=1.7',
+    'sqlalchemy>=0.9,<=1.0.13',
+    'tornado>=3.2.2,<5.0',
+    'yapsy==1.11.223',
 ]
 
 if sys.version_info < (3, 5):
-    setup_kwargs['install_requires'].append('typing')
+    setup_kwargs['install_requires'].append('typing>=3.5,<=3.5.1')
 
 
 if __name__ == '__main__':

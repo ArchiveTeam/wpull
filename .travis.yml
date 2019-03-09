@@ -20,14 +20,13 @@ branches:
 
 # command to install dependencies
 install:
-  - travis_retry pip install -q -r requirements.txt;
+  - travis_retry pip install '.[resmon]'
   - travis_retry pip install -q coverage python-coveralls warcat youtube-dl
 
 
 # command to run tests
 script:
-  - pip install . -t thematrix/ --no-dependencies
-  - cd thematrix/ && nosetests --with-coverage --cover-package=wpull --cover-branches
+  - nosetests --with-coverage --cover-package=wpull --cover-branches
 
 
 after_success:
