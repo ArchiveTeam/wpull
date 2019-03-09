@@ -95,7 +95,10 @@ setup_kwargs = dict(
     },
     extras_require={
         'resmon': ['psutil>=2.0,<=4.2'],
-        }
+        },
+    setup_requires=['nose>=1.0'],
+    # XXX: for some odd reason this specific coverage version is required
+    tests_require=['coverage==4.0.3', 'python-coveralls'],
 )
 
 
