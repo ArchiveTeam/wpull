@@ -6,8 +6,8 @@ Wpull
 Wpull is a Wget-compatible (or remake/clone/replacement/alternative) web
 downloader and crawler.
 
-.. image:: https://raw.githubusercontent.com/chfoo/wpull/master/icon/wpull_logo_full.png
-   :target: https://github.com/chfoo/wpull
+.. image:: https://raw.githubusercontent.com/ArchiveTeam/wpull/master/icon/wpull_logo_full.png
+   :target: https://github.com/ArchiveTeam/wpull
    :alt: A dog pulling a box via a harness.
 
 Notable Features:
@@ -73,18 +73,18 @@ Need help? Please see our `Help
 <https://wpull.readthedocs.io/en/master/help.html>`_ page which contains
 frequently asked questions and support information.
 
-The issue tracker is located at https://github.com/chfoo/wpull/issues.
+The issue tracker is located at https://github.com/ArchiveTeam/wpull/issues.
 
 
 Dev
 ===
 
-.. image:: https://travis-ci.org/chfoo/wpull.png
-   :target: https://travis-ci.org/chfoo/wpull
+.. image:: https://travis-ci.org/ArchiveTeam/wpull.png
+   :target: https://travis-ci.org/ArchiveTeam/wpull
    :alt: Travis CI build status
 
-.. image:: https://coveralls.io/repos/chfoo/wpull/badge.png
-   :target: https://coveralls.io/r/chfoo/wpull
+.. image:: https://coveralls.io/repos/ArchiveTeam/wpull/badge.png
+   :target: https://coveralls.io/r/ArchiveTeam/wpull
    :alt: Coveralls report
 
 

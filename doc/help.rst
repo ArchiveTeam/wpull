@@ -55,7 +55,7 @@ Wpull is giving an error or not performing correctly.
 Check that you have the options correct. In most cases, it is a misunderstanding of `Wget options <https://www.gnu.org/software/wget/manual/wget.html>`_.
 
 Otherwise if Wpull is not doing what you want, please visit the `issue tracker
-<https://github.com/chfoo/wpull/issues>`_ and see if your issue is there.
+<https://github.com/ArchiveTeam/wpull/issues>`_ and see if your issue is there.
 If not, please inform the developers by creating a new issue.
 
 When you open a new issue, GitHub provides a link to the guidelines
@@ -65,7 +65,7 @@ document. Please read it to learn how to file a good bug report.
 How can I help the development of Wpull? What are the development goals?
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Please visit the [GitHub repository](https://github.com/chfoo/wpull).
+Please visit the [GitHub repository](https://github.com/ArchiveTeam/wpull).
 From there, you can take a look at:
 
 * The Contributing file for specific instructions on how to help

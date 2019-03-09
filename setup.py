@@ -57,7 +57,7 @@ setup_kwargs = dict(
     description='Wget-compatible web downloader and crawler.',
     author='Christopher Foo',
     author_email='chris.foo@gmail.com',
-    url='https://github.com/chfoo/wpull',
+    url='https://github.com/ArchiveTeam/wpull',
     package_data={'': [
         'cert/ca-bundle.pem',
         'testing/integration/sample_user_scripts/*.py',
