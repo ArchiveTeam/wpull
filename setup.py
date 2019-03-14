@@ -103,14 +103,14 @@ setup_kwargs = dict(
 
 
 setup_kwargs['install_requires'] = [
-    'chardet>=2.0.1,<=2.3',
+    'chardet>=2.0.1',
     'dnspython3==1.12',
     'html5lib>=0.999,<=0.9999999',
     'lxml>=3.1.0,<=3.5',
-    'namedlist>=1.3,<=1.7',
-    'sqlalchemy>=0.9,<=1.0.13',
+    'namedlist>=1.3',
+    'sqlalchemy>=0.9',
     'tornado>=3.2.2,<4.5.3',
-    'yapsy==1.11.223',
+    'yapsy>=1.11.223',
 ]
 
 if sys.version_info < (3, 5):
