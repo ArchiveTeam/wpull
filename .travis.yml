@@ -20,7 +20,7 @@ branches:
 
 # command to install dependencies
 install:
-  - travis_retry pip install '.[resmon]'
+  - travis_retry pip install --ignore-requires-python '.[resmon]'
   - travis_retry pip install warcat youtube-dl
 
 
