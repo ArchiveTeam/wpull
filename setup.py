@@ -81,6 +81,7 @@ setup_kwargs = dict(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
         'Topic :: Internet :: File Transfer Protocol (FTP)',
         'Topic :: Internet :: WWW/HTTP',
         'Topic :: System :: Archiving',
@@ -99,6 +100,7 @@ setup_kwargs = dict(
     setup_requires=['nose>=1.0'],
     # XXX: for some odd reason this specific coverage version is required
     tests_require=['coverage==4.0.3', 'python-coveralls'],
+    python_requires='>=3.4,<3.7',
 )
 
 
@@ -118,6 +120,7 @@ if sys.version_info < (3, 5):
 
 
 if __name__ == '__main__':
+    # this check is for old versions of pip/setuptools
     if sys.version_info[0] < 3:
         raise Exception('Sorry, Python 2 is not supported.')
 
