@@ -98,7 +98,7 @@ As described in Nose documentation, run `nosetests3` in the top
 level of the project directory.
 
 Additionally, the project is [configured to use the free Travis CI]
-(https://travis-ci.org/chfoo/wpull).
+(https://travis-ci.org/ArchiveTeam/wpull).
 
 
 ### Making the PR

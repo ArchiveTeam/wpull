@@ -162,7 +162,7 @@ class HTMLParser(BaseParser):
 
         if parser_type == 'html':
             # XXX: Force libxml2 to do full read in case of early "</html>"
-            # See https://github.com/chfoo/wpull/issues/104
+            # See https://github.com/ArchiveTeam/wpull/issues/104
             # See https://bugzilla.gnome.org/show_bug.cgi?id=727935
             for dummy in range(3):
                 parser.feed('<html>'.encode(encoding))

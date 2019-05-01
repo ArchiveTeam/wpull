@@ -60,13 +60,13 @@ Manual Install
 
 Install the dependencies known to work with Wpull::
 
-    pip3 install -r https://raw2.github.com/chfoo/wpull/master/requirements.txt
+    pip3 install -r https://raw.githubusercontent.com/ArchiveTeam/wpull/master/requirements.txt
 
 Install Wpull from GitHub::
 
-    pip3 install git+https://github.com/chfoo/wpull.git#egg=wpull
+    pip3 install git+https://github.com/ArchiveTeam/wpull.git#egg=wpull
 
-.. Tip:: Using ``git+https://github.com/chfoo/wpull.git@develop#egg=wpull``
+.. Tip:: Using ``git+https://github.com/ArchiveTeam/wpull.git@develop#egg=wpull``
    as the path will install Wpull's develop branch.
 
 

@@ -6,7 +6,7 @@
 Welcome to Wpull's documentation!
 =================================
 
-:Homepage: https://github.com/chfoo/wpull
+:Homepage: https://github.com/ArchiveTeam/wpull
 
 Contents:
 

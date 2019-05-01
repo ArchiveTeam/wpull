@@ -92,7 +92,7 @@ class TestClient(BadAppTestCase):
                 print(warn_obj)
 
             # Unrelated warnings may occur in PyPy
-            # https://travis-ci.org/chfoo/wpull/jobs/51420202
+            # https://travis-ci.org/ArchiveTeam/wpull/jobs/51420202
             self.assertGreaterEqual(len(warn_list), 1)
 
             for warn_obj in warn_list:
