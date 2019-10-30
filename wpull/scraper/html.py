@@ -20,7 +20,7 @@ _ = gettext.gettext
 _logger = StyleAdapter(logging.getLogger(__name__))
 
 
-_BaseLinkInfo = collections.namedtuple(
+LinkInfo = collections.namedtuple(
     'LinkInfoType',
     [
         'element', 'tag', 'attrib', 'link',
@@ -28,12 +28,7 @@ _BaseLinkInfo = collections.namedtuple(
         'link_type'
     ]
 )
-
-class LinkInfo(_BaseLinkInfo):
-    def __hash__(self):
-        return self.link.__hash__()
-
-'''Information about a link in a lxml document.  Comparable on link only.
+'''Information about a link in a lxml document.
 
 Attributes:
     element: An instance of :class:`.document.HTMLReadElement`.
