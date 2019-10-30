@@ -65,7 +65,7 @@ document. Please read it to learn how to file a good bug report.
 How can I help the development of Wpull? What are the development goals?
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Please visit the [GitHub repository](https://github.com/ArchiveTeam/wpull).
+Please visit the `GitHub repository <https://github.com/ArchiveTeam/wpull>`_.
 From there, you can take a look at:
 
 * The Contributing file for specific instructions on how to help
