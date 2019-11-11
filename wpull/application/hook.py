@@ -150,7 +150,7 @@ class HookableMixin(object):
                     _logger.debug('Connected hook %s %s', name, func)
                     self.hook_dispatcher.connect(name, func)
                 elif self.event_dispatcher.is_registered(name):
-                    raise RuntimeError('Plugin event ‘{name}’ cannot be attached as a hook function.'.format(name=name))
+                    raise RuntimeError('Plugin event \'{name}\' cannot be attached as a hook function.'.format(name=name))
 
             elif category == PluginFunctionCategory.event and self.event_dispatcher.is_registered(name):
                 _logger.debug('Connected event %s %s', name, func)

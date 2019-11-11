@@ -52,12 +52,12 @@ class YoutubeDlCoprocessor(object):
         )
 
         url = item_session.url_record.url
-        _logger.info(__(_('youtube-dl fetching ‘{url}’.'), url=url))
+        _logger.info(__(_('youtube-dl fetching \'{url}\'.'), url=url))
 
         with contextlib.closing(session):
             yield from session.run()
 
-        _logger.info(__(_('youtube-dl fetched ‘{url}’.'), url=url))
+        _logger.info(__(_('youtube-dl fetched \'{url}\'.'), url=url))
 
 
 class Session(object):

@@ -117,7 +117,7 @@ class PhantomJSCoprocessor(object):
                 break
         else:
             _logger.warning(__(
-                _('PhantomJS failed to fetch ‘{url}’. I am sorry.'),
+                _('PhantomJS failed to fetch \'{url}\'. I am sorry.'),
                 url=request.url_info.url
             ))
 
@@ -184,7 +184,7 @@ class PhantomJSCoprocessorSession(object):
         driver = self._phantomjs_driver_factory(params=driver_params)
 
         _logger.info(__(
-            _('PhantomJS fetching ‘{url}’.'),
+            _('PhantomJS fetching \'{url}\'.'),
             url=url
         ))
 
@@ -213,7 +213,7 @@ class PhantomJSCoprocessorSession(object):
                 self._add_warc_snapshot(path, url)
 
         _logger.info(__(
-            _('PhantomJS fetched ‘{url}’.'),
+            _('PhantomJS fetched \'{url}\'.'),
             url=url
         ))
 

@@ -120,7 +120,7 @@ class ProxyCoprocessorSession(object):
 
         if verdict:
             _logger.info(__(
-                _('Fetching ‘{url}’.'),
+                _('Fetching \'{url}\'.'),
                 url=request.url_info.url
             ))
 
@@ -144,7 +144,7 @@ class ProxyCoprocessorSession(object):
         response = self._item_session.response
 
         _logger.info(__(
-            _('Fetched ‘{url}’: {status_code} {reason}. '
+            _('Fetched \'{url}\': {status_code} {reason}. '
               'Length: {content_length} [{content_type}].'),
             url=request.url,
             status_code=response.status_code,

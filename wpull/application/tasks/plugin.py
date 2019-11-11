@@ -118,7 +118,7 @@ class PluginSetupTask(ItemTask[AppSession]):
             instance.connect_plugin(plugin_object)
 
         # TODO: raise error if any function is left unattached
-        # raise RuntimeError('Plugin function ‘{function_name}’ could not be attached to plugin hook/event ‘{name}’.'.format(name=name, function_name=func))
+        # raise RuntimeError('Plugin function \'{function_name}\' could not be attached to plugin hook/event \'{name}\'.'.format(name=name, function_name=func))
 
     @classmethod
     def _debug_log_registered_hooks(cls, session: AppSession):

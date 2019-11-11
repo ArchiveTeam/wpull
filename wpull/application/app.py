@@ -223,7 +223,7 @@ class Application(HookableMixin):
         '''Print an invalid SSL certificate warning.'''
         _logger.info(_('A SSL certificate could not be verified.'))
         _logger.info(_('To ignore and proceed insecurely, '
-                       'use ‘--no-check-certificate’.'))
+                       'use \'--no-check-certificate\'.'))
 
     @classmethod
     def _print_crash_message(cls):
