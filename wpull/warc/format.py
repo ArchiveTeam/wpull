@@ -163,7 +163,7 @@ class WARCRecord(object):
         with wpull.util.reset_file_offset(self.block_file):
             data = self.block_file.read(4096)
 
-        match = re.match(br'(.*?\r?\n\r?\n)', data)
+        match = re.match(br'(.*?\r?\n\r?\n)', data, re.DOTALL)
 
         if not match:
             return
