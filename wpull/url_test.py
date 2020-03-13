@@ -5,7 +5,8 @@ import unittest
 
 from wpull.url import URLInfo, schemes_similar, is_subdir, split_query, \
     percent_decode, percent_decode_plus, percent_encode, percent_encode_plus, \
-    uppercase_percent_encoding, urljoin, flatten_path, parse_url_or_log
+    uppercase_percent_encoding, urljoin, flatten_path, parse_url_or_log, \
+    normalize_query
 
 
 class TestURL(unittest.TestCase):
@@ -562,8 +563,10 @@ class TestURL(unittest.TestCase):
         self.assertEqual('að', percent_decode_plus('a%C3%B0'))
         self.assertEqual('a%20', percent_encode('a '))
         self.assertEqual('a%C3%B0', percent_encode('að'))
-        self.assertEqual('a+', percent_encode_plus('a '))
+        self.assertEqual('a%20', percent_encode_plus('a '))
         self.assertEqual('a%C3%B0', percent_encode_plus('að'))
+
+        self.assertEqual('a%20', normalize_query('a '))
 
     def test_uppercase_percent_encoding(self):
         self.assertEqual(

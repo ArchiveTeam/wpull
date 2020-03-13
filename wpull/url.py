@@ -42,7 +42,7 @@ PASSWORD_ENCODE_SET = DEFAULT_ENCODE_SET | frozenset(b'/@\\')
 USERNAME_ENCODE_SET = PASSWORD_ENCODE_SET | frozenset(b':')
 '''Encoding set for usernames.'''
 
-QUERY_ENCODE_SET = frozenset(b'"#<>`')
+QUERY_ENCODE_SET = frozenset(b' "#<>`')
 '''Encoding set for query strings.
 
 This set does not include U+0020 (space) so it can be replaced with
