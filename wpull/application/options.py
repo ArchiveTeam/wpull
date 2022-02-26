@@ -1168,6 +1168,7 @@ class AppArgumentParser(argparse.ArgumentParser):
             '-R',
             '--reject',
             metavar='LIST',
+            type=self.comma_list,
             help=_('don’t download files with suffix in LIST'),
         )
         group.add_argument(
