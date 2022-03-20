@@ -37,8 +37,7 @@ class HostPool(object):
         '''Return whether the pool is empty.'''
         return not self.ready and not self.busy
 
-    @asyncio.coroutine
-    def clean(self, force: bool=False):
+    async def clean(self, force: bool=False):
         '''Clean closed connections.
 
         Args:
@@ -46,7 +45,7 @@ class HostPool(object):
 
         Coroutine.
         '''
-        with (yield from self._lock):
+        async with self._lock:
             for connection in tuple(self.ready):
                 if force or connection.closed():
                     connection.close()
@@ -149,8 +148,7 @@ class ConnectionPool(object):
     def host_pools(self) -> Mapping[tuple, HostPool]:
         return self._host_pools
 
-    @asyncio.coroutine
-    def acquire(self, host: str, port: int, use_ssl: bool=False,
+    async def acquire(self, host: str, port: int, use_ssl: bool=False,
                 host_key: Optional[Any]=None) \
             -> Union[Connection, SSLConnection]:
         '''Return an available connection.
@@ -167,7 +165,7 @@ class ConnectionPool(object):
         assert isinstance(port, int), 'Expect int. Got {}'.format(type(port))
         assert not self._closed
 
-        yield from self._process_no_wait_releases()
+        await self._process_no_wait_releases()
 
         if use_ssl:
             connection_factory = functools.partial(
@@ -184,7 +182,7 @@ class ConnectionPool(object):
 
         key = host_key or (host, port, use_ssl)
 
-        with (yield from self._host_pools_lock):
+        async with self._host_pools_lock:
             if key not in self._host_pools:
                 host_pool = self._host_pools[key] = HostPool(
                     connection_factory,
@@ -197,7 +195,7 @@ class ConnectionPool(object):
 
         _logger.debug('Check out %s', key)
 
-        connection = yield from host_pool.acquire()
+        connection = await host_pool.acquire()
         connection.key = key
 
         # TODO: Verify this assert is always true
@@ -205,7 +203,7 @@ class ConnectionPool(object):
         # assert key in self._host_pools
         # assert self._host_pools[key] == host_pool
 
-        with (yield from self._host_pools_lock):
+        async with self._host_pools_lock:
             self._host_pool_waiters[key] -= 1
 
         return connection
@@ -271,8 +269,7 @@ class ConnectionPool(object):
 
         return context_wrapper()
 
-    @asyncio.coroutine
-    def clean(self, force: bool=False):
+    async def clean(self, force: bool=False):
         '''Clean all closed connections.
 
         Args:
@@ -282,9 +279,9 @@ class ConnectionPool(object):
         '''
         assert not self._closed
 
-        with (yield from self._host_pools_lock):
+        async with self._host_pools_lock:
             for key, pool in tuple(self._host_pools.items()):
-                yield from pool.clean(force=force)
+                await pool.clean(force=force)
 
                 if not self._host_pool_waiters[key] and pool.empty():
                     del self._host_pools[key]

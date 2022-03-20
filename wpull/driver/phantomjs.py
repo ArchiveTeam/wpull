@@ -3,8 +3,8 @@ import logging
 import os.path
 import subprocess
 import tempfile
+from typing import Any
 
-import namedlist
 import asyncio
 
 from wpull.driver.process import Process
@@ -13,41 +13,38 @@ import wpull.util
 
 _logger = logging.getLogger(__name__)
 
+from typing import NamedTuple
+class PhantomJSDriverParams(NamedTuple):
+    '''PhantomJS Driver parameters
 
-PhantomJSDriverParams = namedlist.namedtuple(
-    'PhantomJSDriverParamsType', [
-        'url',
-        ('snapshot_paths', []),
-        ('wait_time', 1),
-        ('num_scrolls', 10),
-        ('smart_scroll', True),
-        ('snapshot', True),
-        ('viewport_size', (1200, 1920)),
-        ('paper_size', (2400, 3840)),
-        ('event_log_filename', None),
-        ('action_log_filename', None),
-        ('custom_headers', {}),
-        ('page_settings', {}),
-    ]
-)
-'''PhantomJS Driver parameters
-
-Attributes:
-    url (str): URL of page to fetch.
-    snapshot_type (list): List of filenames. Accepted extensions are html,
-        pdf, png, gif.
-    wait_time (float): Time between page scrolls.
-    num_scrolls (int): Maximum number of scrolls.
-    smart_scroll (bool): Whether to stop scrolling if number of
-        requests & responses do not change.
-    snapshot (bool): Whether to take snapshot files.
-    viewport_size (tuple): Width and height of the page viewport.
-    paper_size (tuple): Width and height of the paper size.
-    event_log_filename (str): Path to save page events.
-    action_log_filename (str): Path to save page action manipulation events.
-    custom_headers (dict): Custom HTTP request headers.
-    page_settings (dict): Page settings.
-'''
+    Attributes:
+        url (str): URL of page to fetch.
+        snapshot_type (list): List of filenames. Accepted extensions are html,
+            pdf, png, gif.
+        wait_time (float): Time between page scrolls.
+        num_scrolls (int): Maximum number of scrolls.
+        smart_scroll (bool): Whether to stop scrolling if number of
+            requests & responses do not change.
+        snapshot (bool): Whether to take snapshot files.
+        viewport_size (tuple): Width and height of the page viewport.
+        paper_size (tuple): Width and height of the paper size.
+        event_log_filename (str): Path to save page events.
+        action_log_filename (str): Path to save page action manipulation events.
+        custom_headers (dict): Custom HTTP request headers.
+        page_settings (dict): Page settings.
+    '''
+    url: str
+    snapshot_paths: Any = []
+    wait_time: Any = 1
+    num_scrolls: Any = 10
+    smart_scroll: Any = True
+    snapshot: Any = True
+    viewport_size: Any = (1200, 1920)
+    paper_size: Any = (2400, 3840)
+    event_log_filename: Any = None
+    action_log_filename: Any = None
+    custom_headers: Any = {}
+    page_settings: Any = {}
 
 
 class PhantomJSDriver(Process):

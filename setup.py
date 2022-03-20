@@ -102,7 +102,6 @@ setup_kwargs['install_requires'] = [
     'chardet',
     'dnspython3',
     'html5lib',
-    'namedlist',
     'sqlalchemy',
     'tornado',
     'yapsy',

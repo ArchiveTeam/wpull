@@ -33,10 +33,7 @@ class ParserSetupTask(ItemTask[AppSession]):
 
     @classmethod
     def _build_html_parser(cls, session: AppSession):
-        if session.args.html_parser == 'html5lib':
-            from wpull.document.htmlparse.html5lib_ import HTMLParser
-        else:
-            from wpull.document.htmlparse.lxml_ import HTMLParser
+        from wpull.document.htmlparse.lxml_ import HTMLParser
 
         session.factory.class_map['HTMLParser'] = HTMLParser
         session.factory.new('HTMLParser')
