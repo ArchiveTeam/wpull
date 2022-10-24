@@ -80,10 +80,12 @@ class NameValueRecord(collections.MutableMapping):
     def __len__(self):
         return len(self._map)
 
-    def add(self, name, value):
+    def add(self, name, value, front=False):
         '''Append the name-value pair to the record.'''
         normalized_name = normalize_name(name, self._normalize_overrides)
         self._map[normalized_name].append(value)
+        if front:
+            self._map.move_to_end(normalized_name, last=False)
 
     def get_list(self, name):
         '''Return all the values for given name.'''
