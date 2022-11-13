@@ -78,8 +78,8 @@ How can I chat or ask a question?
 +++++++++++++++++++++++++++++++++
 
 For chatting and quick questions, please visit the "unoffical" IRC
-channel: `#archiveteam-bs <irc://irc.efnet.org/archiveteam-bs>`_ on
-EFNet. (`Click here <http://chat.efnet.org:9090/?channels=%23archiveteam-bs>`_
+channel: `#archiveteam-bs <irc://irc.hackint.org/archiveteam-bs>`_ on
+hackint. (`Click here <https://webirc.hackint.org/#irc://irc.hackint.org/archiveteam-bs>`_
 if you do not have an IRC client.)
 
 Alternatively if the discussion is lengthy, please use the issue
