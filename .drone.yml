@@ -1,0 +1,42 @@
+---
+kind: pipeline
+name: python-3-4
+
+steps:
+- name: test
+  image: python:3.4
+  commands:
+  - pip install -r requirements.txt
+  - pip install nose coverage warcat youtube-dl
+  - pip install . --no-dependencies
+  - nosetests --with-coverage --cover-package=wpull --cover-branches
+
+---
+kind: pipeline
+name: python-3-5
+
+steps:
+- name: test
+  image: python:3.5
+  commands:
+  - pip install -r requirements.txt
+  - pip install nose coverage warcat youtube-dl
+  - pip install . --no-dependencies
+  - nosetests --with-coverage --cover-package=wpull --cover-branches
+depends_on:
+- python-3-4
+
+---
+kind: pipeline
+name: python-3-6
+
+steps:
+- name: test
+  image: python:3.6
+  commands:
+  - pip install -r requirements.txt
+  - pip install nose coverage warcat youtube-dl
+  - pip install . --no-dependencies
+  - nosetests --with-coverage --cover-package=wpull --cover-branches
+depends_on:
+- python-3-5
