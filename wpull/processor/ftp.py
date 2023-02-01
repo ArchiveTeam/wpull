@@ -9,8 +9,9 @@ import posixpath
 import tempfile
 import urllib.parse
 
-import namedlist
+
 from typing import cast
+from typing import Any
 
 from wpull.backport.logging import StyleAdapter
 from wpull.body import Body
@@ -34,24 +35,20 @@ _ = gettext.gettext
 
 GLOB_CHARS = frozenset('[]*?')
 
+from typing import NamedTuple
+class FTPProcessorFetchParams(NamedTuple):
+    '''FTPProcessorFetchParams
 
-FTPProcessorFetchParams = namedlist.namedtuple(
-    'FTPProcessorFetchParamsType',
-    [
-        ('remove_listing', True),
-        ('glob', True),
-        ('preserve_permissions', False),
-        ('retr_symlinks', True),
-    ]
-)
-'''FTPProcessorFetchParams
-
-Args:
-    remove_listing (bool): Remove `.listing` files after fetching.
-    glob (bool): Enable URL globbing.
-    preserve_permissions (bool): Preserve file permissions.
-    follow_symlinks (bool): Follow symlinks.
-'''
+    Args:
+        remove_listing (bool): Remove `.listing` files after fetching.
+        glob (bool): Enable URL globbing.
+        preserve_permissions (bool): Preserve file permissions.
+        follow_symlinks (bool): Follow symlinks.
+    '''
+    remove_listing: Any = True
+    glob: Any = True
+    preserve_permissions: Any = False
+    retr_symlinks: Any = True
 
 
 class HookPreResponseBreak(ProtocolError):

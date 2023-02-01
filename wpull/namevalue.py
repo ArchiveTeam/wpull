@@ -4,6 +4,7 @@ import collections
 import gettext
 import io
 import textwrap
+import typing
 
 from wpull.collections import OrderedDefaultDict
 
@@ -11,7 +12,7 @@ from wpull.collections import OrderedDefaultDict
 _ = gettext.gettext
 
 
-class NameValueRecord(collections.MutableMapping):
+class NameValueRecord(typing.MutableMapping):
     '''An ordered mapping of name-value pairs.
 
     Duplicated names are accepted.

@@ -4,7 +4,7 @@ import gettext
 import io
 import logging
 
-import namedlist
+
 import asyncio
 
 from typing import cast, Tuple
@@ -31,22 +31,21 @@ import wpull.util
 _logger = StyleAdapter(logging.getLogger(__name__))
 _ = gettext.gettext
 
-WebProcessorFetchParams = namedlist.namedtuple(
-    'WebProcessorFetchParamsType',
-    [
-        ('post_data', None),
-        ('strong_redirects', True),
-        ('content_on_error', False),
-    ]
-)
-'''WebProcessorFetchParams
+from typing import NamedTuple, Any
 
-Args:
-    post_data (str): If provided, all requests will be POSTed with the
-        given `post_data`. `post_data` must be in percent-encoded
-        query format ("application/x-www-form-urlencoded").
-    strong_redirects (bool): If True, redirects are allowed to span hosts.
-'''
+
+class WebProcessorFetchParams(NamedTuple):
+    '''WebProcessorFetchParams
+
+    Args:
+        post_data (str): If provided, all requests will be POSTed with the
+            given `post_data`. `post_data` must be in percent-encoded
+            query format ("application/x-www-form-urlencoded").
+        strong_redirects (bool): If True, redirects are allowed to span hosts.
+    '''
+    post_data: Any = None
+    strong_redirects: Any = True
+    content_on_error: Any = False
 
 
 class HookPreResponseBreak(ProtocolError):

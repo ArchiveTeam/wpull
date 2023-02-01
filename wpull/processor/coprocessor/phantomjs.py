@@ -8,10 +8,12 @@ import os
 import tempfile
 import io
 
-import namedlist
+
 import asyncio
 
 from typing import Callable
+from typing import NamedTuple
+from typing import Any
 
 from wpull.backport.logging import BraceMessage as __
 from wpull.document.html import HTMLReader
@@ -24,35 +26,32 @@ from wpull.warc.format import WARCRecord
 import wpull.url
 
 
-PhantomJSParams = namedlist.namedtuple(
-    'PhantomJSParamsType', [
-        ('snapshot_types', ('html', 'pdf')),
-        ('wait_time', 1),
-        ('num_scrolls', 10),
-        ('smart_scroll', True),
-        ('snapshot', True),
-        ('viewport_size', (1200, 1920)),
-        ('paper_size', (2400, 3840)),
-        ('load_time', 900),
-        ('custom_headers', {}),
-        ('page_settings', {}),
-    ]
-)
-'''PhantomJS parameters
+class PhantomJSParams(NamedTuple):
+    '''PhantomJS parameters
 
-Attributes:
-    snapshot_type (list): File types. Accepted are html, pdf, png, gif.
-    wait_time (float): Time between page scrolls.
-    num_scrolls (int): Maximum number of scrolls.
-    smart_scroll (bool): Whether to stop scrolling if number of
-        requests & responses do not change.
-    snapshot (bool): Whether to take snapshot files.
-    viewport_size (tuple): Width and height of the page viewport.
-    paper_size (tuple): Width and height of the paper size.
-    load_time (float): Maximum time to wait for page load.
-    custom_headers (dict): Default HTTP headers.
-    page_settings (dict): Page settings.
-'''
+    Attributes:
+        snapshot_type (list): File types. Accepted are html, pdf, png, gif.
+        wait_time (float): Time between page scrolls.
+        num_scrolls (int): Maximum number of scrolls.
+        smart_scroll (bool): Whether to stop scrolling if number of
+            requests & responses do not change.
+        snapshot (bool): Whether to take snapshot files.
+        viewport_size (tuple): Width and height of the page viewport.
+        paper_size (tuple): Width and height of the paper size.
+        load_time (float): Maximum time to wait for page load.
+        custom_headers (dict): Default HTTP headers.
+        page_settings (dict): Page settings.
+    '''
+    snapshot_types: Any = ('html', 'pdf')
+    wait_time: Any = 1
+    num_scrolls: Any = 10
+    smart_scroll: Any = True
+    snapshot: Any = True
+    viewport_size: Any = (1200, 1920)
+    paper_size: Any = (2400, 3840)
+    load_time: Any = 900
+    custom_headers: Any = {}
+    page_settings: Any = {}
 
 
 _logger = logging.getLogger(__name__)

@@ -10,7 +10,7 @@ import os.path
 import re
 import shutil
 
-import namedlist
+
 
 from wpull.backport.logging import StyleAdapter
 from wpull.namevalue import NameValueRecord
@@ -25,48 +25,44 @@ from wpull.protocol.http.request import Request as HTTPRequest
 from wpull.protocol.http.request import Response as HTTPResponse
 import wpull.util
 import wpull.version
-
+from typing import NamedTuple, Any
 
 _logger = StyleAdapter(logging.getLogger(__name__))
 _ = gettext.gettext
 
 
-WARCRecorderParams = namedlist.namedtuple(
-    'WARCRecorderParamsType',
-    [
-        ('compress', True),
-        ('extra_fields', None),
-        ('temp_dir', './'),
-        ('log', True),
-        ('appending', False),
-        ('digests', True),
-        ('cdx', None),
-        ('max_size', None),
-        ('move_to', None),
-        ('url_table', None),
-        ('software_string', None)
-    ]
-)
-''':class:`WARCRecorder` parameters.
+class WARCRecorderParams(NamedTuple):
+    ''':class:`WARCRecorder` parameters.
 
-Args:
-    compress (bool): If True, files will be compressed with gzip
-    extra_fields (list): A list of key-value pairs containing extra
-        metadata fields
-    temp_dir (str): Directory to use for temporary files
-    log (bool): Include the program logging messages in the WARC file
-    appending (bool): If True, the file is not overwritten upon opening
-    digests (bool): If True, the SHA1 hash digests will be written.
-    cdx (bool): If True, a CDX file will be written.
-    max_size (int): If provided, output files are named like
-        ``name-00000.ext`` and the log file will be in ``name-meta.ext``.
-    move_to (str): If provided, completed WARC files and CDX files will be
-        moved to the given directory
-    url_table (:class:`.database.URLTable`): If given, then ``revist``
-        records will be written.
-    software_string (str): The value for the ``software`` field in the
-        Warcinfo record.
-'''
+    Args:
+        compress (bool): If True, files will be compressed with gzip
+        extra_fields (list): A list of key-value pairs containing extra
+            metadata fields
+        temp_dir (str): Directory to use for temporary files
+        log (bool): Include the program logging messages in the WARC file
+        appending (bool): If True, the file is not overwritten upon opening
+        digests (bool): If True, the SHA1 hash digests will be written.
+        cdx (bool): If True, a CDX file will be written.
+        max_size (int): If provided, output files are named like
+            ``name-00000.ext`` and the log file will be in ``name-meta.ext``.
+        move_to (str): If provided, completed WARC files and CDX files will be
+            moved to the given directory
+        url_table (:class:`.database.URLTable`): If given, then ``revist``
+            records will be written.
+        software_string (str): The value for the ``software`` field in the
+            Warcinfo record.
+    '''
+    compress: bool = True
+    extra_fields: Any = None
+    temp_dir: Any = './'
+    log: Any = True
+    appending: Any = False
+    digests: Any = True
+    cdx: Any = None
+    max_size: Any = None
+    move_to: Any = None
+    url_table: Any = None
+    software_string: Any = None
 
 
 class WARCRecorder(object):

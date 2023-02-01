@@ -2,32 +2,30 @@
 import abc
 import collections
 import io
-import namedlist
+
 
 from wpull.document.base import BaseTextStreamReader, \
     BaseHTMLReader, BaseExtractiveReader
 from wpull.scraper.util import urljoin_safe
+from typing import NamedTuple
+from typing import Any
 
 
-LinkContext = namedlist.namedtuple(
-    'LinkContextType',
-    [
-        'link',
-        ('inline', False),
-        ('linked', False),
-        ('link_type', None),
-        ('extra', None)
-    ]
-)
-'''A named tuple describing a scraped link.
+class LinkContext(NamedTuple):
+    '''A named tuple describing a scraped link.
 
-Attributes:
-    link (str): The link that was scraped.
-    inline (bool): Whether the link is an embeded object.
-    linked (bool): Whether the link links to another page.
-    link_type: A value from :class:`.item.LinkType`.
-    extra: Any extra info.
-'''
+    Attributes:
+        link (str): The link that was scraped.
+        inline (bool): Whether the link is an embeded object.
+        linked (bool): Whether the link links to another page.
+        link_type: A value from :class:`.item.LinkType`.
+        extra: Any extra info.
+    '''
+    link: str
+    inline: Any = False
+    linked: Any = False
+    link_type: Any = None
+    extra: Any = None
 
 
 class ScrapeResult(dict):
