@@ -136,7 +136,7 @@ class Request(RawRequest):
         url_info = self.url_info
 
         if 'Host' not in self.fields:
-            self.fields['Host'] = url_info.hostname_with_port
+            self.fields.add('Host', url_info.hostname_with_port, front=True)
 
         if not full_url:
             if url_info.query:

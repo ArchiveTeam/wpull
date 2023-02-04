@@ -18,6 +18,17 @@ class TestRequest(unittest.TestCase):
              b'\r\n'),
             request.to_bytes()
         )
+        # Host should always be first, and automatically added
+        request = Request('http://example.com/robots.txt')
+        request.fields['Accept'] = 'text/plain'
+        request.prepare_for_send()
+        self.assertEqual(
+            (b'GET /robots.txt HTTP/1.1\r\n'
+             b'Host: example.com\r\n'
+             b'Accept: text/plain\r\n'
+             b'\r\n'),
+            request.to_bytes()
+        )
 
     def test_request_parse(self):
         request = Request()
