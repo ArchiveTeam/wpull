@@ -101,9 +101,9 @@ setup_kwargs = dict(
 setup_kwargs['install_requires'] = [
     'chardet',
     'dnspython3',
-    'html5lib',
+    'html5lib <= 0.9999999',
     'namedlist',
-    'sqlalchemy',
+    'sqlalchemy < 1.3.0',
     'tornado',
     'yapsy',
 ]
