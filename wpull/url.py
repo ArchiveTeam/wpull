@@ -650,6 +650,10 @@ def split_query(qs, keep_blank_values=False):
     No processing is done on the actual values.
     '''
     items = []
+
+    if not qs:
+        return items
+
     for pair in qs.split('&'):
         name, delim, value = pair.partition('=')
 
@@ -678,7 +682,7 @@ def query_to_map(text):
         else:
             dict_obj[key].append('')
 
-    return query_to_map(text)
+    return dict_obj
 
 
 @functools.lru_cache()
